@@ -108,6 +108,9 @@ export function OwareRoom({ gameId }: Readonly<{ gameId: string }>) {
 
       <footer>
         <p>Game outcome never influences matching visibility or trust paths.</p>
+        <Link href="/fie/games/ebe/duel_8Km2qP4vN7xR5tZa">
+          Open reviewed Ɛbɛ duel
+        </Link>
         <Link href="/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa">
           Return to conversation
         </Link>
