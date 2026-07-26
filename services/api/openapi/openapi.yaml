@@ -111,6 +111,86 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /v1/auth/otp:
+    post:
+      operationId: requestOtp
+      tags: [Auth]
+      summary: Request a phone OTP challenge
+      security: []
+      description: |
+        Issues a 6-digit code to the phone via the active OTP provider
+        (SMS with WhatsApp fallback). Subject to per-phone resend
+        throttling. The response never contains the code.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpRequestInput"
+      responses:
+        "202":
+          description: Code sent (or silently accepted for unknown numbers).
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OtpRequestEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/OtpRateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/auth/otp/verify:
+    post:
+      operationId: verifyOtp
+      tags: [Auth]
+      summary: Verify a phone OTP and issue a session
+      security: []
+      description: |
+        Verifies the latest challenge for the phone, finds or creates the
+        account (exactly one active account per phone) and issues a
+        short-lived access token plus a rotated refresh token.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpVerifyInput"
+      responses:
+        "200":
+          description: Session issued.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/OtpInvalid"
+        "403":
+          $ref: "#/components/responses/AccountNotActive"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/OtpRateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   parameters:
     CorrelationId:
@@ -178,6 +258,57 @@ components:
                 error:
                   code: member_conflict
                   message: A member with this identifier already exists.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    OtpRateLimited:
+      description: Too many OTP requests for this phone number.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            otpRateLimited:
+              value:
+                error:
+                  code: otp_rate_limited
+                  message: Too many code requests. Please wait and try again.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    OtpInvalid:
+      description: The code is invalid, expired, consumed, or attempts are exhausted.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            otpInvalid:
+              value:
+                error:
+                  code: otp_invalid
+                  message: The code is not valid for this number.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    AccountNotActive:
+      description: The account is blocked or deleted.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            accountNotActive:
+              value:
+                error:
+                  code: account_not_active
+                  message: This account is not active.
                 meta:
                   correlationId: 01J9EXAMPLE000000000000000
     ValidationFailed:
@@ -265,6 +396,81 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/Member"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    PhoneNumber:
+      type: string
+      pattern: ^\+[1-9]\d{7,14}$
+      description: E.164 phone number.
+    OtpRequestInput:
+      type: object
+      additionalProperties: false
+      required: [phone]
+      properties:
+        phone:
+          $ref: "#/components/schemas/PhoneNumber"
+    OtpRequestData:
+      type: object
+      additionalProperties: false
+      required: [challengeId, expiresAt]
+      properties:
+        challengeId:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    OtpRequestEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/OtpRequestData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    OtpVerifyInput:
+      type: object
+      additionalProperties: false
+      required: [phone, code, deviceId]
+      properties:
+        phone:
+          $ref: "#/components/schemas/PhoneNumber"
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: ^\d{6}$
+        deviceId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    SessionData:
+      type: object
+      additionalProperties: false
+      required: [sessionId, memberId, accessToken, accessExpiresAt, refreshToken, refreshExpiresAt]
+      properties:
+        sessionId:
+          type: string
+        memberId:
+          type: string
+        accessToken:
+          type: string
+        accessExpiresAt:
+          type: string
+          format: date-time
+        refreshToken:
+          type: string
+        refreshExpiresAt:
+          type: string
+          format: date-time
+    SessionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SessionData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

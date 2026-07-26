@@ -33,6 +33,50 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/auth/otp": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Request a phone OTP challenge
+     * @description Issues a 6-digit code to the phone via the active OTP provider
+     *     (SMS with WhatsApp fallback). Subject to per-phone resend
+     *     throttling. The response never contains the code.
+     */
+    readonly post: operations["requestOtp"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/auth/otp/verify": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Verify a phone OTP and issue a session
+     * @description Verifies the latest challenge for the phone, finds or creates the
+     *     account (exactly one active account per phone) and issues a
+     *     short-lived access token plus a rotated refresh token.
+     */
+    readonly post: operations["verifyOtp"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/members": {
     readonly parameters: {
       readonly query?: never;
@@ -86,13 +130,56 @@ export interface components {
     readonly Metadata: {
       readonly correlationId: components["schemas"]["CorrelationId"];
     };
+    readonly OtpRequestData: {
+      readonly challengeId: string;
+      /** Format: date-time */
+      readonly expiresAt: string;
+    };
+    readonly OtpRequestEnvelope: {
+      readonly data: components["schemas"]["OtpRequestData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly OtpRequestInput: {
+      readonly phone: components["schemas"]["PhoneNumber"];
+    };
+    readonly OtpVerifyInput: {
+      readonly code: string;
+      readonly deviceId: string;
+      readonly phone: components["schemas"]["PhoneNumber"];
+    };
+    /** @description E.164 phone number. */
+    readonly PhoneNumber: string;
     readonly RegisterMemberRequest: {
       /** Format: email */
       readonly email: string;
       readonly id: string;
     };
+    readonly SessionData: {
+      /** Format: date-time */
+      readonly accessExpiresAt: string;
+      readonly accessToken: string;
+      readonly memberId: string;
+      /** Format: date-time */
+      readonly refreshExpiresAt: string;
+      readonly refreshToken: string;
+      readonly sessionId: string;
+    };
+    readonly SessionEnvelope: {
+      readonly data: components["schemas"]["SessionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
   };
   responses: {
+    /** @description The account is blocked or deleted. */
+    readonly AccountNotActive: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description An unexpected server failure occurred. */
     readonly InternalError: {
       headers: {
@@ -115,6 +202,26 @@ export interface components {
     };
     /** @description A member with the same identifier already exists. */
     readonly MemberConflict: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The code is invalid, expired, consumed, or attempts are exhausted. */
+    readonly OtpInvalid: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description Too many OTP requests for this phone number. */
+    readonly OtpRateLimited: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -233,6 +340,74 @@ export interface operations {
           readonly "text/plain": "dependency unavailable";
         };
       };
+    };
+  };
+  readonly requestOtp: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["OtpRequestInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Code sent (or silently accepted for unknown numbers). */
+      readonly 202: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["OtpRequestEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 429: components["responses"]["OtpRateLimited"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly verifyOtp: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["OtpVerifyInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Session issued. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SessionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["OtpInvalid"];
+      readonly 403: components["responses"]["AccountNotActive"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 429: components["responses"]["OtpRateLimited"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly registerMember: {

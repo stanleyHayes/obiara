@@ -58,10 +58,10 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build member module: %w", err)
 	}
-	// The identity session kernel is composed alongside member. HTTP auth
-	// endpoints arrive with registration (E03-S01); the session service is
-	// available to modules now.
-	if _, err := identity.NewModule(ctx, client.Database(cfg.MongoDatabase)); err != nil {
+	// The identity module provides session issuance and phone OTP
+	// registration (E03-S01).
+	identityModule, err := identity.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
 		return fmt.Errorf("build identity module: %w", err)
 	}
 
@@ -71,6 +71,7 @@ func run() error {
 		return client.Ping(ctx, readpref.Primary())
 	}))
 	apihttp.RegisterMemberRoutes(mux, memberModule.Register.Handle)
+	apihttp.RegisterAuthRoutes(mux, identityModule.Registration)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
