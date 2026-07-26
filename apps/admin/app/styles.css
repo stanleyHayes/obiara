@@ -171,9 +171,13 @@ body {
   .admin-page { display: block; }
   .admin-rail { align-items: center; flex-direction: row; min-height: auto; padding: 10px 16px; position: static; }
   .rail-brand { padding: 0; }
+  .rail-brand > div { display: block; }
   .rail-mark { height: 34px; width: 34px; }
+  .rail-wordmark { font-size: 1rem !important; }
+  .rail-kicker { font-size: 0.5rem !important; }
   .rail-nav { display: none; }
   .rail-user { margin-left: auto; padding: 0; }
+  .rail-user > .operator-avatar { display: flex !important; }
   .admin-shell { padding: 0 18px 36px !important; }
   .admin-header { align-items: flex-start; flex-direction: column; gap: 18px; padding: 26px 0; }
   .admin-header > .MuiStack-root { width: 100%; }
