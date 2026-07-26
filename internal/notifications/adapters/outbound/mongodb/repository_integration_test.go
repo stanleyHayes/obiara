@@ -53,7 +53,13 @@ func TestNotificationCapsEndToEnd(t *testing.T) {
 	if err := repository.EnsureIndexes(ctx); err != nil {
 		t.Fatalf("ensure indexes: %v", err)
 	}
-	service := application.NewNotificationService(repository, repository, time.Now)
+	// Pin the decision clock outside default quiet hours (21:00-07:00) so
+	// the suite is wall-clock independent.
+	decisionClock := func() time.Time {
+		now := time.Now()
+		return time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, time.UTC)
+	}
+	service := application.NewNotificationService(repository, repository, decisionClock)
 
 	// Defaults are created on first read.
 	preferences, err := service.Get(ctx, "m-1")
