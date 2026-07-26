@@ -682,6 +682,43 @@ body {
   width: 100%;
 }
 
+.safety-case {
+  align-items: center !important;
+  border-top: 1px solid rgba(58, 14, 46, 0.09) !important;
+  border-radius: 0 !important;
+  color: var(--admin-ink) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  min-height: 118px !important;
+  padding: 18px 10px !important;
+  text-align: left !important;
+  width: 100%;
+}
+
+.safety-case[aria-pressed="true"] {
+  background: rgba(255, 77, 109, 0.07) !important;
+  box-shadow: inset 4px 0 var(--admin-pink);
+}
+
+.safety-case > div {
+  min-width: 0;
+}
+
+.safety-case > span {
+  color: var(--admin-pink);
+  font-size: 1.6rem;
+}
+
+.safety-case p {
+  font-size: 0.78rem;
+  margin-top: 8px;
+  text-transform: none;
+}
+
+.safety-reference {
+  color: var(--admin-muted);
+}
+
 .verification-case[aria-pressed="true"] {
   background: rgba(255, 159, 28, 0.08) !important;
   box-shadow: inset 4px 0 var(--admin-gold);

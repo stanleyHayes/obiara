@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  evidenceProjectionIsRedacted,
+  initialSafetyDeskState,
+  safetyDeskReducer,
+} from "./safety-model";
+
+describe("safety evidence desk", () => {
+  it("requires a bounded purpose and acknowledgement before evidence opens", () => {
+    expect(
+      safetyDeskReducer(initialSafetyDeskState, { type: "open-evidence" }),
+    ).toEqual(initialSafetyDeskState);
+
+    const withPurpose = safetyDeskReducer(initialSafetyDeskState, {
+      type: "purpose",
+      value: "Investigate current Tier A report",
+    });
+    const acknowledged = safetyDeskReducer(withPurpose, {
+      type: "acknowledge",
+      checked: true,
+    });
+    expect(
+      safetyDeskReducer(acknowledged, { type: "open-evidence" }).evidenceOpen,
+    ).toBe(true);
+  });
+
+  it("makes legal hold a separate confirmed request", () => {
+    const pending = safetyDeskReducer(initialSafetyDeskState, {
+      type: "request-hold",
+    });
+    expect(initialSafetyDeskState.cases[0]?.holdStatus).toBe("none");
+    expect(
+      safetyDeskReducer(pending, { type: "confirm-hold" }).cases[0]
+        ?.holdStatus,
+    ).toBe("pending");
+  });
+
+  it("keeps every queue projection free of raw reporter and evidence fields", () => {
+    expect(initialSafetyDeskState.cases.every(evidenceProjectionIsRedacted)).toBe(
+      true,
+    );
+  });
+});

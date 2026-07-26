@@ -10,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import Image from "next/image";
+import Link from "next/link";
 import brandMark from "../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-ondark_transparent.png";
 
 const navigation = [
@@ -217,7 +218,9 @@ export default function AdminHome() {
                 <Typography className="section-kicker">Trust &amp; safety</Typography>
                 <Typography component="h2">Recent signals</Typography>
               </Box>
-              <Button>Open safety desk ↗</Button>
+              <Button component={Link} href="/safety">
+                Open safety desk
+              </Button>
             </Box>
             <Box className="incident-table" role="table" aria-label="Recent trust and safety signals">
               <Box className="incident-head" role="row">
