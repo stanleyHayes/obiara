@@ -885,6 +885,36 @@ body {
   max-width: 65ch;
 }
 
+.workforce-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workforce-grid > .MuiCard-root,
+.workforce-preview {
+  border: 1px solid rgba(58, 14, 46, 0.1);
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.workforce-preview {
+  align-items: center;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.35fr);
+  margin-top: 18px;
+}
+
+.workforce-preview h2 {
+  color: var(--admin-plum);
+  font-size: 1.8rem;
+  margin: 8px 0;
+}
+
+.workforce-preview p {
+  color: var(--admin-muted);
+}
+
 .verification-case[aria-pressed="true"] {
   background: rgba(255, 159, 28, 0.08) !important;
   box-shadow: inset 4px 0 var(--admin-gold);
@@ -978,7 +1008,9 @@ body {
   }
 
   .incident-runbook-grid,
-  .incident-packet {
+  .incident-packet,
+  .workforce-grid,
+  .workforce-preview {
     grid-template-columns: 1fr;
   }
 

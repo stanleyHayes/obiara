@@ -20,6 +20,7 @@ const navigation = [
   ["◎", "Care queue", "2"],
   ["♢", "Mpanyimfo", ""],
   ["!", "Incidents", ""],
+  ["+", "Workforce", ""],
   ["◌", "Circles & hosts", ""],
   ["✦", "Fires", ""],
   ["¤", "Finance", ""],
@@ -99,7 +100,9 @@ export default function AdminHome() {
                     ? "/mpanyimfo"
                     : label === "Incidents"
                       ? "/incidents"
-                    : undefined
+                      : label === "Workforce"
+                        ? "/workforce"
+                      : undefined
               }
             >
               <span aria-hidden="true">{icon}</span>
