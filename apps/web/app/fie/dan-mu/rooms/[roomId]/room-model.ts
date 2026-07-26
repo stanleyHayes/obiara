@@ -2,6 +2,8 @@ export type RoomMode = "open" | "paused" | "closing";
 export type SafetyStep = "menu" | "report" | "reported" | "blocked";
 export type ReportCategory = "harassment" | "identity" | "threat" | "other";
 export type ThemeState = "revealed" | "ready" | "locked";
+export type CallState = "incoming" | "active" | "declined" | "ended";
+export type CallMedia = "audio" | "video";
 
 export const guidedThemes = [
   { number: 1, title: "What home carries", state: "revealed" },
@@ -25,6 +27,11 @@ export interface RoomState {
   readonly safetyOpen: boolean;
   readonly safetyStep: SafetyStep;
   readonly reportCategory: ReportCategory | null;
+  readonly call: {
+    readonly state: CallState;
+    readonly media: CallMedia;
+    readonly captions: boolean;
+  };
 }
 
 export type RoomAction =
@@ -40,7 +47,11 @@ export type RoomAction =
     }
   | { readonly type: "submit-report" }
   | { readonly type: "confirm-block" }
-  | { readonly type: "begin-closure" };
+  | { readonly type: "begin-closure" }
+  | { readonly type: "accept-call" }
+  | { readonly type: "decline-call" }
+  | { readonly type: "end-call" }
+  | { readonly type: "toggle-call-captions" };
 
 export const initialRoomState: RoomState = {
   mode: "open",
@@ -49,6 +60,7 @@ export const initialRoomState: RoomState = {
   safetyOpen: false,
   safetyStep: "menu",
   reportCategory: null,
+  call: { state: "incoming", media: "audio", captions: true },
 };
 
 export function roomReducer(state: RoomState, action: RoomAction): RoomState {
@@ -69,6 +81,22 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
       mode: "closing",
       draftReady: false,
       safetyStep: "blocked",
+      call: { ...state.call, state: "ended" },
+    };
+  }
+  if (action.type === "accept-call" && state.call.state === "incoming") {
+    return { ...state, call: { ...state.call, state: "active" } };
+  }
+  if (action.type === "decline-call" && state.call.state === "incoming") {
+    return { ...state, call: { ...state.call, state: "declined" } };
+  }
+  if (action.type === "end-call" && state.call.state === "active") {
+    return { ...state, call: { ...state.call, state: "ended" } };
+  }
+  if (action.type === "toggle-call-captions" && state.call.state === "active") {
+    return {
+      ...state,
+      call: { ...state.call, captions: !state.call.captions },
     };
   }
   if (action.type === "begin-closure") {

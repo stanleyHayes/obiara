@@ -99,6 +99,99 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
           ))}
         </div>
       </section>
+      <section className="room-call" aria-labelledby="private-call-title">
+        <div>
+          <p className="fie-kicker">Private call · Obiara names only</p>
+          <h2 id="private-call-title">
+            {state.call.state === "incoming"
+              ? "Ama would like to talk."
+              : state.call.state === "active"
+                ? "You’re together now."
+                : state.call.state === "declined"
+                  ? "The invitation rested."
+                  : "The call has ended."}
+          </h2>
+          <p>
+            {state.call.state === "incoming"
+              ? "This audio call starts only if you accept. Your phone number, email and contacts are never shared."
+              : state.call.state === "active"
+                ? "Connected inside this private room. Captions, Safety and leave stay within reach."
+                : "No contact details were shared. Conversation can continue here whenever it feels right."}
+          </p>
+        </div>
+        <div className="room-call-panel">
+          {state.call.state === "incoming" ? (
+            <>
+              <div>
+                <span className="room-call-avatar" aria-hidden="true">A</span>
+                <div>
+                  <strong>Ama</strong>
+                  <small>Audio invitation · no phone number</small>
+                </div>
+              </div>
+              <div className="room-call-actions">
+                <button
+                  onClick={() => dispatch({ type: "decline-call" })}
+                  type="button"
+                >
+                  Not now
+                </button>
+                <button
+                  onClick={() => dispatch({ type: "accept-call" })}
+                  type="button"
+                >
+                  Accept audio call
+                </button>
+              </div>
+            </>
+          ) : null}
+          {state.call.state === "active" ? (
+            <>
+              <div>
+                <span className="room-call-pulse" aria-hidden="true" />
+                <div>
+                  <strong>Private audio · 00:24</strong>
+                  <small>Ama can see only your Obiara name</small>
+                </div>
+              </div>
+              <p className="room-live-caption" aria-live="polite">
+                {state.call.captions
+                  ? "Ama: I wanted to hear how your week has been."
+                  : "Captions are off."}
+              </p>
+              <div className="room-call-actions">
+                <button
+                  onClick={() =>
+                    dispatch({ type: "toggle-call-captions" })
+                  }
+                  type="button"
+                >
+                  {state.call.captions ? "Hide captions" : "Show captions"}
+                </button>
+                <button
+                  onClick={() => dispatch({ type: "open-safety" })}
+                  type="button"
+                >
+                  Safety
+                </button>
+                <button
+                  onClick={() => dispatch({ type: "end-call" })}
+                  type="button"
+                >
+                  Leave call
+                </button>
+              </div>
+            </>
+          ) : null}
+          {state.call.state === "declined" || state.call.state === "ended" ? (
+            <small className="room-call-rest">
+              {state.call.state === "declined"
+                ? "Ama sees only that you were not available."
+                : "Disconnected safely. Nothing was recorded."}
+            </small>
+          ) : null}
+        </div>
+      </section>
       <section
         className="room-timeline"
         aria-label="Private alternating conversation"

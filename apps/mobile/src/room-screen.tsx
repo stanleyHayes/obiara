@@ -29,6 +29,10 @@ export function RoomScreen() {
     "menu" | "report" | "reported" | "blocked"
   >("menu");
   const [category, setCategory] = useState<string | null>(null);
+  const [callState, setCallState] = useState<
+    "incoming" | "active" | "declined" | "ended"
+  >("incoming");
+  const [callCaptions, setCallCaptions] = useState(true);
   const openSafety = () => {
     setSafetyStep("menu");
     setCategory(null);
@@ -64,6 +68,98 @@ export function RoomScreen() {
           <Text style={styles.statusCopy}>
             Nothing needs an immediate response.
           </Text>
+        </View>
+        <View style={styles.callSection}>
+          <Text style={styles.eyebrow}>PRIVATE CALL · OBIARA NAMES ONLY</Text>
+          <Text accessibilityRole="header" style={styles.callTitle}>
+            {callState === "incoming"
+              ? "Ama would like to talk."
+              : callState === "active"
+                ? "You’re together now."
+                : callState === "declined"
+                  ? "The invitation rested."
+                  : "The call has ended."}
+          </Text>
+          <Text style={styles.callCopy}>
+            {callState === "incoming"
+              ? "This audio call starts only if you accept. Your phone number, email and contacts are never shared."
+              : callState === "active"
+                ? "Connected inside this room. Captions, Safety and leave stay within reach."
+                : "No contact details were shared. You can keep talking here."}
+          </Text>
+          <View style={styles.callPanel}>
+            {callState === "incoming" ? (
+              <>
+                <View style={styles.callIdentity}>
+                  <View style={styles.callAvatar}>
+                    <Text style={styles.callAvatarText}>A</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.callName}>Ama</Text>
+                    <Text style={styles.callMeta}>
+                      Audio invitation · no phone number
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setCallState("active")}
+                  style={styles.callPrimary}
+                >
+                  <Text style={styles.callPrimaryText}>Accept audio call</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setCallState("declined")}
+                  style={styles.callSecondary}
+                >
+                  <Text style={styles.callSecondaryText}>Not now</Text>
+                </Pressable>
+              </>
+            ) : null}
+            {callState === "active" ? (
+              <>
+                <View style={styles.callIdentity}>
+                  <View style={styles.callLive} />
+                  <View>
+                    <Text style={styles.callName}>Private audio · 00:24</Text>
+                    <Text style={styles.callMeta}>
+                      Ama sees only your Obiara name
+                    </Text>
+                  </View>
+                </View>
+                <Text accessibilityLiveRegion="polite" style={styles.caption}>
+                  {callCaptions
+                    ? "Ama: I wanted to hear how your week has been."
+                    : "Captions are off."}
+                </Text>
+                <Pressable
+                  onPress={() => setCallCaptions((visible) => !visible)}
+                  style={styles.callSecondary}
+                >
+                  <Text style={styles.callSecondaryText}>
+                    {callCaptions ? "Hide captions" : "Show captions"}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={openSafety} style={styles.callSecondary}>
+                  <Text style={styles.callSecondaryText}>Safety</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setCallState("ended")}
+                  style={styles.callPrimary}
+                >
+                  <Text style={styles.callPrimaryText}>Leave call</Text>
+                </Pressable>
+              </>
+            ) : null}
+            {callState === "declined" || callState === "ended" ? (
+              <Text style={styles.callRest}>
+                {callState === "declined"
+                  ? "Ama sees only that you were not available."
+                  : "Disconnected safely. Nothing was recorded."}
+              </Text>
+            ) : null}
+          </View>
         </View>
         <View style={styles.timeline}>
           <Text
@@ -309,6 +405,99 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   timeline: { gap: 10, marginTop: 32 },
+  callSection: {
+    borderTopColor: "rgba(255,243,230,.12)",
+    borderTopWidth: 1,
+    marginTop: 42,
+    paddingTop: 36,
+  },
+  callTitle: {
+    color: "#FFF3E6",
+    fontFamily: "Outfit_800ExtraBold",
+    fontSize: 38,
+    letterSpacing: -2,
+    lineHeight: 38,
+    marginTop: 12,
+  },
+  callCopy: {
+    color: "rgba(255,243,230,.68)",
+    fontFamily: "Outfit_400Regular",
+    fontSize: 16,
+    lineHeight: 24,
+    marginTop: 14,
+  },
+  callPanel: {
+    backgroundColor: "#FFF0D9",
+    borderRadius: 24,
+    marginTop: 24,
+    padding: 22,
+  },
+  callIdentity: { alignItems: "center", flexDirection: "row", gap: 14 },
+  callAvatar: {
+    alignItems: "center",
+    backgroundColor: "#6D244F",
+    borderRadius: 26,
+    height: 52,
+    justifyContent: "center",
+    width: 52,
+  },
+  callAvatarText: {
+    color: "#FFF3E6",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 20,
+  },
+  callLive: {
+    backgroundColor: "#168565",
+    borderColor: "#CCEADD",
+    borderRadius: 26,
+    borderWidth: 12,
+    height: 52,
+    width: 52,
+  },
+  callName: {
+    color: "#2A1022",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 17,
+  },
+  callMeta: {
+    color: "#765F70",
+    fontFamily: "Outfit_400Regular",
+    marginTop: 3,
+  },
+  caption: {
+    backgroundColor: "#2A1022",
+    borderRadius: 16,
+    color: "#FFF3E6",
+    fontFamily: "Outfit_400Regular",
+    lineHeight: 22,
+    marginTop: 24,
+    padding: 16,
+  },
+  callPrimary: {
+    alignItems: "center",
+    backgroundColor: "#6D244F",
+    borderRadius: 999,
+    justifyContent: "center",
+    marginTop: 10,
+    minHeight: 52,
+  },
+  callPrimaryText: { color: "#FFF3E6", fontFamily: "Outfit_700Bold" },
+  callSecondary: {
+    alignItems: "center",
+    borderColor: "#6D244F",
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: "center",
+    marginTop: 10,
+    minHeight: 52,
+  },
+  callSecondaryText: { color: "#2A1022", fontFamily: "Outfit_700Bold" },
+  callRest: {
+    color: "#624B59",
+    fontFamily: "Outfit_400Regular",
+    fontSize: 16,
+    lineHeight: 24,
+  },
   watermark: {
     color: "rgba(255,243,230,.38)",
     fontFamily: "Outfit_700Bold",

@@ -58,4 +58,25 @@ describe("private room interaction law", () => {
       /deadline|streak|upgrade|pay|score/i,
     );
   });
+
+  it("requires explicit acceptance before a private call becomes active", () => {
+    expect(initialRoomState.call.state).toBe("incoming");
+    const active = roomReducer(initialRoomState, { type: "accept-call" });
+    expect(active.call).toMatchObject({
+      state: "active",
+      media: "audio",
+      captions: true,
+    });
+    expect(roomReducer(active, { type: "end-call" }).call.state).toBe("ended");
+  });
+
+  it("keeps decline and block independent of accepting a call", () => {
+    const declined = roomReducer(initialRoomState, { type: "decline-call" });
+    expect(declined.call.state).toBe("declined");
+    expect(roomReducer(declined, { type: "accept-call" })).toEqual(declined);
+
+    const blocked = roomReducer(initialRoomState, { type: "confirm-block" });
+    expect(blocked.call.state).toBe("ended");
+    expect(blocked.safetyStep).toBe("blocked");
+  });
 });
