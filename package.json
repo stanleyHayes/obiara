@@ -10,14 +10,23 @@
     "build": "turbo run build",
     "check": "turbo run lint typecheck test && go test ./...",
     "check:client-quality": "pnpm --filter @obiara/quality-client test",
+    "check:visual": "playwright test",
     "dev": "turbo run dev",
     "format": "prettier --check .",
     "lint": "turbo run lint",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build",
     "test": "turbo run test && go test ./...",
+    "test:visual:update": "playwright test --update-snapshots",
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@playwright/test": "1.62.0",
+    "@storybook/addon-a11y": "10.5.4",
+    "@storybook/nextjs-vite": "10.5.4",
     "prettier": "3.9.6",
+    "storybook": "10.5.4",
     "turbo": "2.10.7",
     "typescript": "5.9.3"
   }

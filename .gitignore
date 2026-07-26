@@ -4,6 +4,9 @@ node_modules/
 .turbo/
 dist/
 coverage/
+playwright-report/
+storybook-static/
+test-results/
 *.log
 .DS_Store
 .env
