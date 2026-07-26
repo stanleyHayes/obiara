@@ -820,7 +820,7 @@ owner and path boundary during refinement.
 |---|---|---:|---|---|---|---|---|---|
 | S0-001 | Publish plan v1 and coordination ledger | 0 | `codex-root` | DONE | `agent_plan.md` | claimed/completed 2026-07-26 | Source consistency checked; remote parity verified after baseline push | Self-reviewed; no conflicting source rules |
 | S0-002 | Sync/initialize local checkout from confirmed GitHub `main` | 0 | `codex-root` | DONE | repository metadata and source handover | completed 2026-07-26 | Empty remote confirmed; `main` initialized; parity verified after baseline push | Handover files preserved |
-| S0-003 | ADR set: monorepo, Go hexagon, Mongo, REST/OpenAPI, Expo, Render | 0 | Unassigned | READY | `internal/architecture/` | — | ADR lint/review | — |
+| S0-003 | ADR set: monorepo, Go hexagon, Mongo, REST/OpenAPI, Expo, Render | 0 | `/root/backend_architecture` | IN PROGRESS | `internal/architecture/` | claimed 2026-07-26 | ADR lint/review | Claim published before implementation |
 | S0-004 | Current stable/compatible toolchain and dependency matrix | 0 | Unassigned | BACKLOG | root toolchain manifests, dependency ADR | Depends S0-002/003 | install/build resolution | — |
 | S0-005 | Monorepo and application/service skeletons | 0 | Unassigned | BACKLOG | root, `apps/`, `services/`, `packages/` | Depends S0-003/004 | clean bootstrap/check/build | — |
 | S0-006 | CI, security and supply-chain baseline | 0 | Unassigned | BACKLOG | `.github/`, quality configs | Depends S0-005 | local equivalents + workflow validation | — |
