@@ -541,6 +541,142 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/doorway-question:
+    put:
+      operationId: setDoorwayQuestion
+      tags: [Profile]
+      summary: Set the member's doorway question
+      security: []
+      description: |
+        Sets or replaces the one question sowers must answer (Doc 06 S-07).
+        1-60 characters; contact details and links are rejected.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoorwayQuestionInput"
+      responses:
+        "200":
+          description: Question saved.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoorwayQuestionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/doorway-question/{memberId}:
+    get:
+      operationId: getDoorwayQuestion
+      tags: [Profile]
+      summary: Read a member's doorway question
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The doorway question.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoorwayQuestionEnvelope"
+        "404":
+          $ref: "#/components/responses/DoorwayQuestionNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/photo-vault/items:
+    post:
+      operationId: addVaultItem
+      tags: [Profile]
+      summary: Add a photo to the vault
+      security: []
+      description: |
+        Registers an uploaded media asset in the member's vault at a free
+        position. Everything in the vault is veiled to non-owners until
+        acceptance exists (Doc 06 S-08).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VaultItemInput"
+      responses:
+        "201":
+          description: Item added.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultItemEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "409":
+          $ref: "#/components/responses/VaultConflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/photo-vault/{ownerId}:
+    get:
+      operationId: viewVault
+      tags: [Profile]
+      summary: View a member's photo vault with server-side veiling
+      security: []
+      description: |
+        Lists vault items in position order. Items are veiled for every
+        viewer except the owner until acceptance-based unveiling lands with
+        the seed economy (E06).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: ownerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: viewerId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Vault items with veil flags.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultViewEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -824,6 +960,40 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
+    VaultConflict:
+      description: The vault is full or the position is already taken.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            vaultConflict:
+              value:
+                error:
+                  code: vault_position_taken
+                  message: That vault position is already taken.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    DoorwayQuestionNotFound:
+      description: No doorway question is set for this member.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            doorwayQuestionNotFound:
+              value:
+                error:
+                  code: doorway_question_not_found
+                  message: No doorway question is set.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
   schemas:
     CorrelationId:
       type: string
@@ -1242,5 +1412,108 @@ components:
       properties:
         error:
           $ref: "#/components/schemas/Error"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    DoorwayQuestionInput:
+      type: object
+      additionalProperties: false
+      required: [memberId, text]
+      properties:
+        memberId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        text:
+          type: string
+          minLength: 1
+          maxLength: 120
+        custom:
+          type: boolean
+    DoorwayQuestionData:
+      type: object
+      additionalProperties: false
+      required: [text, custom, updatedAt]
+      properties:
+        text:
+          type: string
+        custom:
+          type: boolean
+        updatedAt:
+          type: string
+          format: date-time
+    DoorwayQuestionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DoorwayQuestionData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    VaultItemInput:
+      type: object
+      additionalProperties: false
+      required: [memberId, assetId, position]
+      properties:
+        memberId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        assetId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        position:
+          type: integer
+          minimum: 0
+          maximum: 11
+    VaultItemData:
+      type: object
+      additionalProperties: false
+      required: [itemId, position]
+      properties:
+        itemId:
+          type: string
+        position:
+          type: integer
+    VaultItemEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/VaultItemData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    VaultItemView:
+      type: object
+      additionalProperties: false
+      required: [assetId, position, veiled]
+      properties:
+        assetId:
+          type: string
+        position:
+          type: integer
+        veiled:
+          type: boolean
+    VaultViewData:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/VaultItemView"
+    VaultViewEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/VaultViewData"
         meta:
           $ref: "#/components/schemas/Metadata"

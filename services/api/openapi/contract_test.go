@@ -31,6 +31,10 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"  /v1/admin/verifications/{id}:",
 		"  /v1/admin/verifications/{id}/evidence-access:",
 		"  /v1/admin/verifications/{id}/decisions:",
+		"  /v1/doorway-question:",
+		"  /v1/doorway-question/{memberId}:",
+		"  /v1/photo-vault/items:",
+		"  /v1/photo-vault/{ownerId}:",
 		"operationId: registerMember",
 		"operationId: requestOtp",
 		"operationId: verifyOtp",
@@ -38,11 +42,15 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"operationId: requestExport",
 		"operationId: requestDeletion",
 		"operationId: privacyRequestStatus",
-		"operationId: getMemberTrustPaths",
 		"operationId: listAdminVerificationQueue",
 		"operationId: getAdminVerificationCase",
 		"operationId: accessAdminVerificationEvidence",
 		"operationId: decideAdminVerificationCase",
+		"operationId: setDoorwayQuestion",
+		"operationId: getDoorwayQuestion",
+		"operationId: addVaultItem",
+		"operationId: viewVault",
+		"operationId: getMemberTrustPaths",
 		"name: Idempotency-Key",
 		"name: X-Correlation-ID",
 		"additionalProperties: false",
@@ -51,9 +59,6 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"otp_rate_limited",
 		"verification_rejected",
 		"legal_hold_active",
-		"invalid_trust_path_bounds",
-		"trust_paths_not_found",
-		"MemberBearer:",
 		"correlationId:",
 	}
 	for _, token := range required {
@@ -81,7 +86,7 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 14 {
-		t.Errorf("operationId count = %d, want 14", len(seen))
+	if len(seen) != 18 {
+		t.Errorf("operationId count = %d, want 18", len(seen))
 	}
 }

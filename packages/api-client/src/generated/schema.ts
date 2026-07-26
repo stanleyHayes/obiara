@@ -159,6 +159,44 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/doorway-question": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    /**
+     * Set the member's doorway question
+     * @description Sets or replaces the one question sowers must answer (Doc 06 S-07).
+     *     1-60 characters; contact details and links are rejected.
+     */
+    readonly put: operations["setDoorwayQuestion"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/doorway-question/{memberId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Read a member's doorway question */
+    readonly get: operations["getDoorwayQuestion"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/members": {
     readonly parameters: {
       readonly query?: never;
@@ -197,6 +235,50 @@ export interface paths {
     readonly get: operations["getMemberTrustPaths"];
     readonly put?: never;
     readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/photo-vault/{ownerId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * View a member's photo vault with server-side veiling
+     * @description Lists vault items in position order. Items are veiled for every
+     *     viewer except the owner until acceptance-based unveiling lands with
+     *     the seed economy (E06).
+     */
+    readonly get: operations["viewVault"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/photo-vault/items": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Add a photo to the vault
+     * @description Registers an uploaded media asset in the member's vault at a free
+     *     position. Everything in the vault is veiled to non-owners until
+     *     acceptance exists (Doc 06 S-08).
+     */
+    readonly post: operations["addVaultItem"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -316,6 +398,21 @@ export interface components {
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly CorrelationId: string;
+    readonly DoorwayQuestionData: {
+      readonly custom: boolean;
+      readonly text: string;
+      /** Format: date-time */
+      readonly updatedAt: string;
+    };
+    readonly DoorwayQuestionEnvelope: {
+      readonly data: components["schemas"]["DoorwayQuestionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly DoorwayQuestionInput: {
+      readonly custom?: boolean;
+      readonly memberId: string;
+      readonly text: string;
+    };
     readonly Error: {
       readonly code: string;
       readonly details?: readonly components["schemas"]["FieldError"][];
@@ -433,6 +530,31 @@ export interface components {
       readonly sourceId: string;
       readonly targetId: string;
     };
+    readonly VaultItemData: {
+      readonly itemId: string;
+      readonly position: number;
+    };
+    readonly VaultItemEnvelope: {
+      readonly data: components["schemas"]["VaultItemData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly VaultItemInput: {
+      readonly assetId: string;
+      readonly memberId: string;
+      readonly position: number;
+    };
+    readonly VaultItemView: {
+      readonly assetId: string;
+      readonly position: number;
+      readonly veiled: boolean;
+    };
+    readonly VaultViewData: {
+      readonly items: readonly components["schemas"]["VaultItemView"][];
+    };
+    readonly VaultViewEnvelope: {
+      readonly data: components["schemas"]["VaultViewData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly VerificationCaseData: {
       readonly caseId: string;
       /** @enum {string} */
@@ -487,6 +609,16 @@ export interface components {
     };
     /** @description The staff principal lacks the exact capability, or recent MFA where evidence access requires it. */
     readonly AdminForbidden: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description No doorway question is set for this member. */
+    readonly DoorwayQuestionNotFound: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -610,6 +742,16 @@ export interface components {
     };
     /** @description Request fields or the idempotency key are invalid. */
     readonly ValidationFailed: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The vault is full or the position is already taken. */
+    readonly VaultConflict: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -926,6 +1068,66 @@ export interface operations {
       readonly 500: components["responses"]["InternalError"];
     };
   };
+  readonly setDoorwayQuestion: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["DoorwayQuestionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Question saved. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["DoorwayQuestionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly getDoorwayQuestion: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly memberId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The doorway question. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["DoorwayQuestionEnvelope"];
+        };
+      };
+      readonly 404: components["responses"]["DoorwayQuestionNotFound"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
   readonly registerMember: {
     readonly parameters: {
       readonly query?: never;
@@ -995,6 +1197,69 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidTrustPathBounds"];
       readonly 404: components["responses"]["TrustPathsNotFound"];
+    };
+  };
+  readonly viewVault: {
+    readonly parameters: {
+      readonly query?: {
+        readonly viewerId?: string;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly ownerId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Vault items with veil flags. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VaultViewEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly addVaultItem: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["VaultItemInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Item added. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VaultItemEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 409: components["responses"]["VaultConflict"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly requestDeletion: {

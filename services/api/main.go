@@ -26,6 +26,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
 	"github.com/stanleyHayes/obiara/services/api/internal/privacy"
+	"github.com/stanleyHayes/obiara/services/api/internal/profile"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification"
 )
@@ -93,6 +94,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build trust module: %w", err)
 	}
+	// Profile doorway question and photo vault (E03-S09).
+	profileModule, err := profile.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build profile module: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /live", health.Live())
@@ -104,6 +110,7 @@ func run() error {
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification)
 	apihttp.RegisterPrivacyRoutes(mux, privacyModule.Privacy)
 	apihttp.RegisterTrustVisibilityRoutes(mux, trustModule.Visibility, identityModule.Sessions)
+	apihttp.RegisterDoorwayRoutes(mux, profileModule.Doorway, profileModule.Vault)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
