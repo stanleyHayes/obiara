@@ -23,20 +23,21 @@ than five destinations and keeps the same order on web and mobile.
 
 ## 2. Canonical route registry
 
-| Capability | Web route | Expo route | Minimum tier | Offline behavior | Deep-link behavior |
-|---|---|---|---:|---|---|
-| Fie home | `/fie` | `/fie` | 0 | cached shell and last safe summary | always allowed after a valid session |
-| First-run walk | `/fie/welcome` | `/fie/welcome` | 0 | fully bundled | resume last completed step |
-| Abɔnten | `/fie/abonten` | `/fie/abonten` | 0 | cached public/community cards | allowed; romantic actions absent |
-| Adiwo | `/fie/adiwo` | `/fie/adiwo` | 0 | cached memberships, queued safe actions | membership checks happen at action time |
-| Circle detail | `/fie/adiwo/circles/[circleId]` | `/fie/adiwo/circles/[circleId]` | 0 | cached read view; mutations queue only when replay-safe | validate opaque ID and membership |
-| Ɛpono ano | `/fie/epono-ano` | `/fie/epono-ano` | 1 | cached pod summary, no new introduction | Tier 0 redirects to a kind gate explanation |
-| Introduction review | `/fie/epono-ano/introductions/[introductionId]` | same | 1 | previously downloaded bounded summary only | validate ownership and expiry |
-| Dan mu | `/fie/dan-mu` | `/fie/dan-mu` | 2 | cached room shell and queued idempotent drafts | Tier 0/1 receives a non-punitive tier gate |
-| Room detail | `/fie/dan-mu/rooms/[roomId]` | same | 2 | cached events plus explicit queued state | validate room membership and block state |
-| Notifications | `/fie/notifications` | `/fie/notifications` | 0 | cached list and local read state | always returns to the originating route |
-| Profile/privacy | `/fie/me` | `/fie/me` | 0 | cached own profile; sensitive mutations require network | own account only |
-| Okyeame entry point | `/fie/okyeame` | `/fie/okyeame` | capability flag | bundled capability explanation | unavailable capability stays explicit |
+| Capability          | Web route                                       | Expo route                      |    Minimum tier | Offline behavior                                        | Deep-link behavior                                                                   |
+| ------------------- | ----------------------------------------------- | ------------------------------- | --------------: | ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Fie home            | `/fie`                                          | `/fie`                          |               0 | cached shell and last safe summary                      | always allowed after a valid session                                                 |
+| First-run walk      | `/fie/welcome`                                  | `/fie/welcome`                  |               0 | fully bundled                                           | resume last completed step                                                           |
+| Abɔnten             | `/fie/abonten`                                  | `/fie/abonten`                  |               0 | cached public/community cards                           | allowed; romantic actions absent                                                     |
+| Adiwo               | `/fie/adiwo`                                    | `/fie/adiwo`                    |               0 | cached memberships, queued safe actions                 | membership checks happen at action time                                              |
+| Circle detail       | `/fie/adiwo/circles/[circleId]`                 | `/fie/adiwo/circles/[circleId]` |               0 | cached read view; mutations queue only when replay-safe | validate opaque ID and membership                                                    |
+| Ɛpono ano           | `/fie/epono-ano`                                | `/fie/epono-ano`                |               1 | cached pod summary, no new introduction                 | Tier 0 redirects to a kind gate explanation                                          |
+| Introduction review | `/fie/epono-ano/introductions/[introductionId]` | same                            |               1 | previously downloaded bounded summary only              | validate ownership and expiry                                                        |
+| Dan mu              | `/fie/dan-mu`                                   | `/fie/dan-mu`                   |               2 | cached room shell and queued idempotent drafts          | Tier 0/1 receives a non-punitive tier gate                                           |
+| Garden              | `/fie/garden`                                   | `/fie/garden`                   |               1 | cached bounded introductions; no offline spend          | Tier and consent checks precede server-verified listening and atomic allowance spend |
+| Room detail         | `/fie/dan-mu/rooms/[roomId]`                    | same                            |               2 | cached events plus explicit queued state                | validate room membership and block state                                             |
+| Notifications       | `/fie/notifications`                            | `/fie/notifications`            |               0 | cached list and local read state                        | always returns to the originating route                                              |
+| Profile/privacy     | `/fie/me`                                       | `/fie/me`                       |               0 | cached own profile; sensitive mutations require network | own account only                                                                     |
+| Okyeame entry point | `/fie/okyeame`                                  | `/fie/okyeame`                  | capability flag | bundled capability explanation                          | unavailable capability stays explicit                                                |
 
 Route segments use ASCII slugs while the visible navigation preserves Twi
 labels and English glosses. Dynamic IDs are opaque and never contain phone
@@ -56,16 +57,16 @@ Every client route guard evaluates the same ordered facts:
 
 A failure stops evaluation and returns one typed route outcome:
 
-| Outcome | Member presentation | Navigation action |
-|---|---|---|
-| `sign_in_required` | calm sign-in request | preserve safe return route |
-| `account_paused` | explain pause and support path | profile/privacy only |
-| `consent_required` | show exact changed purpose | consent review |
-| `tier_required` | explain the next verification step without pressure | identity status |
-| `membership_required` | neutral unavailable state | parent zone |
-| `feature_unavailable` | capability is resting | Fie |
-| `offline_required` | saved content remains available | retry or Fie |
-| `resource_not_found` | privacy-neutral unavailable state | parent zone |
+| Outcome               | Member presentation                                 | Navigation action          |
+| --------------------- | --------------------------------------------------- | -------------------------- |
+| `sign_in_required`    | calm sign-in request                                | preserve safe return route |
+| `account_paused`      | explain pause and support path                      | profile/privacy only       |
+| `consent_required`    | show exact changed purpose                          | consent review             |
+| `tier_required`       | explain the next verification step without pressure | identity status            |
+| `membership_required` | neutral unavailable state                           | parent zone                |
+| `feature_unavailable` | capability is resting                               | Fie                        |
+| `offline_required`    | saved content remains available                     | retry or Fie               |
+| `resource_not_found`  | privacy-neutral unavailable state                   | parent zone                |
 
 The client guard improves navigation but never grants authority. API
 authorization remains deny-by-default and repeats all relevant checks.

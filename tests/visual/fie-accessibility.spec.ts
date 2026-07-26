@@ -7,6 +7,7 @@ const routes = [
   ["/fie/adiwo", "Familiar people. Shared purpose."],
   ["/fie/epono-ano", "Pause before you open."],
   ["/fie/dan-mu", "Private means private."],
+  ["/fie/garden", "Sow with intention."],
   ["/fie/okyeame", "Help should know its place."],
 ] as const;
 

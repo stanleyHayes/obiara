@@ -1,0 +1,268 @@
+.garden-main {
+  padding-bottom: 72px;
+}
+
+.garden-topbar {
+  align-items: end;
+  border-bottom: 1px solid rgba(58, 14, 46, 0.1);
+  display: flex;
+  gap: 40px;
+  justify-content: space-between;
+  min-height: 260px;
+  padding: 46px 0 36px;
+}
+
+.garden-topbar h1 {
+  font-size: clamp(4rem, 8vw, 8.4rem);
+  letter-spacing: -0.085em;
+  line-height: 0.84;
+  margin: 18px 0 24px;
+}
+
+.garden-topbar > div:first-child > p:last-child {
+  color: #765f70;
+  line-height: 1.6;
+  max-width: 680px;
+}
+
+.garden-allowance {
+  align-items: center;
+  background: #0f7059;
+  border-radius: 24px;
+  color: #fff;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 150px;
+  padding: 20px;
+  width: 150px;
+}
+
+.garden-allowance strong {
+  font-size: 3.4rem;
+  line-height: 1;
+}
+
+.garden-allowance span,
+.garden-allowance small {
+  font-size: 0.7rem;
+  margin-top: 6px;
+}
+
+.garden-allowance small {
+  color: #eefbf7;
+}
+
+.garden-board {
+  margin-top: 42px;
+}
+
+.garden-board h2 {
+  font-size: clamp(3rem, 6vw, 6rem);
+  letter-spacing: -0.075em;
+  line-height: 0.9;
+  margin-top: 14px;
+}
+
+.garden-board > div {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 28px;
+}
+
+.garden-board article {
+  background: #fff;
+  border: 1px solid rgba(58, 14, 46, 0.1);
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 430px;
+  padding: 30px;
+}
+
+.garden-board article > span,
+.garden-workbench aside > span {
+  align-items: center;
+  background: #fff0d9;
+  border-radius: 50%;
+  color: #7a3800;
+  display: flex;
+  font-size: 1.4rem;
+  font-weight: 900;
+  height: 64px;
+  justify-content: center;
+  margin-bottom: 32px;
+  width: 64px;
+}
+
+.garden-board h3 {
+  font-size: 2.8rem;
+  letter-spacing: -0.06em;
+  margin: 10px 0 18px;
+}
+
+.garden-board article > p:not(.fie-kicker),
+.garden-workbench aside > p:not(.fie-kicker),
+.garden-workbench article > p {
+  color: #765f70;
+  line-height: 1.6;
+}
+
+.garden-board article small {
+  color: #765f70;
+  margin: 24px 0;
+}
+
+.garden-board button,
+.garden-workbench button {
+  background: #2a1022;
+  border: 1px solid #2a1022;
+  border-radius: 999px;
+  color: #fff3e6;
+  font: inherit;
+  font-weight: 900;
+  min-height: 48px;
+  padding: 0 20px;
+}
+
+.garden-board article button {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.garden-workbench {
+  background: #2a1022;
+  border-radius: 28px;
+  color: #fff3e6;
+  display: grid;
+  gap: 50px;
+  grid-template-columns: minmax(250px, 0.65fr) minmax(0, 1.35fr);
+  margin-top: 28px;
+  min-height: 600px;
+  padding: clamp(32px, 5vw, 64px);
+}
+
+.garden-workbench aside {
+  border-right: 1px solid rgba(255, 243, 230, 0.12);
+  padding-right: 38px;
+}
+
+.garden-workbench aside h2 {
+  font-size: 4rem;
+  letter-spacing: -0.07em;
+  margin: 12px 0 18px;
+}
+
+.garden-workbench aside small {
+  color: rgba(255, 243, 230, 0.52);
+  display: block;
+  margin-top: 24px;
+}
+
+.garden-workbench article {
+  align-self: center;
+}
+
+.garden-workbench article .fie-kicker {
+  color: #ff849b;
+}
+
+.garden-workbench article h3 {
+  font-size: clamp(3rem, 6vw, 6rem);
+  letter-spacing: -0.075em;
+  line-height: 0.9;
+  margin: 22px 0;
+}
+
+.garden-workbench article > p {
+  color: rgba(255, 243, 230, 0.64);
+  max-width: 620px;
+}
+
+.garden-progress {
+  background: rgba(255, 243, 230, 0.12);
+  border-radius: 999px;
+  height: 12px;
+  margin: 28px 0;
+  overflow: hidden;
+}
+
+.garden-progress span {
+  background: #ffad3d;
+  display: block;
+  height: 100%;
+}
+
+.garden-actions,
+.garden-review {
+  display: flex;
+  gap: 10px;
+  margin-top: 30px;
+}
+
+.garden-actions button:last-child,
+.garden-workbench article > button:last-child {
+  background: #ffad3d;
+  border-color: #ffad3d;
+  color: #2a1022;
+  margin-top: 24px;
+}
+
+.garden-actions button:disabled,
+.garden-workbench button:disabled {
+  opacity: 0.45;
+}
+
+.garden-record {
+  margin-right: 10px;
+  margin-top: 30px;
+}
+
+.garden-review {
+  background: rgba(255, 243, 230, 0.08);
+  border-radius: 16px;
+  flex-direction: column;
+  padding: 18px;
+}
+
+.garden-review span {
+  color: rgba(255, 243, 230, 0.58);
+}
+
+@media (max-width: 900px) {
+  .garden-board > div,
+  .garden-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .garden-workbench aside {
+    border-bottom: 1px solid rgba(255, 243, 230, 0.12);
+    border-right: 0;
+    padding-bottom: 30px;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .garden-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .garden-topbar h1 {
+    font-size: 4.2rem;
+  }
+
+  .garden-allowance {
+    min-height: 120px;
+    width: 120px;
+  }
+
+  .garden-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

@@ -400,6 +400,30 @@
   padding: 20px 22px;
 }
 
+.garden-entry {
+  align-items: center;
+  background: #e8f6f0;
+  border: 1px solid rgba(15, 112, 89, 0.18);
+  border-radius: 18px;
+  color: #2a1022;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 20px 22px;
+}
+
+.garden-entry strong {
+  display: block;
+  margin-top: 5px;
+}
+
+.garden-entry a {
+  color: #0f7059;
+  font-weight: 850;
+  text-underline-offset: 5px;
+}
+
 .okyeame-entry strong {
   display: block;
   margin-top: 5px;
@@ -486,6 +510,11 @@
   }
 
   .okyeame-entry {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .garden-entry {
     align-items: flex-start;
     flex-direction: column;
   }

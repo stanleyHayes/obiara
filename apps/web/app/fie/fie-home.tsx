@@ -173,6 +173,14 @@ export function FieHome() {
           <Link href="/fie/okyeame">See capability status</Link>
         </aside>
 
+        <aside className="garden-entry">
+          <div>
+            <p className="fie-kicker">Your garden</p>
+            <strong>4 of 7 seeds remain this week.</strong>
+          </div>
+          <Link href="/fie/garden">Listen and sow deliberately</Link>
+        </aside>
+
         <CompoundBottomNavigation current="home" />
       </section>
     </main>

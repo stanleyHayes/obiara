@@ -37,6 +37,11 @@ const copy: Record<
     title: "Private means private.",
     body: "Tier 2 mutual rooms have no public activity or popularity signal.",
   },
+  garden: {
+    eyebrow: "YOUR SEED GARDEN",
+    title: "Sow with intention.",
+    body: "Listen first, speak in your own voice, and spend only after server confirmation.",
+  },
   okyeame: {
     eyebrow: "A CAPABILITY, NOT A PERSON",
     title: "Help should know its place.",
