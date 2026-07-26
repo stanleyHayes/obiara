@@ -128,6 +128,27 @@ func TestRegisterMemberMapsApplicationFailureWithoutLeakingIt(t *testing.T) {
 	}
 }
 
+func TestRegisterMemberMapsDuplicateConflict(t *testing.T) {
+	handler := testHandler(func(context.Context, application.RegisterMemberCommand) (domain.Member, error) {
+		return domain.Member{}, domain.ErrDuplicateMember
+	})
+	request := httptest.NewRequest(http.MethodPost, "/v1/members", strings.NewReader(`{"id":"member-1","email":"a@example.com"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "request-1")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d; body=%s", response.Code, http.StatusConflict, response.Body.String())
+	}
+	var envelope errorEnvelope
+	decodeResponse(t, response, &envelope)
+	if envelope.Error.Code != "member_conflict" {
+		t.Fatalf("code = %q, want member_conflict", envelope.Error.Code)
+	}
+}
+
 func TestCorrelationReplacesUnsafeInput(t *testing.T) {
 	handler := Correlation(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeSuccess(w, r, http.StatusOK, map[string]string{"status": "ok"})

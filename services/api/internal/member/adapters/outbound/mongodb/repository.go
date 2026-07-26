@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/member/domain"
+	apimongo "github.com/stanleyHayes/obiara/services/api/internal/platform/mongo"
 )
 
 var ErrMemberNotFound = errors.New("member not found")
@@ -42,6 +43,9 @@ func (repository *Repository) Create(ctx context.Context, member domain.Member) 
 		Email:     member.Email(),
 		CreatedAt: member.CreatedAt(),
 	})
+	if apimongo.IsDuplicateKey(err) {
+		return domain.ErrDuplicateMember
+	}
 	return err
 }
 

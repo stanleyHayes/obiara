@@ -138,6 +138,11 @@ func validEmail(value string) bool {
 
 func writeApplicationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, domain.ErrDuplicateMember):
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "member_conflict",
+			Message: "A member with this identifier already exists.",
+		})
 	case errors.Is(err, application.ErrIdempotencyKeyRequired),
 		errors.Is(err, domain.ErrInvalidID),
 		errors.Is(err, domain.ErrInvalidEmail):

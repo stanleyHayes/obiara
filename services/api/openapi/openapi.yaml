@@ -101,6 +101,8 @@ paths:
                 $ref: "#/components/schemas/MemberEnvelope"
         "400":
           $ref: "#/components/responses/InvalidJSON"
+        "409":
+          $ref: "#/components/responses/MemberConflict"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
         "422":
@@ -161,6 +163,23 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
+    MemberConflict:
+      description: A member with the same identifier already exists.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            memberConflict:
+              value:
+                error:
+                  code: member_conflict
+                  message: A member with this identifier already exists.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
     ValidationFailed:
       description: Request fields or the idempotency key are invalid.
       headers:

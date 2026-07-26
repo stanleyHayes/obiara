@@ -113,6 +113,16 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description A member with the same identifier already exists. */
+    readonly MemberConflict: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description The application capability is temporarily unavailable. */
     readonly ServiceUnavailable: {
       headers: {
@@ -256,6 +266,7 @@ export interface operations {
         };
       };
       readonly 400: components["responses"]["InvalidJSON"];
+      readonly 409: components["responses"]["MemberConflict"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];

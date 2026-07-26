@@ -9,6 +9,10 @@ import (
 var (
 	ErrInvalidID    = errors.New("member id is required")
 	ErrInvalidEmail = errors.New("member email is required")
+	// ErrDuplicateMember is the transport-neutral conflict sentinel: adapters
+	// translate persistence-specific duplicate violations into it so inbound
+	// layers can map a conflict without importing driver types.
+	ErrDuplicateMember = errors.New("member already exists")
 )
 
 // Member is the domain representation of an Obiara member.
