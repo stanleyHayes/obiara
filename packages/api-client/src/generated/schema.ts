@@ -197,6 +197,70 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/fires": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List upcoming fires */
+    readonly get: operations["listUpcomingFires"];
+    readonly put?: never;
+    /**
+     * Schedule a fire
+     * @description Creates a scheduled fire with bounded capacity (E09-S01).
+     */
+    readonly post: operations["scheduleFire"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/fires/{id}/rsvps": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * RSVP to a fire
+     * @description Admits a Tier 1+ member (FR-401). Capacity is race-safe: when the
+     *     fire is full the member is waitlisted with a position. Duplicate
+     *     RSVPs return 409 rsvp_exists.
+     */
+    readonly post: operations["rsvpFire"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/fires/{id}/rsvps/{memberId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    /**
+     * Cancel a fire RSVP
+     * @description Removes the RSVP. When a going seat frees, the first waitlisted
+     *     member is promoted atomically and returned.
+     */
+    readonly delete: operations["cancelFireRsvp"];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/listening/eligibility/{assetId}": {
     readonly parameters: {
       readonly query?: never;
@@ -442,6 +506,14 @@ export interface components {
       readonly data: components["schemas"]["AdminVerificationQueueData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly CancelRsvpData: {
+      readonly cancelled: boolean;
+      readonly promotedMemberId?: string;
+    };
+    readonly CancelRsvpEnvelope: {
+      readonly data: components["schemas"]["CancelRsvpData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly CorrelationId: string;
     readonly DoorwayQuestionData: {
       readonly custom: boolean;
@@ -484,6 +556,37 @@ export interface components {
     readonly FieldError: {
       readonly field: string;
       readonly reason: string;
+    };
+    readonly FireData: {
+      readonly capacity: number;
+      readonly circleId?: string;
+      readonly fireId: string;
+      readonly goingCount: number;
+      readonly hostId: string;
+      /** Format: date-time */
+      readonly startsAt: string;
+      /** @enum {string} */
+      readonly status: "scheduled" | "live" | "ended" | "cancelled";
+      readonly title: string;
+    };
+    readonly FireEnvelope: {
+      readonly data: components["schemas"]["FireData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly FireInput: {
+      readonly capacity: number;
+      readonly circleId?: string;
+      readonly hostId: string;
+      /** Format: date-time */
+      readonly startsAt: string;
+      readonly title: string;
+    };
+    readonly FireListData: {
+      readonly fires: readonly components["schemas"]["FireData"][];
+    };
+    readonly FireListEnvelope: {
+      readonly data: components["schemas"]["FireListData"];
+      readonly meta: components["schemas"]["Metadata"];
     };
     readonly GhanaCardInput: {
       readonly accountId: string;
@@ -557,6 +660,19 @@ export interface components {
       /** Format: email */
       readonly email: string;
       readonly id: string;
+    };
+    readonly RsvpData: {
+      readonly position?: number;
+      /** @enum {string} */
+      readonly status: "going" | "waitlisted";
+    };
+    readonly RsvpEnvelope: {
+      readonly data: components["schemas"]["RsvpData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly RsvpInput: {
+      readonly memberId: string;
+      readonly tier: number;
     };
     readonly SessionData: {
       /** Format: date-time */
@@ -692,6 +808,16 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description No fire with this identifier exists. */
+    readonly FireNotFound: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description An unexpected server failure occurred. */
     readonly InternalError: {
       headers: {
@@ -772,8 +898,38 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description The member already has an RSVP, or the fire is not open. */
+    readonly RsvpConflict: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description No RSVP exists for this member and fire. */
+    readonly RsvpNotFound: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description The application capability is temporarily unavailable. */
     readonly ServiceUnavailable: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The member's verification tier does not meet the requirement. */
+    readonly TierTooLow: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -1190,6 +1346,132 @@ export interface operations {
         };
       };
       readonly 404: components["responses"]["DoorwayQuestionNotFound"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly listUpcomingFires: {
+    readonly parameters: {
+      readonly query?: {
+        readonly circleId?: string;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Upcoming fires in start order. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FireListEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly scheduleFire: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["FireInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Fire scheduled. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FireEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly rsvpFire: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["RsvpInput"];
+      };
+    };
+    readonly responses: {
+      /** @description RSVP recorded. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["RsvpEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 403: components["responses"]["TierTooLow"];
+      readonly 404: components["responses"]["FireNotFound"];
+      readonly 409: components["responses"]["RsvpConflict"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly cancelFireRsvp: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+        readonly memberId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description RSVP cancelled; promotion included when it happened. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CancelRsvpEnvelope"];
+        };
+      };
+      readonly 404: components["responses"]["RsvpNotFound"];
       readonly 500: components["responses"]["InternalError"];
     };
   };

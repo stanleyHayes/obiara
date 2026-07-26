@@ -19,6 +19,7 @@ import (
 
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/privacy"
+	"github.com/stanleyHayes/obiara/services/api/internal/fire"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
@@ -118,6 +119,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build listening module: %w", err)
 	}
+	// Fire scheduling and attendance (E09-S01).
+	fireModule, err := fire.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build fire module: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /live", health.Live())
@@ -131,6 +137,7 @@ func run() error {
 	apihttp.RegisterTrustVisibilityRoutes(mux, trustModule.Visibility, identityModule.Sessions)
 	apihttp.RegisterDoorwayRoutes(mux, profileModule.Doorway, profileModule.Vault)
 	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening)
+	apihttp.RegisterFireRoutes(mux, fireModule.Fires)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,

@@ -750,6 +750,147 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/fires:
+    post:
+      operationId: scheduleFire
+      tags: [Fires]
+      summary: Schedule a fire
+      security: []
+      description: Creates a scheduled fire with bounded capacity (E09-S01).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FireInput"
+      responses:
+        "201":
+          description: Fire scheduled.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FireEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listUpcomingFires
+      tags: [Fires]
+      summary: List upcoming fires
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: circleId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Upcoming fires in start order.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FireListEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/fires/{id}/rsvps:
+    post:
+      operationId: rsvpFire
+      tags: [Fires]
+      summary: RSVP to a fire
+      security: []
+      description: |
+        Admits a Tier 1+ member (FR-401). Capacity is race-safe: when the
+        fire is full the member is waitlisted with a position. Duplicate
+        RSVPs return 409 rsvp_exists.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RsvpInput"
+      responses:
+        "201":
+          description: RSVP recorded.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RsvpEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "403":
+          $ref: "#/components/responses/TierTooLow"
+        "404":
+          $ref: "#/components/responses/FireNotFound"
+        "409":
+          $ref: "#/components/responses/RsvpConflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/fires/{id}/rsvps/{memberId}:
+    delete:
+      operationId: cancelFireRsvp
+      tags: [Fires]
+      summary: Cancel a fire RSVP
+      security: []
+      description: |
+        Removes the RSVP. When a going seat frees, the first waitlisted
+        member is promoted atomically and returned.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: RSVP cancelled; promotion included when it happened.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelRsvpEnvelope"
+        "404":
+          $ref: "#/components/responses/RsvpNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -988,6 +1129,50 @@ components:
             $ref: "#/components/schemas/ErrorEnvelope"
     VerificationCaseConflict:
       description: The case is closed, stale, or the idempotency key belongs to another decision.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    TierTooLow:
+      description: The member's verification tier does not meet the requirement.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            tierTooLow:
+              value:
+                error:
+                  code: tier_too_low
+                  message: Fire entry requires full verification.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    FireNotFound:
+      description: No fire with this identifier exists.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    RsvpConflict:
+      description: The member already has an RSVP, or the fire is not open.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    RsvpNotFound:
+      description: No RSVP exists for this member and fire.
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/CorrelationId"
@@ -1511,6 +1696,132 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/EligibilityData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    FireInput:
+      type: object
+      additionalProperties: false
+      required: [hostId, title, startsAt, capacity]
+      properties:
+        hostId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        circleId:
+          type: string
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        startsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+          minimum: 1
+          maximum: 500
+    FireData:
+      type: object
+      additionalProperties: false
+      required: [fireId, hostId, title, startsAt, capacity, goingCount, status]
+      properties:
+        fireId:
+          type: string
+        hostId:
+          type: string
+        circleId:
+          type: string
+        title:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+        goingCount:
+          type: integer
+        status:
+          type: string
+          enum: [scheduled, live, ended, cancelled]
+    FireEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/FireData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    FireListData:
+      type: object
+      additionalProperties: false
+      required: [fires]
+      properties:
+        fires:
+          type: array
+          items:
+            $ref: "#/components/schemas/FireData"
+    FireListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/FireListData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    RsvpInput:
+      type: object
+      additionalProperties: false
+      required: [memberId, tier]
+      properties:
+        memberId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        tier:
+          type: integer
+          minimum: 0
+          maximum: 2
+    RsvpData:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [going, waitlisted]
+        position:
+          type: integer
+    RsvpEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/RsvpData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    CancelRsvpData:
+      type: object
+      additionalProperties: false
+      required: [cancelled]
+      properties:
+        cancelled:
+          type: boolean
+        promotedMemberId:
+          type: string
+    CancelRsvpEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CancelRsvpData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:
