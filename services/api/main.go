@@ -19,6 +19,7 @@ import (
 
 	"github.com/stanleyHayes/obiara/internal/notifications"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
+	"github.com/stanleyHayes/obiara/internal/platform/outbox"
 	"github.com/stanleyHayes/obiara/internal/privacy"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
@@ -31,6 +32,7 @@ import (
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/telemetry"
 	"github.com/stanleyHayes/obiara/services/api/internal/profile"
+	"github.com/stanleyHayes/obiara/services/api/internal/safety"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification"
@@ -137,6 +139,16 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build notifications module: %w", err)
 	}
+	// Safety intake (E12-S01): reports ride the durable outbox to queue
+	// processors.
+	safetyOutbox := outbox.NewStore(client.Database(cfg.MongoDatabase), time.Now)
+	if err := safetyOutbox.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("ensure outbox indexes: %w", err)
+	}
+	safetyModule, err := safety.NewModule(ctx, client.Database(cfg.MongoDatabase), safetyOutbox)
+	if err != nil {
+		return fmt.Errorf("build safety module: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /live", health.Live())
@@ -153,6 +165,7 @@ func run() error {
 	apihttp.RegisterFireRoutes(mux, fireModule.Fires)
 	apihttp.RegisterEmberRoutes(mux, emberModule.Embers)
 	apihttp.RegisterNotificationRoutes(mux, notificationModule.Notifications)
+	apihttp.RegisterSafetyRoutes(mux, safetyModule.Safety)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,

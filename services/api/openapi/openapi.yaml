@@ -1048,6 +1048,108 @@ paths:
           $ref: "#/components/responses/SafetyCannotBeMuted"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/reports:
+    post:
+      operationId: fileReport
+      tags: [Safety]
+      summary: File a trust-and-safety report
+      security: []
+      description: |
+        The universal one-tap report sheet (E12-S01). Categories map to
+        conduct tiers (Doc 09 §2). The reporter's identity is never
+        disclosed to the reported party.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportInput"
+      responses:
+        "201":
+          description: Report filed; the acknowledgement is the reporter-safe view.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportAckEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/blocks:
+    post:
+      operationId: blockMember
+      tags: [Safety]
+      summary: Block a member
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlockInput"
+      responses:
+        "201":
+          description: Block recorded.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockStateEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "409":
+          $ref: "#/components/responses/BlockExists"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/blocks/{blockerId}/{blockedId}:
+    delete:
+      operationId: unblockMember
+      tags: [Safety]
+      summary: Remove a block
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: blockerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: blockedId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Block removed.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockStateEnvelope"
+        "404":
+          $ref: "#/components/responses/BlockNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -1398,6 +1500,24 @@ components:
                   message: Safety notifications cannot be turned off.
                 meta:
                   correlationId: 01J9EXAMPLE000000000000000
+    BlockExists:
+      description: The block edge already exists.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    BlockNotFound:
+      description: No block edge exists to remove.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
     ValidationFailed:
       description: Request fields or the idempotency key are invalid.
       headers:
@@ -2137,6 +2257,86 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/NotificationPreferencesData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    ReportInput:
+      type: object
+      additionalProperties: false
+      required: [reporterId, subjectId, category, surface]
+      properties:
+        reporterId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        subjectId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        category:
+          type: string
+          enum: [fraud, harassment, sexual_content, minor_safety, spam, other]
+        surface:
+          type: string
+          enum: [room, doorway, pod, circle, fire, profile]
+        contextRef:
+          type: string
+          maxLength: 128
+        reason:
+          type: string
+          maxLength: 500
+    ReportAckData:
+      type: object
+      additionalProperties: false
+      required: [reportId, tier, createdAt]
+      properties:
+        reportId:
+          type: string
+        tier:
+          type: string
+          enum: [A, B, C, D]
+        createdAt:
+          type: string
+          format: date-time
+    ReportAckEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ReportAckData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    BlockInput:
+      type: object
+      additionalProperties: false
+      required: [blockerId, blockedId]
+      properties:
+        blockerId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        blockedId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    BlockStateData:
+      type: object
+      additionalProperties: false
+      required: [blocked]
+      properties:
+        blocked:
+          type: boolean
+    BlockStateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/BlockStateData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

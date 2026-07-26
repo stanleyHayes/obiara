@@ -159,6 +159,40 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/blocks": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Block a member */
+    readonly post: operations["blockMember"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/blocks/{blockerId}/{blockedId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    /** Remove a block */
+    readonly delete: operations["unblockMember"];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/doorway-question": {
     readonly parameters: {
       readonly query?: never;
@@ -522,6 +556,28 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/reports": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * File a trust-and-safety report
+     * @description The universal one-tap report sheet (E12-S01). Categories map to
+     *     conduct tiers (Doc 09 §2). The reporter's identity is never
+     *     disclosed to the reported party.
+     */
+    readonly post: operations["fileReport"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/verifications/ghana-card": {
     readonly parameters: {
       readonly query?: never;
@@ -572,6 +628,17 @@ export interface components {
     };
     readonly AdminVerificationQueueEnvelope: {
       readonly data: components["schemas"]["AdminVerificationQueueData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly BlockInput: {
+      readonly blockedId: string;
+      readonly blockerId: string;
+    };
+    readonly BlockStateData: {
+      readonly blocked: boolean;
+    };
+    readonly BlockStateEnvelope: {
+      readonly data: components["schemas"]["BlockStateData"];
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly CancelRsvpData: {
@@ -771,6 +838,34 @@ export interface components {
       readonly email: string;
       readonly id: string;
     };
+    readonly ReportAckData: {
+      /** Format: date-time */
+      readonly createdAt: string;
+      readonly reportId: string;
+      /** @enum {string} */
+      readonly tier: "A" | "B" | "C" | "D";
+    };
+    readonly ReportAckEnvelope: {
+      readonly data: components["schemas"]["ReportAckData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly ReportInput: {
+      /** @enum {string} */
+      readonly category:
+        | "fraud"
+        | "harassment"
+        | "sexual_content"
+        | "minor_safety"
+        | "spam"
+        | "other";
+      readonly contextRef?: string;
+      readonly reason?: string;
+      readonly reporterId: string;
+      readonly subjectId: string;
+      /** @enum {string} */
+      readonly surface:
+        "room" | "doorway" | "pod" | "circle" | "fire" | "profile";
+    };
     readonly RsvpData: {
       readonly position?: number;
       /** @enum {string} */
@@ -900,6 +995,26 @@ export interface components {
     };
     /** @description The staff principal lacks the exact capability, or recent MFA where evidence access requires it. */
     readonly AdminForbidden: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The block edge already exists. */
+    readonly BlockExists: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description No block edge exists to remove. */
+    readonly BlockNotFound: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -1446,6 +1561,68 @@ export interface operations {
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 429: components["responses"]["OtpRateLimited"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly blockMember: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["BlockInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Block recorded. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["BlockStateEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 409: components["responses"]["BlockExists"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly unblockMember: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly blockedId: string;
+        readonly blockerId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Block removed. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["BlockStateEnvelope"];
+        };
+      };
+      readonly 404: components["responses"]["BlockNotFound"];
       readonly 500: components["responses"]["InternalError"];
     };
   };
@@ -2057,6 +2234,38 @@ export interface operations {
         };
       };
       readonly 404: components["responses"]["PrivacyRequestNotFound"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly fileReport: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ReportInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Report filed; the acknowledgement is the reporter-safe view. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ReportAckEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };
   };
