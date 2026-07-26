@@ -64,21 +64,36 @@ func TestMutualitySingleRoomAndPrivacy(t *testing.T) {
 	}
 	a, _ := w.Water(domain.Command{ID: "second-a", ActorKey: key(2), ReasonCode: "member_watered", ExpectedRevision: 1, At: now}, key(9))
 	b, _ := w.Water(domain.Command{ID: "second-b", ActorKey: key(2), ReasonCode: "member_watered", ExpectedRevision: 1, At: now}, key(10))
-	ch := make(chan error, 2)
-	go func() { ch <- r.Append(ctx, a, 1, "second-a") }()
-	go func() { ch <- r.Append(ctx, b, 1, "second-b") }()
+	type result struct {
+		command string
+		water   domain.Water
+		err     error
+	}
+	ch := make(chan result, 2)
+	go func() { ch <- result{command: "second-a", water: a, err: r.Append(ctx, a, 1, "second-a")} }()
+	go func() { ch <- result{command: "second-b", water: b, err: r.Append(ctx, b, 1, "second-b")} }()
 	saved, conflict := 0, 0
+	var winner, loser result
 	for range 2 {
-		if x := <-ch; x == nil {
+		x := <-ch
+		if x.err == nil {
 			saved++
-		} else if errors.Is(x, application.ErrOptimisticConflict) {
+			winner = x
+		} else if errors.Is(x.err, application.ErrOptimisticConflict) {
 			conflict++
+			loser = x
 		} else {
-			t.Fatal(x)
+			t.Fatal(x.err)
 		}
 	}
 	if saved != 1 || conflict != 1 {
 		t.Fatalf("%d %d", saved, conflict)
+	}
+	if e = r.Append(ctx, winner.water, 1, winner.command); !errors.Is(e, application.ErrCommandApplied) {
+		t.Fatalf("winner replay=%v", e)
+	}
+	if _, e = r.FindByCommand(ctx, loser.command); !errors.Is(e, application.ErrNotFound) {
+		t.Fatalf("losing command was persisted: %v", e)
 	}
 	final, e := r.Find(ctx, "water-1")
 	if e != nil || final.Status() != domain.StatusRoomCreated || final.RoomKey() == "" || final.Revision() != 2 {

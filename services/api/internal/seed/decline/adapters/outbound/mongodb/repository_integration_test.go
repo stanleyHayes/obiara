@@ -106,11 +106,30 @@ func TestRepositoryExclusionReplayAndPrivacy(t *testing.T) {
 			t.Fatalf("stored decline leaked %q: %s", forbidden, encoded)
 		}
 	}
-	notification, ok := document["notification"].(bson.M)
-	if !ok {
-		t.Fatalf("notification type=%T", document["notification"])
+	notification := nestedDocument(t, document["notification"])
+	for _, required := range []string{"eventKey", "recipientKey", "kind", "occurredAt"} {
+		if _, exists := notification[required]; !exists {
+			t.Fatalf("notification is missing %q: %#v", required, notification)
+		}
 	}
 	if notification["kind"] != domain.NotificationKind || len(notification) != 4 {
 		t.Fatalf("notification is not minimal and neutral: %#v", notification)
+	}
+}
+
+func nestedDocument(t *testing.T, value any) bson.M {
+	t.Helper()
+	switch value := value.(type) {
+	case bson.M:
+		return value
+	case bson.D:
+		document := make(bson.M, len(value))
+		for _, element := range value {
+			document[element.Key] = element.Value
+		}
+		return document
+	default:
+		t.Fatalf("nested document type=%T", value)
+		return nil
 	}
 }

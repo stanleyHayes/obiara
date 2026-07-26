@@ -71,7 +71,11 @@ func (r *Repository) Append(ctx context.Context, w domain.Water, expected uint64
 	if len(es) != int(expected+1) || len(cs) != int(expected+1) {
 		return domain.ErrInvalidWater
 	}
-	x, e := r.c.UpdateOne(ctx, bson.M{"_id": w.ID(), "revision": expected, "roomKey": ""}, bson.M{"$set": bson.M{"watered": w.Watered(), "roomKey": w.RoomKey(), "status": w.Status(), "revision": w.Revision()}, "$push": bson.M{"events": event(es[len(es)-1]), "commands": command(cs[len(cs)-1])}})
+	x, e := r.c.UpdateOne(ctx, bson.M{
+		"_id":      w.ID(),
+		"revision": expected,
+		"status":   domain.StatusAwaiting,
+	}, bson.M{"$set": bson.M{"watered": w.Watered(), "roomKey": w.RoomKey(), "status": w.Status(), "revision": w.Revision()}, "$push": bson.M{"events": event(es[len(es)-1]), "commands": command(cs[len(cs)-1])}})
 	if e != nil {
 		return r.dupe(ctx, id, e)
 	}
