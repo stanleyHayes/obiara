@@ -42,6 +42,11 @@ const copy: Record<
     title: "Sow with intention.",
     body: "Listen first, speak in your own voice, and spend only after server confirmation.",
   },
+  "abusua-gate": {
+    eyebrow: "PAIR-OWNED REVIEW",
+    title: "Open one careful window.",
+    body: "Both members choose exactly what one trusted reviewer may see.",
+  },
   okyeame: {
     eyebrow: "A CAPABILITY, NOT A PERSON",
     title: "Help should know its place.",

@@ -1,0 +1,223 @@
+.gate-page {
+  background: #f7efe2;
+  color: #2b151f;
+  min-height: 100vh;
+  padding: 0 max(24px, calc((100vw - 1180px) / 2)) 90px;
+}
+.gate-page * {
+  box-sizing: border-box;
+}
+.gate-page button,
+.gate-page a,
+.gate-page label {
+  font: inherit;
+  min-height: 48px;
+}
+.gate-top {
+  align-items: center;
+  border-bottom: 1px solid #d8c7bd;
+  display: flex;
+  justify-content: space-between;
+  min-height: 82px;
+}
+.gate-top a {
+  align-items: center;
+  color: #2b151f;
+  display: flex;
+  font-weight: 800;
+  text-decoration: none;
+}
+.gate-top span,
+.gate-kicker {
+  color: #8e3159;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.gate-hero {
+  padding: 90px 0 75px;
+}
+.gate-hero h1 {
+  font-size: clamp(5rem, 11vw, 10rem);
+  letter-spacing: -0.09em;
+  line-height: 0.82;
+  margin: 18px 0 32px;
+  max-width: 1050px;
+}
+.gate-hero > p:last-child {
+  color: #69535d;
+  font-size: 1.15rem;
+  line-height: 1.65;
+  max-width: 700px;
+}
+.gate-workspace {
+  border-top: 1px solid #d8c7bd;
+}
+.gate-step {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: 64px 1fr;
+  padding: 64px 0 28px;
+}
+.gate-step > span {
+  color: #8e3159;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+.gate-step h2 {
+  font-size: clamp(2.6rem, 5vw, 5rem);
+  letter-spacing: -0.07em;
+  line-height: 0.9;
+  margin: 12px 0;
+}
+.gate-materials {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+}
+.gate-materials label {
+  background: #fffaf2;
+  border: 1px solid #d8c7bd;
+  border-radius: 20px;
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr;
+  padding: 24px;
+}
+.gate-materials label.is-selected {
+  background: #38172c;
+  border-color: #38172c;
+  color: #fff5e9;
+}
+.gate-materials input {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+.gate-materials label > span {
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  display: flex;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+.gate-materials strong,
+.gate-materials small {
+  grid-column: 2;
+}
+.gate-materials small {
+  color: inherit;
+  line-height: 1.45;
+  opacity: 0.72;
+}
+.gate-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gate-roles button,
+.gate-consents button {
+  background: transparent;
+  border: 1px solid #9f8793;
+  border-radius: 999px;
+  color: #2b151f;
+  font-weight: 800;
+  padding: 0 18px;
+}
+.gate-roles button[aria-pressed="true"] {
+  background: #38172c;
+  color: #fff5e9;
+}
+.gate-consents {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+}
+.gate-consents article {
+  background: #fffaf2;
+  border: 1px solid #d8c7bd;
+  border-radius: 20px;
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+}
+.gate-consents article.is-ready {
+  border-color: #27755f;
+}
+.gate-consents strong {
+  font-size: 1.55rem;
+}
+.gate-consents button {
+  justify-self: start;
+}
+.gate-issue {
+  align-items: end;
+  background: #38172c;
+  border-radius: 28px;
+  color: #fff5e9;
+  display: grid;
+  gap: 50px;
+  grid-template-columns: 1fr auto;
+  margin-top: 80px;
+  padding: clamp(28px, 5vw, 58px);
+}
+.gate-issue .gate-kicker {
+  color: #ff9ab0;
+}
+.gate-issue h2 {
+  font-size: clamp(3rem, 6vw, 6rem);
+  letter-spacing: -0.075em;
+  line-height: 0.9;
+  margin: 14px 0 22px;
+}
+.gate-issue p {
+  color: #d8c4ce;
+  line-height: 1.6;
+  max-width: 690px;
+}
+.gate-issue button {
+  background: #ffb34f;
+  border: 0;
+  border-radius: 999px;
+  color: #2b151f;
+  font-weight: 850;
+  padding: 0 22px;
+}
+.gate-issue button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+@media (max-width: 760px) {
+  .gate-page {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .gate-top span {
+    display: none;
+  }
+  .gate-hero {
+    padding: 58px 0;
+  }
+  .gate-hero h1 {
+    font-size: 4.7rem;
+  }
+  .gate-materials,
+  .gate-consents,
+  .gate-issue {
+    grid-template-columns: 1fr;
+  }
+  .gate-step {
+    grid-template-columns: 42px 1fr;
+  }
+  .gate-issue {
+    align-items: start;
+  }
+  .gate-issue button {
+    width: 100%;
+  }
+}

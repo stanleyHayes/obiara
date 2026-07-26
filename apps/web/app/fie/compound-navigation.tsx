@@ -1,7 +1,10 @@
 import { fieRoutes, type FieRouteId } from "@obiara/fie-routing";
 import Link from "next/link";
 
-export type FieZone = Exclude<FieRouteId, "welcome" | "garden" | "okyeame">;
+export type FieZone = Exclude<
+  FieRouteId,
+  "welcome" | "garden" | "abusua-gate" | "okyeame"
+>;
 
 const marks: Record<FieZone, string> = {
   home: "F",

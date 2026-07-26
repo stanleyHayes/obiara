@@ -43,3 +43,30 @@ test("private room detail stays accessible and bounded", async ({ page }) => {
     ),
   ).toBe(false);
 });
+
+test("Abusua Gate requires mutual consent and stays bounded", async ({
+  page,
+}) => {
+  await page.goto("/fie/abusua-gate");
+  await expect(
+    page.getByRole("heading", { name: "Open one careful window." }),
+  ).toBeVisible();
+  const issue = page.getByRole("button", {
+    name: "Create private reviewer passage",
+  });
+  await expect(issue).toBeDisabled();
+  await page.getByRole("button", { name: "Preview mutual consent" }).click();
+  await expect(issue).toBeEnabled();
+  await issue.click();
+  await expect(
+    page.getByRole("heading", {
+      name: "The gate is open for one visit.",
+    }),
+  ).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+  ).toBe(false);
+});

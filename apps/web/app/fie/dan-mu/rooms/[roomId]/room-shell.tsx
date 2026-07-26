@@ -156,12 +156,15 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
         </div>
       </section>
       <footer className="room-care">
-        <button
-          onClick={() => dispatch({ type: "begin-closure" })}
-          type="button"
-        >
-          Close this room kindly
-        </button>
+        <div>
+          <button
+            onClick={() => dispatch({ type: "begin-closure" })}
+            type="button"
+          >
+            Close this room kindly
+          </button>
+          <Link href="/fie/abusua-gate">Prepare an Abusua Gate</Link>
+        </div>
         <p>
           Pause, block and report remain available regardless of whose turn it
           is.

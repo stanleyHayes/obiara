@@ -6,6 +6,7 @@ export type FieRouteId =
   | "epono-ano"
   | "dan-mu"
   | "garden"
+  | "abusua-gate"
   | "okyeame";
 
 export interface FieRoute {
@@ -74,6 +75,14 @@ export const fieRoutes: readonly FieRoute[] = [
     webPath: "/fie/garden",
     expoPath: "/fie/garden",
     minimumTier: 1,
+  },
+  {
+    id: "abusua-gate",
+    label: "Abusua Gate",
+    gloss: "family review",
+    webPath: "/fie/abusua-gate",
+    expoPath: "/fie/abusua-gate",
+    minimumTier: 2,
   },
   {
     id: "okyeame",
