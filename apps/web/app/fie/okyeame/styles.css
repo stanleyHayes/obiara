@@ -223,6 +223,10 @@
   text-decoration: none;
 }
 
+.okyeame-actions a + a {
+  background: #fff3e6;
+}
+
 .okyeame-actions button {
   background: transparent;
   border: 1px solid rgba(255, 243, 230, 0.3);

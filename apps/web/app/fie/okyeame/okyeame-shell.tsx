@@ -41,6 +41,9 @@ export function OkyeameShell() {
           <p>{boundary.detail}</p>
           <div className="okyeame-actions">
             <Link href="/fie">Return safely to Fie</Link>
+            <Link href="/fie/okyeame/accountability">
+              View AI accountability
+            </Link>
             <button
               onClick={() =>
                 setCapability((current) =>

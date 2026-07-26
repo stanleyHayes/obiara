@@ -2,6 +2,7 @@ import {
   decideOkyeame,
   type OkyeameCapability,
 } from "@obiara/okyeame-policy";
+import { type Href, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +20,7 @@ const requestOptions: readonly {
 ];
 
 export function OkyeameScreen() {
+  const router = useRouter();
   const [selected, setSelected] =
     useState<OkyeameCapability>("feature_help");
   const decision = decideOkyeame({
@@ -87,6 +89,20 @@ export function OkyeameScreen() {
               <Text style={styles.decisionMeta}>Prompt not retained</Text>
             </View>
           </View>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() =>
+              router.push("/fie/okyeame-accountability" as Href)
+            }
+            style={({ pressed }) => [
+              styles.accountabilityLink,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.accountabilityLinkText}>
+              View AI accountability
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -200,5 +216,19 @@ const styles = StyleSheet.create({
     color: "rgba(255, 243, 230, 0.82)",
     fontFamily: "Outfit_600SemiBold",
     fontSize: 12,
+  },
+  accountabilityLink: {
+    alignItems: "center",
+    borderColor: "#2A1022",
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: "center",
+    marginTop: 18,
+    minHeight: 48,
+  },
+  accountabilityLinkText: {
+    color: "#2A1022",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 14,
   },
 });
