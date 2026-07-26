@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Africa/Accra
+    labels: [dependencies, platform]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:15"
+      timezone: Africa/Accra
+    labels: [dependencies, javascript]
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:30"
+      timezone: Africa/Accra
+    labels: [dependencies, go]
+    open-pull-requests-limit: 5
