@@ -17,6 +17,8 @@ tags:
     description: Process and required-dependency health probes.
   - name: Members
     description: Member account commands and resources.
+  - name: Admin Verification
+    description: Least-privilege human verification desk operations.
 paths:
   /live:
     get:
@@ -339,7 +341,157 @@ paths:
           $ref: "#/components/responses/PrivacyRequestNotFound"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/verifications:
+    get:
+      operationId: listAdminVerificationQueue
+      tags: [Admin Verification]
+      summary: List privacy-redacted verification cases
+      description: Requires the verification.queue.read capability.
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+      responses:
+        "200":
+          description: Oldest queued verification cases, without raw evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminVerificationQueueEnvelope"
+        "403":
+          $ref: "#/components/responses/AdminForbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/verifications/{id}:
+    get:
+      operationId: getAdminVerificationCase
+      tags: [Admin Verification]
+      summary: Read privacy-redacted verification case detail
+      description: Requires the verification.queue.read capability.
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Redacted case detail; raw card and birth date are excluded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminVerificationCaseEnvelope"
+        "403":
+          $ref: "#/components/responses/AdminForbidden"
+        "404":
+          $ref: "#/components/responses/VerificationCaseNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/verifications/{id}/evidence-access:
+    post:
+      operationId: accessAdminVerificationEvidence
+      tags: [Admin Verification]
+      summary: Access bounded verification evidence and create an audit event
+      description: |
+        Requires verification.evidence.read, recent MFA, a bounded purpose,
+        and a reason. Every successful access writes a dedicated audit event.
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceAccessInput"
+      responses:
+        "200":
+          description: Bounded evidence returned after the audit write succeeds.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationEvidenceEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "403":
+          $ref: "#/components/responses/AdminForbidden"
+        "404":
+          $ref: "#/components/responses/VerificationCaseNotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/verifications/{id}/decisions:
+    post:
+      operationId: decideAdminVerificationCase
+      tags: [Admin Verification]
+      summary: Approve or reject a queued verification case
+      description: |
+        Requires verification.review. The reason, expected version, and
+        Idempotency-Key make retries deterministic and stale writes fail closed.
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationDecisionInput"
+      responses:
+        "200":
+          description: Decision committed or an identical command replayed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationDecisionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "403":
+          $ref: "#/components/responses/AdminForbidden"
+        "404":
+          $ref: "#/components/responses/VerificationCaseNotFound"
+        "409":
+          $ref: "#/components/responses/VerificationCaseConflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
+  securitySchemes:
+    AdminBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Staff token carrying the explicitly documented capability and recent-MFA claim where required.
   parameters:
     CorrelationId:
       name: X-Correlation-ID
@@ -510,6 +662,33 @@ components:
                   message: No such privacy request.
                 meta:
                   correlationId: 01J9EXAMPLE000000000000000
+    AdminForbidden:
+      description: The staff principal lacks the exact capability, or recent MFA where evidence access requires it.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    VerificationCaseNotFound:
+      description: No verification case with this identifier exists.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    VerificationCaseConflict:
+      description: The case is closed, stale, or the idempotency key belongs to another decision.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
     ValidationFailed:
       description: Request fields or the idempotency key are invalid.
       headers:
@@ -715,6 +894,133 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/VerificationCaseData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminVerificationCaseData:
+      type: object
+      additionalProperties: false
+      required: [caseId, subjectRef, reasonCode, submittedAt, version]
+      properties:
+        caseId:
+          type: string
+        subjectRef:
+          type: string
+          description: Stable pseudonymous subject reference; never the account identifier.
+        reasonCode:
+          type: string
+          enum: [provider_outage, provider_uncertain, manual_review]
+        submittedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [queued_manual, approved, rejected]
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+    AdminVerificationCaseEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminVerificationCaseData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminVerificationQueueData:
+      type: object
+      additionalProperties: false
+      required: [cases]
+      properties:
+        cases:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AdminVerificationCaseData"
+    AdminVerificationQueueEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminVerificationQueueData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    EvidenceAccessInput:
+      type: object
+      additionalProperties: false
+      required: [purpose, reason]
+      properties:
+        purpose:
+          type: string
+          minLength: 3
+          maxLength: 64
+          pattern: ^[a-z0-9][a-z0-9_.-]{2,63}$
+        reason:
+          type: string
+          minLength: 8
+          maxLength: 240
+    VerificationEvidenceData:
+      type: object
+      additionalProperties: false
+      required: [caseId, maskedCard, ageBand, providerStatus]
+      properties:
+        caseId:
+          type: string
+        maskedCard:
+          type: string
+          description: Only the final four card characters are visible.
+        ageBand:
+          type: string
+          enum: [under_18, 18_24, 25_34, 35_49, 50_plus]
+        providerStatus:
+          type: string
+          enum: [provider_outage, provider_uncertain, manual_review]
+    VerificationEvidenceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/VerificationEvidenceData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    VerificationDecisionInput:
+      type: object
+      additionalProperties: false
+      required: [outcome, reason, expectedVersion]
+      properties:
+        outcome:
+          type: string
+          enum: [approve, reject]
+        reason:
+          type: string
+          minLength: 8
+          maxLength: 240
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 1
+    VerificationDecisionData:
+      type: object
+      additionalProperties: false
+      required: [case, outcome, replayed]
+      properties:
+        case:
+          $ref: "#/components/schemas/AdminVerificationCaseData"
+        outcome:
+          type: string
+          enum: [approve, reject]
+        replayed:
+          type: boolean
+    VerificationDecisionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/VerificationDecisionData"
         meta:
           $ref: "#/components/schemas/Metadata"
     PrivacyRequestInput:

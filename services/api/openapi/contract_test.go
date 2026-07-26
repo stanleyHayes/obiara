@@ -26,6 +26,10 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"  /v1/privacy/exports:",
 		"  /v1/privacy/deletions:",
 		"  /v1/privacy/requests/{id}:",
+		"  /v1/admin/verifications:",
+		"  /v1/admin/verifications/{id}:",
+		"  /v1/admin/verifications/{id}/evidence-access:",
+		"  /v1/admin/verifications/{id}/decisions:",
 		"operationId: registerMember",
 		"operationId: requestOtp",
 		"operationId: verifyOtp",
@@ -33,6 +37,10 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"operationId: requestExport",
 		"operationId: requestDeletion",
 		"operationId: privacyRequestStatus",
+		"operationId: listAdminVerificationQueue",
+		"operationId: getAdminVerificationCase",
+		"operationId: accessAdminVerificationEvidence",
+		"operationId: decideAdminVerificationCase",
 		"name: Idempotency-Key",
 		"name: X-Correlation-ID",
 		"additionalProperties: false",
@@ -68,7 +76,7 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 9 {
-		t.Errorf("operationId count = %d, want 9", len(seen))
+	if len(seen) != 13 {
+		t.Errorf("operationId count = %d, want 13", len(seen))
 	}
 }

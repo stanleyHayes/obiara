@@ -33,6 +33,88 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/verifications": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List privacy-redacted verification cases
+     * @description Requires the verification.queue.read capability.
+     */
+    readonly get: operations["listAdminVerificationQueue"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/verifications/{id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read privacy-redacted verification case detail
+     * @description Requires the verification.queue.read capability.
+     */
+    readonly get: operations["getAdminVerificationCase"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/verifications/{id}/decisions": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Approve or reject a queued verification case
+     * @description Requires verification.review. The reason, expected version, and
+     *     Idempotency-Key make retries deterministic and stale writes fail closed.
+     */
+    readonly post: operations["decideAdminVerificationCase"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/verifications/{id}/evidence-access": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Access bounded verification evidence and create an audit event
+     * @description Requires verification.evidence.read, recent MFA, a bounded purpose,
+     *     and a reason. Every successful access writes a dedicated audit event.
+     */
+    readonly post: operations["accessAdminVerificationEvidence"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/auth/otp": {
     readonly parameters: {
       readonly query?: never;
@@ -185,6 +267,31 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    readonly AdminVerificationCaseData: {
+      readonly caseId: string;
+      /** @enum {string} */
+      readonly reasonCode:
+        "provider_outage" | "provider_uncertain" | "manual_review";
+      /** @enum {string} */
+      readonly status?: "queued_manual" | "approved" | "rejected";
+      /** @description Stable pseudonymous subject reference; never the account identifier. */
+      readonly subjectRef: string;
+      /** Format: date-time */
+      readonly submittedAt: string;
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly AdminVerificationCaseEnvelope: {
+      readonly data: components["schemas"]["AdminVerificationCaseData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly AdminVerificationQueueData: {
+      readonly cases: readonly components["schemas"]["AdminVerificationCaseData"][];
+    };
+    readonly AdminVerificationQueueEnvelope: {
+      readonly data: components["schemas"]["AdminVerificationQueueData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly CorrelationId: string;
     readonly Error: {
       readonly code: string;
@@ -194,6 +301,10 @@ export interface components {
     readonly ErrorEnvelope: {
       readonly error: components["schemas"]["Error"];
       readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly EvidenceAccessInput: {
+      readonly purpose: string;
+      readonly reason: string;
     };
     readonly FieldError: {
       readonly field: string;
@@ -285,10 +396,51 @@ export interface components {
       readonly data: components["schemas"]["VerificationCaseData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly VerificationDecisionData: {
+      readonly case: components["schemas"]["AdminVerificationCaseData"];
+      /** @enum {string} */
+      readonly outcome: "approve" | "reject";
+      readonly replayed: boolean;
+    };
+    readonly VerificationDecisionEnvelope: {
+      readonly data: components["schemas"]["VerificationDecisionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly VerificationDecisionInput: {
+      /** Format: int64 */
+      readonly expectedVersion: number;
+      /** @enum {string} */
+      readonly outcome: "approve" | "reject";
+      readonly reason: string;
+    };
+    readonly VerificationEvidenceData: {
+      /** @enum {string} */
+      readonly ageBand: "under_18" | "18_24" | "25_34" | "35_49" | "50_plus";
+      readonly caseId: string;
+      /** @description Only the final four card characters are visible. */
+      readonly maskedCard: string;
+      /** @enum {string} */
+      readonly providerStatus:
+        "provider_outage" | "provider_uncertain" | "manual_review";
+    };
+    readonly VerificationEvidenceEnvelope: {
+      readonly data: components["schemas"]["VerificationEvidenceData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
   };
   responses: {
     /** @description The account is blocked or deleted. */
     readonly AccountNotActive: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The staff principal lacks the exact capability, or recent MFA where evidence access requires it. */
+    readonly AdminForbidden: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -397,6 +549,26 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description The case is closed, stale, or the idempotency key belongs to another decision. */
+    readonly VerificationCaseConflict: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description No verification case with this identifier exists. */
+    readonly VerificationCaseNotFound: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description The issuer provider rejected the document. */
     readonly VerificationRejected: {
       headers: {
@@ -487,6 +659,134 @@ export interface operations {
           readonly "text/plain": "dependency unavailable";
         };
       };
+    };
+  };
+  readonly listAdminVerificationQueue: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Oldest queued verification cases, without raw evidence. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminVerificationQueueEnvelope"];
+        };
+      };
+      readonly 403: components["responses"]["AdminForbidden"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly getAdminVerificationCase: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Redacted case detail; raw card and birth date are excluded. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminVerificationCaseEnvelope"];
+        };
+      };
+      readonly 403: components["responses"]["AdminForbidden"];
+      readonly 404: components["responses"]["VerificationCaseNotFound"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly decideAdminVerificationCase: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["VerificationDecisionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Decision committed or an identical command replayed. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VerificationDecisionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 403: components["responses"]["AdminForbidden"];
+      readonly 404: components["responses"]["VerificationCaseNotFound"];
+      readonly 409: components["responses"]["VerificationCaseConflict"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly accessAdminVerificationEvidence: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EvidenceAccessInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Bounded evidence returned after the audit write succeeds. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VerificationEvidenceEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 403: components["responses"]["AdminForbidden"];
+      readonly 404: components["responses"]["VerificationCaseNotFound"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly requestOtp: {
