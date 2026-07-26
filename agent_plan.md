@@ -843,6 +843,7 @@ table with a concrete sprint, owner and path boundary during refinement.
 | S1-008 | E02-S08 Feature flags, configuration audit and kill switches | 1 | Unassigned | BACKLOG | `services/api/internal/platform/flags/` | Depends S1-002 | flag audit and kill-switch tests | — |
 | S1-009 | E02-S09 Worker scheduling, retries, dead letters and job observability | 1 | Unassigned | BACKLOG | `services/worker/` | Depends S1-004 | retry/DLQ integration tests | — |
 | S1-010 | E02-S10 Media abstraction, signed access and retention metadata | 1 | Unassigned | BACKLOG | `services/api/internal/media/` | Depends S1-003 | signed-access contract tests | — |
+| S1-011 | Review fix (S1-003 note): transport-neutral duplicate-conflict sentinel | 1 | `/root/backend_review` | IN PROGRESS | `services/api/internal/member/`, `services/api/internal/platform/http/member.go`, `services/api/openapi/openapi.yaml` | claimed 2026-07-26; follows S1-003 review note | unit tests for sentinel translation and 409 mapping; contract test | — |
 
 ## 19. Estimation and capacity rules
 
