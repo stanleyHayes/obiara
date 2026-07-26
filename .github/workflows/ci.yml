@@ -48,6 +48,9 @@ jobs:
       - name: Check all workspaces
         run: pnpm run check
 
+      - name: Check localization, accessibility, and copy policies
+        run: pnpm run check:client-quality
+
       - name: Vet Go packages
         run: go vet ./...
 

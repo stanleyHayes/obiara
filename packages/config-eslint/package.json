@@ -5,13 +5,20 @@
   "type": "module",
   "exports": {
     "./base": "./base.mjs",
-    "./next": "./next.mjs"
+    "./next": "./next.mjs",
+    "./product-quality": "./product-quality.mjs"
   },
   "dependencies": {
     "@eslint/js": "9.39.2",
     "eslint-config-next": "16.2.12",
     "globals": "16.5.0",
     "typescript-eslint": "8.52.0"
+  },
+  "devDependencies": {
+    "eslint": "9.39.2"
+  },
+  "scripts": {
+    "test": "node --test"
   },
   "peerDependencies": {
     "eslint": ">=9.0.0 <10.0.0"

@@ -9,6 +9,7 @@
   "scripts": {
     "build": "turbo run build",
     "check": "turbo run lint typecheck test && go test ./...",
+    "check:client-quality": "pnpm --filter @obiara/quality-client test",
     "dev": "turbo run dev",
     "format": "prettier --check .",
     "lint": "turbo run lint",

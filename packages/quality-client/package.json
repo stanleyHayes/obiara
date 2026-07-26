@@ -1,0 +1,18 @@
+{
+  "name": "@obiara/quality-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "obiara-client-quality": "./src/cli.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "scripts": {
+    "build": "node --check src/index.mjs && node --check src/cli.mjs",
+    "lint": "node --check src/index.mjs && node --check src/cli.mjs",
+    "test": "node --test",
+    "typecheck": "node --check src/index.mjs && node --check src/cli.mjs"
+  }
+}
