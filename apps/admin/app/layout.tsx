@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "@fontsource-variable/outfit";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
-import { ObiaraThemeProvider } from "@obiara/ui-web";
+import { ObiaraAdminThemeProvider } from "@obiara/ui-web";
 import "./styles.css";
 
 export const metadata: Metadata = {
@@ -10,12 +10,14 @@ export const metadata: Metadata = {
   description: "Obiara operations platform",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
         <AppRouterCacheProvider>
-          <ObiaraThemeProvider>{children}</ObiaraThemeProvider>
+          <ObiaraAdminThemeProvider>{children}</ObiaraAdminThemeProvider>
         </AppRouterCacheProvider>
       </body>
     </html>

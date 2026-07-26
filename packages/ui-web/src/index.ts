@@ -1,3 +1,11 @@
+export { ObiaraAdminThemeProvider } from "./admin-theme-provider";
+export type { ObiaraAdminThemeProviderProps } from "./admin-theme-provider";
+export {
+  createObiaraAdminTheme,
+  obiaraAdminStatusColors,
+  obiaraAdminTheme,
+} from "./admin-theme";
+export type { ObiaraAdminThemePreferences } from "./admin-theme";
 export { ObiaraThemeProvider } from "./theme-provider";
 export type { ObiaraThemeProviderProps } from "./theme-provider";
 export {
