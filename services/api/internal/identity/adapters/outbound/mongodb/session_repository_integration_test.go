@@ -12,9 +12,9 @@ import (
 	testmongodb "github.com/testcontainers/testcontainers-go/modules/mongodb"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
+	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
-	apimongo "github.com/stanleyHayes/obiara/services/api/internal/platform/mongo"
 )
 
 const integrationTimeout = 3 * time.Minute

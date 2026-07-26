@@ -9,8 +9,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
+	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/services/api/internal/member/domain"
-	apimongo "github.com/stanleyHayes/obiara/services/api/internal/platform/mongo"
 )
 
 var ErrMemberNotFound = errors.New("member not found")

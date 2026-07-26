@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	apimongo "github.com/stanleyHayes/obiara/services/api/internal/platform/mongo"
+	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 )
 
 var (

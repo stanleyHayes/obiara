@@ -1,3 +1,4 @@
+// Package jobs is the composition root of the worker's job context.
 package jobs
 
 import (
@@ -7,14 +8,13 @@ import (
 )
 
 type Module struct {
-	source  application.JobSource
-	handler application.Handler
+	scheduler *application.Scheduler
 }
 
-func NewModule(source application.JobSource, handler application.Handler) Module {
-	return Module{source: source, handler: handler}
+func NewModule(scheduler *application.Scheduler) Module {
+	return Module{scheduler: scheduler}
 }
 
 func (module Module) Run(ctx context.Context) error {
-	return module.source.Run(ctx, module.handler)
+	return module.scheduler.Start(ctx)
 }

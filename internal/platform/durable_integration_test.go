@@ -13,10 +13,10 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/platform/idempotency"
-	"github.com/stanleyHayes/obiara/services/api/internal/platform/inbox"
-	apimongo "github.com/stanleyHayes/obiara/services/api/internal/platform/mongo"
-	"github.com/stanleyHayes/obiara/services/api/internal/platform/outbox"
+	"github.com/stanleyHayes/obiara/internal/platform/idempotency"
+	"github.com/stanleyHayes/obiara/internal/platform/inbox"
+	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
+	"github.com/stanleyHayes/obiara/internal/platform/outbox"
 )
 
 const integrationTimeout = 3 * time.Minute

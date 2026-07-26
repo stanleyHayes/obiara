@@ -17,12 +17,12 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 
+	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
-	apimongo "github.com/stanleyHayes/obiara/services/api/internal/platform/mongo"
 )
 
 func main() {
