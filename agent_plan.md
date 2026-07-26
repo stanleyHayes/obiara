@@ -832,7 +832,7 @@ owner and path boundary during refinement.
 | S0-012 | Initial threat model, data classification and DPIA inputs | 0 | Unassigned | BACKLOG | `internal/architecture/`, compliance docs | Depends S0-003 | security/privacy review | — |
 | S0-013 | Traceability matrix, synthetic personas and fixture policy | 0 | Unassigned | BACKLOG | `internal/product/`, `packages/test-fixtures/` | Depends S0-003 | requirement sample traced end-to-end | — |
 | S0-014 | Sprint 0 integrated verification and founder checkpoint | 0 | Unassigned | BACKLOG | plan/evidence only | Depends S0-003–S0-013 | all Sprint 0 gates recorded | — |
-| S0-015 | Remediate high transitive dependency advisories | 0 | Unassigned | READY | root/package manifests and lockfile | — | `pnpm audit --audit-level high` clean or documented upstream non-fixable decision | Four high advisories detected by S0-006; no waiver granted |
+| S0-015 | Remediate high transitive dependency advisories | 0 | `/root/platform_scaffold` | IN PROGRESS | root/package manifests and lockfile | claimed 2026-07-26 | `pnpm audit --audit-level high` clean or documented upstream non-fixable decision | Four high advisories detected by S0-006; no waiver granted |
 
 ## 19. Estimation and capacity rules
 
