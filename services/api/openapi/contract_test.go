@@ -22,15 +22,18 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"  /v1/members:",
 		"  /v1/auth/otp:",
 		"  /v1/auth/otp/verify:",
+		"  /v1/verifications/ghana-card:",
 		"operationId: registerMember",
 		"operationId: requestOtp",
 		"operationId: verifyOtp",
+		"operationId: submitGhanaCard",
 		"name: Idempotency-Key",
 		"name: X-Correlation-ID",
 		"additionalProperties: false",
 		"invalid_json",
 		"validation_failed",
 		"otp_rate_limited",
+		"verification_rejected",
 		"correlationId:",
 	}
 	for _, token := range required {
@@ -58,7 +61,7 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 5 {
-		t.Errorf("operationId count = %d, want 5", len(seen))
+	if len(seen) != 6 {
+		t.Errorf("operationId count = %d, want 6", len(seen))
 	}
 }

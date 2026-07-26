@@ -191,6 +191,52 @@ paths:
           $ref: "#/components/responses/OtpRateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/verifications/ghana-card:
+    post:
+      operationId: submitGhanaCard
+      tags: [Verification]
+      summary: Submit a Ghana Card for identity verification
+      security: []
+      description: |
+        Opens a verification case and asks the issuer provider. Approved
+        submissions promote the account to Tier 1. Provider outage or
+        uncertainty routes the case to the human fallback queue (202) —
+        never a silent pass. Rejections return 422 verification_rejected.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GhanaCardInput"
+      responses:
+        "201":
+          description: Verification decided (approved).
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationCaseEnvelope"
+        "202":
+          description: Case routed to the human fallback queue.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationCaseEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/VerificationRejected"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   parameters:
     CorrelationId:
@@ -309,6 +355,23 @@ components:
                 error:
                   code: account_not_active
                   message: This account is not active.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    VerificationRejected:
+      description: The issuer provider rejected the document.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            verificationRejected:
+              value:
+                error:
+                  code: verification_rejected
+                  message: The document could not be verified with the issuer.
                 meta:
                   correlationId: 01J9EXAMPLE000000000000000
     ValidationFailed:
@@ -448,7 +511,15 @@ components:
     SessionData:
       type: object
       additionalProperties: false
-      required: [sessionId, memberId, accessToken, accessExpiresAt, refreshToken, refreshExpiresAt]
+      required:
+        [
+          sessionId,
+          memberId,
+          accessToken,
+          accessExpiresAt,
+          refreshToken,
+          refreshExpiresAt,
+        ]
       properties:
         sessionId:
           type: string
@@ -471,6 +542,43 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/SessionData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    GhanaCardInput:
+      type: object
+      additionalProperties: false
+      required: [accountId, cardNumber, dateOfBirth]
+      properties:
+        accountId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        cardNumber:
+          type: string
+          minLength: 1
+          maxLength: 32
+        dateOfBirth:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}$
+          description: Date of birth as YYYY-MM-DD.
+    VerificationCaseData:
+      type: object
+      additionalProperties: false
+      required: [caseId, status]
+      properties:
+        caseId:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, queued_manual]
+    VerificationCaseEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/VerificationCaseData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

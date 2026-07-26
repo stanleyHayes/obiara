@@ -98,6 +98,29 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/verifications/ghana-card": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Submit a Ghana Card for identity verification
+     * @description Opens a verification case and asks the issuer provider. Approved
+     *     submissions promote the account to Tier 1. Provider outage or
+     *     uncertainty routes the case to the human fallback queue (202) —
+     *     never a silent pass. Rejections return 422 verification_rejected.
+     */
+    readonly post: operations["submitGhanaCard"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -115,6 +138,12 @@ export interface components {
     readonly FieldError: {
       readonly field: string;
       readonly reason: string;
+    };
+    readonly GhanaCardInput: {
+      readonly accountId: string;
+      readonly cardNumber: string;
+      /** @description Date of birth as YYYY-MM-DD. */
+      readonly dateOfBirth: string;
     };
     readonly Member: {
       /** Format: date-time */
@@ -166,6 +195,15 @@ export interface components {
     };
     readonly SessionEnvelope: {
       readonly data: components["schemas"]["SessionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly VerificationCaseData: {
+      readonly caseId: string;
+      /** @enum {string} */
+      readonly status: "pending" | "approved" | "rejected" | "queued_manual";
+    };
+    readonly VerificationCaseEnvelope: {
+      readonly data: components["schemas"]["VerificationCaseData"];
       readonly meta: components["schemas"]["Metadata"];
     };
   };
@@ -252,6 +290,16 @@ export interface components {
     };
     /** @description Request fields or the idempotency key are invalid. */
     readonly ValidationFailed: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The issuer provider rejected the document. */
+    readonly VerificationRejected: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -446,6 +494,48 @@ export interface operations {
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
       readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly submitGhanaCard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["GhanaCardInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Verification decided (approved). */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VerificationCaseEnvelope"];
+        };
+      };
+      /** @description Case routed to the human fallback queue. */
+      readonly 202: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VerificationCaseEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["VerificationRejected"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
 }

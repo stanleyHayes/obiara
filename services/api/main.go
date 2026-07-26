@@ -19,10 +19,13 @@ import (
 
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
+	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
+	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
+	"github.com/stanleyHayes/obiara/services/api/internal/verification"
 )
 
 func main() {
@@ -64,6 +67,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build identity module: %w", err)
 	}
+	// Verification (E03-S03) promotes accounts through the identity tier
+	// state machine via the composition-time bridge.
+	verificationModule, err := verification.NewModule(ctx, client.Database(cfg.MongoDatabase), tierBridge{tiers: identityModule.Tiers})
+	if err != nil {
+		return fmt.Errorf("build verification module: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /live", health.Live())
@@ -72,6 +81,7 @@ func run() error {
 	}))
 	apihttp.RegisterMemberRoutes(mux, memberModule.Register.Handle)
 	apihttp.RegisterAuthRoutes(mux, identityModule.Registration)
+	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -93,4 +103,16 @@ func run() error {
 		}
 		return err
 	}
+}
+
+// tierBridge adapts the verification context's provider-neutral tier port
+// to the identity context's tier state machine. Cross-context calls happen
+// only at the composition root (agent_plan.md §7.2).
+type tierBridge struct {
+	tiers identityapplication.TierService
+}
+
+func (bridge tierBridge) Transition(ctx context.Context, accountID string, target int, reason, actorID string) error {
+	_, err := bridge.tiers.Transition(ctx, accountID, identitydomain.Tier(target), reason, actorID)
+	return err
 }
