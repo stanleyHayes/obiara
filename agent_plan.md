@@ -810,11 +810,11 @@ Agent allocation:
 - Agents may review outside their implementation lane but must claim correction
   work before editing.
 
-### Sprint 0 task status
+### Sprint task status
 
-This table contains every executable Sprint 0 task. Later epic stories remain
-`BACKLOG` in Section 20 and are promoted into this table with a concrete sprint,
-owner and path boundary during refinement.
+This table contains every executable task promoted from the epic backlog.
+Later epic stories remain `BACKLOG` in Section 20 and are promoted into this
+table with a concrete sprint, owner and path boundary during refinement.
 
 | Task | Deliverable | Sprint | Agent | Status | Owned paths | Claimed / completed | Verification | Review note |
 |---|---|---:|---|---|---|---|---|---|
@@ -833,6 +833,16 @@ owner and path boundary during refinement.
 | S0-013 | Traceability matrix, synthetic personas and fixture policy | 0 | `/root/backend_traceability` | DONE | `internal/product/`, `packages/test-fixtures/` | claimed/completed 2026-07-26 | All P0 FR/NFR rows linked req→module→screen→story→consent→tests→release; FR-202 sample traced end-to-end (matrix §4); tsc strict pass on personas registry; prettier clean | Self-reviewed; FR-105 mapped to P1 productization with P0 assisted vouch noted |
 | S0-014 | Sprint 0 integrated verification and founder checkpoint | 0 | Unassigned | BACKLOG | plan/evidence only | Depends S0-003–S0-013 | all Sprint 0 gates recorded | — |
 | S0-015 | Remediate high transitive dependency advisories | 0 | `/root/platform_scaffold` | DONE | `pnpm-workspace.yaml`, `pnpm-lock.yaml` | claimed/completed 2026-07-26 | audit: 0 high/0 critical; frozen install, peers, 9/9 Turbo checks, Go tests/vet, 3/3 client builds passed | Exact patched transitive overrides; no waiver; one moderate advisory remains below the approved gate |
+| S1-001 | E02-S01 Go composition root and hexagonal module wiring | 1 | `/root/backend_kernel` | IN PROGRESS | `services/api/main.go`, `services/api/internal/platform/` | claimed 2026-07-26 after Sprint 1 refinement; S0-007 template done | gofmt/vet/unit tests; /live and /ready behavior verified | — |
+| S1-002 | E02-S05 MongoDB client, transaction, repository and migration conventions | 1 | Unassigned | READY | `services/api/internal/platform/mongo/`, Go module files | Depends S0-007 (done) | Testcontainers integration | — |
+| S1-003 | E02-S02 API envelope, OpenAPI, validation and generated TS client | 1 | Unassigned | BACKLOG | `services/api/internal/platform/http/`, `packages/api-client/` | Depends S1-001 | contract generation drift check | — |
+| S1-004 | E02-S06 Idempotency, optimistic concurrency, outbox and inbox | 1 | Unassigned | BACKLOG | `services/api/internal/platform/`, `services/worker/` | Depends S1-002 | property/fuzz idempotency suite | — |
+| S1-005 | E02-S03 Authentication/session/device model | 1 | Unassigned | BACKLOG | `services/api/internal/identity/` | Depends S1-003 | boundary + contract tests | — |
+| S1-006 | E02-S04 Authorization/RBAC/ABAC kernel | 1 | Unassigned | BACKLOG | `services/api/internal/authz/` | Depends S1-005 | deny-by-default route and use-case tests | — |
+| S1-007 | E02-S07 Structured logging, traces, metrics, health and correlation | 1 | Unassigned | BACKLOG | `services/api/internal/platform/`, `packages/observability/` | Depends S1-001 | PII-redaction and correlation tests | — |
+| S1-008 | E02-S08 Feature flags, configuration audit and kill switches | 1 | Unassigned | BACKLOG | `services/api/internal/platform/flags/` | Depends S1-002 | flag audit and kill-switch tests | — |
+| S1-009 | E02-S09 Worker scheduling, retries, dead letters and job observability | 1 | Unassigned | BACKLOG | `services/worker/` | Depends S1-004 | retry/DLQ integration tests | — |
+| S1-010 | E02-S10 Media abstraction, signed access and retention metadata | 1 | Unassigned | BACKLOG | `services/api/internal/media/` | Depends S1-003 | signed-access contract tests | — |
 
 ## 19. Estimation and capacity rules
 
