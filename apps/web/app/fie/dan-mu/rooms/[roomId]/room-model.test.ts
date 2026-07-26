@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { initialRoomState, roomReducer } from "./room-model";
+import {
+  canOpenTheme,
+  guidedThemes,
+  initialRoomState,
+  roomReducer,
+} from "./room-model";
 
 describe("private room interaction law", () => {
   it("requires a voice draft and then hands over the turn", () => {
@@ -37,6 +42,20 @@ describe("private room interaction law", () => {
     });
     expect(roomReducer(categorized, { type: "submit-report" }).safetyStep).toBe(
       "reported",
+    );
+  });
+
+  it("presents the guided arc in order without urgency or paid skips", () => {
+    expect(guidedThemes.map((theme) => theme.state)).toEqual([
+      "revealed",
+      "ready",
+      "locked",
+      "locked",
+    ]);
+    expect(canOpenTheme(guidedThemes[1].state)).toBe(true);
+    expect(canOpenTheme(guidedThemes[2].state)).toBe(false);
+    expect(JSON.stringify(guidedThemes)).not.toMatch(
+      /deadline|streak|upgrade|pay|score/i,
     );
   });
 });

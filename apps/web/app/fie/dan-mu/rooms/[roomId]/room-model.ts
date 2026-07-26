@@ -1,6 +1,22 @@
 export type RoomMode = "open" | "paused" | "closing";
 export type SafetyStep = "menu" | "report" | "reported" | "blocked";
 export type ReportCategory = "harassment" | "identity" | "threat" | "other";
+export type ThemeState = "revealed" | "ready" | "locked";
+
+export const guidedThemes = [
+  { number: 1, title: "What home carries", state: "revealed" },
+  { number: 2, title: "How care feels", state: "ready" },
+  { number: 3, title: "What we protect", state: "locked" },
+  { number: 4, title: "What we might build", state: "locked" },
+] as const satisfies ReadonlyArray<{
+  number: number;
+  title: string;
+  state: ThemeState;
+}>;
+
+export function canOpenTheme(state: ThemeState): boolean {
+  return state === "ready" || state === "revealed";
+}
 
 export interface RoomState {
   readonly mode: RoomMode;

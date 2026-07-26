@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useReducer } from "react";
-import { roomReducer, initialRoomState } from "./room-model";
+import {
+  canOpenTheme,
+  guidedThemes,
+  roomReducer,
+  initialRoomState,
+} from "./room-model";
 
 const events = [
   {
@@ -61,6 +66,38 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
           </strong>
           <small>Nothing here needs an immediate response.</small>
         </aside>
+      </section>
+      <section className="room-themes" aria-labelledby="guided-arc-title">
+        <div className="room-themes-intro">
+          <p className="fie-kicker">A guided arc, never a race</p>
+          <h2 id="guided-arc-title">Four ways to listen deeper.</h2>
+          <p>
+            Each reflection stays folded until you both answer. The next theme
+            opens only after the shared reveal.
+          </p>
+        </div>
+        <div className="room-theme-grid">
+          {guidedThemes.map((theme) => (
+            <article className={`is-${theme.state}`} key={theme.number}>
+              <span>Theme {theme.number}</span>
+              <h3>{theme.title}</h3>
+              <p>
+                {theme.state === "revealed"
+                  ? "Both reflections are visible here."
+                  : theme.state === "ready"
+                    ? "Ready whenever you both want to continue."
+                    : `Opens after theme ${theme.number - 1} is revealed.`}
+              </p>
+              <button disabled={!canOpenTheme(theme.state)} type="button">
+                {theme.state === "revealed"
+                  ? "Revisit shared reveal"
+                  : theme.state === "ready"
+                    ? "Open theme two"
+                    : "Resting for now"}
+              </button>
+            </article>
+          ))}
+        </div>
       </section>
       <section
         className="room-timeline"

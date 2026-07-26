@@ -15,6 +15,12 @@ const messages = [
   ["You", "Mine sounds like highlife and too many voices in one kitchen."],
   ["Ama", "What is one tradition you would keep?"],
 ] as const;
+const themes = [
+  ["01", "What home carries", "REVEALED"],
+  ["02", "How care feels", "READY"],
+  ["03", "What we protect", "RESTING"],
+  ["04", "What we might build", "RESTING"],
+] as const;
 
 export function RoomScreen() {
   const router = useRouter();
@@ -82,6 +88,61 @@ export function RoomScreen() {
               </Text>
               <Text style={[styles.meta, who === "You" && styles.mineMeta]}>
                 Voice · private transcript
+              </Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.themes}>
+          <Text style={styles.safetyEyebrow}>A GUIDED ARC, NEVER A RACE</Text>
+          <Text accessibilityRole="header" style={styles.themesTitle}>
+            Four ways to listen deeper.
+          </Text>
+          <Text style={styles.themesCopy}>
+            Each reflection stays folded until you both answer. Themes open in
+            order after a shared reveal.
+          </Text>
+          {themes.map(([number, title, state]) => (
+            <View
+              key={number}
+              style={[styles.themeCard, state === "READY" && styles.themeReady]}
+            >
+              <View style={styles.themeMeta}>
+                <Text
+                  style={[
+                    styles.themeNumber,
+                    state === "READY" && styles.themeReadyText,
+                  ]}
+                >
+                  THEME {number}
+                </Text>
+                <Text
+                  style={[
+                    styles.themeNumber,
+                    state === "READY" && styles.themeReadyText,
+                  ]}
+                >
+                  {state}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.themeTitle,
+                  state === "READY" && styles.themeReadyText,
+                ]}
+              >
+                {title}
+              </Text>
+              <Text
+                style={[
+                  styles.themeDescription,
+                  state === "READY" && styles.themeReadyDescription,
+                ]}
+              >
+                {state === "REVEALED"
+                  ? "Both reflections are visible."
+                  : state === "READY"
+                    ? "Ready whenever you both want to continue."
+                    : `Opens after theme ${Number(number) - 1} is revealed.`}
               </Text>
             </View>
           ))}
@@ -255,6 +316,59 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     marginBottom: 4,
   },
+  themes: {
+    borderTopColor: "rgba(255,243,230,.12)",
+    borderTopWidth: 1,
+    marginTop: 42,
+    paddingTop: 36,
+  },
+  themesTitle: {
+    color: "#FFF3E6",
+    fontFamily: "Outfit_800ExtraBold",
+    fontSize: 38,
+    letterSpacing: -2,
+    lineHeight: 38,
+    marginTop: 12,
+  },
+  themesCopy: {
+    color: "rgba(255,243,230,.68)",
+    fontFamily: "Outfit_400Regular",
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 18,
+    marginTop: 14,
+  },
+  themeCard: {
+    borderColor: "rgba(255,243,230,.18)",
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 10,
+    minHeight: 170,
+    padding: 20,
+  },
+  themeReady: { backgroundColor: "#FFF0D9" },
+  themeMeta: { flexDirection: "row", justifyContent: "space-between" },
+  themeNumber: {
+    color: "rgba(255,243,230,.72)",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 10,
+    letterSpacing: 1.4,
+  },
+  themeTitle: {
+    color: "#FFF3E6",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 24,
+    letterSpacing: -0.8,
+    marginTop: 30,
+  },
+  themeDescription: {
+    color: "rgba(255,243,230,.62)",
+    fontFamily: "Outfit_400Regular",
+    lineHeight: 22,
+    marginTop: 8,
+  },
+  themeReadyText: { color: "#2A1022" },
+  themeReadyDescription: { color: "#624B59" },
   message: {
     alignSelf: "flex-start",
     backgroundColor: "rgba(255,243,230,.09)",
