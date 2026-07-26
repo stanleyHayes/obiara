@@ -1,0 +1,138 @@
+.oware-room {
+  background: #f7efe2;
+  color: #28161f;
+  min-height: 100vh;
+  padding: 0 max(24px, calc((100vw - 1180px) / 2)) 64px;
+}
+.oware-room button,
+.oware-room a { font: inherit; min-height: 48px; }
+.oware-room header {
+  align-items: center;
+  border-bottom: 1px solid #d8c9bc;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  min-height: 84px;
+}
+.oware-room header a,
+.oware-room footer a { align-items: center; color: #28161f; display: flex; font-weight: 800; }
+.oware-room header > div { align-items: center; display: flex; gap: 8px; }
+.oware-room header > div span { color: #168565; }
+.oware-room header button {
+  background: transparent;
+  border: 1px solid #8f7885;
+  border-radius: 999px;
+  justify-self: end;
+  padding: 0 20px;
+}
+.oware-room .fie-kicker { color: #9b315d; }
+.oware-hero {
+  align-items: end;
+  display: grid;
+  gap: 64px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, .5fr);
+  padding: 86px 0 68px;
+}
+.oware-hero h1 {
+  font-size: clamp(4.5rem, 9vw, 8.8rem);
+  letter-spacing: -.085em;
+  line-height: .84;
+  margin: 16px 0 28px;
+}
+.oware-hero > div > p:last-child { color: #705c67; line-height: 1.65; max-width: 670px; }
+.oware-hero aside {
+  border: 1px solid #c5a15c;
+  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+.oware-hero aside strong { font-size: 1.8rem; margin: 30px 0 8px; }
+.oware-hero aside span,
+.oware-hero aside small { color: #705c67; }
+.oware-table {
+  background: #381829;
+  border-radius: 32px;
+  color: #fff3e6;
+  padding: clamp(24px, 5vw, 64px);
+}
+.oware-score { display: flex; gap: 12px; justify-content: flex-end; }
+.oware-score > div {
+  border: 1px solid rgba(255,243,230,.22);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  min-width: 132px;
+  padding: 14px;
+}
+.oware-score span { color: rgba(255,243,230,.62); font-size: .75rem; }
+.oware-score strong { font-size: 1.8rem; margin-top: 8px; }
+.oware-table h2 {
+  font-size: clamp(3rem, 6vw, 5.8rem);
+  letter-spacing: -.075em;
+  line-height: .9;
+  margin: 14px 0 20px;
+  max-width: 760px;
+}
+.oware-table > div:nth-child(2) > p:last-child { color: rgba(255,243,230,.66); line-height: 1.6; max-width: 650px; }
+.oware-board {
+  background: #c77b31;
+  border: 10px solid #874819;
+  border-radius: 42px;
+  box-shadow: inset 0 0 0 2px rgba(255,243,230,.18);
+  display: grid;
+  gap: 12px;
+  margin: 48px 0 28px;
+  padding: clamp(18px, 4vw, 38px);
+}
+.oware-row { display: grid; gap: 10px; grid-template-columns: repeat(6, 1fr); }
+.oware-pit {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #f7c97f;
+  border: 3px solid #6e3817;
+  border-radius: 50%;
+  color: #28161f;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+button.oware-pit { cursor: pointer; }
+button.oware-pit[aria-pressed="true"] { box-shadow: 0 0 0 5px #fff3e6; transform: translateY(-4px); }
+button.oware-pit:disabled { cursor: not-allowed; opacity: .55; }
+.oware-pit strong { font-size: clamp(1.3rem, 3vw, 2.3rem); }
+.oware-pit span { font-size: .7rem; font-weight: 700; margin-top: 2px; }
+.oware-row.is-ama .oware-pit { background: #dba45c; }
+.oware-confirm { align-items: center; display: flex; gap: 24px; justify-content: space-between; }
+.oware-confirm > div { display: flex; flex-direction: column; gap: 5px; }
+.oware-confirm small { color: rgba(255,243,230,.6); }
+.oware-confirm button {
+  background: #ffad3d;
+  border: 0;
+  border-radius: 999px;
+  color: #28161f;
+  font-weight: 850;
+  padding: 0 22px;
+}
+.oware-confirm button:disabled { opacity: .42; }
+.oware-room footer {
+  align-items: center;
+  display: flex;
+  gap: 28px;
+  justify-content: space-between;
+  padding-top: 32px;
+}
+.oware-room footer p { color: #705c67; }
+@media (max-width: 760px) {
+  .oware-room header { grid-template-columns: 1fr auto; }
+  .oware-room header > div { display: none; }
+  .oware-hero { gap: 28px; grid-template-columns: 1fr; padding: 52px 0; }
+  .oware-hero h1 { font-size: 4.5rem; }
+  .oware-table { margin-inline: -12px; }
+  .oware-board { border-width: 6px; gap: 8px; padding: 12px; }
+  .oware-row { gap: 5px; }
+  .oware-pit { border-width: 2px; }
+  .oware-pit span { display: none; }
+  .oware-confirm,
+  .oware-room footer { align-items: flex-start; flex-direction: column; }
+}

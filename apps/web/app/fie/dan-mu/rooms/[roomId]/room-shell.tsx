@@ -257,6 +257,9 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
             Close this room kindly
           </button>
           <Link href="/fie/abusua-gate">Prepare an Abusua Gate</Link>
+          <Link href="/fie/games/oware/game_4Nq8mK2xP7vR5tZa">
+            Open private Oware
+          </Link>
         </div>
         <p>
           Pause, block and report remain available regardless of whose turn it
