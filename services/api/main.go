@@ -20,6 +20,7 @@ import (
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/privacy"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
+	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
@@ -124,6 +125,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build fire module: %w", err)
 	}
+	// Embers (E06-S10). The mutual-ember doorway opener stays nil until the
+	// sprout module composes.
+	emberModule, err := ember.NewModule(ctx, client.Database(cfg.MongoDatabase), nil)
+	if err != nil {
+		return fmt.Errorf("build ember module: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /live", health.Live())
@@ -138,6 +145,7 @@ func run() error {
 	apihttp.RegisterDoorwayRoutes(mux, profileModule.Doorway, profileModule.Vault)
 	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening)
 	apihttp.RegisterFireRoutes(mux, fireModule.Fires)
+	apihttp.RegisterEmberRoutes(mux, emberModule.Embers)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,

@@ -891,6 +891,95 @@ paths:
           $ref: "#/components/responses/RsvpNotFound"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/fires/{id}/embers:
+    post:
+      operationId: issueEmber
+      tags: [Fires]
+      summary: Give an ember to a co-attendee
+      security: []
+      description: |
+        Issues one warm introduction (FR-402): one per attendee per fire,
+        co-attendees only, redeemable for 24 hours. When the reverse ember
+        exists the pair becomes mutual (Doc 06 S-65).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmberInput"
+      responses:
+        "201":
+          description: Ember issued.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmberEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "403":
+          $ref: "#/components/responses/NotCoAttendee"
+        "409":
+          $ref: "#/components/responses/EmberConflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/embers/{id}/redeem:
+    post:
+      operationId: redeemEmber
+      tags: [Fires]
+      summary: Redeem an ember
+      security: []
+      description: Recipients redeem within 24 hours of issue (FR-402).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmberRedeemInput"
+      responses:
+        "200":
+          description: Ember redeemed.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmberEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "403":
+          $ref: "#/components/responses/NotRecipient"
+        "404":
+          $ref: "#/components/responses/EmberNotFound"
+        "409":
+          $ref: "#/components/responses/EmberConflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -1173,6 +1262,50 @@ components:
             $ref: "#/components/schemas/ErrorEnvelope"
     RsvpNotFound:
       description: No RSVP exists for this member and fire.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotCoAttendee:
+      description: Embers require co-attendance at the same fire.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            notCoAttendee:
+              value:
+                error:
+                  code: not_co_attendee
+                  message: Embers are only for people who attended the same fire.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    NotRecipient:
+      description: Only the recipient may redeem an ember.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    EmberConflict:
+      description: The attendee already gave an ember, or the ember is expired/closed.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    EmberNotFound:
+      description: No ember with this identifier exists.
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/CorrelationId"
@@ -1822,6 +1955,56 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/CancelRsvpData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    EmberInput:
+      type: object
+      additionalProperties: false
+      required: [fromId, toId]
+      properties:
+        fromId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        toId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    EmberRedeemInput:
+      type: object
+      additionalProperties: false
+      required: [memberId]
+      properties:
+        memberId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    EmberData:
+      type: object
+      additionalProperties: false
+      required: [emberId, status, expiresAt]
+      properties:
+        emberId:
+          type: string
+        status:
+          type: string
+          enum: [issued, mutual, redeemed, expired]
+        expiresAt:
+          type: string
+          format: date-time
+        redeemedAt:
+          type: string
+          format: date-time
+    EmberEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/EmberData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

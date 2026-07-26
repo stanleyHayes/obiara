@@ -197,6 +197,26 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/embers/{id}/redeem": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Redeem an ember
+     * @description Recipients redeem within 24 hours of issue (FR-402).
+     */
+    readonly post: operations["redeemEmber"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/fires": {
     readonly parameters: {
       readonly query?: never;
@@ -212,6 +232,28 @@ export interface paths {
      * @description Creates a scheduled fire with bounded capacity (E09-S01).
      */
     readonly post: operations["scheduleFire"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/fires/{id}/embers": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Give an ember to a co-attendee
+     * @description Issues one warm introduction (FR-402): one per attendee per fire,
+     *     co-attendees only, redeemable for 24 hours. When the reverse ember
+     *     exists the pair becomes mutual (Doc 06 S-65).
+     */
+    readonly post: operations["issueEmber"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -540,6 +582,26 @@ export interface components {
       readonly data: components["schemas"]["EligibilityData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly EmberData: {
+      readonly emberId: string;
+      /** Format: date-time */
+      readonly expiresAt: string;
+      /** Format: date-time */
+      readonly redeemedAt?: string;
+      /** @enum {string} */
+      readonly status: "issued" | "mutual" | "redeemed" | "expired";
+    };
+    readonly EmberEnvelope: {
+      readonly data: components["schemas"]["EmberData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly EmberInput: {
+      readonly fromId: string;
+      readonly toId: string;
+    };
+    readonly EmberRedeemInput: {
+      readonly memberId: string;
+    };
     readonly Error: {
       readonly code: string;
       readonly details?: readonly components["schemas"]["FieldError"][];
@@ -808,6 +870,26 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description The attendee already gave an ember, or the ember is expired/closed. */
+    readonly EmberConflict: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description No ember with this identifier exists. */
+    readonly EmberNotFound: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description No fire with this identifier exists. */
     readonly FireNotFound: {
       headers: {
@@ -850,6 +932,26 @@ export interface components {
     };
     /** @description A member with the same identifier already exists. */
     readonly MemberConflict: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description Embers require co-attendance at the same fire. */
+    readonly NotCoAttendee: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description Only the recipient may redeem an ember. */
+    readonly NotRecipient: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -1349,6 +1451,43 @@ export interface operations {
       readonly 500: components["responses"]["InternalError"];
     };
   };
+  readonly redeemEmber: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmberRedeemInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Ember redeemed. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["EmberEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 403: components["responses"]["NotRecipient"];
+      readonly 404: components["responses"]["EmberNotFound"];
+      readonly 409: components["responses"]["EmberConflict"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
   readonly listUpcomingFires: {
     readonly parameters: {
       readonly query?: {
@@ -1404,6 +1543,42 @@ export interface operations {
         };
       };
       readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly issueEmber: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EmberInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Ember issued. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["EmberEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 403: components["responses"]["NotCoAttendee"];
+      readonly 409: components["responses"]["EmberConflict"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
