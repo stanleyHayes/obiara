@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "@fontsource-variable/outfit";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
+import { ObiaraThemeProvider } from "@obiara/ui-web";
+import "./styles.css";
 
 export const metadata: Metadata = {
-  title: "Obiara",
-  description: "Obiara member web",
+  title: "Obiara — Meet properly",
+  description: "A trusted place to meet, speak and grow a true connection.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <AppRouterCacheProvider>
+          <ObiaraThemeProvider>{children}</ObiaraThemeProvider>
+        </AppRouterCacheProvider>
+      </body>
     </html>
   );
 }
