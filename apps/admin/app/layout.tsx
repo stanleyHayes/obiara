@@ -15,7 +15,7 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <body suppressHydrationWarning>
         <AppRouterCacheProvider>
           <ObiaraAdminThemeProvider>{children}</ObiaraAdminThemeProvider>
         </AppRouterCacheProvider>
