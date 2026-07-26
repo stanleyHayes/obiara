@@ -11,6 +11,7 @@ import (
 	"time"
 
 	testmongodb "github.com/testcontainers/testcontainers-go/modules/mongodb"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/services/api/internal/privacy/adapters/outbound/mongodb"
@@ -22,14 +23,14 @@ const integrationTimeout = 3 * time.Minute
 
 type stubAssembler struct{ called []string }
 
-func (stub *stubAssembler) Assemble(_ context.Context, accountID string) (string, error) {
+func (stub *stubAssembler) Assemble(_ context.Context, _, accountID string) (string, error) {
 	stub.called = append(stub.called, accountID)
 	return "archive://" + accountID, nil
 }
 
 type stubErasure struct{ called []string }
 
-func (stub *stubErasure) Erase(_ context.Context, accountID string) error {
+func (stub *stubErasure) Erase(_ context.Context, _, accountID string) error {
 	stub.called = append(stub.called, accountID)
 	return nil
 }
@@ -142,4 +143,82 @@ func TestPrivacyRequestsAndHoldsEndToEnd(t *testing.T) {
 	if exportDone, _ := service.Status(ctx, exportRequest.ID()); exportDone.Status() != domain.StatusCompleted {
 		t.Fatalf("export status = %q", exportDone.Status())
 	}
+
+	t.Run("production cross-context archive and erasure are replay safe", func(t *testing.T) {
+		accountID := "id_cross_context"
+		for _, seed := range []struct {
+			collection string
+			document   bson.M
+		}{
+			{"members", bson.M{"_id": accountID, "email": "member@example.test"}},
+			{"profiles", bson.M{"_id": accountID, "displayName": "Archive Subject"}},
+			{"photo_vault", bson.M{"_id": "photo-1", "memberId": accountID, "assetId": "opaque-asset"}},
+			{"media_assets", bson.M{"_id": "media-1", "ownerId": accountID, "ciphertext": "encrypted"}},
+		} {
+			if _, err := database.Collection(seed.collection).InsertOne(ctx, seed.document); err != nil {
+				t.Fatal(err)
+			}
+		}
+		assembler := mongodb.NewArchiveAssembler(database, func() time.Time { return time.Now().UTC() })
+		if err := assembler.EnsureIndexes(ctx); err != nil {
+			t.Fatal(err)
+		}
+		export, err := service.RequestExport(ctx, accountID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		processor := application.NewProcessor(repository, assembler, mongodb.NewErasureRunner(database, time.Now), &stubRevoker{}, time.Now)
+		if err := processor.RunBatch(ctx, 10); err != nil {
+			t.Fatal(err)
+		}
+		var archive struct {
+			ArchiveRef string `bson:"archiveRef"`
+			Payload    []byte `bson:"payload"`
+		}
+		if err := database.Collection("privacy_export_archives").FindOne(ctx, bson.M{"_id": export.ID()}).Decode(&archive); err != nil {
+			t.Fatal(err)
+		}
+		if archive.ArchiveRef != "privacy-export:"+export.ID() || !strings.Contains(string(archive.Payload), "opaque-asset") {
+			t.Fatalf("archive ref=%q payload=%s", archive.ArchiveRef, archive.Payload)
+		}
+		if replayed, err := assembler.Assemble(ctx, export.ID(), accountID); err != nil || replayed != archive.ArchiveRef {
+			t.Fatalf("archive replay ref=%q error=%v", replayed, err)
+		}
+		if _, err := database.Collection("legal_holds").InsertOne(ctx, bson.M{
+			"_id": "held-subject", "reason": "court-order", "placedBy": "operator", "placedAt": time.Now(),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := mongodb.NewErasureRunner(database, time.Now).Erase(ctx, "pr-held", "held-subject"); err != domain.ErrLegalHoldActive {
+			t.Fatalf("held erasure = %v, want legal hold", err)
+		}
+
+		deletion, err := service.RequestDeletion(ctx, accountID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		revoker := &stubRevoker{}
+		processor = application.NewProcessor(repository, assembler, mongodb.NewErasureRunner(database, time.Now), revoker, time.Now)
+		if err := processor.RunBatch(ctx, 10); err != nil {
+			t.Fatal(err)
+		}
+		for _, collection := range []string{"members", "profiles", "photo_vault", "media_assets"} {
+			count, err := database.Collection(collection).CountDocuments(ctx, bson.M{"$or": bson.A{
+				bson.M{"_id": accountID}, bson.M{"memberId": accountID}, bson.M{"ownerId": accountID},
+			}})
+			if err != nil || count != 0 {
+				t.Fatalf("%s retained %d documents: %v", collection, count, err)
+			}
+		}
+		var audit bson.M
+		if err := database.Collection("privacy_erasure_audit").FindOne(ctx, bson.M{"_id": deletion.ID()}).Decode(&audit); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(fmt.Sprint(audit), accountID) || len(revoker.called) != 1 {
+			t.Fatalf("unsafe audit=%v revocations=%v", audit, revoker.called)
+		}
+		if err := mongodb.NewErasureRunner(database, time.Now).Erase(ctx, deletion.ID(), accountID); err != nil {
+			t.Fatalf("erasure replay: %v", err)
+		}
+	})
 }

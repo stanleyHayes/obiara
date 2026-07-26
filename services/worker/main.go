@@ -14,6 +14,7 @@ import (
 
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
+	apiprivacy "github.com/stanleyHayes/obiara/services/api/privacy"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/application"
@@ -66,11 +67,18 @@ func run() error {
 		return fmt.Errorf("ensure outbox indexes: %w", err)
 	}
 
-	scheduler := application.NewScheduler([]application.Job{
-		relay.NewOutboxJob(outboxStore, loggingPublisher{logger: logger}, 100, 5*time.Second),
-	}, mongodb.NewDeadLetterStore(database, time.Now), logger, time.Now)
+	privacyProcessor, err := apiprivacy.NewWorkerProcessor(ctx, database)
+	if err != nil {
+		return fmt.Errorf("build privacy processor: %w", err)
+	}
 
-	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 1))
+	workerJobs := []application.Job{
+		relay.NewOutboxJob(outboxStore, loggingPublisher{logger: logger}, 100, 5*time.Second),
+		application.NewPrivacyJob(privacyProcessor),
+	}
+	scheduler := application.NewScheduler(workerJobs, mongodb.NewDeadLetterStore(database, time.Now), logger, time.Now)
+
+	logger.InfoContext(ctx, "worker started", slog.Int("jobs", len(workerJobs)))
 	if err := jobs.NewModule(scheduler).Run(ctx); err != nil {
 		return err
 	}

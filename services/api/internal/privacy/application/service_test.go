@@ -85,7 +85,7 @@ func TestProcessorExecutesDeletion(t *testing.T) {
 	open, _ := domain.NewRequest("pr_1", "id_1", domain.KindDeletion, testNow)
 	requests.EXPECT().NextExecutable(gomock.Any(), 5).Return([]domain.PrivacyRequest{open}, nil)
 	requests.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-	erasure.EXPECT().Erase(gomock.Any(), "id_1").Return(nil)
+	erasure.EXPECT().Erase(gomock.Any(), "pr_1", "id_1").Return(nil)
 	sessions.EXPECT().RevokeMemberSessions(gomock.Any(), "id_1").Return(nil)
 
 	if err := processor.RunBatch(context.Background(), 5); err != nil {
@@ -104,8 +104,32 @@ func TestProcessorExportDoesNotErase(t *testing.T) {
 	open, _ := domain.NewRequest("pr_1", "id_1", domain.KindExport, testNow)
 	requests.EXPECT().NextExecutable(gomock.Any(), 5).Return([]domain.PrivacyRequest{open}, nil)
 	requests.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-	assembler.EXPECT().Assemble(gomock.Any(), "id_1").Return("archive://pr_1", nil)
+	assembler.EXPECT().Assemble(gomock.Any(), "pr_1", "id_1").Return("archive://pr_1", nil)
 	// No Erase or RevokeMemberSessions expectation: any call fails.
+
+	if err := processor.RunBatch(context.Background(), 5); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestProcessorResumesIdempotentProcessingAfterWorkerRestart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	requests := NewMockRequestRepository(ctrl)
+	assembler := NewMockExportAssembler(ctrl)
+	processor := NewProcessor(requests, assembler, NewMockErasureRunner(ctrl), NewMockSessionRevoker(ctrl), fixedNow)
+
+	processing, _ := domain.NewRequest("pr_resume", "id_1", domain.KindExport, testNow)
+	if err := processing.StartProcessing(); err != nil {
+		t.Fatal(err)
+	}
+	requests.EXPECT().NextExecutable(gomock.Any(), 5).Return([]domain.PrivacyRequest{processing}, nil)
+	assembler.EXPECT().Assemble(gomock.Any(), "pr_resume", "id_1").Return("privacy-export:pr_resume", nil)
+	requests.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, request domain.PrivacyRequest) error {
+		if request.Status() != domain.StatusCompleted {
+			t.Fatalf("status = %q", request.Status())
+		}
+		return nil
+	})
 
 	if err := processor.RunBatch(context.Background(), 5); err != nil {
 		t.Fatal(err)

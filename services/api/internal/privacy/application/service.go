@@ -41,13 +41,13 @@ type LegalHoldRepository interface {
 // Implementations gather across contexts; the archive never contains
 // another member's data.
 type ExportAssembler interface {
-	Assemble(ctx context.Context, accountID string) (archiveRef string, err error)
+	Assemble(ctx context.Context, requestID, accountID string) (archiveRef string, err error)
 }
 
 // ErasureRunner cryptographically erases voice/biometric blobs and marks
 // the account deleted (FR-106, Doc 09 retention table).
 type ErasureRunner interface {
-	Erase(ctx context.Context, accountID string) error
+	Erase(ctx context.Context, requestID, accountID string) error
 }
 
 // SessionRevoker is the identity-context port for closing sessions on
@@ -162,20 +162,24 @@ func (processor Processor) RunBatch(ctx context.Context, limit int) error {
 }
 
 func (processor Processor) execute(ctx context.Context, request domain.PrivacyRequest) error {
-	if err := request.StartProcessing(); err != nil {
-		return err
-	}
-	if err := processor.requests.Update(ctx, request); err != nil {
-		return err
+	if request.Status() == domain.StatusRequested {
+		if err := request.StartProcessing(); err != nil {
+			return err
+		}
+		if err := processor.requests.Update(ctx, request); err != nil {
+			return err
+		}
+	} else if request.Status() != domain.StatusProcessing {
+		return domain.ErrRequestNotOpen
 	}
 
 	switch request.Kind() {
 	case domain.KindExport:
-		if _, err := processor.assembler.Assemble(ctx, request.AccountID()); err != nil {
+		if _, err := processor.assembler.Assemble(ctx, request.ID(), request.AccountID()); err != nil {
 			return err
 		}
 	case domain.KindDeletion:
-		if err := processor.erasure.Erase(ctx, request.AccountID()); err != nil {
+		if err := processor.erasure.Erase(ctx, request.ID(), request.AccountID()); err != nil {
 			return err
 		}
 		if err := processor.sessions.RevokeMemberSessions(ctx, request.AccountID()); err != nil {

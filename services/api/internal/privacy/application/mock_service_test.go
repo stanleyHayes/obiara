@@ -207,18 +207,18 @@ func (m *MockExportAssembler) EXPECT() *MockExportAssemblerMockRecorder {
 }
 
 // Assemble mocks base method.
-func (m *MockExportAssembler) Assemble(ctx context.Context, accountID string) (string, error) {
+func (m *MockExportAssembler) Assemble(ctx context.Context, requestID, accountID string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Assemble", ctx, accountID)
+	ret := m.ctrl.Call(m, "Assemble", ctx, requestID, accountID)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Assemble indicates an expected call of Assemble.
-func (mr *MockExportAssemblerMockRecorder) Assemble(ctx, accountID any) *gomock.Call {
+func (mr *MockExportAssemblerMockRecorder) Assemble(ctx, requestID, accountID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Assemble", reflect.TypeOf((*MockExportAssembler)(nil).Assemble), ctx, accountID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Assemble", reflect.TypeOf((*MockExportAssembler)(nil).Assemble), ctx, requestID, accountID)
 }
 
 // MockErasureRunner is a mock of ErasureRunner interface.
@@ -246,17 +246,17 @@ func (m *MockErasureRunner) EXPECT() *MockErasureRunnerMockRecorder {
 }
 
 // Erase mocks base method.
-func (m *MockErasureRunner) Erase(ctx context.Context, accountID string) error {
+func (m *MockErasureRunner) Erase(ctx context.Context, requestID, accountID string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Erase", ctx, accountID)
+	ret := m.ctrl.Call(m, "Erase", ctx, requestID, accountID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Erase indicates an expected call of Erase.
-func (mr *MockErasureRunnerMockRecorder) Erase(ctx, accountID any) *gomock.Call {
+func (mr *MockErasureRunnerMockRecorder) Erase(ctx, requestID, accountID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Erase", reflect.TypeOf((*MockErasureRunner)(nil).Erase), ctx, accountID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Erase", reflect.TypeOf((*MockErasureRunner)(nil).Erase), ctx, requestID, accountID)
 }
 
 // MockSessionRevoker is a mock of SessionRevoker interface.

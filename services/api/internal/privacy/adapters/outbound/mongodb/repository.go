@@ -114,7 +114,7 @@ func (repository *RequestRepository) NextExecutable(ctx context.Context, limit i
 		limit = 25
 	}
 	cursor, err := repository.collection().Find(ctx,
-		bson.M{"status": string(domain.StatusRequested)},
+		bson.M{"status": bson.M{"$in": bson.A{string(domain.StatusRequested), string(domain.StatusProcessing)}}},
 		options.Find().SetSort(bson.D{{Key: "createdAt", Value: 1}}).SetLimit(int64(limit)))
 	if err != nil {
 		return nil, err
