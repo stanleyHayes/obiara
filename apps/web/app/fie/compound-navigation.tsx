@@ -41,11 +41,16 @@ const navigation: readonly {
 ];
 
 interface CompoundNavigationProps {
-  readonly current: FieZone;
+  readonly current?: FieZone;
+  readonly contextLabel?: string;
 }
 
-export function CompoundRail({ current }: CompoundNavigationProps) {
-  const currentLabel = navigation.find((item) => item.zone === current)?.label;
+export function CompoundRail({
+  current,
+  contextLabel,
+}: CompoundNavigationProps) {
+  const currentLabel =
+    contextLabel ?? navigation.find((item) => item.zone === current)?.label;
 
   return (
     <aside className="fie-rail">
@@ -67,7 +72,7 @@ export function CompoundRail({ current }: CompoundNavigationProps) {
       </nav>
       <div className="fie-rail-note">
         <span />
-        <p>{currentLabel} is current</p>
+        <p>{currentLabel ?? "Fie"} is current</p>
         <small>Last safe sync 2 min ago</small>
       </div>
     </aside>

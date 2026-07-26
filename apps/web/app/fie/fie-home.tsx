@@ -165,6 +165,14 @@ export function FieHome() {
           </div>
         </section>
 
+        <aside className="okyeame-entry">
+          <div>
+            <p className="fie-kicker">Okyeame · guided help</p>
+            <strong>Help that declares its limits.</strong>
+          </div>
+          <Link href="/fie/okyeame">See capability status</Link>
+        </aside>
+
         <CompoundBottomNavigation current="fie" />
       </section>
     </main>

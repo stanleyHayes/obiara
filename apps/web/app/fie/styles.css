@@ -388,6 +388,29 @@
   display: none;
 }
 
+.okyeame-entry {
+  align-items: center;
+  background: #2a1022;
+  border-radius: 18px;
+  color: #fff3e6;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding: 20px 22px;
+}
+
+.okyeame-entry strong {
+  display: block;
+  margin-top: 5px;
+}
+
+.okyeame-entry a {
+  color: #ffb44f;
+  font-weight: 850;
+  text-underline-offset: 5px;
+}
+
 @media (max-width: 1120px) {
   .fie-shell {
     grid-template-columns: 86px minmax(0, 1fr);
@@ -456,6 +479,11 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .okyeame-entry {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .fie-bottom-nav {

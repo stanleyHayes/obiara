@@ -1,0 +1,188 @@
+.okyeame-main {
+  padding-bottom: 72px;
+}
+
+.okyeame-topbar {
+  align-items: center;
+  border-bottom: 1px solid rgba(58, 14, 46, 0.1);
+  display: flex;
+  justify-content: space-between;
+  min-height: 100px;
+}
+
+.okyeame-topbar a {
+  color: #2d1025;
+  font-weight: 850;
+  text-underline-offset: 5px;
+}
+
+.okyeame-status {
+  background: #fff0d9;
+  border: 1px solid rgba(230, 129, 0, 0.2);
+  border-radius: 999px;
+  color: #713800;
+  font-size: 0.75rem;
+  font-weight: 850;
+  padding: 12px 16px;
+}
+
+.okyeame-status.is-available {
+  background: #e8f6f0;
+  border-color: rgba(15, 111, 89, 0.2);
+  color: #0f6f59;
+}
+
+.okyeame-hero {
+  background:
+    radial-gradient(
+      circle at 85% 15%,
+      rgba(255, 173, 61, 0.22),
+      transparent 24rem
+    ),
+    #24101e;
+  border-radius: 28px;
+  color: #fff3e6;
+  margin-top: 24px;
+  min-height: 600px;
+  padding: clamp(36px, 7vw, 86px);
+}
+
+.okyeame-mark {
+  align-items: center;
+  border: 1px solid rgba(255, 243, 230, 0.28);
+  border-radius: 50%;
+  color: #ffad3d;
+  display: flex;
+  font-size: 1.4rem;
+  font-weight: 900;
+  height: 64px;
+  justify-content: center;
+  margin-bottom: 60px;
+  width: 64px;
+}
+
+.okyeame-hero h1 {
+  font-size: clamp(4rem, 9vw, 9.5rem);
+  letter-spacing: -0.085em;
+  line-height: 0.82;
+  margin: 24px 0 36px;
+  max-width: 1100px;
+}
+
+.okyeame-hero > p:last-of-type {
+  color: rgba(255, 243, 230, 0.65);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 660px;
+}
+
+.okyeame-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 34px;
+}
+
+.okyeame-actions a,
+.okyeame-actions button {
+  align-items: center;
+  border-radius: 999px;
+  display: flex;
+  font: inherit;
+  font-weight: 900;
+  min-height: 48px;
+  padding: 0 20px;
+}
+
+.okyeame-actions a {
+  background: #ffad3d;
+  color: #24101e;
+  text-decoration: none;
+}
+
+.okyeame-actions button {
+  background: transparent;
+  border: 1px solid rgba(255, 243, 230, 0.3);
+  color: #fff3e6;
+}
+
+.okyeame-limits {
+  margin-top: 48px;
+}
+
+.okyeame-limits h2 {
+  font-size: clamp(2.5rem, 5vw, 5rem);
+  letter-spacing: -0.07em;
+  line-height: 0.9;
+  margin-top: 12px;
+}
+
+.okyeame-limits ol {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+  margin-top: 28px;
+}
+
+.okyeame-limits li {
+  background: #fff;
+  border: 1px solid rgba(58, 14, 46, 0.1);
+  border-radius: 20px;
+  min-height: 220px;
+  padding: 24px;
+}
+
+.okyeame-limits li span {
+  color: #bd3153;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.okyeame-limits li p {
+  font-size: 1.2rem;
+  font-weight: 750;
+  line-height: 1.35;
+  margin-top: 60px;
+}
+
+@media (max-width: 900px) {
+  .okyeame-limits ol {
+    grid-template-columns: 1fr;
+  }
+
+  .okyeame-limits li {
+    min-height: 150px;
+  }
+
+  .okyeame-limits li p {
+    margin-top: 36px;
+  }
+}
+
+@media (max-width: 760px) {
+  .okyeame-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+    justify-content: center;
+  }
+
+  .okyeame-hero {
+    min-height: 580px;
+  }
+
+  .okyeame-hero h1 {
+    font-size: 4.4rem;
+  }
+
+  .okyeame-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .okyeame-actions a,
+  .okyeame-actions button {
+    justify-content: center;
+  }
+}
