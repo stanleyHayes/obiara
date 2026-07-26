@@ -10,8 +10,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/privacy/application"
-	"github.com/stanleyHayes/obiara/services/api/internal/privacy/domain"
+	"github.com/stanleyHayes/obiara/internal/privacy/application"
+	"github.com/stanleyHayes/obiara/internal/privacy/domain"
 )
 
 type RequestRepository struct {

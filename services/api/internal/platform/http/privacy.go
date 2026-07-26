@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/privacy/application"
-	"github.com/stanleyHayes/obiara/services/api/internal/privacy/domain"
+	"github.com/stanleyHayes/obiara/internal/privacy/application"
+	"github.com/stanleyHayes/obiara/internal/privacy/domain"
 )
 
 // Privacy is the inbound port for data-subject requests (E03-S10).

@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/mock/gomock"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/privacy/domain"
+	"github.com/stanleyHayes/obiara/internal/privacy/domain"
 )
 
 var testNow = time.Date(2026, time.July, 26, 12, 0, 0, 0, time.UTC)

@@ -18,6 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
+	"github.com/stanleyHayes/obiara/internal/privacy"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
@@ -26,7 +27,6 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/telemetry"
-	"github.com/stanleyHayes/obiara/services/api/internal/privacy"
 	"github.com/stanleyHayes/obiara/services/api/internal/profile"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"

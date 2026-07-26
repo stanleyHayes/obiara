@@ -14,10 +14,12 @@ import (
 
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
-	apiprivacy "github.com/stanleyHayes/obiara/services/api/privacy"
+	privacymongodb "github.com/stanleyHayes/obiara/internal/privacy/adapters/outbound/mongodb"
+	privacyapplication "github.com/stanleyHayes/obiara/internal/privacy/application"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/application"
+	privacyjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/privacy"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/relay"
 	workertelemetry "github.com/stanleyHayes/obiara/services/worker/internal/telemetry"
 )
@@ -67,18 +69,26 @@ func run() error {
 		return fmt.Errorf("ensure outbox indexes: %w", err)
 	}
 
-	privacyProcessor, err := apiprivacy.NewWorkerProcessor(ctx, database)
-	if err != nil {
-		return fmt.Errorf("build privacy processor: %w", err)
+	// Privacy processor (S4-005): executes export/deletion requests with
+	// the FR-106 statutory clocks.
+	privacyRequests := privacymongodb.NewRequestRepository(database)
+	if err := privacyRequests.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("ensure privacy indexes: %w", err)
 	}
+	privacyProcessor := privacyapplication.NewProcessor(
+		privacyRequests,
+		privacymongodb.NewArchiveAssembler(database, time.Now),
+		privacymongodb.NewErasureRunner(database, time.Now),
+		mongodb.NewSessionRevoker(database, time.Now),
+		time.Now,
+	)
 
-	workerJobs := []application.Job{
+	scheduler := application.NewScheduler([]application.Job{
 		relay.NewOutboxJob(outboxStore, loggingPublisher{logger: logger}, 100, 5*time.Second),
-		application.NewPrivacyJob(privacyProcessor),
-	}
-	scheduler := application.NewScheduler(workerJobs, mongodb.NewDeadLetterStore(database, time.Now), logger, time.Now)
+		privacyjob.NewProcessorJob(privacyProcessor, 25, 60*time.Second),
+	}, mongodb.NewDeadLetterStore(database, time.Now), logger, time.Now)
 
-	logger.InfoContext(ctx, "worker started", slog.Int("jobs", len(workerJobs)))
+	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 2))
 	if err := jobs.NewModule(scheduler).Run(ctx); err != nil {
 		return err
 	}

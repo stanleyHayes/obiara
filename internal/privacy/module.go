@@ -12,8 +12,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/privacy/adapters/outbound/mongodb"
-	"github.com/stanleyHayes/obiara/services/api/internal/privacy/application"
+	"github.com/stanleyHayes/obiara/internal/privacy/adapters/outbound/mongodb"
+	"github.com/stanleyHayes/obiara/internal/privacy/application"
 )
 
 type Module struct {

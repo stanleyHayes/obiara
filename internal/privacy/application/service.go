@@ -9,7 +9,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/privacy/domain"
+	"github.com/stanleyHayes/obiara/internal/privacy/domain"
 )
 
 var (
