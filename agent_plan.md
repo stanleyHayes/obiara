@@ -860,7 +860,7 @@ table with a concrete sprint, owner and path boundary during refinement.
 | S2-012 | E03-S02 Promise/terms/age consent record | 2 | `/root/consent_kernel` | IN PROGRESS | `services/api/internal/consent/` | claimed 2026-07-26 after S1-002 | purpose/version/revocation tests | Isolated backend lane; rebase before every commit |
 | S2-013 | E03-S06 Tier/account state machines and transition audit | 2 | `/root/backend_identity` | DONE | `services/api/internal/identity/` | claimed/completed 2026-07-26 | 21/21 Go packages pass; transition matrix unit tests (one-step promotion, reasoned demotion, same-tier/skip/out-of-range rejection, blocked accounts); GoMock audit-persistence tests; Testcontainers integration: 0→1→2 with 2 audit rows, invalid transition writes nothing, optimistic-concurrency versions | Self-reviewed; tier numerics mirror authz kernel Tier; audit records commit in the same transaction as the account update |
 | S2-014 | E03-S05 Under-18 hard block and 24-hour purge proof | 2 | Unassigned | BACKLOG | `services/api/internal/verification/` | Depends S2-013 | purge-proof integration test | — |
-| S2-015 | E03-S03 Ghana Card provider adapter and fallback queue skeleton | 2 | Unassigned | READY | `services/api/internal/verification/` | Depends S1-002 (done) | simulator contract tests | — |
+| S2-015 | E03-S03 Ghana Card provider adapter and fallback queue skeleton | 2 | `/root/backend_verification` | IN PROGRESS | `services/api/internal/verification/`, verification HTTP route + OpenAPI | claimed 2026-07-26 | unit + simulator contract + integration tests pending | — |
 
 ## 19. Estimation and capacity rules
 
