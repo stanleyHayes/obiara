@@ -16,9 +16,10 @@ import (
 )
 
 type Module struct {
-	Safety  application.SafetyService
-	Cases   application.CaseService
-	Actions application.ActionService
+	Safety   application.SafetyService
+	Cases    application.CaseService
+	Actions  application.ActionService
+	Evidence application.EvidenceService
 }
 
 // NewModule builds the safety context. Enforcement ports (identity
@@ -35,9 +36,10 @@ func NewModule(ctx context.Context, database *mongo.Database, outboxStore applic
 	}
 	actionLog := mongodb.NewActionLogStore(database)
 	return Module{
-		Safety:  application.NewSafetyService(repository, repository, outboxStore, time.Now, newID),
-		Cases:   application.NewCaseService(caseRepository, time.Now, newID),
-		Actions: application.NewActionService(caseRepository, actionLog, identity, sessions, actionLog, time.Now, newID),
+		Safety:   application.NewSafetyService(repository, repository, outboxStore, time.Now, newID),
+		Cases:    application.NewCaseService(caseRepository, time.Now, newID),
+		Actions:  application.NewActionService(caseRepository, actionLog, identity, sessions, actionLog, time.Now, newID),
+		Evidence: application.NewEvidenceService(repository, mongodb.NewAccessAuditStore(database), time.Now, newID),
 	}, nil
 }
 
