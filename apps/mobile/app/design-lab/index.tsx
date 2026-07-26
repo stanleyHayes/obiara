@@ -1,4 +1,5 @@
 import { Link } from "expo-router";
+import type { Href } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -42,7 +43,7 @@ export default function DesignLabIndex() {
               accessibilityLabel={`${flow.label}. ${flow.detail}`}
               accessibilityRole="button"
               asChild
-              href={flow.href}
+              href={flow.href as Href}
               key={flow.href}
             >
               <Pressable
