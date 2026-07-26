@@ -1,9 +1,9 @@
 # Obiara Agent Plan
 
-Status: Draft for founder review  
+Status: Active; founder decisions pending
 Plan version: 1.0  
 Prepared: 2026-07-26  
-Execution state: **ACTIVE — Sprint 0 foundation**  
+Execution state: **ACTIVE — Sprint 1 conditional engineering; production no-go**
 Planning horizon: P0 proof through P2 launch, with P3 captured as a roadmap  
 Delivery cadence: two-week sprints; Sprint 0 is a two-week inception sprint
 
@@ -831,7 +831,7 @@ table with a concrete sprint, owner and path boundary during refinement.
 | S0-011 | Render/residency/provider feasibility matrix | 0 | `/root/render_residency` | DONE | `deploy/render/provider-residency-feasibility.md` | claimed/completed 2026-07-26 | Primary-source provider matrix, four topology options, production decision gates, and follow-up evidence; Render has no African region, so production remains founder/privacy/legal-blocked | No external resource creation or deployment; self-reviewed 2026-07-26 |
 | S0-012 | Initial threat model, data classification and DPIA inputs | 0 | `/root/backend_security` | DONE | `internal/architecture/threat-model-v0.md`, `internal/architecture/data-classification.md`, `internal/architecture/dpia-inputs.md` | claimed/completed 2026-07-26 | Content checked against plan §§4/7/8/11/15/23 and extracted Doc 08 (consent map, AI systems, suban) and Doc 09 (action ladder, SLAs, binding retention table, compliance pack); no code paths touched | Self-reviewed; E2E-vs-safety-processing and residency recorded as the two open pre-production decisions |
 | S0-013 | Traceability matrix, synthetic personas and fixture policy | 0 | `/root/backend_traceability` | DONE | `internal/product/`, `packages/test-fixtures/` | claimed/completed 2026-07-26 | All P0 FR/NFR rows linked req→module→screen→story→consent→tests→release; FR-202 sample traced end-to-end (matrix §4); tsc strict pass on personas registry; prettier clean | Self-reviewed; FR-105 mapped to P1 productization with P0 assisted vouch noted |
-| S0-014 | Sprint 0 integrated verification and founder checkpoint | 0 | `codex-root` | IN PROGRESS | `agent_plan.md`, `internal/quality/sprint-0-founder-checkpoint.md` | claimed 2026-07-26 after S0-003–S0-013 completion | integrated quality and evidence audit in progress | Reviewing Sprint 0 only; `/root/backend_kernel` retains exclusive ownership of active S1-002 paths |
+| S0-014 | Sprint 0 integrated verification and founder checkpoint | 0 | `codex-root` | DONE | `agent_plan.md`, `internal/quality/sprint-0-founder-checkpoint.md` | claimed/completed 2026-07-26 after S0-003–S0-013 completion | frozen install, peers, 9/9 checks, 3/3 builds, Go vet, actionlint, Expo Doctor 20/20 and JS high/critical audit gate pass; checkpoint records the red Go security workflow and Docker integration timeout | Conditional Sprint 1 engineering proceed; production no-go and founder approval pending; active S1-002 paths were reviewed read-only |
 | S0-015 | Remediate high transitive dependency advisories | 0 | `/root/platform_scaffold` | DONE | `pnpm-workspace.yaml`, `pnpm-lock.yaml` | claimed/completed 2026-07-26 | audit: 0 high/0 critical; frozen install, peers, 9/9 Turbo checks, Go tests/vet, 3/3 client builds passed | Exact patched transitive overrides; no waiver; one moderate advisory remains below the approved gate |
 | S1-001 | E02-S01 Go composition root and hexagonal module wiring | 1 | `/root/backend_kernel` | DONE | `services/api/main.go`, `services/api/internal/platform/` | claimed/completed 2026-07-26 | gofmt/vet clean; go build ok; config+health unit tests pass; startup failure path exits 1 with actionable message; /live vs dependency-degraded /ready unit-verified; pre-existing S0-007 Testcontainers suite attempted but Docker Desktop saturated (58 containers, daemon calls >2 min) — environment issue recorded, not a code failure | Self-reviewed; integration rerun pending Docker recovery (asked founder); member module built but unrouted until S1-003 HTTP envelope |
 | S1-002 | E02-S05 MongoDB client, transaction, repository and migration conventions | 1 | `/root/backend_kernel` | IN PROGRESS | `services/api/internal/platform/mongo/`, Go module files | claimed 2026-07-26 | Testcontainers integration pending Docker recovery; unit tests | — |
@@ -1463,7 +1463,10 @@ Confirmed:
 - [x] Multi-agent claims, status ledger, cross-review and review notes.
 - [x] Sprint 0 is the first active execution milestone.
 - [x] Bounded Sprint 0 execution goal created on 2026-07-26.
+- [x] Sprint 0 integrated engineering checkpoint recorded on 2026-07-26.
+- [ ] Founder approval of the conditional Sprint 1 proceed decision.
 
-Open decisions remain in Section 24 and must be closed by the task that first
-depends on them. They do not block repository initialization or the independent
-Sprint 0 foundation work.
+Open decisions remain in Section 24 and the checkpoint corrective-action table.
+They must be closed by the task that first depends on them. Sprint 1 engineering
+may continue on independent stories; production provisioning and real-member
+data remain prohibited.
