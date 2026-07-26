@@ -980,6 +980,74 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/notification-preferences/{memberId}:
+    get:
+      operationId: getNotificationPreferences
+      tags: [Notifications]
+      summary: Read notification preferences
+      security: []
+      description: Returns the member's preferences, creating defaults on first read (E13-S01).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Preferences.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferencesEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      operationId: configureNotificationPreferences
+      tags: [Notifications]
+      summary: Configure notification preferences
+      security: []
+      description: |
+        Sets muted categories, quiet hours (member-local) and the IANA
+        time zone. Safety notifications cannot be muted; the six-per-day
+        cap is server-enforced regardless of preferences (E13-S01).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationPreferencesInput"
+      responses:
+        "200":
+          description: Preferences saved.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferencesEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/SafetyCannotBeMuted"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -1313,6 +1381,23 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
+    SafetyCannotBeMuted:
+      description: Safety notifications cannot be muted, or the input is invalid.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            safetyCannotBeMuted:
+              value:
+                error:
+                  code: safety_cannot_be_muted
+                  message: Safety notifications cannot be turned off.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
     ValidationFailed:
       description: Request fields or the idempotency key are invalid.
       headers:
@@ -2005,6 +2090,53 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/EmberData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    NotificationPreferencesInput:
+      type: object
+      additionalProperties: false
+      required: [muted, quietStart, quietEnd, timezone]
+      properties:
+        muted:
+          type: object
+          additionalProperties:
+            type: boolean
+        quietStart:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        quietEnd:
+          type: integer
+          minimum: 0
+          maximum: 1440
+        timezone:
+          type: string
+          minLength: 1
+    NotificationPreferencesData:
+      type: object
+      additionalProperties: false
+      required: [muted, quietStart, quietEnd, timezone, updatedAt]
+      properties:
+        muted:
+          type: object
+          additionalProperties:
+            type: boolean
+        quietStart:
+          type: integer
+        quietEnd:
+          type: integer
+        timezone:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+    NotificationPreferencesEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/NotificationPreferencesData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

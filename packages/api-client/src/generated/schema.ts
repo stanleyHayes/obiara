@@ -392,6 +392,32 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/notification-preferences/{memberId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read notification preferences
+     * @description Returns the member's preferences, creating defaults on first read (E13-S01).
+     */
+    readonly get: operations["getNotificationPreferences"];
+    /**
+     * Configure notification preferences
+     * @description Sets muted categories, quiet hours (member-local) and the IANA
+     *     time zone. Safety notifications cannot be muted; the six-per-day
+     *     cap is server-enforced regardless of preferences (E13-S01).
+     */
+    readonly put: operations["configureNotificationPreferences"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/photo-vault/{ownerId}": {
     readonly parameters: {
       readonly query?: never;
@@ -679,6 +705,28 @@ export interface components {
     };
     readonly Metadata: {
       readonly correlationId: components["schemas"]["CorrelationId"];
+    };
+    readonly NotificationPreferencesData: {
+      readonly muted: {
+        readonly [key: string]: boolean;
+      };
+      readonly quietEnd: number;
+      readonly quietStart: number;
+      readonly timezone: string;
+      /** Format: date-time */
+      readonly updatedAt: string;
+    };
+    readonly NotificationPreferencesEnvelope: {
+      readonly data: components["schemas"]["NotificationPreferencesData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly NotificationPreferencesInput: {
+      readonly muted: {
+        readonly [key: string]: boolean;
+      };
+      readonly quietEnd: number;
+      readonly quietStart: number;
+      readonly timezone: string;
     };
     readonly OtpRequestData: {
       readonly challengeId: string;
@@ -1012,6 +1060,16 @@ export interface components {
     };
     /** @description No RSVP exists for this member and fire. */
     readonly RsvpNotFound: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description Safety notifications cannot be muted, or the input is invalid. */
+    readonly SafetyCannotBeMuted: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -1781,6 +1839,68 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidTrustPathBounds"];
       readonly 404: components["responses"]["TrustPathsNotFound"];
+    };
+  };
+  readonly getNotificationPreferences: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly memberId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Preferences. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NotificationPreferencesEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly configureNotificationPreferences: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly memberId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["NotificationPreferencesInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Preferences saved. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NotificationPreferencesEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["SafetyCannotBeMuted"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly viewVault: {

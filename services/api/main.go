@@ -25,6 +25,7 @@ import (
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
+	"github.com/stanleyHayes/obiara/services/api/internal/notifications"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
@@ -131,6 +132,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build ember module: %w", err)
 	}
+	// Notification preferences and caps (E13-S01).
+	notificationModule, err := notifications.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build notifications module: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /live", health.Live())
@@ -146,6 +152,7 @@ func run() error {
 	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening)
 	apihttp.RegisterFireRoutes(mux, fireModule.Fires)
 	apihttp.RegisterEmberRoutes(mux, emberModule.Embers)
+	apihttp.RegisterNotificationRoutes(mux, notificationModule.Notifications)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
