@@ -100,8 +100,10 @@ export default function AdminHome() {
                     ? "/mpanyimfo"
                     : label === "Incidents"
                       ? "/incidents"
-                      : label === "Workforce"
-                        ? "/workforce"
+                    : label === "Workforce"
+                      ? "/workforce"
+                      : label === "Finance"
+                        ? "/finance"
                       : undefined
               }
             >
