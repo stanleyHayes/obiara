@@ -57,11 +57,13 @@ go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.ym
 Workflow syntax is checked with `actionlint`. Network-backed audit results are
 time-sensitive and must be rerun in CI even when local validation passes.
 
-## Bootstrap findings
+## Bootstrap findings and remediation
 
-The 2026-07-26 local audit detected four high advisories in transitive packages:
-Next.js paths to `sharp` and `postcss`, plus ESLint paths to
-`brace-expansion`. The baseline deliberately fails on these findings. They
-require a separately coordinated lockfile remediation because client tasks were
-actively changing the shared dependency graph during S0-006; they are not
-silently waived.
+The 2026-07-26 local audit initially detected four high advisories in transitive
+packages: Next.js paths to `sharp` and `postcss`, plus ESLint paths to
+`brace-expansion`. S0-015 resolved them with exact root overrides for
+`sharp@0.35.3`, `postcss@8.5.23`, and the compatible
+`minimatch@10.2.5`/`brace-expansion@5.0.8` pair. The frozen install, peer check,
+full lint/type/test/Go test suite, Go vet, and all client builds passed after
+remediation. The final audit reported zero high and zero critical findings; no
+waiver was used.
