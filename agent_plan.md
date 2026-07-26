@@ -828,7 +828,7 @@ owner and path boundary during refinement.
 | S0-008 | Outfit brand tokens and member web signature UI prototype | 0 | `codex-ui` preferred | BACKLOG | `apps/web/`, `packages/design-tokens/`, `packages/ui-web/` | Depends S0-005 | type/lint/build, responsive browser and accessibility QA | — |
 | S0-009 | Admin shell signature UI prototype | 0 | `codex-ui` preferred | BACKLOG | `apps/admin/`, shared UI primitives | Depends S0-005/008 | type/lint/build and rendered QA | — |
 | S0-010 | Expo/Android floor, media and 3G feasibility spike | 0 | `codex-ui` preferred | BACKLOG | `apps/mobile/`, architecture evidence | Depends S0-005 | Android reference build/device evidence | — |
-| S0-011 | Render/residency/provider feasibility matrix | 0 | Unassigned | BACKLOG | `internal/architecture/`, `deploy/render/` | Depends S0-003 | current provider evidence and decision record | — |
+| S0-011 | Render/residency/provider feasibility matrix | 0 | `/root/render_residency` | IN PROGRESS | `deploy/render/`, narrowly relevant architecture evidence | claimed 2026-07-26 | current provider evidence and decision record | No external resource creation or deployment |
 | S0-012 | Initial threat model, data classification and DPIA inputs | 0 | Unassigned | BACKLOG | `internal/architecture/`, compliance docs | Depends S0-003 | security/privacy review | — |
 | S0-013 | Traceability matrix, synthetic personas and fixture policy | 0 | Unassigned | BACKLOG | `internal/product/`, `packages/test-fixtures/` | Depends S0-003 | requirement sample traced end-to-end | — |
 | S0-014 | Sprint 0 integrated verification and founder checkpoint | 0 | Unassigned | BACKLOG | plan/evidence only | Depends S0-003–S0-013 | all Sprint 0 gates recorded | — |
