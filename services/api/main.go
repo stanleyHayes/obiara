@@ -15,14 +15,13 @@ import (
 	"syscall"
 	"time"
 
-	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
+	apimongo "github.com/stanleyHayes/obiara/services/api/internal/platform/mongo"
 )
 
 func main() {
@@ -41,14 +40,11 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	client, err := mongo.Connect(options.Client().ApplyURI(cfg.MongoURI))
-	if err != nil {
-		return fmt.Errorf("connect mongo: %w", err)
-	}
 	connectCtx, cancel := context.WithTimeout(ctx, cfg.MongoConnectTimeout)
 	defer cancel()
-	if err := client.Ping(connectCtx, readpref.Primary()); err != nil {
-		return fmt.Errorf("ping mongo (start a local MongoDB or set MONGODB_URI): %w", err)
+	client, err := apimongo.Connect(connectCtx, cfg.MongoURI)
+	if err != nil {
+		return err
 	}
 	defer func() {
 		disconnectCtx, disconnectCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
