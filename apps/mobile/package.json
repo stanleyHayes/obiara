@@ -14,6 +14,7 @@
     "@expo-google-fonts/outfit": "0.4.3",
     "@obiara/fie-routing": "workspace:*",
     "@obiara/nnoboa-policy": "workspace:*",
+    "@obiara/notification-settings": "workspace:*",
     "@obiara/okyeame-policy": "workspace:*",
     "@obiara/ui-mobile": "workspace:*",
     "expo": "57.0.8",

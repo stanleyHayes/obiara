@@ -1,0 +1,245 @@
+.notification-main {
+  background: #f7efe3;
+  color: #2b151f;
+  min-height: 100vh;
+  padding: 0 5vw 5rem;
+}
+
+.notification-topbar {
+  align-items: center;
+  border-bottom: 1px solid #ddcdc3;
+  display: flex;
+  justify-content: space-between;
+  min-height: 5rem;
+}
+
+.notification-topbar a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.notification-topbar span {
+  color: #725d66;
+  font-size: 0.82rem;
+}
+
+.notification-hero {
+  max-width: 58rem;
+  padding: clamp(4rem, 8vw, 7rem) 0 3rem;
+}
+
+.notification-hero h1 {
+  font-size: clamp(3.8rem, 8vw, 7.5rem);
+  letter-spacing: -0.075em;
+  line-height: 0.86;
+  margin: 1rem 0 1.6rem;
+}
+
+.notification-hero > p:last-child {
+  color: #69535d;
+  font-size: 1.1rem;
+  line-height: 1.65;
+  max-width: 46rem;
+}
+
+.notification-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.12fr) minmax(20rem, 0.88fr);
+}
+
+.notification-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.notification-card,
+.notification-rules {
+  background: #fffaf2;
+  border: 1px solid #d8c7bd;
+  border-radius: 1.5rem;
+  padding: clamp(1.4rem, 3vw, 2.2rem);
+}
+
+.notification-card > header {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+}
+
+.notification-card h2,
+.notification-rules h2 {
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  letter-spacing: -0.05em;
+  line-height: 1;
+  margin: 0.6rem 0 0;
+}
+
+.notification-card > header > span {
+  background: #e2eee7;
+  border-radius: 999px;
+  color: #1d694f;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.55rem 0.8rem;
+}
+
+.preference-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1.8rem;
+}
+
+.preference-list label {
+  align-items: center;
+  border-top: 1px solid #e4d6cc;
+  cursor: pointer;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: auto auto 1fr;
+  padding-top: 0.8rem;
+}
+
+.preference-list input {
+  height: 1.2rem;
+  width: 1.2rem;
+}
+
+.preference-list label > span {
+  color: #8e3159;
+  font-size: 0.76rem;
+  font-weight: 800;
+  width: 2rem;
+}
+
+.preference-list strong,
+.preference-list small {
+  display: block;
+}
+
+.preference-list small {
+  color: #745f68;
+  margin-top: 0.15rem;
+}
+
+.channel-grid {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 1.6rem;
+}
+
+.channel-grid button {
+  background: transparent;
+  border: 1px solid #a98f9a;
+  border-radius: 999px;
+  color: #38172c;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 3rem;
+}
+
+.channel-grid button[aria-pressed="true"] {
+  background: #38172c;
+  color: #fff5e9;
+}
+
+.notification-rules {
+  background: #38172c;
+  color: #fff5e9;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.quiet-grid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 1.8rem;
+}
+
+.quiet-grid label span {
+  color: #d8c4ce;
+  display: block;
+  font-size: 0.78rem;
+  margin-bottom: 0.4rem;
+}
+
+.quiet-grid input {
+  background: #fff5e9;
+  border: 0;
+  border-radius: 0.75rem;
+  color: #2b151f;
+  font: inherit;
+  min-height: 3rem;
+  padding: 0 0.8rem;
+  width: 100%;
+}
+
+.cap-block,
+.critical-block {
+  border-top: 1px solid rgba(255, 245, 233, 0.18);
+  display: grid;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.4rem;
+}
+
+.cap-block {
+  grid-template-columns: auto 1fr;
+}
+
+.cap-block > strong {
+  color: #ffb34f;
+  font-size: 4.5rem;
+  letter-spacing: -0.08em;
+  line-height: 0.8;
+}
+
+.cap-block span,
+.critical-block strong {
+  font-weight: 800;
+}
+
+.cap-block p,
+.critical-block p {
+  color: #d8c4ce;
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+
+.critical-block {
+  grid-template-columns: auto 1fr;
+}
+
+.critical-block > span {
+  align-items: center;
+  background: #ffb34f;
+  border-radius: 50%;
+  color: #2b151f;
+  display: flex;
+  font-weight: 900;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+@media (max-width: 900px) {
+  .notification-main {
+    padding: 0 1rem 7rem;
+  }
+
+  .notification-topbar span {
+    display: none;
+  }
+
+  .notification-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .channel-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

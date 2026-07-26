@@ -18,6 +18,7 @@
     "@obiara/design-tokens": "workspace:*",
     "@obiara/fie-routing": "workspace:*",
     "@obiara/nnoboa-policy": "workspace:*",
+    "@obiara/notification-settings": "workspace:*",
     "@obiara/okyeame-policy": "workspace:*",
     "@obiara/ui-web": "workspace:*",
     "next": "16.2.12",

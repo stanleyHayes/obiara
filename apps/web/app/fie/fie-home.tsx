@@ -79,13 +79,13 @@ export function FieHome() {
               <span aria-hidden="true" />
               {connection.label}
             </button>
-            <button
+            <Link
               aria-label="Open notifications"
               className="fie-tool"
-              type="button"
+              href="/fie/settings/notifications"
             >
               2
-            </button>
+            </Link>
             <button
               aria-label="Open profile and privacy"
               className="fie-avatar"
