@@ -3,5 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts"
+  "exports": "./src/index.ts",
+  "scripts": {
+    "build": "pnpm run typecheck",
+    "lint": "pnpm run typecheck",
+    "test": "pnpm --filter @obiara/api-client exec vitest run --root ../observability",
+    "typecheck": "pnpm --workspace-root exec tsc --noEmit --project packages/observability/tsconfig.json"
+  }
 }
