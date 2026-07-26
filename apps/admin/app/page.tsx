@@ -18,6 +18,7 @@ const navigation = [
   ["◇", "Verification", "18"],
   ["◉", "Trust & safety", "7"],
   ["◎", "Care queue", "2"],
+  ["♢", "Mpanyimfo", ""],
   ["◌", "Circles & hosts", ""],
   ["✦", "Fires", ""],
   ["¤", "Finance", ""],
@@ -90,7 +91,13 @@ export default function AdminHome() {
               key={label}
               className={`rail-link ${badge === "active" ? "is-active" : ""}`}
               aria-current={badge === "active" ? "page" : undefined}
-              href={label === "Care queue" ? "/care" : undefined}
+              href={
+                label === "Care queue"
+                  ? "/care"
+                  : label === "Mpanyimfo"
+                    ? "/mpanyimfo"
+                    : undefined
+              }
             >
               <span aria-hidden="true">{icon}</span>
               <span>{label}</span>
