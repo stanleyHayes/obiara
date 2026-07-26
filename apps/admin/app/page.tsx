@@ -19,6 +19,7 @@ const navigation = [
   ["◉", "Trust & safety", "7"],
   ["◎", "Care queue", "2"],
   ["♢", "Mpanyimfo", ""],
+  ["!", "Incidents", ""],
   ["◌", "Circles & hosts", ""],
   ["✦", "Fires", ""],
   ["¤", "Finance", ""],
@@ -96,6 +97,8 @@ export default function AdminHome() {
                   ? "/care"
                   : label === "Mpanyimfo"
                     ? "/mpanyimfo"
+                    : label === "Incidents"
+                      ? "/incidents"
                     : undefined
               }
             >

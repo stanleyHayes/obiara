@@ -832,6 +832,59 @@ body {
   margin-top: 5px;
 }
 
+.incident-runbook-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+}
+
+.incident-runbook-grid > .MuiCard-root,
+.incident-packet {
+  border: 1px solid rgba(58, 14, 46, 0.1);
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.runbook-step {
+  align-items: center !important;
+  border: 1px solid rgba(58, 14, 46, 0.09) !important;
+  border-radius: 14px !important;
+  color: var(--admin-ink) !important;
+  justify-content: flex-start !important;
+  min-height: 72px !important;
+  text-align: left !important;
+}
+
+.runbook-step[aria-pressed="true"] {
+  background: rgba(38, 140, 102, 0.08) !important;
+  border-color: rgba(38, 140, 102, 0.34) !important;
+}
+
+.runbook-step p {
+  color: var(--admin-muted);
+  font-size: 0.75rem;
+  margin-top: 4px;
+  text-transform: none;
+}
+
+.incident-packet {
+  align-items: center;
+  display: grid;
+  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.35fr);
+  margin-top: 18px;
+}
+
+.incident-packet h2 {
+  color: var(--admin-plum);
+  font-size: 1.8rem;
+  margin: 8px 0;
+}
+
+.incident-packet > div:first-child > p:last-child {
+  color: var(--admin-muted);
+  max-width: 65ch;
+}
+
 .verification-case[aria-pressed="true"] {
   background: rgba(255, 159, 28, 0.08) !important;
   box-shadow: inset 4px 0 var(--admin-gold);
@@ -921,6 +974,11 @@ body {
   }
 
   .mpanyimfo-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .incident-runbook-grid,
+  .incident-packet {
     grid-template-columns: 1fr;
   }
 
