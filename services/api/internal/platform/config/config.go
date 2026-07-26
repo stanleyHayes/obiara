@@ -1,0 +1,73 @@
+// Package config loads the api service configuration from the environment.
+// Secrets arrive only via environment variables; none are ever committed
+// (agent_plan.md §12 deployment gates).
+package config
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// Config is the runtime configuration for the api composition root.
+type Config struct {
+	Port                string
+	MongoURI            string
+	MongoDatabase       string
+	MongoConnectTimeout time.Duration
+	ShutdownTimeout     time.Duration
+}
+
+// Load reads configuration using getenv (os.Getenv in production) and
+// validates it. Defaults target local development; staging and production
+// must set every value explicitly through the environment matrix.
+func Load(getenv func(string) string) (Config, error) {
+	cfg := Config{
+		Port:          valueOrDefault(getenv("PORT"), "8080"),
+		MongoURI:      valueOrDefault(getenv("MONGODB_URI"), "mongodb://localhost:27017"),
+		MongoDatabase: valueOrDefault(getenv("MONGODB_DATABASE"), "obiara"),
+	}
+
+	var err error
+	if cfg.MongoConnectTimeout, err = durationOrDefault(getenv("MONGO_CONNECT_TIMEOUT"), 10*time.Second); err != nil {
+		return Config{}, fmt.Errorf("MONGO_CONNECT_TIMEOUT: %w", err)
+	}
+	if cfg.ShutdownTimeout, err = durationOrDefault(getenv("SHUTDOWN_TIMEOUT"), 10*time.Second); err != nil {
+		return Config{}, fmt.Errorf("SHUTDOWN_TIMEOUT: %w", err)
+	}
+
+	port, convErr := strconv.Atoi(cfg.Port)
+	if convErr != nil || port < 1 || port > 65535 {
+		return Config{}, fmt.Errorf("PORT must be a number between 1 and 65535, got %q", cfg.Port)
+	}
+	if strings.TrimSpace(cfg.MongoURI) == "" {
+		return Config{}, fmt.Errorf("MONGODB_URI must not be empty")
+	}
+	if strings.TrimSpace(cfg.MongoDatabase) == "" {
+		return Config{}, fmt.Errorf("MONGODB_DATABASE must not be empty")
+	}
+
+	return cfg, nil
+}
+
+func valueOrDefault(value, fallback string) string {
+	// Only an unset (empty) variable falls back; an explicitly set
+	// whitespace-only value is a configuration mistake and must fail
+	// validation rather than silently becoming the default.
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
+func durationOrDefault(value string, fallback time.Duration) (time.Duration, error) {
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("must be a Go duration such as 10s, got %q", value)
+	}
+	return parsed, nil
+}
