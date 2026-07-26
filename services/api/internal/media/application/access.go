@@ -28,6 +28,9 @@ type AccessService struct {
 }
 
 func NewAccessService(assets AssetRepository, policy AccessPolicy, signer Signer, now func() time.Time) AccessService {
+	if now == nil {
+		now = time.Now
+	}
 	return AccessService{assets: assets, policy: policy, signer: signer, now: now}
 }
 
@@ -39,6 +42,9 @@ type UploadRequest struct {
 }
 
 func (service AccessService) RequestUpload(ctx context.Context, request UploadRequest) (SignedAccess, error) {
+	if service.policy == nil || service.signer == nil || service.now == nil {
+		return SignedAccess{}, ErrStorageUnavailable
+	}
 	if !validIdentityAndPurpose(request.SubjectID, request.Purpose) || !validTTL(request.TTL) ||
 		request.Asset.ID() == "" || request.Asset.IsDeleted() {
 		return SignedAccess{}, ErrInvalidRequest
@@ -78,6 +84,9 @@ type ReadRequest struct {
 }
 
 func (service AccessService) RequestRead(ctx context.Context, request ReadRequest) (SignedAccess, error) {
+	if service.assets == nil || service.policy == nil || service.signer == nil || service.now == nil {
+		return SignedAccess{}, ErrStorageUnavailable
+	}
 	if !validIdentityAndPurpose(request.SubjectID, request.Purpose) ||
 		strings.TrimSpace(request.AssetID) == "" || !validTTL(request.TTL) {
 		return SignedAccess{}, ErrInvalidRequest

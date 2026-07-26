@@ -13,6 +13,7 @@ var (
 	ErrAssetUnavailable = errors.New("media asset unavailable")
 	ErrRetentionActive  = errors.New("media retention policy is active")
 	ErrLegalHoldActive  = errors.New("media legal hold is active")
+	ErrInvalidDeletion  = errors.New("invalid media deletion time")
 )
 
 // Checksum describes the digest that storage must verify when accepting bytes.
@@ -129,7 +130,13 @@ func (asset Asset) AvailableAt(now time.Time) bool {
 }
 
 func (asset Asset) MarkDeleted(now time.Time) (Asset, error) {
+	if now.IsZero() {
+		return Asset{}, ErrInvalidDeletion
+	}
 	now = now.UTC()
+	if now.Before(asset.createdAt) {
+		return Asset{}, ErrInvalidDeletion
+	}
 	if asset.retention.legalHold {
 		return Asset{}, ErrLegalHoldActive
 	}

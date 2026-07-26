@@ -44,6 +44,8 @@ func TestAssetRetentionAndLegalHold(t *testing.T) {
 		deleteAt  time.Time
 		wantErr   error
 	}{
+		{name: "zero deletion time", deleteAt: time.Time{}, wantErr: ErrInvalidDeletion},
+		{name: "deletion before creation", deleteAt: now.Add(-time.Second), wantErr: ErrInvalidDeletion},
 		{name: "unretained", deleteAt: now},
 		{name: "retention active", retention: NewRetention(now.Add(time.Hour), false), deleteAt: now, wantErr: ErrRetentionActive},
 		{name: "retention elapsed", retention: NewRetention(now.Add(time.Hour), false), deleteAt: now.Add(2 * time.Hour)},
@@ -58,6 +60,9 @@ func TestAssetRetentionAndLegalHold(t *testing.T) {
 				t.Fatalf("MarkDeleted() error = %v, want %v", err, test.wantErr)
 			}
 			if test.wantErr != nil {
+				if err == nil || deleted.IsDeleted() {
+					t.Fatal("invalid deletion must fail without creating deleted history")
+				}
 				if asset.IsDeleted() {
 					t.Fatal("original asset was mutated")
 				}

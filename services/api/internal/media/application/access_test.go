@@ -143,6 +143,28 @@ func TestRequestUploadIncludesChecksumMetadata(t *testing.T) {
 	}
 }
 
+func TestAccessServiceSafeDefaultsAndReadiness(t *testing.T) {
+	t.Parallel()
+	service := NewAccessService(nil, nil, nil, nil)
+	if service.now == nil || service.now().IsZero() {
+		t.Fatal("nil clock must default to a working clock")
+	}
+
+	readRequest := ReadRequest{
+		SubjectID: "member-1", AssetID: "asset-1", Purpose: "profile", TTL: MinSignedTTL,
+	}
+	if _, err := service.RequestRead(context.Background(), readRequest); !errors.Is(err, ErrStorageUnavailable) {
+		t.Fatalf("RequestRead() with missing ports error = %v, want %v", err, ErrStorageUnavailable)
+	}
+	uploadRequest := UploadRequest{
+		SubjectID: "member-1", Purpose: "profile", Asset: applicationAsset(t, time.Now(), time.Time{}, domain.Retention{}),
+		TTL: MinSignedTTL,
+	}
+	if _, err := service.RequestUpload(context.Background(), uploadRequest); !errors.Is(err, ErrStorageUnavailable) {
+		t.Fatalf("RequestUpload() with missing ports error = %v, want %v", err, ErrStorageUnavailable)
+	}
+}
+
 func applicationAsset(t *testing.T, createdAt, expiresAt time.Time, retention domain.Retention) domain.Asset {
 	t.Helper()
 	checksum, err := domain.NewChecksum("sha256", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
