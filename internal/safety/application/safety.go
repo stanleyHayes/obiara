@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/domain"
+	"github.com/stanleyHayes/obiara/internal/safety/domain"
 )
 
 var (

@@ -8,7 +8,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/domain"
+	"github.com/stanleyHayes/obiara/internal/safety/domain"
 )
 
 var safetyNow = time.Date(2026, time.July, 26, 12, 0, 0, 0, time.UTC)

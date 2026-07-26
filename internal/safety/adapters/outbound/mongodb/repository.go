@@ -12,8 +12,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/application"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/domain"
+	"github.com/stanleyHayes/obiara/internal/safety/application"
+	"github.com/stanleyHayes/obiara/internal/safety/domain"
 )
 
 type Repository struct {

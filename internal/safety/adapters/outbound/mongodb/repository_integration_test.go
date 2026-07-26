@@ -13,9 +13,9 @@ import (
 
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/adapters/outbound/mongodb"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/application"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/domain"
+	"github.com/stanleyHayes/obiara/internal/safety/adapters/outbound/mongodb"
+	"github.com/stanleyHayes/obiara/internal/safety/application"
+	"github.com/stanleyHayes/obiara/internal/safety/domain"
 )
 
 const safetyIntegrationTimeout = 3 * time.Minute

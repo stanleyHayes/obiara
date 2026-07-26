@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/application"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/domain"
+	"github.com/stanleyHayes/obiara/internal/safety/application"
+	"github.com/stanleyHayes/obiara/internal/safety/domain"
 )
 
 // Safety is the inbound port for report/block intake (E12-S01).

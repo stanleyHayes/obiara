@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"os"
@@ -20,6 +22,8 @@ import (
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
 	privacymongodb "github.com/stanleyHayes/obiara/internal/privacy/adapters/outbound/mongodb"
 	privacyapplication "github.com/stanleyHayes/obiara/internal/privacy/application"
+	safetymongodb "github.com/stanleyHayes/obiara/internal/safety/adapters/outbound/mongodb"
+	safetyapplication "github.com/stanleyHayes/obiara/internal/safety/application"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/application"
@@ -27,6 +31,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/relay"
 	ritualjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/ritual"
 	ritualmongodb "github.com/stanleyHayes/obiara/services/worker/internal/jobs/ritual/adapters/outbound/mongodb"
+	safetyjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/safety"
 	workertelemetry "github.com/stanleyHayes/obiara/services/worker/internal/telemetry"
 )
 
@@ -104,14 +109,22 @@ func run() error {
 		time.Now,
 	)
 
+	// T&S case builder (E12-S02): filed reports become tiered cases with
+	// SLA deadlines.
+	safetyReportRepository := safetymongodb.NewRepository(database)
+	safetyCaseRepository := safetymongodb.NewCaseRepository(database)
+	safetyCaseService := safetyapplication.NewCaseService(safetyCaseRepository, time.Now, newID)
+	safetyBuilder := safetyjob.NewCaseBuilder(outboxStore, safetyReportRepository, safetyCaseService, inbox.NewStore(database, time.Now))
+
 	scheduler := application.NewScheduler([]application.Job{
 		relay.NewOutboxJob(outboxStore, loggingPublisher{logger: logger}, 100, 5*time.Second),
 		privacyjob.NewProcessorJob(privacyProcessor, 25, 60*time.Second),
 		ritualjob.NewCalendarJob(ritualDispatcher, 5*time.Minute),
 		ritualjob.NewHeraldJob(ritualDispatcher, 5*time.Minute),
+		safetyjob.NewBuilderJob(safetyBuilder, 50, 30*time.Second),
 	}, mongodb.NewDeadLetterStore(database, time.Now), logger, time.Now)
 
-	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 4))
+	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 5))
 	if err := jobs.NewModule(scheduler).Run(ctx); err != nil {
 		return err
 	}
@@ -131,6 +144,14 @@ func (publisher loggingPublisher) Publish(ctx context.Context, record outbox.Rec
 		slog.String("eventType", record.EventType),
 		slog.String("aggregateType", record.AggregateType))
 	return nil
+}
+
+func newID() string {
+	id := make([]byte, 16)
+	if _, err := rand.Read(id); err != nil {
+		panic(err)
+	}
+	return "case_" + base64.RawURLEncoding.EncodeToString(id)
 }
 
 func envOrDefault(key, fallback string) string {

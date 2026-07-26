@@ -11,22 +11,27 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"github.com/stanleyHayes/obiara/internal/platform/outbox"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/adapters/outbound/mongodb"
-	"github.com/stanleyHayes/obiara/services/api/internal/safety/application"
+	"github.com/stanleyHayes/obiara/internal/safety/adapters/outbound/mongodb"
+	"github.com/stanleyHayes/obiara/internal/safety/application"
 )
 
 type Module struct {
 	Safety application.SafetyService
+	Cases  application.CaseService
 }
 
-func NewModule(ctx context.Context, database *mongo.Database, outboxStore *outbox.Store) (Module, error) {
+func NewModule(ctx context.Context, database *mongo.Database, outboxStore application.OutboxAppender) (Module, error) {
 	repository := mongodb.NewRepository(database)
 	if err := repository.EnsureIndexes(ctx); err != nil {
 		return Module{}, err
 	}
+	caseRepository := mongodb.NewCaseRepository(database)
+	if err := caseRepository.EnsureCaseIndexes(ctx); err != nil {
+		return Module{}, err
+	}
 	return Module{
 		Safety: application.NewSafetyService(repository, repository, outboxStore, time.Now, newID),
+		Cases:  application.NewCaseService(caseRepository, time.Now, newID),
 	}, nil
 }
 

@@ -135,6 +135,40 @@ func (store *Store) MarkAttemptFailed(ctx context.Context, id string) error {
 	return err
 }
 
+// FindByEventType returns records of one event type oldest-first,
+// regardless of publication state. Consumers that process a specific
+// event type (e.g. the safety case builder) dedupe via the inbox store
+// and must not interfere with the relay's publication markers.
+func (store *Store) FindByEventType(ctx context.Context, eventType string, limit int) ([]Record, error) {
+	if limit < 1 {
+		limit = 100
+	}
+	cursor, err := store.collection().Find(ctx,
+		bson.M{"eventType": eventType},
+		options.Find().SetSort(bson.D{{Key: "occurredAt", Value: 1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var records []Record
+	for cursor.Next(ctx) {
+		var doc document
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		records = append(records, Record{
+			ID:            doc.ID,
+			AggregateType: doc.AggregateType,
+			AggregateID:   doc.AggregateID,
+			EventType:     doc.EventType,
+			Payload:       doc.Payload,
+			OccurredAt:    doc.OccurredAt,
+		})
+	}
+	return records, cursor.Err()
+}
+
 func validate(record Record) error {
 	if record.ID == "" {
 		return ErrIDRequired
