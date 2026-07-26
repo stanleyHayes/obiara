@@ -740,6 +740,59 @@ body {
   max-width: 52ch;
 }
 
+.care-case,
+.care-script {
+  border: 1px solid rgba(58, 14, 46, 0.09) !important;
+  border-radius: 14px !important;
+  color: var(--admin-ink) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  margin-top: 10px !important;
+  min-height: 104px !important;
+  padding: 16px !important;
+  text-align: left !important;
+  width: 100%;
+}
+
+.care-case[aria-pressed="true"],
+.care-script[aria-pressed="true"] {
+  background: rgba(255, 159, 28, 0.08) !important;
+  border-color: rgba(255, 159, 28, 0.48) !important;
+}
+
+.care-case p {
+  font-size: 0.78rem;
+  margin-top: 8px;
+  text-transform: none;
+}
+
+.care-scripts {
+  margin-top: 22px;
+}
+
+.care-script {
+  align-items: flex-start !important;
+}
+
+.care-script h3 {
+  color: var(--admin-plum);
+  font-size: 1.35rem;
+  margin: 8px 0;
+}
+
+.care-script p {
+  color: var(--admin-muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  text-transform: none;
+}
+
+.care-script strong {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 12px;
+}
+
 .verification-case[aria-pressed="true"] {
   background: rgba(255, 159, 28, 0.08) !important;
   box-shadow: inset 4px 0 var(--admin-gold);
