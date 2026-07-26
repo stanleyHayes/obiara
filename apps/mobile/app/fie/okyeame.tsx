@@ -1,5 +1,5 @@
-import { FieScreen } from "../../src/fie-screen";
+import { OkyeameScreen as OkyeameExperience } from "../../src/okyeame-screen";
 
 export default function OkyeameScreen() {
-  return <FieScreen routeId="okyeame" />;
+  return <OkyeameExperience />;
 }
