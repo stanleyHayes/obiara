@@ -35,6 +35,15 @@ export interface SafetyDeskState {
     readonly scope: string;
     readonly appealOffered: true;
   } | null;
+  readonly exportPending: boolean;
+  readonly exportConsent: boolean;
+  readonly exportPurpose: string;
+  readonly exportReferences: readonly string[];
+  readonly lastExport: {
+    readonly caseId: string;
+    readonly reference: string;
+    readonly expiresInHours: 72;
+  } | null;
 }
 
 export type SafetyDeskAction =
@@ -50,7 +59,13 @@ export type SafetyDeskAction =
   | { readonly type: "action-reason"; readonly value: string }
   | { readonly type: "action-scope"; readonly value: string }
   | { readonly type: "cancel-action" }
-  | { readonly type: "confirm-action" };
+  | { readonly type: "confirm-action" }
+  | { readonly type: "request-export" }
+  | { readonly type: "export-consent"; readonly checked: boolean }
+  | { readonly type: "export-purpose"; readonly value: string }
+  | { readonly type: "toggle-export-reference"; readonly reference: string }
+  | { readonly type: "cancel-export" }
+  | { readonly type: "confirm-export" };
 
 export const initialSafetyCases: readonly SafetyCase[] = [
   {
@@ -92,6 +107,11 @@ export const initialSafetyDeskState: SafetyDeskState = {
   actionReason: "",
   actionScope: "",
   lastAction: null,
+  exportPending: false,
+  exportConsent: false,
+  exportPurpose: "",
+  exportReferences: [],
+  lastExport: null,
 };
 
 export function safetyDeskReducer(
@@ -111,6 +131,10 @@ export function safetyDeskReducer(
             pendingAction: null,
             actionReason: "",
             actionScope: "",
+            exportPending: false,
+            exportConsent: false,
+            exportPurpose: "",
+            exportReferences: [],
           }
         : state;
     case "purpose":
@@ -193,6 +217,72 @@ export function safetyDeskReducer(
         pendingAction: null,
         actionReason: "",
         actionScope: "",
+      };
+    case "request-export":
+      return state.selectedId
+        ? {
+            ...state,
+            exportPending: true,
+            exportConsent: false,
+            exportPurpose: "",
+            exportReferences: [],
+          }
+        : state;
+    case "export-consent":
+      return state.exportPending
+        ? { ...state, exportConsent: action.checked }
+        : state;
+    case "export-purpose":
+      return state.exportPending
+        ? { ...state, exportPurpose: action.value.slice(0, 160) }
+        : state;
+    case "toggle-export-reference": {
+      if (
+        !state.exportPending ||
+        !["timeline", "submitted_receipt", "case_actions"].includes(
+          action.reference,
+        )
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        exportReferences: state.exportReferences.includes(action.reference)
+          ? state.exportReferences.filter(
+              (reference) => reference !== action.reference,
+            )
+          : [...state.exportReferences, action.reference],
+      };
+    }
+    case "cancel-export":
+      return {
+        ...state,
+        exportPending: false,
+        exportConsent: false,
+        exportPurpose: "",
+        exportReferences: [],
+      };
+    case "confirm-export":
+      if (
+        !state.selectedId ||
+        !state.exportPending ||
+        !state.exportConsent ||
+        state.exportPurpose.trim().length < 12 ||
+        state.exportReferences.length === 0
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        lastExport: {
+          caseId: state.selectedId,
+          reference: `export-${state.selectedId}`,
+          expiresInHours: 72,
+        },
+        exportPending: false,
+        exportConsent: false,
+        exportPurpose: "",
+        exportReferences: [],
       };
   }
 }

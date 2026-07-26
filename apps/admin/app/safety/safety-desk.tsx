@@ -102,6 +102,14 @@ export function SafetyDesk() {
           {state.lastAction.scope}. The member appeal notice is included.
         </Alert>
       ) : null}
+      {state.lastExport ? (
+        <Alert severity="success" className="verification-alert">
+          Export {state.lastExport.reference} prepared for case{" "}
+          {state.lastExport.caseId}. It expires in{" "}
+          {state.lastExport.expiresInHours} hours; authorized delivery remains
+          human-controlled.
+        </Alert>
+      ) : null}
 
       <Box className="verification-grid">
         <Card className="verification-list">
@@ -212,6 +220,12 @@ export function SafetyDesk() {
                   variant="outlined"
                 >
                   Request legal hold
+                </Button>
+                <Button
+                  onClick={() => dispatch({ type: "request-export" })}
+                  variant="outlined"
+                >
+                  Prepare victim evidence export
                 </Button>
               </Box>
 
@@ -362,6 +376,102 @@ export function SafetyDesk() {
             variant="contained"
           >
             Record proposal
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        aria-labelledby="victim-export-title"
+        fullWidth
+        maxWidth="sm"
+        onClose={() => dispatch({ type: "cancel-export" })}
+        open={state.exportPending}
+      >
+        <DialogTitle id="victim-export-title">
+          Prepare victim evidence export
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="info">
+              This prepares a bounded record only after the victim requests it.
+              Accused-party identity, reporter or third-party details, and raw
+              hidden evidence are excluded.
+            </Alert>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={state.exportConsent}
+                  onChange={(event) =>
+                    dispatch({
+                      type: "export-consent",
+                      checked: event.target.checked,
+                    })
+                  }
+                />
+              }
+              label="The victim requested this export."
+            />
+            <TextField
+              fullWidth
+              helperText="At least 12 characters. Do not enter private evidence."
+              label="Export purpose"
+              multiline
+              onChange={(event) =>
+                dispatch({
+                  type: "export-purpose",
+                  value: event.target.value,
+                })
+              }
+              rows={2}
+              value={state.exportPurpose}
+            />
+            <Box>
+              <Typography component="h3">Included references</Typography>
+              <Typography>
+                Select only the references the victim needs.
+              </Typography>
+            </Box>
+            {[
+              ["timeline", "Case timeline"],
+              ["submitted_receipt", "Submitted report receipt"],
+              ["case_actions", "Recorded case actions"],
+            ].map(([reference, label]) => (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={state.exportReferences.includes(reference)}
+                    onChange={() =>
+                      dispatch({
+                        type: "toggle-export-reference",
+                        reference,
+                      })
+                    }
+                  />
+                }
+                key={reference}
+                label={label}
+              />
+            ))}
+            <Alert severity="warning">
+              Expires 72 hours after generation. Preparing this reference does
+              not share it, decide the case, or trigger an account action.
+            </Alert>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => dispatch({ type: "cancel-export" })}>
+            Go back
+          </Button>
+          <Button
+            disabled={
+              !state.exportConsent ||
+              state.exportPurpose.trim().length < 12 ||
+              state.exportReferences.length === 0
+            }
+            onClick={() => dispatch({ type: "confirm-export" })}
+            variant="contained"
+          >
+            Prepare bounded export
           </Button>
         </DialogActions>
       </Dialog>

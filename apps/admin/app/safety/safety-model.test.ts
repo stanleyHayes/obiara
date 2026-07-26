@@ -75,4 +75,43 @@ describe("safety evidence desk", () => {
     expect(proposed.pendingAction).toBe("surface_restriction");
     expect(proposed.lastAction).toBeNull();
   });
+
+  it("requires victim consent, purpose and explicit references for export", () => {
+    let state = safetyDeskReducer(initialSafetyDeskState, {
+      type: "request-export",
+    });
+    expect(safetyDeskReducer(state, { type: "confirm-export" })).toEqual(
+      state,
+    );
+    state = safetyDeskReducer(state, {
+      type: "export-consent",
+      checked: true,
+    });
+    state = safetyDeskReducer(state, {
+      type: "export-purpose",
+      value: "Share my case record with an adviser",
+    });
+    state = safetyDeskReducer(state, {
+      type: "toggle-export-reference",
+      reference: "timeline",
+    });
+    expect(
+      safetyDeskReducer(state, { type: "confirm-export" }).lastExport,
+    ).toMatchObject({
+      reference: "export-SAFE-8Q2M",
+      expiresInHours: 72,
+    });
+  });
+
+  it("rejects unknown export scopes", () => {
+    const pending = safetyDeskReducer(initialSafetyDeskState, {
+      type: "request-export",
+    });
+    expect(
+      safetyDeskReducer(pending, {
+        type: "toggle-export-reference",
+        reference: "raw_messages",
+      }),
+    ).toEqual(pending);
+  });
 });
