@@ -1,0 +1,279 @@
+.danmu-shell {
+  --room-ink: #1d0b18;
+  --room-gold: #ffad3d;
+}
+
+.danmu-main {
+  padding-bottom: 72px;
+}
+
+.danmu-topbar {
+  align-items: end;
+  border-bottom: 1px solid rgba(58, 14, 46, 0.1);
+  display: flex;
+  gap: 40px;
+  justify-content: space-between;
+  min-height: 250px;
+  padding: 46px 0 36px;
+}
+
+.danmu-topbar h1 {
+  font-size: clamp(3.8rem, 7.5vw, 8rem);
+  letter-spacing: -0.08em;
+  line-height: 0.84;
+  margin: 18px 0 24px;
+}
+
+.danmu-topbar > div:first-child > p:last-child {
+  color: #765f70;
+  line-height: 1.6;
+  max-width: 680px;
+}
+
+.danmu-privacy {
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(58, 14, 46, 0.1);
+  border-radius: 18px;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.danmu-privacy > span {
+  color: #11785f;
+}
+
+.danmu-privacy strong,
+.danmu-privacy small {
+  display: block;
+}
+
+.danmu-privacy small {
+  color: #765f70;
+  margin-top: 4px;
+}
+
+.danmu-preview {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin: 18px 0;
+}
+
+.danmu-preview button,
+.danmu-gate button,
+.danmu-room button {
+  font: inherit;
+  min-height: 48px;
+}
+
+.danmu-preview button {
+  background: transparent;
+  border: 1px solid rgba(58, 14, 46, 0.16);
+  border-radius: 999px;
+  color: var(--room-ink);
+  font-size: 0.72rem;
+  font-weight: 850;
+  padding: 0 15px;
+}
+
+.danmu-preview button[aria-pressed="true"] {
+  background: var(--room-ink);
+  color: #fff3e6;
+}
+
+.danmu-room,
+.danmu-gate {
+  background:
+    radial-gradient(
+      circle at 88% 8%,
+      rgba(255, 173, 61, 0.18),
+      transparent 24rem
+    ),
+    var(--room-ink);
+  border-radius: 28px;
+  color: #fff3e6;
+  min-height: 560px;
+  padding: clamp(32px, 5vw, 64px);
+}
+
+.danmu-room > header {
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 243, 230, 0.12);
+  display: flex;
+  gap: 18px;
+  padding-bottom: 26px;
+}
+
+.danmu-avatar {
+  align-items: center;
+  background: #532041;
+  border-radius: 50%;
+  display: flex;
+  font-size: 1.1rem;
+  font-weight: 900;
+  height: 64px;
+  justify-content: center;
+  width: 64px;
+}
+
+.danmu-room h2 {
+  font-size: 2.2rem;
+  letter-spacing: -0.05em;
+  margin: 5px 0;
+}
+
+.danmu-room header p:last-child {
+  color: rgba(255, 243, 230, 0.55);
+  font-size: 0.74rem;
+}
+
+.danmu-pace {
+  border: 1px solid rgba(255, 243, 230, 0.22);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  margin-left: auto;
+  padding: 10px 13px;
+}
+
+.danmu-pace.is-paused {
+  background: #fff0d9;
+  color: var(--room-ink);
+}
+
+.danmu-conversation {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.55fr);
+  margin: 42px 0;
+}
+
+.danmu-conversation article,
+.danmu-conversation aside {
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.danmu-conversation article {
+  background: rgba(255, 243, 230, 0.09);
+}
+
+.danmu-conversation span {
+  color: rgba(255, 243, 230, 0.5);
+  font-size: 0.7rem;
+}
+
+.danmu-conversation article p {
+  font-size: 1.25rem;
+  line-height: 1.55;
+  margin-top: 18px;
+}
+
+.danmu-conversation aside {
+  border: 1px solid rgba(255, 173, 61, 0.35);
+}
+
+.danmu-conversation aside p {
+  color: rgba(255, 243, 230, 0.58);
+  line-height: 1.5;
+  margin-top: 12px;
+}
+
+.danmu-room > footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.danmu-room button,
+.danmu-gate button {
+  border-radius: 999px;
+  font-weight: 900;
+  padding: 0 20px;
+}
+
+.danmu-room footer button:first-child {
+  background: transparent;
+  border: 1px solid rgba(255, 243, 230, 0.35);
+  color: #fff3e6;
+}
+
+.danmu-room footer button:last-child,
+.danmu-gate button {
+  background: var(--room-gold);
+  border: 1px solid var(--room-gold);
+  color: var(--room-ink);
+}
+
+.danmu-room button:disabled {
+  opacity: 0.45;
+}
+
+.danmu-paused {
+  background: #fff0d9;
+  border-radius: 16px;
+  color: var(--room-ink);
+  margin-top: 20px;
+  padding: 16px 18px;
+}
+
+.danmu-paused p {
+  color: #765f70;
+  font-size: 0.78rem;
+  margin-top: 5px;
+}
+
+.danmu-gate h2 {
+  font-size: clamp(3rem, 6vw, 6rem);
+  letter-spacing: -0.07em;
+  line-height: 0.9;
+  margin: 28px 0;
+  max-width: 900px;
+}
+
+.danmu-gate > p:not(.fie-kicker) {
+  color: rgba(255, 243, 230, 0.62);
+  line-height: 1.6;
+  margin-bottom: 28px;
+  max-width: 600px;
+}
+
+@media (max-width: 800px) {
+  .danmu-conversation {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .danmu-topbar,
+  .danmu-room > header,
+  .danmu-room > footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .danmu-topbar {
+    min-height: 0;
+  }
+
+  .danmu-topbar h1 {
+    font-size: 4rem;
+  }
+
+  .danmu-preview {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .danmu-pace {
+    margin-left: 0;
+  }
+
+  .danmu-room > footer {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+}
