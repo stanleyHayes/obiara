@@ -181,6 +181,16 @@ export function FieHome() {
           <Link href="/fie/garden">Listen and sow deliberately</Link>
         </aside>
 
+        <aside className="garden-entry nnoboa-entry">
+          <div>
+            <p className="fie-kicker">Nnoboa · trusted hands</p>
+            <strong>Two of three nominator places are in use.</strong>
+          </div>
+          <Link href="/fie/companions/nnoboa">
+            Review private nominations
+          </Link>
+        </aside>
+
         <CompoundBottomNavigation current="home" />
       </section>
     </main>

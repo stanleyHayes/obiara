@@ -17,6 +17,7 @@
     "@mui/material-nextjs": "9.1.1",
     "@obiara/design-tokens": "workspace:*",
     "@obiara/fie-routing": "workspace:*",
+    "@obiara/nnoboa-policy": "workspace:*",
     "@obiara/okyeame-policy": "workspace:*",
     "@obiara/ui-web": "workspace:*",
     "next": "16.2.12",

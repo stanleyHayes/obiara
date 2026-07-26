@@ -1,0 +1,273 @@
+.nnoboa-main {
+  background:
+    radial-gradient(circle at 86% 7%, rgba(240, 167, 92, 0.2), transparent 26rem),
+    #f7efe3;
+  color: #2b151f;
+  min-height: 100vh;
+  padding: 0 5vw 5rem;
+}
+
+.nnoboa-topbar {
+  align-items: center;
+  border-bottom: 1px solid rgba(80, 52, 65, 0.18);
+  display: flex;
+  justify-content: space-between;
+  min-height: 5rem;
+}
+
+.nnoboa-topbar a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.nnoboa-topbar span {
+  color: #725d66;
+  font-size: 0.82rem;
+}
+
+.nnoboa-hero {
+  max-width: 60rem;
+  padding: clamp(4rem, 9vw, 8rem) 0 3.5rem;
+}
+
+.nnoboa-hero h1 {
+  font-size: clamp(3.4rem, 7.7vw, 7.4rem);
+  letter-spacing: -0.07em;
+  line-height: 0.88;
+  margin: 1rem 0 1.8rem;
+  max-width: 12ch;
+}
+
+.nnoboa-hero > p:last-child {
+  color: #69535d;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  max-width: 48rem;
+}
+
+.nnoboa-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+}
+
+.nnoboa-panel {
+  background: #fffaf2;
+  border: 1px solid #d8c7bd;
+  border-radius: 1.5rem;
+  padding: clamp(1.4rem, 3vw, 2.2rem);
+}
+
+.nnoboa-panel > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.nnoboa-panel h2 {
+  font-size: clamp(1.7rem, 3vw, 2.6rem);
+  letter-spacing: -0.045em;
+  line-height: 1;
+  margin: 0.55rem 0 0;
+}
+
+.nnoboa-panel > header > span {
+  background: #f0dfd3;
+  border-radius: 999px;
+  color: #6f4257;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.55rem 0.8rem;
+  white-space: nowrap;
+}
+
+.nnoboa-panel > header > span.is-ready {
+  background: #dcefe6;
+  color: #1c654f;
+}
+
+.nnoboa-nominators {
+  display: grid;
+  gap: 0.7rem;
+  margin: 2rem 0 1rem;
+}
+
+.nnoboa-nominators > div {
+  align-items: center;
+  border-top: 1px solid #e4d6cc;
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: auto 1fr auto;
+  padding-top: 0.8rem;
+}
+
+.nnoboa-nominators > div > span {
+  align-items: center;
+  background: #38172c;
+  border-radius: 50%;
+  color: #fff5e9;
+  display: flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  height: 2.8rem;
+  justify-content: center;
+  width: 2.8rem;
+}
+
+.nnoboa-nominators small,
+.nnoboa-nominators strong {
+  display: block;
+}
+
+.nnoboa-nominators small,
+.nnoboa-note {
+  color: #745f68;
+}
+
+.nnoboa-nominators button {
+  background: transparent;
+  border: 0;
+  color: #8e3159;
+  font: inherit;
+  font-weight: 700;
+}
+
+.nnoboa-add,
+.nnoboa-actions button,
+.nnoboa-consent button {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 3.25rem;
+  padding: 0.75rem 1.15rem;
+}
+
+.nnoboa-add,
+.nnoboa-actions button:last-child,
+.nnoboa-consent button {
+  background: #38172c;
+  color: #fff5e9;
+}
+
+.nnoboa-add:disabled,
+.nnoboa-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.nnoboa-note {
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.nnoboa-candidate dl {
+  display: grid;
+  gap: 0.7rem;
+  margin: 2rem 0;
+}
+
+.nnoboa-candidate dl div {
+  border-top: 1px solid #e4d6cc;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 7rem 1fr;
+  padding-top: 0.8rem;
+}
+
+.nnoboa-candidate dt {
+  color: #745f68;
+}
+
+.nnoboa-candidate dd {
+  font-weight: 700;
+  margin: 0;
+}
+
+.nnoboa-consent {
+  background: #f2e6db;
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.nnoboa-consent p {
+  line-height: 1.55;
+  margin-top: 0;
+}
+
+.nnoboa-actions {
+  display: flex;
+  gap: 0.7rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.nnoboa-actions .nnoboa-veto {
+  background: transparent;
+  border: 1px solid #8e3159;
+  color: #8e3159;
+}
+
+.nnoboa-result {
+  background: #38172c;
+  border-radius: 1.2rem;
+  color: #fff5e9;
+  margin-top: 2rem;
+  padding: 2rem;
+}
+
+.nnoboa-result h3 {
+  font-size: 2.5rem;
+  letter-spacing: -0.05em;
+  margin: 0.6rem 0;
+}
+
+.nnoboa-result p:last-child {
+  color: #d8c4ce;
+  line-height: 1.6;
+}
+
+.nnoboa-boundary {
+  background: #d98a42;
+  border-radius: 1.5rem;
+  margin-top: 1rem;
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+.nnoboa-boundary h2 {
+  font-size: clamp(2rem, 4vw, 4rem);
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  margin: 0.8rem 0 1rem;
+  max-width: 18ch;
+}
+
+.nnoboa-boundary p:last-child {
+  line-height: 1.65;
+  max-width: 52rem;
+}
+
+@media (max-width: 860px) {
+  .nnoboa-main {
+    padding: 0 1rem 7rem;
+  }
+
+  .nnoboa-topbar span {
+    display: none;
+  }
+
+  .nnoboa-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nnoboa-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .nnoboa-actions button {
+    width: 100%;
+  }
+}
