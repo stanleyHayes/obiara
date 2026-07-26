@@ -4,6 +4,10 @@
  * `tw` is a provisional product locale. See ../README.md before adding a
  * production-ready translation or changing the locale identifier.
  */
+import { stateEnglishCatalog, stateTwiCatalog } from "./catalogs/states.ts";
+
+export { stateEnglishCatalog, stateTwiCatalog } from "./catalogs/states.ts";
+
 export const supportedLocales = ["en", "tw"] as const;
 export type Locale = (typeof supportedLocales)[number];
 
@@ -23,6 +27,7 @@ export const englishCatalog = {
   "permission.denied": "You do not have permission to do that.",
   "queue.position": "You are number {position} in the queue.",
   "sow.create": "Create a Sow",
+  ...stateEnglishCatalog,
 } as const;
 
 export type MessageKey = keyof typeof englishCatalog;
@@ -73,6 +78,7 @@ export const twiCatalog: Readonly<Record<MessageKey, TranslationEntry>> = {
   "permission.denied": { reviewed: false },
   "queue.position": { reviewed: false },
   "sow.create": { reviewed: false },
+  ...stateTwiCatalog,
 };
 
 export type GlossPolicy = "never" | "first-use" | "first-use-per-session";

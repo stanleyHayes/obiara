@@ -7,7 +7,7 @@
   "scripts": {
     "build": "pnpm run typecheck",
     "lint": "pnpm run typecheck",
-    "test": "node --test src/theme.test.ts",
+    "test": "node --test src/theme.test.ts src/admin-theme.test.ts src/states/model.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
