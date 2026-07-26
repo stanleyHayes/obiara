@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer } from "react";
+import Link from "next/link";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
 import {
@@ -104,6 +105,9 @@ export function DanMuShell() {
             </div>
 
             <footer>
+              <Link className="danmu-open-room" href="/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa">
+                Open private room
+              </Link>
               <button
                 onClick={() => dispatch({ type: "toggle-pause" })}
                 type="button"

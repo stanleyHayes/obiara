@@ -30,3 +30,16 @@ for (const [path, heading] of routes) {
     expect(horizontalOverflow).toBe(false);
   });
 }
+
+test("private room detail stays accessible and bounded", async ({ page }) => {
+  await page.goto("/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa");
+  await expect(
+    page.getByRole("heading", { name: "Make room for honesty." }),
+  ).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+  ).toBe(false);
+});

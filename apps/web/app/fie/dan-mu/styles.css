@@ -183,9 +183,22 @@
 }
 
 .danmu-room > footer {
+  align-items: center;
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.danmu-open-room {
+  align-items: center;
+  border: 1px solid rgba(255, 243, 230, 0.35);
+  border-radius: 999px;
+  color: #fff3e6;
+  display: flex;
+  font-weight: 900;
+  min-height: 48px;
+  padding: 0 20px;
+  text-decoration: none;
 }
 
 .danmu-room button,
