@@ -719,6 +719,27 @@ body {
   color: var(--admin-muted);
 }
 
+.safety-action-ladder {
+  border-top: 1px solid rgba(58, 14, 46, 0.09);
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.55fr);
+  margin-top: 30px;
+  padding-top: 28px;
+}
+
+.safety-action-ladder h3 {
+  color: var(--admin-plum);
+  font-size: 1.55rem;
+  margin-top: 6px;
+}
+
+.safety-action-ladder > div:first-child > p:last-child {
+  color: var(--admin-muted);
+  margin-top: 10px;
+  max-width: 52ch;
+}
+
 .verification-case[aria-pressed="true"] {
   background: rgba(255, 159, 28, 0.08) !important;
   box-shadow: inset 4px 0 var(--admin-gold);
@@ -800,6 +821,10 @@ body {
   }
 
   .verification-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .safety-action-ladder {
     grid-template-columns: 1fr;
   }
 }

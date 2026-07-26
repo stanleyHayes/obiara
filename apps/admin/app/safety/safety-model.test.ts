@@ -41,4 +41,38 @@ describe("safety evidence desk", () => {
       true,
     );
   });
+
+  it("requires reason and scope before a human action is recorded", () => {
+    const proposed = safetyDeskReducer(initialSafetyDeskState, {
+      type: "propose-action",
+      kind: "warning",
+    });
+    expect(
+      safetyDeskReducer(proposed, { type: "confirm-action" }),
+    ).toEqual(proposed);
+    const reasoned = safetyDeskReducer(proposed, {
+      type: "action-reason",
+      value: "Explain current policy boundary",
+    });
+    const scoped = safetyDeskReducer(reasoned, {
+      type: "action-scope",
+      value: "direct messaging",
+    });
+    expect(
+      safetyDeskReducer(scoped, { type: "confirm-action" }).lastAction,
+    ).toMatchObject({
+      kind: "warning",
+      scope: "direct messaging",
+      appealOffered: true,
+    });
+  });
+
+  it("never turns a proposal into a stronger action automatically", () => {
+    const proposed = safetyDeskReducer(initialSafetyDeskState, {
+      type: "propose-action",
+      kind: "surface_restriction",
+    });
+    expect(proposed.pendingAction).toBe("surface_restriction");
+    expect(proposed.lastAction).toBeNull();
+  });
 });

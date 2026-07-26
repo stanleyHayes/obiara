@@ -218,9 +218,9 @@ export default function AdminHome() {
                 <Typography className="section-kicker">Trust &amp; safety</Typography>
                 <Typography component="h2">Recent signals</Typography>
               </Box>
-              <Button component={Link} href="/safety">
-                Open safety desk
-              </Button>
+              <Link href="/safety">
+                <Button>Open safety desk</Button>
+              </Link>
             </Box>
             <Box className="incident-table" role="table" aria-label="Recent trust and safety signals">
               <Box className="incident-head" role="row">

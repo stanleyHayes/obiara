@@ -22,8 +22,15 @@ import { useReducer } from "react";
 import {
   initialSafetyDeskState,
   safetyDeskReducer,
+  type SafetyActionKind,
   type SafetyCase,
 } from "./safety-model";
+
+const actionLabels: Readonly<Record<SafetyActionKind, string>> = {
+  warning: "Policy warning",
+  surface_restriction: "Temporary surface restriction",
+  account_review: "Bounded account review",
+};
 
 function SafetyQueueItem({
   item,
@@ -88,6 +95,13 @@ export function SafetyDesk() {
           <Chip label="Purpose logged" color="success" />
         </Stack>
       </header>
+
+      {state.lastAction ? (
+        <Alert severity="success" className="verification-alert">
+          {actionLabels[state.lastAction.kind]} proposed for{" "}
+          {state.lastAction.scope}. The member appeal notice is included.
+        </Alert>
+      ) : null}
 
       <Box className="verification-grid">
         <Card className="verification-list">
@@ -200,6 +214,36 @@ export function SafetyDesk() {
                   Request legal hold
                 </Button>
               </Box>
+
+              <Box className="safety-action-ladder">
+                <Box>
+                  <Typography className="section-kicker">
+                    Least-harm action ladder
+                  </Typography>
+                  <Typography component="h3">
+                    Propose one bounded next step.
+                  </Typography>
+                  <Typography>
+                    Every proposal needs a scope, reason, confirmation and
+                    member appeal notice.
+                  </Typography>
+                </Box>
+                <Stack spacing={1.2}>
+                  {(
+                    Object.keys(actionLabels) as readonly SafetyActionKind[]
+                  ).map((kind) => (
+                    <Button
+                      key={kind}
+                      onClick={() =>
+                        dispatch({ type: "propose-action", kind })
+                      }
+                      variant={kind === "warning" ? "contained" : "outlined"}
+                    >
+                      {actionLabels[kind]}
+                    </Button>
+                  ))}
+                </Stack>
+              </Box>
             </>
           ) : null}
         </Card>
@@ -260,6 +304,64 @@ export function SafetyDesk() {
             variant="contained"
           >
             Confirm request
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        aria-labelledby="safety-action-title"
+        fullWidth
+        maxWidth="sm"
+        onClose={() => dispatch({ type: "cancel-action" })}
+        open={state.pendingAction !== null}
+      >
+        <DialogTitle id="safety-action-title">
+          Confirm{" "}
+          {state.pendingAction ? actionLabels[state.pendingAction] : "action"}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="info">
+              This records a human proposal only. It does not act on devices,
+              payments or other accounts automatically.
+            </Alert>
+            <TextField
+              helperText="Name the exact product surface, not a person or device."
+              label="Action scope"
+              onChange={(event) =>
+                dispatch({ type: "action-scope", value: event.target.value })
+              }
+              value={state.actionScope}
+            />
+            <TextField
+              helperText="At least 12 characters. Use neutral policy language."
+              label="Operator reason"
+              multiline
+              onChange={(event) =>
+                dispatch({ type: "action-reason", value: event.target.value })
+              }
+              rows={3}
+              value={state.actionReason}
+            />
+            <Typography>
+              The member receives the reason, duration or review scope, and a
+              human appeal route.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => dispatch({ type: "cancel-action" })}>
+            Go back
+          </Button>
+          <Button
+            disabled={
+              state.actionReason.trim().length < 12 ||
+              state.actionScope.trim().length < 4
+            }
+            onClick={() => dispatch({ type: "confirm-action" })}
+            variant="contained"
+          >
+            Record proposal
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,5 +1,9 @@
 export type SafetyTier = "A" | "B" | "C" | "care";
 export type HoldStatus = "none" | "pending" | "active";
+export type SafetyActionKind =
+  | "warning"
+  | "surface_restriction"
+  | "account_review";
 
 export interface SafetyCase {
   readonly id: string;
@@ -22,6 +26,15 @@ export interface SafetyDeskState {
   readonly accessPurpose: string;
   readonly accessAcknowledged: boolean;
   readonly holdPending: boolean;
+  readonly pendingAction: SafetyActionKind | null;
+  readonly actionReason: string;
+  readonly actionScope: string;
+  readonly lastAction: {
+    readonly caseId: string;
+    readonly kind: SafetyActionKind;
+    readonly scope: string;
+    readonly appealOffered: true;
+  } | null;
 }
 
 export type SafetyDeskAction =
@@ -32,7 +45,12 @@ export type SafetyDeskAction =
   | { readonly type: "close-evidence" }
   | { readonly type: "request-hold" }
   | { readonly type: "cancel-hold" }
-  | { readonly type: "confirm-hold" };
+  | { readonly type: "confirm-hold" }
+  | { readonly type: "propose-action"; readonly kind: SafetyActionKind }
+  | { readonly type: "action-reason"; readonly value: string }
+  | { readonly type: "action-scope"; readonly value: string }
+  | { readonly type: "cancel-action" }
+  | { readonly type: "confirm-action" };
 
 export const initialSafetyCases: readonly SafetyCase[] = [
   {
@@ -70,6 +88,10 @@ export const initialSafetyDeskState: SafetyDeskState = {
   accessPurpose: "",
   accessAcknowledged: false,
   holdPending: false,
+  pendingAction: null,
+  actionReason: "",
+  actionScope: "",
+  lastAction: null,
 };
 
 export function safetyDeskReducer(
@@ -86,6 +108,9 @@ export function safetyDeskReducer(
             accessPurpose: "",
             accessAcknowledged: false,
             holdPending: false,
+            pendingAction: null,
+            actionReason: "",
+            actionScope: "",
           }
         : state;
     case "purpose":
@@ -123,6 +148,51 @@ export function safetyDeskReducer(
             : item,
         ),
         holdPending: false,
+      };
+    case "propose-action":
+      return state.selectedId
+        ? {
+            ...state,
+            pendingAction: action.kind,
+            actionReason: "",
+            actionScope: "",
+          }
+        : state;
+    case "action-reason":
+      return state.pendingAction
+        ? { ...state, actionReason: action.value.slice(0, 240) }
+        : state;
+    case "action-scope":
+      return state.pendingAction
+        ? { ...state, actionScope: action.value.slice(0, 80) }
+        : state;
+    case "cancel-action":
+      return {
+        ...state,
+        pendingAction: null,
+        actionReason: "",
+        actionScope: "",
+      };
+    case "confirm-action":
+      if (
+        !state.selectedId ||
+        !state.pendingAction ||
+        state.actionReason.trim().length < 12 ||
+        state.actionScope.trim().length < 4
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        lastAction: {
+          caseId: state.selectedId,
+          kind: state.pendingAction,
+          scope: state.actionScope.trim(),
+          appealOffered: true,
+        },
+        pendingAction: null,
+        actionReason: "",
+        actionScope: "",
       };
   }
 }
