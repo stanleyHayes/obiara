@@ -63,7 +63,7 @@ external provider commitment is authorized by this checkpoint.
 
 | ID     | Decision or corrective action                                                                                                                                     | Owner                                                         | Required before                                                 | Status |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------- | ------ |
-| CP-001 | Upgrade or otherwise remediate reachable `golang.org/x/text` `GO-2026-5970`, then obtain a green Security workflow                                                | Backend/platform owner; coordinate with active `S1-002` owner | Unconditional Sprint 0 engineering approval                     | CLOSED 2026-07-26 by S1-012; `x/text v0.39.0`, local govulncheck clean; final workflow proof pending push |
+| CP-001 | Upgrade or otherwise remediate reachable `golang.org/x/text` `GO-2026-5970`, then obtain a green Security workflow                                                | Backend/platform owner; coordinate with active `S1-002` owner | Unconditional Sprint 0 engineering approval                     | CLOSED 2026-07-26 by S1-012; `x/text v0.39.0`, local govulncheck clean; Security run `30212221435` passed |
 | CP-002 | Recover Docker Desktop, remove resource saturation and rerun Mongo Testcontainers integration                                                                     | Engineering environment owner                                 | Merging work that changes Mongo transaction/repository behavior | OPEN   |
 | CP-003 | Decide Ghana-only versus approved-African-region residency and approve a production topology                                                                      | Founder + DPO/legal                                           | Provisioning production data services                           | OPEN   |
 | CP-004 | Decide E2E room encryption versus consented safety processing                                                                                                     | Founder + architecture + legal/safety                         | E07 room implementation                                         | OPEN   |
@@ -79,7 +79,7 @@ The requested approval is:
 
 1. allow Sprint 1 implementation to continue under the accepted ADRs;
 2. keep production provisioning and real-member data prohibited;
-3. require `CP-001` before declaring the engineering baseline fully green;
+3. record `CP-001` as satisfied while retaining the remaining founder gates;
 4. answer the product, residency, encryption and ownership questions before
    their dependent stories begin.
 
