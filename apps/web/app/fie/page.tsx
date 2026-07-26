@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { FieHome } from "./fie-home";
-import "./styles.css";
 
 export const metadata: Metadata = {
   title: "Fie | Obiara",

@@ -1,0 +1,256 @@
+.abonten-shell {
+  --street-ink: #2b1023;
+  --street-orange: #f6a53a;
+}
+
+.abonten-main {
+  padding-bottom: 72px;
+}
+
+.abonten-topbar {
+  align-items: end;
+  border-bottom: 1px solid rgba(58, 14, 46, 0.1);
+  display: flex;
+  gap: 40px;
+  justify-content: space-between;
+  min-height: 230px;
+  padding: 44px 0 34px;
+}
+
+.abonten-topbar h1 {
+  color: var(--street-ink);
+  font-size: clamp(3.5rem, 7vw, 7.5rem);
+  letter-spacing: -0.075em;
+  line-height: 0.86;
+  margin: 18px 0 24px;
+  max-width: 900px;
+}
+
+.abonten-topbar > div:first-child > p:last-child {
+  color: #765f70;
+  line-height: 1.6;
+  max-width: 630px;
+}
+
+.abonten-status {
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(58, 14, 46, 0.1);
+  border-radius: 999px;
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-weight: 800;
+  gap: 9px;
+  min-height: 48px;
+  padding: 0 18px;
+}
+
+.abonten-status span {
+  background: #118269;
+  border-radius: 50%;
+  height: 8px;
+  width: 8px;
+}
+
+.abonten-welcome {
+  background: var(--street-ink);
+  border-radius: 28px;
+  color: #fff3e6;
+  display: grid;
+  gap: 60px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.55fr);
+  margin-top: 24px;
+  min-height: 300px;
+  padding: clamp(32px, 5vw, 62px);
+}
+
+.abonten-welcome h2 {
+  font-size: clamp(2.8rem, 5vw, 5.6rem);
+  letter-spacing: -0.065em;
+  line-height: 0.92;
+  margin-top: 24px;
+  max-width: 900px;
+}
+
+.abonten-principle {
+  align-self: end;
+  border-left: 2px solid var(--street-orange);
+  padding-left: 24px;
+}
+
+.abonten-principle p {
+  color: rgba(255, 243, 230, 0.68);
+  line-height: 1.6;
+  margin-top: 12px;
+}
+
+.abonten-moments {
+  margin-top: 42px;
+}
+
+.abonten-moments > header {
+  align-items: end;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.abonten-moments h2 {
+  font-size: clamp(2rem, 4vw, 3.8rem);
+  letter-spacing: -0.06em;
+  margin-top: 8px;
+}
+
+.abonten-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.abonten-filters button,
+.abonten-card button {
+  font: inherit;
+  min-height: 48px;
+}
+
+.abonten-filters button {
+  background: transparent;
+  border: 1px solid rgba(58, 14, 46, 0.18);
+  border-radius: 999px;
+  color: var(--street-ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0 16px;
+}
+
+.abonten-filters button[aria-pressed="true"] {
+  background: var(--street-ink);
+  color: #fff3e6;
+}
+
+.abonten-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.abonten-card {
+  background: #fff;
+  border: 1px solid rgba(58, 14, 46, 0.1);
+  border-top: 6px solid var(--card-accent);
+  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  min-height: 340px;
+  padding: 26px;
+}
+
+.abonten-card.is-orange {
+  --card-accent: #e68100;
+}
+
+.abonten-card.is-green {
+  --card-accent: #118269;
+}
+
+.abonten-card.is-rose {
+  --card-accent: #be3154;
+}
+
+.abonten-card h3 {
+  font-size: clamp(1.7rem, 2.5vw, 2.5rem);
+  letter-spacing: -0.05em;
+  line-height: 1;
+  margin: 24px 0 14px;
+}
+
+.abonten-card > p:not(.fie-kicker) {
+  color: #765f70;
+  line-height: 1.55;
+}
+
+.abonten-card small {
+  color: #765f70;
+  margin: 24px 0;
+}
+
+.abonten-card > div {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.abonten-card button {
+  background: var(--street-ink);
+  border: 1px solid var(--street-ink);
+  border-radius: 999px;
+  color: #fff3e6;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0 15px;
+}
+
+.abonten-card button:last-child {
+  background: transparent;
+  color: var(--street-ink);
+}
+
+.abonten-card button[aria-pressed="true"] {
+  background: #fff0d9;
+}
+
+@media (max-width: 1080px) {
+  .abonten-welcome {
+    gap: 36px;
+    grid-template-columns: 1fr;
+  }
+
+  .abonten-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .abonten-card {
+    min-height: 280px;
+  }
+}
+
+@media (max-width: 760px) {
+  .abonten-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 24px;
+    min-height: 0;
+  }
+
+  .abonten-topbar h1 {
+    font-size: 4rem;
+  }
+
+  .abonten-welcome {
+    border-radius: 22px;
+    min-height: 0;
+  }
+
+  .abonten-moments > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .abonten-filters {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 430px) {
+  .abonten-topbar h1 {
+    font-size: 3.3rem;
+  }
+
+  .abonten-card > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

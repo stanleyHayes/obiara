@@ -3,50 +3,12 @@
 import Link from "next/link";
 import { useReducer } from "react";
 
+import { CompoundBottomNavigation, CompoundRail } from "./compound-navigation";
 import {
   connectionMessage,
   fieHomeReducer,
   initialFieHomeState,
-  type FieHomeState,
 } from "./fie-model";
-
-const navigation: readonly {
-  label: string;
-  gloss: string;
-  zone: FieHomeState["activeZone"];
-  href: string;
-  mark: string;
-}[] = [
-  { label: "Fie", gloss: "home", zone: "fie", href: "/fie", mark: "F" },
-  {
-    label: "Abɔnten",
-    gloss: "street",
-    zone: "abonten",
-    href: "/fie/abonten",
-    mark: "A",
-  },
-  {
-    label: "Adiwo",
-    gloss: "courtyard",
-    zone: "adiwo",
-    href: "/fie/adiwo",
-    mark: "D",
-  },
-  {
-    label: "Ɛpono ano",
-    gloss: "doorway",
-    zone: "epono-ano",
-    href: "/fie/epono-ano",
-    mark: "Ɛ",
-  },
-  {
-    label: "Dan mu",
-    gloss: "inner room",
-    zone: "dan-mu",
-    href: "/fie/dan-mu",
-    mark: "M",
-  },
-];
 
 const zones = [
   {
@@ -89,30 +51,7 @@ export function FieHome() {
 
   return (
     <main className="fie-shell">
-      <aside className="fie-rail">
-        <Link className="fie-wordmark" href="/">
-          obiara
-        </Link>
-        <nav aria-label="Compound navigation">
-          {navigation.map((item) => (
-            <Link
-              aria-current={item.zone === "fie" ? "page" : undefined}
-              href={item.href}
-              key={item.zone}
-              onClick={() => dispatch({ type: "select-zone", zone: item.zone })}
-            >
-              <span aria-hidden="true">{item.mark}</span>
-              <strong>{item.label}</strong>
-              <small>{item.gloss}</small>
-            </Link>
-          ))}
-        </nav>
-        <div className="fie-rail-note">
-          <span />
-          <p>Fie is current</p>
-          <small>Last safe sync 2 min ago</small>
-        </div>
-      </aside>
+      <CompoundRail current="fie" />
 
       <section className="fie-main">
         <header className="fie-topbar">
@@ -226,18 +165,7 @@ export function FieHome() {
           </div>
         </section>
 
-        <nav className="fie-bottom-nav" aria-label="Mobile compound navigation">
-          {navigation.map((item) => (
-            <Link
-              aria-current={item.zone === "fie" ? "page" : undefined}
-              href={item.href}
-              key={item.zone}
-            >
-              <span aria-hidden="true">{item.mark}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <CompoundBottomNavigation current="fie" />
       </section>
     </main>
   );
