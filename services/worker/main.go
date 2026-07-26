@@ -18,6 +18,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/application"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/relay"
+	workertelemetry "github.com/stanleyHayes/obiara/services/worker/internal/telemetry"
 )
 
 func main() {
@@ -28,10 +29,24 @@ func main() {
 }
 
 func run() error {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	telemetryRuntime, err := workertelemetry.New(ctx, os.Stdout, workertelemetry.Config{
+		Version:     envOrDefault("SERVICE_VERSION", "dev"),
+		Environment: envOrDefault("APP_ENV", "development"),
+		Endpoint:    os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		Insecure:    envOrDefault("OTEL_EXPORTER_OTLP_INSECURE", "false") == "true",
+	})
+	if err != nil {
+		return fmt.Errorf("configure telemetry: %w", err)
+	}
+	logger := telemetryRuntime.Logger
+	ctx = telemetryRuntime.Started(ctx, 1)
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+		_ = telemetryRuntime.Shutdown(shutdownCtx)
+	}()
 
 	connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()

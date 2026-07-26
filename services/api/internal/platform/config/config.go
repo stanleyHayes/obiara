@@ -17,6 +17,10 @@ type Config struct {
 	MongoDatabase       string
 	MongoConnectTimeout time.Duration
 	ShutdownTimeout     time.Duration
+	TelemetryEndpoint   string
+	TelemetryInsecure   bool
+	ServiceVersion      string
+	Environment         string
 }
 
 // Load reads configuration using getenv (os.Getenv in production) and
@@ -24,9 +28,12 @@ type Config struct {
 // must set every value explicitly through the environment matrix.
 func Load(getenv func(string) string) (Config, error) {
 	cfg := Config{
-		Port:          valueOrDefault(getenv("PORT"), "8080"),
-		MongoURI:      valueOrDefault(getenv("MONGODB_URI"), "mongodb://localhost:27017"),
-		MongoDatabase: valueOrDefault(getenv("MONGODB_DATABASE"), "obiara"),
+		Port:              valueOrDefault(getenv("PORT"), "8080"),
+		MongoURI:          valueOrDefault(getenv("MONGODB_URI"), "mongodb://localhost:27017"),
+		MongoDatabase:     valueOrDefault(getenv("MONGODB_DATABASE"), "obiara"),
+		TelemetryEndpoint: strings.TrimSpace(getenv("OTEL_EXPORTER_OTLP_ENDPOINT")),
+		ServiceVersion:    valueOrDefault(getenv("SERVICE_VERSION"), "dev"),
+		Environment:       valueOrDefault(getenv("APP_ENV"), "development"),
 	}
 
 	var err error
@@ -35,6 +42,9 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if cfg.ShutdownTimeout, err = durationOrDefault(getenv("SHUTDOWN_TIMEOUT"), 10*time.Second); err != nil {
 		return Config{}, fmt.Errorf("SHUTDOWN_TIMEOUT: %w", err)
+	}
+	if cfg.TelemetryInsecure, err = boolOrDefault(getenv("OTEL_EXPORTER_OTLP_INSECURE"), false); err != nil {
+		return Config{}, fmt.Errorf("OTEL_EXPORTER_OTLP_INSECURE: %w", err)
 	}
 
 	port, convErr := strconv.Atoi(cfg.Port)
@@ -49,6 +59,17 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func boolOrDefault(value string, fallback bool) (bool, error) {
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("must be true or false, got %q", value)
+	}
+	return parsed, nil
 }
 
 func valueOrDefault(value, fallback string) string {

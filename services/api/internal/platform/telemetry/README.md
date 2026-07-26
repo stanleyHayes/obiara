@@ -22,3 +22,15 @@ Privacy rules:
 The HTTP layer can bridge its effective `X-Correlation-ID` into
 `WithContextFields`; no dependency from telemetry to the transport package is
 required.
+
+## Runtime composition
+
+The API and worker composition roots use vendor-neutral OTLP over HTTP. Export
+is deliberately disabled when `OTEL_EXPORTER_OTLP_ENDPOINT` is empty. When
+enabled, the endpoint must be an absolute credential-free `https` URL; local
+plain HTTP additionally requires `OTEL_EXPORTER_OTLP_INSECURE=true`.
+
+Deployment metadata is supplied through `SERVICE_VERSION` and `APP_ENV`.
+Authentication belongs in the collector/network boundary; never place tokens
+or credentials in the endpoint URL. Both processes flush trace and metric
+providers during graceful shutdown.

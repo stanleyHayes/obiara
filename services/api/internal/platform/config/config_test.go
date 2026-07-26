@@ -35,11 +35,15 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadOverrides(t *testing.T) {
 	cfg, err := Load(envWith(map[string]string{
-		"PORT":                  "9090",
-		"MONGODB_URI":           "mongodb://mongo.internal:27017",
-		"MONGODB_DATABASE":      "obiara_staging",
-		"MONGO_CONNECT_TIMEOUT": "3s",
-		"SHUTDOWN_TIMEOUT":      "250ms",
+		"PORT":                        "9090",
+		"MONGODB_URI":                 "mongodb://mongo.internal:27017",
+		"MONGODB_DATABASE":            "obiara_staging",
+		"MONGO_CONNECT_TIMEOUT":       "3s",
+		"SHUTDOWN_TIMEOUT":            "250ms",
+		"OTEL_EXPORTER_OTLP_ENDPOINT": "https://collector.example.test",
+		"OTEL_EXPORTER_OTLP_INSECURE": "false",
+		"SERVICE_VERSION":             "git-abc123",
+		"APP_ENV":                     "staging",
 	}))
 	if err != nil {
 		t.Fatalf("Load with overrides returned error: %v", err)
@@ -59,6 +63,10 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.ShutdownTimeout != 250*time.Millisecond {
 		t.Errorf("ShutdownTimeout = %v, want 250ms", cfg.ShutdownTimeout)
 	}
+	if cfg.TelemetryEndpoint != "https://collector.example.test" || cfg.TelemetryInsecure ||
+		cfg.ServiceVersion != "git-abc123" || cfg.Environment != "staging" {
+		t.Errorf("telemetry config = %#v", cfg)
+	}
 }
 
 func TestLoadInvalid(t *testing.T) {
@@ -69,6 +77,7 @@ func TestLoadInvalid(t *testing.T) {
 		"blank database":       {"MONGODB_DATABASE": " "},
 		"bad connect timeout":  {"MONGO_CONNECT_TIMEOUT": "soon"},
 		"bad shutdown timeout": {"SHUTDOWN_TIMEOUT": "later"},
+		"bad telemetry bool":   {"OTEL_EXPORTER_OTLP_INSECURE": "perhaps"},
 	}
 	for name, env := range cases {
 		t.Run(name, func(t *testing.T) {

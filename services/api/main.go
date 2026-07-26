@@ -25,6 +25,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
+	"github.com/stanleyHayes/obiara/services/api/internal/platform/telemetry"
 	"github.com/stanleyHayes/obiara/services/api/internal/privacy"
 	"github.com/stanleyHayes/obiara/services/api/internal/profile"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"
@@ -46,6 +47,18 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	telemetryRuntime, err := telemetry.NewRuntime(ctx, os.Stdout, telemetry.RuntimeConfig{
+		Service: "obiara-api", Version: cfg.ServiceVersion, Environment: cfg.Environment,
+		Endpoint: cfg.TelemetryEndpoint, Insecure: cfg.TelemetryInsecure,
+	})
+	if err != nil {
+		return fmt.Errorf("configure telemetry: %w", err)
+	}
+	defer func() {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+		defer shutdownCancel()
+		_ = telemetryRuntime.Shutdown(shutdownCtx)
+	}()
 
 	connectCtx, cancel := context.WithTimeout(ctx, cfg.MongoConnectTimeout)
 	defer cancel()
@@ -114,7 +127,7 @@ func run() error {
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           apihttp.Correlation(mux),
+		Handler:           apihttp.Correlation(telemetryRuntime.HTTP(mux, apihttp.CorrelationID)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
