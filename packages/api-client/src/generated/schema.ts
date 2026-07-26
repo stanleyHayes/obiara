@@ -98,6 +98,66 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/privacy/deletions": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Request account deletion
+     * @description Opens a deletion request completed within 30 days with
+     *     cryptographic erasure of voice/biometric blobs (FR-106). Active
+     *     legal holds block deletion with 409 legal_hold_active.
+     */
+    readonly post: operations["requestDeletion"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/privacy/exports": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Request a data export
+     * @description Opens an export request. The machine-readable archive is delivered
+     *     within 72 hours (FR-106). One open request per kind per account.
+     */
+    readonly post: operations["requestExport"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/privacy/requests/{id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Read a privacy request status */
+    readonly get: operations["privacyRequestStatus"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/verifications/ghana-card": {
     readonly parameters: {
       readonly query?: never;
@@ -178,6 +238,25 @@ export interface components {
     };
     /** @description E.164 phone number. */
     readonly PhoneNumber: string;
+    readonly PrivacyRequestData: {
+      /** Format: date-time */
+      readonly completedAt?: string;
+      /** Format: date-time */
+      readonly dueAt: string;
+      /** @enum {string} */
+      readonly kind: "export" | "deletion";
+      readonly requestId: string;
+      /** @enum {string} */
+      readonly status:
+        "requested" | "processing" | "completed" | "blocked_legal_hold";
+    };
+    readonly PrivacyRequestEnvelope: {
+      readonly data: components["schemas"]["PrivacyRequestData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly PrivacyRequestInput: {
+      readonly accountId: string;
+    };
     readonly RegisterMemberRequest: {
       /** Format: email */
       readonly email: string;
@@ -260,6 +339,26 @@ export interface components {
     };
     /** @description Too many OTP requests for this phone number. */
     readonly OtpRateLimited: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description An open request of this kind already exists for the account. */
+    readonly PrivacyRequestExists: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description No privacy request with this identifier exists. */
+    readonly PrivacyRequestNotFound: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -494,6 +593,100 @@ export interface operations {
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
       readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly requestDeletion: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PrivacyRequestInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Deletion request opened. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PrivacyRequestEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 409: components["responses"]["PrivacyRequestExists"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly requestExport: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PrivacyRequestInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Export request opened. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PrivacyRequestEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 409: components["responses"]["PrivacyRequestExists"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly privacyRequestStatus: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Request status. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PrivacyRequestEnvelope"];
+        };
+      };
+      readonly 404: components["responses"]["PrivacyRequestNotFound"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly submitGhanaCard: {

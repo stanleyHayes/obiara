@@ -237,6 +237,108 @@ paths:
           $ref: "#/components/responses/VerificationRejected"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/privacy/exports:
+    post:
+      operationId: requestExport
+      tags: [Privacy]
+      summary: Request a data export
+      security: []
+      description: |
+        Opens an export request. The machine-readable archive is delivered
+        within 72 hours (FR-106). One open request per kind per account.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivacyRequestInput"
+      responses:
+        "201":
+          description: Export request opened.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyRequestEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "409":
+          $ref: "#/components/responses/PrivacyRequestExists"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/privacy/deletions:
+    post:
+      operationId: requestDeletion
+      tags: [Privacy]
+      summary: Request account deletion
+      security: []
+      description: |
+        Opens a deletion request completed within 30 days with
+        cryptographic erasure of voice/biometric blobs (FR-106). Active
+        legal holds block deletion with 409 legal_hold_active.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivacyRequestInput"
+      responses:
+        "201":
+          description: Deletion request opened.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyRequestEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "409":
+          $ref: "#/components/responses/PrivacyRequestExists"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/privacy/requests/{id}:
+    get:
+      operationId: privacyRequestStatus
+      tags: [Privacy]
+      summary: Read a privacy request status
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Request status.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyRequestEnvelope"
+        "404":
+          $ref: "#/components/responses/PrivacyRequestNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   parameters:
     CorrelationId:
@@ -372,6 +474,40 @@ components:
                 error:
                   code: verification_rejected
                   message: The document could not be verified with the issuer.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    PrivacyRequestExists:
+      description: An open request of this kind already exists for the account.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            privacyRequestExists:
+              value:
+                error:
+                  code: privacy_request_exists
+                  message: An open request of this kind already exists.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    PrivacyRequestNotFound:
+      description: No privacy request with this identifier exists.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            privacyRequestNotFound:
+              value:
+                error:
+                  code: privacy_request_not_found
+                  message: No such privacy request.
                 meta:
                   correlationId: 01J9EXAMPLE000000000000000
     ValidationFailed:
@@ -579,6 +715,44 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/VerificationCaseData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    PrivacyRequestInput:
+      type: object
+      additionalProperties: false
+      required: [accountId]
+      properties:
+        accountId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    PrivacyRequestData:
+      type: object
+      additionalProperties: false
+      required: [requestId, kind, status, dueAt]
+      properties:
+        requestId:
+          type: string
+        kind:
+          type: string
+          enum: [export, deletion]
+        status:
+          type: string
+          enum: [requested, processing, completed, blocked_legal_hold]
+        dueAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+    PrivacyRequestEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/PrivacyRequestData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

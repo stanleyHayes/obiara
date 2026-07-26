@@ -25,6 +25,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
+	"github.com/stanleyHayes/obiara/services/api/internal/privacy"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification"
 )
 
@@ -73,6 +74,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build verification module: %w", err)
 	}
+	// Privacy (E03-S10) serves export/deletion requests and legal holds.
+	privacyModule, err := privacy.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build privacy module: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /live", health.Live())
@@ -82,6 +88,7 @@ func run() error {
 	apihttp.RegisterMemberRoutes(mux, memberModule.Register.Handle)
 	apihttp.RegisterAuthRoutes(mux, identityModule.Registration)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification)
+	apihttp.RegisterPrivacyRoutes(mux, privacyModule.Privacy)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
