@@ -14,7 +14,7 @@ func TestTierTransitionPersistsAudit(t *testing.T) {
 	accounts := NewMockAccountRepository(ctrl)
 	service := NewTierService(accounts, fixedNow)
 
-	account := domain.ReconstituteAccount("id_1", "+233550000101", domain.AccountActive, domain.TierUnverified, 1, testNow)
+	account := domain.ReconstituteAccount("id_1", "+233550000101", domain.AccountActive, domain.TierUnverified, 1, nil, testNow)
 	accounts.EXPECT().FindByID(gomock.Any(), "id_1").Return(account, nil)
 	accounts.EXPECT().UpdateWithAudit(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, updated domain.Account, transition domain.TierTransition) error {
@@ -41,7 +41,7 @@ func TestTierTransitionRejectsInvalidWithoutPersistence(t *testing.T) {
 	accounts := NewMockAccountRepository(ctrl)
 	service := NewTierService(accounts, fixedNow)
 
-	account := domain.ReconstituteAccount("id_1", "+233550000101", domain.AccountActive, domain.TierUnverified, 1, testNow)
+	account := domain.ReconstituteAccount("id_1", "+233550000101", domain.AccountActive, domain.TierUnverified, 1, nil, testNow)
 	accounts.EXPECT().FindByID(gomock.Any(), "id_1").Return(account, nil)
 	// No UpdateWithAudit expectation: any persistence call fails the test.
 

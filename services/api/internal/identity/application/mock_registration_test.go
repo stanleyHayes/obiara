@@ -12,6 +12,7 @@ package application
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	domain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 	gomock "go.uber.org/mock/gomock"
@@ -150,6 +151,35 @@ func (m *MockAccountRepository) FindByPhone(arg0 context.Context, arg1 string) (
 func (mr *MockAccountRepositoryMockRecorder) FindByPhone(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByPhone", reflect.TypeOf((*MockAccountRepository)(nil).FindByPhone), arg0, arg1)
+}
+
+// ListSuspendedExpired mocks base method.
+func (m *MockAccountRepository) ListSuspendedExpired(arg0 context.Context, arg1 time.Time, arg2 int) ([]domain.Account, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSuspendedExpired", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]domain.Account)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSuspendedExpired indicates an expected call of ListSuspendedExpired.
+func (mr *MockAccountRepositoryMockRecorder) ListSuspendedExpired(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSuspendedExpired", reflect.TypeOf((*MockAccountRepository)(nil).ListSuspendedExpired), arg0, arg1, arg2)
+}
+
+// Update mocks base method.
+func (m *MockAccountRepository) Update(arg0 context.Context, arg1 domain.Account) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockAccountRepositoryMockRecorder) Update(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockAccountRepository)(nil).Update), arg0, arg1)
 }
 
 // UpdateWithAudit mocks base method.

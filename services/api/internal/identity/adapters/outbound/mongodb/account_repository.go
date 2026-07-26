@@ -33,12 +33,13 @@ func (repository *AccountRepository) transitions() *mongo.Collection {
 }
 
 type accountDocument struct {
-	ID        string    `bson:"_id"`
-	Phone     string    `bson:"phone"`
-	Status    string    `bson:"status"`
-	Tier      int       `bson:"tier"`
-	Version   int64     `bson:"version"`
-	CreatedAt time.Time `bson:"createdAt"`
+	ID             string     `bson:"_id"`
+	Phone          string     `bson:"phone"`
+	Status         string     `bson:"status"`
+	Tier           int        `bson:"tier"`
+	Version        int64      `bson:"version"`
+	SuspendedUntil *time.Time `bson:"suspendedUntil,omitempty"`
+	CreatedAt      time.Time  `bson:"createdAt"`
 }
 
 type transitionDocument struct {
@@ -94,8 +95,52 @@ func (repository *AccountRepository) findOne(ctx context.Context, filter bson.M)
 		domain.AccountStatus(document.Status),
 		domain.Tier(document.Tier),
 		document.Version,
+		document.SuspendedUntil,
 		document.CreatedAt,
 	), nil
+}
+
+// ListSuspendedExpired returns suspended accounts whose suspension ended
+// before now, oldest first.
+func (repository *AccountRepository) ListSuspendedExpired(ctx context.Context, now time.Time, limit int) ([]domain.Account, error) {
+	if limit < 1 {
+		limit = 100
+	}
+	cursor, err := repository.collection().Find(ctx,
+		bson.M{"status": string(domain.AccountSuspended), "suspendedUntil": bson.M{"$lte": now.UTC()}},
+		options.Find().SetSort(bson.D{{Key: "suspendedUntil", Value: 1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var accounts []domain.Account
+	for cursor.Next(ctx) {
+		var document accountDocument
+		if err := cursor.Decode(&document); err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, domain.ReconstituteAccount(
+			document.ID, document.Phone, domain.AccountStatus(document.Status),
+			domain.Tier(document.Tier), document.Version, document.SuspendedUntil, document.CreatedAt))
+	}
+	return accounts, cursor.Err()
+}
+
+// Update persists status transitions (suspend, block, reactivate) with
+// optimistic concurrency.
+func (repository *AccountRepository) Update(ctx context.Context, account domain.Account) error {
+	document := toAccountDocument(account)
+	result, err := repository.collection().UpdateOne(ctx,
+		bson.M{"_id": document.ID, "version": document.Version - 1},
+		bson.M{"$set": bson.M{"status": document.Status, "suspendedUntil": document.SuspendedUntil, "version": document.Version}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return application.ErrStaleSession
+	}
+	return nil
 }
 
 // UpdateWithAudit applies a tier transition atomically: the account update
@@ -127,11 +172,12 @@ func (repository *AccountRepository) UpdateWithAudit(ctx context.Context, accoun
 
 func toAccountDocument(account domain.Account) accountDocument {
 	return accountDocument{
-		ID:        account.ID(),
-		Phone:     account.Phone(),
-		Status:    string(account.Status()),
-		Tier:      int(account.Tier()),
-		Version:   account.Version(),
-		CreatedAt: account.CreatedAt(),
+		ID:             account.ID(),
+		Phone:          account.Phone(),
+		Status:         string(account.Status()),
+		Tier:           int(account.Tier()),
+		Version:        account.Version(),
+		SuspendedUntil: account.SuspendedUntil(),
+		CreatedAt:      account.CreatedAt(),
 	}
 }

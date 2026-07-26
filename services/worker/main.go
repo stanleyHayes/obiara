@@ -32,6 +32,7 @@ import (
 	ritualjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/ritual"
 	ritualmongodb "github.com/stanleyHayes/obiara/services/worker/internal/jobs/ritual/adapters/outbound/mongodb"
 	safetyjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/safety"
+	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/safety/reactivation"
 	workertelemetry "github.com/stanleyHayes/obiara/services/worker/internal/telemetry"
 )
 
@@ -122,9 +123,10 @@ func run() error {
 		ritualjob.NewCalendarJob(ritualDispatcher, 5*time.Minute),
 		ritualjob.NewHeraldJob(ritualDispatcher, 5*time.Minute),
 		safetyjob.NewBuilderJob(safetyBuilder, 50, 30*time.Second),
+		reactivation.NewJob(reactivation.NewStore(database, time.Now), 5*time.Minute),
 	}, mongodb.NewDeadLetterStore(database, time.Now), logger, time.Now)
 
-	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 5))
+	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 6))
 	if err := jobs.NewModule(scheduler).Run(ctx); err != nil {
 		return err
 	}

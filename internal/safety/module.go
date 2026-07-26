@@ -16,11 +16,15 @@ import (
 )
 
 type Module struct {
-	Safety application.SafetyService
-	Cases  application.CaseService
+	Safety  application.SafetyService
+	Cases   application.CaseService
+	Actions application.ActionService
 }
 
-func NewModule(ctx context.Context, database *mongo.Database, outboxStore application.OutboxAppender) (Module, error) {
+// NewModule builds the safety context. Enforcement ports (identity
+// suspension/block, session revocation) are injected at composition
+// (agent_plan.md §7.2: cross-context calls happen at the root).
+func NewModule(ctx context.Context, database *mongo.Database, outboxStore application.OutboxAppender, identity application.IdentityEnforcement, sessions application.SessionRevoker) (Module, error) {
 	repository := mongodb.NewRepository(database)
 	if err := repository.EnsureIndexes(ctx); err != nil {
 		return Module{}, err
@@ -29,9 +33,11 @@ func NewModule(ctx context.Context, database *mongo.Database, outboxStore applic
 	if err := caseRepository.EnsureCaseIndexes(ctx); err != nil {
 		return Module{}, err
 	}
+	actionLog := mongodb.NewActionLogStore(database)
 	return Module{
-		Safety: application.NewSafetyService(repository, repository, outboxStore, time.Now, newID),
-		Cases:  application.NewCaseService(caseRepository, time.Now, newID),
+		Safety:  application.NewSafetyService(repository, repository, outboxStore, time.Now, newID),
+		Cases:   application.NewCaseService(caseRepository, time.Now, newID),
+		Actions: application.NewActionService(caseRepository, actionLog, identity, sessions, actionLog, time.Now, newID),
 	}, nil
 }
 

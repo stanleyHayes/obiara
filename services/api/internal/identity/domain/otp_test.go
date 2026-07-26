@@ -111,7 +111,7 @@ func TestAccountLifecycle(t *testing.T) {
 	if err := account.Usable(); err != nil {
 		t.Fatalf("active account = %v", err)
 	}
-	blocked := ReconstituteAccount("id_1", "+233550000101", AccountBlocked, TierUnverified, 1, testNow)
+	blocked := ReconstituteAccount("id_1", "+233550000101", AccountBlocked, TierUnverified, 1, nil, testNow)
 	if err := blocked.Usable(); err != ErrAccountNotUsable {
 		t.Fatalf("blocked account = %v, want ErrAccountNotUsable", err)
 	}

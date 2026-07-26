@@ -27,6 +27,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
+	identitymongodb "github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/mongodb"
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
@@ -153,7 +154,8 @@ func run() error {
 	if err := safetyOutbox.EnsureIndexes(ctx); err != nil {
 		return fmt.Errorf("ensure outbox indexes: %w", err)
 	}
-	safetyModule, err := safety.NewModule(ctx, client.Database(cfg.MongoDatabase), safetyOutbox)
+	enforcement := identityapplication.NewEnforcementService(identitymongodb.NewAccountRepository(client.Database(cfg.MongoDatabase)), time.Now)
+	safetyModule, err := safety.NewModule(ctx, client.Database(cfg.MongoDatabase), safetyOutbox, enforcement, identityModule.Sessions)
 	if err != nil {
 		return fmt.Errorf("build safety module: %w", err)
 	}

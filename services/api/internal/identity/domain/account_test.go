@@ -23,7 +23,7 @@ func TestTierTransitionMatrix(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			account := ReconstituteAccount("id_1", "+233550000101", AccountActive, tc.from, 1, testNow)
+			account := ReconstituteAccount("id_1", "+233550000101", AccountActive, tc.from, 1, nil, testNow)
 			transition, err := account.ApplyTransition(tc.target, "verification passed", "actor-1", testNow)
 			if err != tc.wantErr {
 				t.Fatalf("ApplyTransition = %v, want %v", err, tc.wantErr)
@@ -44,7 +44,7 @@ func TestTierTransitionMatrix(t *testing.T) {
 }
 
 func TestTransitionRequiresReasonAndActor(t *testing.T) {
-	account := ReconstituteAccount("id_1", "+233550000101", AccountActive, TierUnverified, 1, testNow)
+	account := ReconstituteAccount("id_1", "+233550000101", AccountActive, TierUnverified, 1, nil, testNow)
 	if _, err := account.ApplyTransition(TierVerified, "  ", "actor-1", testNow); err != ErrTransitionReasonRequired {
 		t.Fatalf("blank reason = %v", err)
 	}
@@ -54,7 +54,7 @@ func TestTransitionRequiresReasonAndActor(t *testing.T) {
 }
 
 func TestBlockedAccountCannotTransition(t *testing.T) {
-	account := ReconstituteAccount("id_1", "+233550000101", AccountBlocked, TierVerified, 1, testNow)
+	account := ReconstituteAccount("id_1", "+233550000101", AccountBlocked, TierVerified, 1, nil, testNow)
 	if _, err := account.ApplyTransition(TierSowing, "ok", "actor-1", testNow); err != ErrAccountNotUsable {
 		t.Fatalf("blocked transition = %v, want ErrAccountNotUsable", err)
 	}

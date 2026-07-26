@@ -35,6 +35,10 @@ type AccountRepository interface {
 	// UpdateWithAudit applies a tier transition atomically with its audit
 	// record, rejecting stale versions with ErrStaleSession.
 	UpdateWithAudit(context.Context, domain.Account, domain.TierTransition) error
+	// Update persists status transitions (suspend, block, reactivate).
+	Update(context.Context, domain.Account) error
+	// ListSuspendedExpired returns suspensions past their end time.
+	ListSuspendedExpired(context.Context, time.Time, int) ([]domain.Account, error)
 }
 
 // OtpSender is the outbound provider port for OTP delivery (SMS primary,
