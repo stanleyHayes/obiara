@@ -50,8 +50,9 @@ self-management path; scripts must not assume `corepack` exists.
 | `@tanstack/react-query` | `5.101.4` | Current stable |
 | `zod` | `4.4.3` | Current stable candidate for client-safe validation |
 | `resend` | `6.18.0` | Current stable; server-only use |
-| `openapi-typescript` | `7.13.0` | Current stable contract type generator candidate |
-| `@hey-api/openapi-ts` | `0.99.0` | Current stable SDK generator candidate; choose one generator in S0-005 |
+| `openapi-typescript` | `7.13.0` | Selected current stable contract type generator; deterministic drift check delivered in S1-003 |
+| `openapi-fetch` | `0.17.0` | Selected current stable generated-path client runtime for browser and React Native |
+| `@redocly/cli` | `2.40.0` | Current stable OpenAPI 3.1 validation CLI; Node engine is compatible with the pinned toolchain |
 
 React `19.2.8` is the newest standalone release discovered, but Expo 57 pins
 React `19.2.3`. Obiara uses `19.2.3` across the monorepo until Expo publishes a
@@ -103,6 +104,10 @@ tests must not silently skip when Docker is unavailable.
 | `vitest` | `4.1.10` | TypeScript unit/component test candidate |
 | `@testing-library/react` | `16.3.2` | Accessible web component tests |
 | `@playwright/test` | `1.62.0` | Browser end-to-end and rendered UI checks |
+
+The OpenAPI toolchain's transitive `js-yaml` is overridden to patched stable
+`4.3.0`; the generator addition is not allowed to reintroduce the
+`GHSA-52cp-r559-cp3m` high-severity advisory.
 
 ESLint and TypeScript are ecosystem-sensitive major versions. S0-005 must prove
 that the chosen Next, Expo, React Native and MUI lint/build plugins support these
