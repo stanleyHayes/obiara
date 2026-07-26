@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "@fontsource-variable/outfit";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
+import { ObiaraThemeProvider } from "@obiara/ui-web";
+import "./styles.css";
 
 export const metadata: Metadata = {
   title: "Obiara Admin",
@@ -8,8 +12,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <AppRouterCacheProvider>
+          <ObiaraThemeProvider>{children}</ObiaraThemeProvider>
+        </AppRouterCacheProvider>
+      </body>
     </html>
   );
 }
