@@ -1,5 +1,5 @@
-import { FieScreen } from "../../src/fie-screen";
+import { GardenScreen } from "../../src/garden-screen";
 
-export default function GardenScreen() {
-  return <FieScreen routeId="garden" />;
+export default function GardenRoute() {
+  return <GardenScreen />;
 }

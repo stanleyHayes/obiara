@@ -30,6 +30,61 @@ export const initialGardenState: GardenState = {
   commandId: null,
 };
 
+export type SeedLifecycle =
+  | "queued"
+  | "delivered"
+  | "heard"
+  | "sprouted"
+  | "declined"
+  | "expired";
+
+export interface GardenSeed {
+  readonly id: string;
+  readonly person: string;
+  readonly state: SeedLifecycle;
+  readonly updatedAt: string;
+}
+
+export const gardenSeeds: readonly GardenSeed[] = [
+  { id: "seed-1", person: "Ama", state: "sprouted", updatedAt: "Today, 06:42" },
+  { id: "seed-2", person: "Kwesi", state: "heard", updatedAt: "Yesterday" },
+  { id: "seed-3", person: "Nana", state: "delivered", updatedAt: "Friday" },
+  { id: "seed-4", person: "Efua", state: "expired", updatedAt: "12 Jul" },
+];
+
+const lifecycleCopy: Record<
+  SeedLifecycle,
+  { readonly label: string; readonly note: string }
+> = {
+  queued: { label: "Queued", note: "Waiting for private delivery" },
+  delivered: { label: "Delivered", note: "Available to hear privately" },
+  heard: { label: "Heard", note: "Listened to; no reply promised" },
+  sprouted: { label: "Sprouted", note: "A mutual doorway can begin" },
+  declined: { label: "Resting", note: "Closed kindly for 90 days" },
+  expired: { label: "Returned to earth", note: "Closed without a public signal" },
+};
+
+export function describeLifecycle(state: SeedLifecycle) {
+  return lifecycleCopy[state];
+}
+
+export function dawnSummary(seeds: readonly GardenSeed[]) {
+  const active = seeds.filter((seed) =>
+    ["queued", "delivered", "heard"].includes(seed.state),
+  ).length;
+  const sprouts = seeds.filter((seed) => seed.state === "sprouted").length;
+  return {
+    active,
+    sprouts,
+    message:
+      sprouts > 0
+        ? `${sprouts} doorway is ready when you are.`
+        : active > 0
+          ? "Your seeds are moving quietly."
+          : "Nothing needs your attention today.",
+  };
+}
+
 export function isListeningEligible(state: GardenState) {
   return state.listenedSeconds >= 20;
 }

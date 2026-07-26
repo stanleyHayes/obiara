@@ -231,6 +231,93 @@
   color: rgba(255, 243, 230, 0.58);
 }
 
+.garden-dawn {
+  margin-top: 72px;
+}
+
+.garden-dawn > header {
+  align-items: end;
+  display: flex;
+  gap: 40px;
+  justify-content: space-between;
+}
+
+.garden-dawn > header h2 {
+  font-size: clamp(2.8rem, 6vw, 6rem);
+  letter-spacing: -0.075em;
+  line-height: 0.92;
+  margin-top: 14px;
+  max-width: 760px;
+}
+
+.garden-dawn > header > p {
+  color: #765f70;
+  line-height: 1.6;
+  max-width: 280px;
+}
+
+.garden-lifecycle {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 30px;
+}
+
+.garden-lifecycle article {
+  background: #fff;
+  border: 1px solid rgba(58, 14, 46, 0.1);
+  border-radius: 20px;
+  min-height: 245px;
+  padding: 24px;
+}
+
+.garden-lifecycle article > div {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.garden-lifecycle h3 {
+  font-size: 2.4rem;
+  letter-spacing: -0.06em;
+  margin: 38px 0 10px;
+}
+
+.garden-lifecycle article > p,
+.garden-lifecycle small {
+  color: #765f70;
+  line-height: 1.45;
+}
+
+.garden-lifecycle small {
+  display: block;
+  margin-top: 20px;
+}
+
+.garden-state {
+  background: #866d80;
+  border-radius: 50%;
+  height: 10px;
+  width: 10px;
+}
+
+.garden-state-sprouted { background: #0f7059; }
+.garden-state-heard { background: #7a3800; }
+.garden-state-delivered { background: #315f8a; }
+.garden-state-expired { background: #866d80; }
+
+.garden-dawn > footer {
+  border-bottom: 1px solid rgba(58, 14, 46, 0.1);
+  border-top: 1px solid rgba(58, 14, 46, 0.1);
+  color: #765f70;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding: 18px 0;
+}
+
 @media (max-width: 900px) {
   .garden-board > div,
   .garden-workbench {
@@ -264,5 +351,20 @@
   .garden-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .garden-dawn > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .garden-lifecycle {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .garden-lifecycle {
+    grid-template-columns: 1fr;
   }
 }

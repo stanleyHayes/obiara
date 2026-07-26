@@ -5,6 +5,9 @@ import { useReducer } from "react";
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
 import {
   gardenReducer,
+  gardenSeeds,
+  dawnSummary,
+  describeLifecycle,
   initialGardenState,
   isListeningEligible,
 } from "./garden-model";
@@ -34,6 +37,7 @@ export function GardenShell() {
     (candidate) => candidate.id === state.selectedId,
   );
   const eligible = isListeningEligible(state);
+  const summary = dawnSummary(gardenSeeds);
 
   return (
     <main className="fie-shell garden-shell">
@@ -227,6 +231,42 @@ export function GardenShell() {
             </article>
           </section>
         )}
+
+        <section className="garden-dawn" aria-labelledby="garden-dawn-title">
+          <header>
+            <div>
+              <p className="fie-kicker">Dawn summary</p>
+              <h2 id="garden-dawn-title">{summary.message}</h2>
+            </div>
+            <p>
+              A once-a-day view. No streaks, read receipts or pressure to act.
+            </p>
+          </header>
+          <div className="garden-lifecycle">
+            {gardenSeeds.map((seed) => {
+              const copy = describeLifecycle(seed.state);
+              return (
+                <article key={seed.id}>
+                  <div>
+                    <span
+                      aria-hidden="true"
+                      className={`garden-state garden-state-${seed.state}`}
+                    />
+                    <p>{copy.label}</p>
+                  </div>
+                  <h3>{seed.person}</h3>
+                  <p>{copy.note}</p>
+                  <small>{seed.updatedAt}</small>
+                </article>
+              );
+            })}
+          </div>
+          <footer>
+            <span>{summary.active} moving quietly</span>
+            <span>{summary.sprouts} mutual doorway</span>
+            <span>Expired seeds reveal nothing to others</span>
+          </footer>
+        </section>
 
         <CompoundBottomNavigation />
       </section>

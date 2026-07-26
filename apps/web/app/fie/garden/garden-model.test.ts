@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   gardenReducer,
+  gardenSeeds,
+  dawnSummary,
+  describeLifecycle,
   initialGardenState,
   isListeningEligible,
 } from "./garden-model";
@@ -53,5 +56,23 @@ describe("deliberate sow state machine", () => {
         commandId: "command-1",
       }).allowance,
     ).toBe(3);
+  });
+});
+
+describe("calm garden lifecycle", () => {
+  it("summarizes active seeds without urgency or streak mechanics", () => {
+    expect(dawnSummary(gardenSeeds)).toEqual({
+      active: 2,
+      sprouts: 1,
+      message: "1 doorway is ready when you are.",
+    });
+  });
+
+  it("describes expiry without exposing rejection or public activity", () => {
+    expect(describeLifecycle("expired")).toEqual({
+      label: "Returned to earth",
+      note: "Closed without a public signal",
+    });
+    expect(describeLifecycle("declined").label).toBe("Resting");
   });
 });
