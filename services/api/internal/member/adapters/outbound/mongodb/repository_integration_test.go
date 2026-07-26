@@ -73,8 +73,8 @@ func TestRepositoryPersistsMemberInMongoDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.Create(ctx, duplicate); !mongo.IsDuplicateKeyError(err) {
-		t.Fatalf("duplicate email error = %v, want duplicate-key error", err)
+	if err := repository.Create(ctx, duplicate); !errors.Is(err, domain.ErrDuplicateMember) {
+		t.Fatalf("duplicate email error = %v, want %v", err, domain.ErrDuplicateMember)
 	}
 
 	_, err = repository.FindByID(ctx, "missing")

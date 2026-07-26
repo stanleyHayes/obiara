@@ -17,6 +17,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 
+	"github.com/stanleyHayes/obiara/services/api/internal/identity"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
@@ -56,6 +57,12 @@ func run() error {
 	memberModule, err := member.NewModule(ctx, client.Database(cfg.MongoDatabase))
 	if err != nil {
 		return fmt.Errorf("build member module: %w", err)
+	}
+	// The identity session kernel is composed alongside member. HTTP auth
+	// endpoints arrive with registration (E03-S01); the session service is
+	// available to modules now.
+	if _, err := identity.NewModule(ctx, client.Database(cfg.MongoDatabase)); err != nil {
+		return fmt.Errorf("build identity module: %w", err)
 	}
 
 	mux := http.NewServeMux()

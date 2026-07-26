@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"strings"
 )
 
 const integrationTimeout = 3 * time.Minute
@@ -21,7 +22,7 @@ func startMongo(t *testing.T) (context.Context, *mongo.Client) {
 	ctx, cancel := context.WithTimeout(context.Background(), integrationTimeout)
 	t.Cleanup(cancel)
 
-	container, err := testmongodb.Run(ctx, "mongo:8.0.13")
+	container, err := testmongodb.Run(ctx, "mongo:8.0.13", testmongodb.WithReplicaSet("rs0"))
 	if err != nil {
 		t.Fatalf("start MongoDB Testcontainer (Docker/container runtime required): %v", err)
 	}
@@ -35,6 +36,15 @@ func startMongo(t *testing.T) (context.Context, *mongo.Client) {
 	if err != nil {
 		t.Fatalf("read Testcontainer connection string: %v", err)
 	}
+	// A single-node replica set advertises its container-internal address;
+	// directConnection keeps the driver on the host-mapped port while still
+	// allowing transactions against the replica set. ConnectionString
+	// already carries ?replicaSet=..., so append with the right separator.
+	separator := "?"
+	if strings.Contains(uri, "?") {
+		separator = "&"
+	}
+	uri += separator + "directConnection=true"
 	client, err := Connect(ctx, uri)
 	if err != nil {
 		t.Fatalf("connect via platform helper: %v", err)
