@@ -59,5 +59,16 @@ func (r *Repository) Save(ctx context.Context, s domain.Stone, expected uint64, 
 	return nil
 }
 func toDoc(s domain.Stone) document {
-	return document{s.ID(), s.Members(), s.Status(), s.PausedBy(), s.Acknowledged(), s.Revision(), s.Events(), s.Commands()}
+	events, commands := s.Events(), s.Commands()
+	if events == nil {
+		events = []domain.Event{}
+	}
+	if commands == nil {
+		commands = []domain.Applied{}
+	}
+	acknowledged := s.Acknowledged()
+	if acknowledged == nil {
+		acknowledged = []string{}
+	}
+	return document{s.ID(), s.Members(), s.Status(), s.PausedBy(), acknowledged, s.Revision(), events, commands}
 }
