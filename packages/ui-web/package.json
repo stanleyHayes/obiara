@@ -4,6 +4,12 @@
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
+  "scripts": {
+    "build": "pnpm run typecheck",
+    "lint": "pnpm run typecheck",
+    "test": "node --test src/theme.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
