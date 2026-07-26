@@ -122,6 +122,21 @@ func (mr *MockAccountRepositoryMockRecorder) Create(arg0, arg1 any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAccountRepository)(nil).Create), arg0, arg1)
 }
 
+// FindByID mocks base method.
+func (m *MockAccountRepository) FindByID(arg0 context.Context, arg1 string) (domain.Account, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByID", arg0, arg1)
+	ret0, _ := ret[0].(domain.Account)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindByID indicates an expected call of FindByID.
+func (mr *MockAccountRepositoryMockRecorder) FindByID(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByID", reflect.TypeOf((*MockAccountRepository)(nil).FindByID), arg0, arg1)
+}
+
 // FindByPhone mocks base method.
 func (m *MockAccountRepository) FindByPhone(arg0 context.Context, arg1 string) (domain.Account, error) {
 	m.ctrl.T.Helper()
@@ -135,6 +150,20 @@ func (m *MockAccountRepository) FindByPhone(arg0 context.Context, arg1 string) (
 func (mr *MockAccountRepositoryMockRecorder) FindByPhone(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByPhone", reflect.TypeOf((*MockAccountRepository)(nil).FindByPhone), arg0, arg1)
+}
+
+// UpdateWithAudit mocks base method.
+func (m *MockAccountRepository) UpdateWithAudit(arg0 context.Context, arg1 domain.Account, arg2 domain.TierTransition) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateWithAudit", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateWithAudit indicates an expected call of UpdateWithAudit.
+func (mr *MockAccountRepositoryMockRecorder) UpdateWithAudit(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateWithAudit", reflect.TypeOf((*MockAccountRepository)(nil).UpdateWithAudit), arg0, arg1, arg2)
 }
 
 // MockOtpSender is a mock of OtpSender interface.

@@ -19,6 +19,7 @@ import (
 type Module struct {
 	Sessions     application.SessionService
 	Registration application.RegistrationService
+	Tiers        application.TierService
 	// Sender is the active OTP delivery adapter (simulator until a scored
 	// SMS/WhatsApp provider is selected).
 	Sender application.OtpSender
@@ -43,6 +44,7 @@ func NewModule(ctx context.Context, database *mongo.Database) (Module, error) {
 	return Module{
 		Sessions:     sessions,
 		Registration: application.NewRegistrationService(challengeRepository, accountRepository, sender, sessions, time.Now, newID),
+		Tiers:        application.NewTierService(accountRepository, time.Now),
 		Sender:       sender,
 	}, nil
 }

@@ -118,7 +118,7 @@ func TestVerifyOtpBlockedAccountGetsNoSession(t *testing.T) {
 	challenges.EXPECT().LatestByPhone(gomock.Any(), "+233550000101").Return(stored, nil)
 	challenges.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 	accounts.EXPECT().FindByPhone(gomock.Any(), "+233550000101").Return(
-		domain.ReconstituteAccount("id_1", "+233550000101", domain.AccountBlocked, testNow), nil)
+		domain.ReconstituteAccount("id_1", "+233550000101", domain.AccountBlocked, domain.TierUnverified, 1, testNow), nil)
 
 	if _, err := service.VerifyOtp(context.Background(), "+233550000101", "654321", "device-1"); err != domain.ErrAccountNotUsable {
 		t.Fatalf("VerifyOtp = %v, want ErrAccountNotUsable", err)

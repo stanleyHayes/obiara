@@ -115,4 +115,32 @@ func TestOtpRegistrationEndToEnd(t *testing.T) {
 	if _, err := registration.VerifyOtp(ctx, phone, code, "device-1"); err != domain.ErrOtpConsumed {
 		t.Fatalf("reused code = %v, want consumed", err)
 	}
+
+	// Tier ladder with audit: 0 → 1 → 2, then an invalid skip is rejected
+	// without touching the audit log.
+	tiers := application.NewTierService(accountRepository, time.Now)
+	if _, err := tiers.Transition(ctx, account.ID(), domain.TierVerified, "ghana card verified", "verifier-1"); err != nil {
+		t.Fatalf("promote to tier 1: %v", err)
+	}
+	if _, err := tiers.Transition(ctx, account.ID(), domain.TierSowing, "vouch threshold met", "host-1"); err != nil {
+		t.Fatalf("promote to tier 2: %v", err)
+	}
+	account, err = accountRepository.FindByID(ctx, account.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if account.Tier() != domain.TierSowing || account.Version() != 3 {
+		t.Fatalf("account tier=%d version=%d, want 2/3", account.Tier(), account.Version())
+	}
+	transitionCount, err := database.Collection("tier_transitions").CountDocuments(ctx, map[string]any{"accountId": account.ID()})
+	if err != nil || transitionCount != 2 {
+		t.Fatalf("audit transitions = %d, %v; want 2", transitionCount, err)
+	}
+	if _, err := tiers.Transition(ctx, account.ID(), domain.TierSowing, "same tier", "actor-1"); err != domain.ErrInvalidTierTransition {
+		t.Fatalf("same-tier transition = %v, want invalid", err)
+	}
+	transitionCount, _ = database.Collection("tier_transitions").CountDocuments(ctx, map[string]any{"accountId": account.ID()})
+	if transitionCount != 2 {
+		t.Fatal("invalid transition wrote an audit record")
+	}
 }

@@ -31,6 +31,10 @@ type OtpChallengeRepository interface {
 type AccountRepository interface {
 	Create(context.Context, domain.Account) error
 	FindByPhone(context.Context, string) (domain.Account, error)
+	FindByID(context.Context, string) (domain.Account, error)
+	// UpdateWithAudit applies a tier transition atomically with its audit
+	// record, rejecting stale versions with ErrStaleSession.
+	UpdateWithAudit(context.Context, domain.Account, domain.TierTransition) error
 }
 
 // OtpSender is the outbound provider port for OTP delivery (SMS primary,
