@@ -1150,6 +1150,56 @@ paths:
           $ref: "#/components/responses/BlockNotFound"
         "500":
           $ref: "#/components/responses/InternalError"
+  /webhooks/resend:
+    post:
+      operationId: resendDeliveryWebhook
+      tags: [Webhooks]
+      summary: Resend delivery-status webhook
+      security: []
+      description: |
+        Signed with svix headers (svix-id, svix-timestamp, svix-signature).
+        Signature and a 5-minute timestamp tolerance are enforced; replays
+        are deduplicated by svix-id (E13-S04; agent_plan.md §11).
+      parameters:
+        - name: svix-id
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: svix-timestamp
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: svix-signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResendWebhookPayload"
+      responses:
+        "200":
+          description: Event applied, ignored, or a deduplicated replay.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookResultEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/SignatureInvalid"
+        "404":
+          $ref: "#/components/responses/DeliveryNotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -1511,6 +1561,32 @@ components:
             $ref: "#/components/schemas/ErrorEnvelope"
     BlockNotFound:
       description: No block edge exists to remove.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    SignatureInvalid:
+      description: The webhook signature is missing, invalid, or the timestamp is stale.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            signatureInvalid:
+              value:
+                error:
+                  code: signature_invalid
+                  message: The webhook signature could not be verified.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    DeliveryNotFound:
+      description: No delivery exists for the referenced provider id.
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/CorrelationId"
@@ -2337,6 +2413,37 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/BlockStateData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    ResendWebhookPayload:
+      type: object
+      additionalProperties: false
+      required: [type, data]
+      properties:
+        type:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+          required: [email_id]
+          properties:
+            email_id:
+              type: string
+    WebhookResultData:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [applied, ignored, duplicate]
+    WebhookResultEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/WebhookResultData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

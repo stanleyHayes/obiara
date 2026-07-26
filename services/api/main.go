@@ -18,6 +18,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 
 	"github.com/stanleyHayes/obiara/internal/notifications"
+	"github.com/stanleyHayes/obiara/internal/notifications/email"
+	"github.com/stanleyHayes/obiara/internal/platform/inbox"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
 	"github.com/stanleyHayes/obiara/internal/privacy"
@@ -139,6 +141,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build notifications module: %w", err)
 	}
+	// Transactional email (E13-S04): Resend channel with signed delivery
+	// webhooks.
+	emailModule, err := email.NewModule(ctx, client.Database(cfg.MongoDatabase), os.Getenv("RESEND_WEBHOOK_SECRET"))
+	if err != nil {
+		return fmt.Errorf("build email module: %w", err)
+	}
 	// Safety intake (E12-S01): reports ride the durable outbox to queue
 	// processors.
 	safetyOutbox := outbox.NewStore(client.Database(cfg.MongoDatabase), time.Now)
@@ -166,6 +174,7 @@ func run() error {
 	apihttp.RegisterEmberRoutes(mux, emberModule.Embers)
 	apihttp.RegisterNotificationRoutes(mux, notificationModule.Notifications)
 	apihttp.RegisterSafetyRoutes(mux, safetyModule.Safety)
+	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,

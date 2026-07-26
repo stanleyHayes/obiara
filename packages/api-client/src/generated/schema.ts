@@ -601,6 +601,28 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/webhooks/resend": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Resend delivery-status webhook
+     * @description Signed with svix headers (svix-id, svix-timestamp, svix-signature).
+     *     Signature and a 5-minute timestamp tolerance are enforced; replays
+     *     are deduplicated by svix-id (E13-S04; agent_plan.md §11).
+     */
+    readonly post: operations["resendDeliveryWebhook"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -866,6 +888,14 @@ export interface components {
       readonly surface:
         "room" | "doorway" | "pod" | "circle" | "fire" | "profile";
     };
+    readonly ResendWebhookPayload: {
+      readonly data: {
+        readonly email_id: string;
+      } & {
+        readonly [key: string]: unknown;
+      };
+      readonly type: string;
+    };
     readonly RsvpData: {
       readonly position?: number;
       /** @enum {string} */
@@ -981,6 +1011,14 @@ export interface components {
       readonly data: components["schemas"]["VerificationEvidenceData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly WebhookResultData: {
+      /** @enum {string} */
+      readonly status: "applied" | "ignored" | "duplicate";
+    };
+    readonly WebhookResultEnvelope: {
+      readonly data: components["schemas"]["WebhookResultData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
   };
   responses: {
     /** @description The account is blocked or deleted. */
@@ -1015,6 +1053,16 @@ export interface components {
     };
     /** @description No block edge exists to remove. */
     readonly BlockNotFound: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description No delivery exists for the referenced provider id. */
+    readonly DeliveryNotFound: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -1195,6 +1243,16 @@ export interface components {
     };
     /** @description The application capability is temporarily unavailable. */
     readonly ServiceUnavailable: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The webhook signature is missing, invalid, or the timestamp is stale. */
+    readonly SignatureInvalid: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -2308,6 +2366,39 @@ export interface operations {
       readonly 400: components["responses"]["InvalidJSON"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["VerificationRejected"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly resendDeliveryWebhook: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly "svix-id": string;
+        readonly "svix-signature": string;
+        readonly "svix-timestamp": string;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ResendWebhookPayload"];
+      };
+    };
+    readonly responses: {
+      /** @description Event applied, ignored, or a deduplicated replay. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["WebhookResultEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["SignatureInvalid"];
+      readonly 404: components["responses"]["DeliveryNotFound"];
       readonly 500: components["responses"]["InternalError"];
     };
   };
