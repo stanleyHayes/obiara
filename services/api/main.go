@@ -26,6 +26,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
 	"github.com/stanleyHayes/obiara/services/api/internal/privacy"
+	"github.com/stanleyHayes/obiara/services/api/internal/trust"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification"
 )
 
@@ -79,6 +80,19 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build privacy module: %w", err)
 	}
+	// Trust visibility composes the bounded S3-013 projection and S3-015
+	// disclosure policy. Consent and non-owner endpoint disclosure remain
+	// explicitly fail closed until persistence-backed adapters are available.
+	trustModule, err := trust.NewModule(
+		ctx,
+		client.Database(cfg.MongoDatabase),
+		ownerProjectionAuthorizer{},
+		denyTrustConsent{},
+		ownerEndpointAuthorizer{},
+	)
+	if err != nil {
+		return fmt.Errorf("build trust module: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /live", health.Live())
@@ -89,6 +103,7 @@ func run() error {
 	apihttp.RegisterAuthRoutes(mux, identityModule.Registration)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification)
 	apihttp.RegisterPrivacyRoutes(mux, privacyModule.Privacy)
+	apihttp.RegisterTrustVisibilityRoutes(mux, trustModule.Visibility, identityModule.Sessions)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -110,6 +125,24 @@ func run() error {
 		}
 		return err
 	}
+}
+
+type ownerProjectionAuthorizer struct{}
+
+func (ownerProjectionAuthorizer) CanProject(_ context.Context, requesterID, rootID string) (bool, error) {
+	return requesterID != "" && requesterID == rootID, nil
+}
+
+type denyTrustConsent struct{}
+
+func (denyTrustConsent) Allows(context.Context, string, string) (bool, error) {
+	return false, nil
+}
+
+type ownerEndpointAuthorizer struct{}
+
+func (ownerEndpointAuthorizer) CanReveal(_ context.Context, requesterID, endpointID string) (bool, error) {
+	return requesterID != "" && requesterID == endpointID, nil
 }
 
 // tierBridge adapts the verification context's provider-neutral tier port

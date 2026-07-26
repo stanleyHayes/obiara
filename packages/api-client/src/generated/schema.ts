@@ -180,6 +180,29 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/members/{memberId}/trust-paths": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read the authenticated member's visible trust paths
+     * @description Returns only forward paths whose current edges, consent and endpoints
+     *     remain visible to the authenticated owner. Authentication, owner
+     *     mismatch, hidden resources and policy denial all return the same 404
+     *     response. This contract exposes no global or reverse graph operation.
+     */
+    readonly get: operations["getMemberTrustPaths"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/privacy/deletions": {
     readonly parameters: {
       readonly query?: never;
@@ -387,6 +410,29 @@ export interface components {
       readonly data: components["schemas"]["SessionData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly TrustPath: {
+      readonly hops: number;
+      readonly steps: readonly components["schemas"]["TrustPathStep"][];
+      readonly targetId: string;
+    };
+    /** @enum {string} */
+    readonly TrustPathReason:
+      | "shared_circle"
+      | "vouched_connection"
+      | "known_connection"
+      | "host_connection";
+    readonly TrustPathsData: {
+      readonly paths: readonly components["schemas"]["TrustPath"][];
+    };
+    readonly TrustPathsEnvelope: {
+      readonly data: components["schemas"]["TrustPathsData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly TrustPathStep: {
+      readonly reason: components["schemas"]["TrustPathReason"];
+      readonly sourceId: string;
+      readonly targetId: string;
+    };
     readonly VerificationCaseData: {
       readonly caseId: string;
       /** @enum {string} */
@@ -469,6 +515,16 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description Trust path depth or node limits are outside the bounded contract. */
+    readonly InvalidTrustPathBounds: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description A member with the same identifier already exists. */
     readonly MemberConflict: {
       headers: {
@@ -521,6 +577,19 @@ export interface components {
     };
     /** @description The application capability is temporarily unavailable. */
     readonly ServiceUnavailable: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /**
+     * @description Trust paths are unavailable. This deliberately covers invalid
+     *     authentication, owner mismatch, policy denial and hidden resources.
+     */
+    readonly TrustPathsNotFound: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -893,6 +962,39 @@ export interface operations {
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
       readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly getMemberTrustPaths: {
+    readonly parameters: {
+      readonly query?: {
+        /** @description Maximum forward traversal depth. */
+        readonly depth?: number;
+        /** @description Maximum number of visited nodes, including the owner. */
+        readonly nodes?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly memberId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Privacy-filtered trust explanations, possibly empty. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["TrustPathsEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidTrustPathBounds"];
+      readonly 404: components["responses"]["TrustPathsNotFound"];
     };
   };
   readonly requestDeletion: {

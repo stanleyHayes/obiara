@@ -26,6 +26,7 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"  /v1/privacy/exports:",
 		"  /v1/privacy/deletions:",
 		"  /v1/privacy/requests/{id}:",
+		"  /v1/members/{memberId}/trust-paths:",
 		"  /v1/admin/verifications:",
 		"  /v1/admin/verifications/{id}:",
 		"  /v1/admin/verifications/{id}/evidence-access:",
@@ -37,6 +38,7 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"operationId: requestExport",
 		"operationId: requestDeletion",
 		"operationId: privacyRequestStatus",
+		"operationId: getMemberTrustPaths",
 		"operationId: listAdminVerificationQueue",
 		"operationId: getAdminVerificationCase",
 		"operationId: accessAdminVerificationEvidence",
@@ -49,6 +51,9 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"otp_rate_limited",
 		"verification_rejected",
 		"legal_hold_active",
+		"invalid_trust_path_bounds",
+		"trust_paths_not_found",
+		"MemberBearer:",
 		"correlationId:",
 	}
 	for _, token := range required {
@@ -76,7 +81,7 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 13 {
-		t.Errorf("operationId count = %d, want 13", len(seen))
+	if len(seen) != 14 {
+		t.Errorf("operationId count = %d, want 14", len(seen))
 	}
 }

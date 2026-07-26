@@ -17,6 +17,8 @@ tags:
     description: Process and required-dependency health probes.
   - name: Members
     description: Member account commands and resources.
+  - name: Trust
+    description: Owner-bound, privacy-filtered and bounded trust explanations.
   - name: Admin Verification
     description: Least-privilege human verification desk operations.
 paths:
@@ -341,6 +343,60 @@ paths:
           $ref: "#/components/responses/PrivacyRequestNotFound"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/members/{memberId}/trust-paths:
+    get:
+      operationId: getMemberTrustPaths
+      tags: [Trust]
+      summary: Read the authenticated member's visible trust paths
+      description: |
+        Returns only forward paths whose current edges, consent and endpoints
+        remain visible to the authenticated owner. Authentication, owner
+        mismatch, hidden resources and policy denial all return the same 404
+        response. This contract exposes no global or reverse graph operation.
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        - name: depth
+          in: query
+          required: false
+          description: Maximum forward traversal depth.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+            default: 3
+        - name: nodes
+          in: query
+          required: false
+          description: Maximum number of visited nodes, including the owner.
+          schema:
+            type: integer
+            minimum: 2
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Privacy-filtered trust explanations, possibly empty.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrustPathsEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidTrustPathBounds"
+        "404":
+          $ref: "#/components/responses/TrustPathsNotFound"
   /v1/admin/verifications:
     get:
       operationId: listAdminVerificationQueue
@@ -487,6 +543,11 @@ paths:
           $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
+    MemberBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Opaque
+      description: Short-lived member access token; the session subject must match memberId.
     AdminBearer:
       type: http
       scheme: bearer
@@ -660,6 +721,42 @@ components:
                 error:
                   code: privacy_request_not_found
                   message: No such privacy request.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    InvalidTrustPathBounds:
+      description: Trust path depth or node limits are outside the bounded contract.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            invalidBounds:
+              value:
+                error:
+                  code: invalid_trust_path_bounds
+                  message: Trust path limits are invalid.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    TrustPathsNotFound:
+      description: |
+        Trust paths are unavailable. This deliberately covers invalid
+        authentication, owner mismatch, policy denial and hidden resources.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            notFound:
+              value:
+                error:
+                  code: trust_paths_not_found
+                  message: Trust paths are not available.
                 meta:
                   correlationId: 01J9EXAMPLE000000000000000
     AdminForbidden:
@@ -1059,6 +1156,60 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/PrivacyRequestData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    TrustPathReason:
+      type: string
+      enum:
+        - shared_circle
+        - vouched_connection
+        - known_connection
+        - host_connection
+    TrustPathStep:
+      type: object
+      additionalProperties: false
+      required: [sourceId, targetId, reason]
+      properties:
+        sourceId:
+          type: string
+        targetId:
+          type: string
+        reason:
+          $ref: "#/components/schemas/TrustPathReason"
+    TrustPath:
+      type: object
+      additionalProperties: false
+      required: [targetId, hops, steps]
+      properties:
+        targetId:
+          type: string
+        hops:
+          type: integer
+          minimum: 1
+          maximum: 4
+        steps:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items:
+            $ref: "#/components/schemas/TrustPathStep"
+    TrustPathsData:
+      type: object
+      additionalProperties: false
+      required: [paths]
+      properties:
+        paths:
+          type: array
+          maxItems: 99
+          items:
+            $ref: "#/components/schemas/TrustPath"
+    TrustPathsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/TrustPathsData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:
