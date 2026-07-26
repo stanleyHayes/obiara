@@ -22,7 +22,7 @@ func TestLoggerRedactsSensitiveFieldsAndAddsContext(t *testing.T) {
 	})
 	logger = logger.With(
 		slog.String("authorization", "Bearer top-secret"),
-		slog.Group("member",
+		slog.Group("dimensions",
 			slog.String("email_address", "ama@example.test"),
 			slog.String("tier", "two"),
 		),
@@ -48,6 +48,9 @@ func TestLoggerRedactsSensitiveFieldsAndAddsContext(t *testing.T) {
 
 	LogAttrs(ctx, logger, slog.LevelInfo, "member.registered",
 		slog.String("phone-number", "+233550000101"),
+		slog.String("error", "lookup failed for member@example.test"),
+		slog.String("memberID", "member-private-1"),
+		slog.Any("request_payload", map[string]string{"safe-looking": "raw content"}),
 		slog.String("result", "accepted"),
 	)
 
@@ -63,18 +66,24 @@ func TestLoggerRedactsSensitiveFieldsAndAddsContext(t *testing.T) {
 	assertValue(t, record, "span_id", spanID.String())
 	assertValue(t, record, "authorization", RedactedValue)
 	assertValue(t, record, "phone-number", RedactedValue)
+	assertValue(t, record, "error", RedactedValue)
+	assertValue(t, record, "memberID", RedactedValue)
+	assertValue(t, record, "request_payload", RedactedValue)
 	assertValue(t, record, "result", "accepted")
-	member, ok := record["member"].(map[string]any)
+	dimensions, ok := record["dimensions"].(map[string]any)
 	if !ok {
-		t.Fatalf("member group = %#v", record["member"])
+		t.Fatalf("dimensions group = %#v", record["dimensions"])
 	}
-	assertValue(t, member, "email_address", RedactedValue)
-	assertValue(t, member, "tier", "two")
+	assertValue(t, dimensions, "email_address", RedactedValue)
+	assertValue(t, dimensions, "tier", "two")
 
 	for _, forbidden := range []string{
 		"top-secret",
 		"ama@example.test",
 		"+233550000101",
+		"member@example.test",
+		"member-private-1",
+		"raw content",
 	} {
 		if bytes.Contains(output.Bytes(), []byte(forbidden)) {
 			t.Errorf("log contains sensitive value %q: %s", forbidden, output.String())

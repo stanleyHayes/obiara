@@ -16,6 +16,9 @@ describe("observability privacy boundary", () => {
       email_address: "ama@example.test",
       auth: { authorization: "Bearer secret", mode: "otp" },
       participants: [{ phoneNumber: "+233550000101", tier: 2 }],
+      error: "lookup failed for member@example.test",
+      memberId: "member-private-1",
+      requestPayload: { value: "raw content" },
     };
 
     const result = redactAttributes(input);
@@ -24,12 +27,17 @@ describe("observability privacy boundary", () => {
       result: "accepted",
       emailAddress: REDACTED_VALUE,
       email_address: REDACTED_VALUE,
-      auth: { authorization: REDACTED_VALUE, mode: "otp" },
+      auth: REDACTED_VALUE,
       participants: [{ phoneNumber: REDACTED_VALUE, tier: 2 }],
+      error: REDACTED_VALUE,
+      memberId: REDACTED_VALUE,
+      requestPayload: REDACTED_VALUE,
     });
     expect(input.email_address).toBe("ama@example.test");
     expect(JSON.stringify(result)).not.toContain("ama@example.test");
     expect(JSON.stringify(result)).not.toContain("Bearer secret");
+    expect(JSON.stringify(result)).not.toContain("member-private-1");
+    expect(JSON.stringify(result)).not.toContain("raw content");
   });
 
   it("handles circular and unsupported values deterministically", () => {

@@ -7,7 +7,12 @@
   "scripts": {
     "build": "pnpm run typecheck",
     "lint": "pnpm run typecheck",
-    "test": "pnpm --filter @obiara/api-client exec vitest run --root ../observability",
-    "typecheck": "pnpm --workspace-root exec tsc --noEmit --project packages/observability/tsconfig.json"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@obiara/config-typescript": "workspace:*",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
   }
 }
