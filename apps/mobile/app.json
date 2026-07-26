@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Obiara",
+    "slug": "obiara",
+    "scheme": "obiara",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "android": {
+      "package": "com.obiara.mobile"
+    },
+    "ios": {
+      "bundleIdentifier": "com.obiara.mobile"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

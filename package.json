@@ -1,0 +1,23 @@
+{
+  "name": "obiara",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "check": "turbo run lint typecheck test && go test ./...",
+    "dev": "turbo run dev",
+    "format": "prettier --check .",
+    "lint": "turbo run lint",
+    "test": "turbo run test && go test ./...",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "turbo": "2.10.7",
+    "typescript": "5.9.3"
+  }
+}

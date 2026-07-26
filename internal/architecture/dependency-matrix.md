@@ -32,7 +32,7 @@ compatible versions even when a newer standalone release exists.
 | npm | `11.17.0` | Current stable discovery/install client |
 | pnpm | `11.17.0` | Current stable workspace package manager; pin with `packageManager` |
 | Turborepo | `2.10.7` | Current stable task orchestrator |
-| TypeScript | `7.0.2` candidate | Current stable; must pass Next and Expo builds before final manifest acceptance |
+| TypeScript | `5.9.3` | Latest stable accepted by `typescript-eslint@8.52.0`, whose peer range is `>=4.8.4 <6.0.0`; TypeScript 7 cannot be used with the current lint stack |
 
 `corepack` is not available in the current Node installation. Bootstrap must
 either install the exact pnpm version explicitly or use pnpm's supported
@@ -64,6 +64,7 @@ pin.
 |---|---:|---|
 | `expo` | `57.0.8` | Current stable SDK; Node engine `>=22.13` |
 | `expo-router` | `57.0.8` | Expo 57 bundled compatible version |
+| `expo-status-bar` | `57.0.1` | Latest published stable; `57.0.8` does not exist in the registry |
 | `react-native` | `0.86.0` | Expo 57 bundled compatible version |
 | `react` | `19.2.3` | Expo 57 bundled compatible version |
 | `react-dom` | `19.2.3` | Expo 57 bundled compatible version |
@@ -72,6 +73,7 @@ pin.
 | `react-native-reanimated` | `4.5.0` | Expo 57 bundled compatible version |
 | `react-native-screens` | `4.26.x` | Expo 57 bundled compatible range |
 | `react-native-safe-area-context` | `5.7.x` | Expo 57 bundled compatible range |
+| `react-native-worklets` | `0.10.3` | Latest release satisfying Expo 57 module peer range `^0.7.4` through `^0.10.0` |
 
 All Expo libraries must be installed through `expo install` or checked against
 the pinned SDK's bundled module map. Android 8 support remains unconfirmed until
@@ -96,7 +98,7 @@ tests must not silently skip when Docker is unavailable.
 
 | Package | Bootstrap version | Purpose |
 |---|---:|---|
-| `eslint` | `10.8.0` | TypeScript/React lint candidate; plugin compatibility must pass |
+| `eslint` | `9.39.2` | Latest stable accepted by `typescript-eslint@8.52.0`, whose peer range is `^8.57.0 || ^9.0.0`; ESLint 10 is not compatible |
 | `prettier` | `3.9.6` | Formatting |
 | `vitest` | `4.1.10` | TypeScript unit/component test candidate |
 | `@testing-library/react` | `16.3.2` | Accessible web component tests |
@@ -129,6 +131,10 @@ Observed compatibility:
 - Current Node 26.5.0 satisfies the documented Next, Expo and React Native
   engine ranges.
 - Current Go 1.26.5 successfully resolved the listed module versions.
-
-Final install, type-check, lint, test and production-build evidence belongs to
-S0-005 because no application manifests exist before that task.
+- Exact pnpm 11.17.0 frozen install completed with no peer-dependency issues.
+- TypeScript 5.9.3 and ESLint 9.39.2 are compatibility pins. Registry peer
+  metadata for `typescript-eslint@8.52.0` rejects TypeScript 6/7 and ESLint 10.
+- `pnpm run check` passed lint, type-check and empty-skeleton unit-test commands
+  for member web, admin and mobile, plus `go test ./...` for API and worker.
+- `pnpm run build` passed production Next builds for web/admin and an Expo web
+  export for mobile.

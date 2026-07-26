@@ -1,0 +1,4 @@
+{
+  "extends": "@obiara/config-typescript/expo.json",
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}
