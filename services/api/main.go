@@ -37,6 +37,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/telemetry"
 	"github.com/stanleyHayes/obiara/services/api/internal/profile"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
+	"github.com/stanleyHayes/obiara/services/api/internal/suban"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification"
 )
@@ -148,6 +149,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build email module: %w", err)
 	}
+	// Suban character ledger (E15-S04): append-only events, recomputed marks.
+	subanModule, err := suban.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build suban module: %w", err)
+	}
 	// Safety intake (E12-S01): reports ride the durable outbox to queue
 	// processors.
 	safetyOutbox := outbox.NewStore(client.Database(cfg.MongoDatabase), time.Now)
@@ -176,6 +182,7 @@ func run() error {
 	apihttp.RegisterEmberRoutes(mux, emberModule.Embers)
 	apihttp.RegisterNotificationRoutes(mux, notificationModule.Notifications)
 	apihttp.RegisterSafetyRoutes(mux, safetyModule.Safety)
+	apihttp.RegisterSubanRoutes(mux, subanModule.Suban)
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{

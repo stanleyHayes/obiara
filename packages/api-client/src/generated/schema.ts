@@ -578,6 +578,48 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/suban/events/{memberId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read a member's suban event ledger
+     * @description The member-visible ledger behind the marks (Doc 08 §4: members
+     *     can view every event behind their own marks).
+     */
+    readonly get: operations["getSubanEvents"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/suban/marks/{memberId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read a member's suban marks
+     * @description Thresholded character labels recomputed from the append-only
+     *     ledger (E15-S04; Doc 08 §4: marks only, never a number).
+     */
+    readonly get: operations["getSubanMarks"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/verifications/ghana-card": {
     readonly parameters: {
       readonly query?: never;
@@ -921,6 +963,40 @@ export interface components {
     };
     readonly SessionEnvelope: {
       readonly data: components["schemas"]["SessionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly SubanEventData: {
+      /** @enum {string} */
+      readonly kind:
+        | "meeting_follow_through"
+        | "kind_closure"
+        | "pause_stone"
+        | "theme_completed"
+        | "clean_vouch"
+        | "gracious_decline"
+        | "ghost_pattern"
+        | "harassment_finding"
+        | "fraud_finding"
+        | "vouch_stake_loss";
+      /** Format: date-time */
+      readonly occurredAt: string;
+      readonly ref: string;
+      readonly source: string;
+    };
+    readonly SubanEventsData: {
+      readonly events: readonly components["schemas"]["SubanEventData"][];
+    };
+    readonly SubanEventsEnvelope: {
+      readonly data: components["schemas"]["SubanEventsData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly SubanMarksData: {
+      readonly marks: readonly (
+        "keeps_word" | "gracious" | "trusted_voucher"
+      )[];
+    };
+    readonly SubanMarksEnvelope: {
+      readonly data: components["schemas"]["SubanMarksData"];
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly TrustPath: {
@@ -2323,6 +2399,62 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidJSON"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly getSubanEvents: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly memberId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Ledger events in occurrence order. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SubanEventsEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly getSubanMarks: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly memberId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Marks. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SubanMarksEnvelope"];
+        };
+      };
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };

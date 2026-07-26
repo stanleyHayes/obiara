@@ -1200,6 +1200,66 @@ paths:
           $ref: "#/components/responses/DeliveryNotFound"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/suban/marks/{memberId}:
+    get:
+      operationId: getSubanMarks
+      tags: [Suban]
+      summary: Read a member's suban marks
+      security: []
+      description: |
+        Thresholded character labels recomputed from the append-only
+        ledger (E15-S04; Doc 08 §4: marks only, never a number).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Marks.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubanMarksEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/suban/events/{memberId}:
+    get:
+      operationId: getSubanEvents
+      tags: [Suban]
+      summary: Read a member's suban event ledger
+      security: []
+      description: |
+        The member-visible ledger behind the marks (Doc 08 §4: members
+        can view every event behind their own marks).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ledger events in occurrence order.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubanEventsEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -2444,6 +2504,70 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/WebhookResultData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    SubanMarksData:
+      type: object
+      additionalProperties: false
+      required: [marks]
+      properties:
+        marks:
+          type: array
+          items:
+            type: string
+            enum: [keeps_word, gracious, trusted_voucher]
+    SubanMarksEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SubanMarksData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    SubanEventData:
+      type: object
+      additionalProperties: false
+      required: [kind, source, ref, occurredAt]
+      properties:
+        kind:
+          type: string
+          enum:
+            [
+              meeting_follow_through,
+              kind_closure,
+              pause_stone,
+              theme_completed,
+              clean_vouch,
+              gracious_decline,
+              ghost_pattern,
+              harassment_finding,
+              fraud_finding,
+              vouch_stake_loss,
+            ]
+        source:
+          type: string
+        ref:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+    SubanEventsData:
+      type: object
+      additionalProperties: false
+      required: [events]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubanEventData"
+    SubanEventsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SubanEventsData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:
