@@ -197,6 +197,51 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/listening/eligibility/{assetId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read sow eligibility for a voice asset
+     * @description Server-verified eligibility: eligible once unique cumulative
+     *     playback reaches 20 seconds (FR-202). Read by the sowing member's
+     *     own client only.
+     */
+    readonly get: operations["getListeningEligibility"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/listening/heartbeats": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Report voice playback telemetry
+     * @description Merges client-reported playback ranges into the server-side unique
+     *     cumulative total (FR-202). Duplicate, out-of-order and replayed
+     *     ranges never double-count. Partial-listen state is never exposed
+     *     to the voice owner (FR-205).
+     */
+    readonly post: operations["recordListeningHeartbeats"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/members": {
     readonly parameters: {
       readonly query?: never;
@@ -413,6 +458,16 @@ export interface components {
       readonly memberId: string;
       readonly text: string;
     };
+    readonly EligibilityData: {
+      readonly eligible: boolean;
+      /** @constant */
+      readonly requiredSeconds: 20;
+      readonly totalSeconds: number;
+    };
+    readonly EligibilityEnvelope: {
+      readonly data: components["schemas"]["EligibilityData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly Error: {
       readonly code: string;
       readonly details?: readonly components["schemas"]["FieldError"][];
@@ -435,6 +490,16 @@ export interface components {
       readonly cardNumber: string;
       /** @description Date of birth as YYYY-MM-DD. */
       readonly dateOfBirth: string;
+    };
+    readonly HeartbeatRange: {
+      readonly end: number;
+      readonly start: number;
+    };
+    readonly HeartbeatsInput: {
+      readonly assetDuration: number;
+      readonly listenerId: string;
+      readonly ranges: readonly components["schemas"]["HeartbeatRange"][];
+      readonly voiceAssetId: string;
     };
     readonly Member: {
       /** Format: date-time */
@@ -1125,6 +1190,68 @@ export interface operations {
         };
       };
       readonly 404: components["responses"]["DoorwayQuestionNotFound"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly getListeningEligibility: {
+    readonly parameters: {
+      readonly query: {
+        readonly listenerId: string;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly assetId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Eligibility state. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["EligibilityEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly recordListeningHeartbeats: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["HeartbeatsInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Updated eligibility state for the sow boundary. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["EligibilityEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };
   };

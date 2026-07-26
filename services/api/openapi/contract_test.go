@@ -27,6 +27,8 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"  /v1/privacy/deletions:",
 		"  /v1/privacy/requests/{id}:",
 		"  /v1/members/{memberId}/trust-paths:",
+		"  /v1/listening/heartbeats:",
+		"  /v1/listening/eligibility/{assetId}:",
 		"  /v1/admin/verifications:",
 		"  /v1/admin/verifications/{id}:",
 		"  /v1/admin/verifications/{id}/evidence-access:",
@@ -51,6 +53,8 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"operationId: addVaultItem",
 		"operationId: viewVault",
 		"operationId: getMemberTrustPaths",
+		"operationId: recordListeningHeartbeats",
+		"operationId: getListeningEligibility",
 		"name: Idempotency-Key",
 		"name: X-Correlation-ID",
 		"additionalProperties: false",
@@ -86,7 +90,7 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 18 {
-		t.Errorf("operationId count = %d, want 18", len(seen))
+	if len(seen) != 20 {
+		t.Errorf("operationId count = %d, want 20", len(seen))
 	}
 }

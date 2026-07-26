@@ -677,6 +677,79 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/listening/heartbeats:
+    post:
+      operationId: recordListeningHeartbeats
+      tags: [Seeds]
+      summary: Report voice playback telemetry
+      security: []
+      description: |
+        Merges client-reported playback ranges into the server-side unique
+        cumulative total (FR-202). Duplicate, out-of-order and replayed
+        ranges never double-count. Partial-listen state is never exposed
+        to the voice owner (FR-205).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HeartbeatsInput"
+      responses:
+        "200":
+          description: Updated eligibility state for the sow boundary.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EligibilityEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/listening/eligibility/{assetId}:
+    get:
+      operationId: getListeningEligibility
+      tags: [Seeds]
+      summary: Read sow eligibility for a voice asset
+      security: []
+      description: |
+        Server-verified eligibility: eligible once unique cumulative
+        playback reaches 20 seconds (FR-202). Read by the sowing member's
+        own client only.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: listenerId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Eligibility state.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EligibilityEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -1380,6 +1453,64 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/TrustPathsData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    HeartbeatRange:
+      type: object
+      additionalProperties: false
+      required: [start, end]
+      properties:
+        start:
+          type: number
+          minimum: 0
+        end:
+          type: number
+          exclusiveMinimum: 0
+    HeartbeatsInput:
+      type: object
+      additionalProperties: false
+      required: [listenerId, voiceAssetId, assetDuration, ranges]
+      properties:
+        listenerId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        voiceAssetId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        assetDuration:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 3600
+        ranges:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/HeartbeatRange"
+    EligibilityData:
+      type: object
+      additionalProperties: false
+      required: [eligible, totalSeconds, requiredSeconds]
+      properties:
+        eligible:
+          type: boolean
+        totalSeconds:
+          type: number
+          minimum: 0
+        requiredSeconds:
+          type: number
+          const: 20
+    EligibilityEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/EligibilityData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:
