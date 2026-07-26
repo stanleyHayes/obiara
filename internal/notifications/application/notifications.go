@@ -9,7 +9,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/notifications/domain"
+	"github.com/stanleyHayes/obiara/internal/notifications/domain"
 )
 
 var ErrPreferencesNotFound = errors.New("notification preferences not found")

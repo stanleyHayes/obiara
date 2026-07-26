@@ -9,8 +9,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/notifications/adapters/outbound/mongodb"
-	"github.com/stanleyHayes/obiara/services/api/internal/notifications/application"
+	"github.com/stanleyHayes/obiara/internal/notifications/adapters/outbound/mongodb"
+	"github.com/stanleyHayes/obiara/internal/notifications/application"
 )
 
 type Module struct {

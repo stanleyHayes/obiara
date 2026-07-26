@@ -11,10 +11,10 @@ import (
 
 	testmongodb "github.com/testcontainers/testcontainers-go/modules/mongodb"
 
+	"github.com/stanleyHayes/obiara/internal/notifications/adapters/outbound/mongodb"
+	"github.com/stanleyHayes/obiara/internal/notifications/application"
+	"github.com/stanleyHayes/obiara/internal/notifications/domain"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
-	"github.com/stanleyHayes/obiara/services/api/internal/notifications/adapters/outbound/mongodb"
-	"github.com/stanleyHayes/obiara/services/api/internal/notifications/application"
-	"github.com/stanleyHayes/obiara/services/api/internal/notifications/domain"
 )
 
 const notificationsIntegrationTimeout = 3 * time.Minute

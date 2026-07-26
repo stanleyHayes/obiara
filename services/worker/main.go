@@ -12,6 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	notificationmongodb "github.com/stanleyHayes/obiara/internal/notifications/adapters/outbound/mongodb"
+	notificationapplication "github.com/stanleyHayes/obiara/internal/notifications/application"
+	ritualapplication "github.com/stanleyHayes/obiara/internal/notifications/ritual/application"
+	"github.com/stanleyHayes/obiara/internal/platform/inbox"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
 	privacymongodb "github.com/stanleyHayes/obiara/internal/privacy/adapters/outbound/mongodb"
@@ -21,6 +25,8 @@ import (
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/application"
 	privacyjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/privacy"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/relay"
+	ritualjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/ritual"
+	ritualmongodb "github.com/stanleyHayes/obiara/services/worker/internal/jobs/ritual/adapters/outbound/mongodb"
 	workertelemetry "github.com/stanleyHayes/obiara/services/worker/internal/telemetry"
 )
 
@@ -83,12 +89,29 @@ func run() error {
 		time.Now,
 	)
 
+	// Ritual dispatch (E13-S02): calendar rituals and fire heralds through
+	// the E13-S01 preference boundary and the durable outbox.
+	notificationRepository := notificationmongodb.NewRepository(database)
+	decider := notificationapplication.NewNotificationService(notificationRepository, notificationRepository, time.Now)
+	ritualSources := ritualmongodb.NewSources(database)
+	ritualDispatcher := ritualapplication.NewDispatcher(
+		ritualSources,
+		ritualSources,
+		decider,
+		ritualSources,
+		outboxStore,
+		inbox.NewStore(database, time.Now),
+		time.Now,
+	)
+
 	scheduler := application.NewScheduler([]application.Job{
 		relay.NewOutboxJob(outboxStore, loggingPublisher{logger: logger}, 100, 5*time.Second),
 		privacyjob.NewProcessorJob(privacyProcessor, 25, 60*time.Second),
+		ritualjob.NewCalendarJob(ritualDispatcher, 5*time.Minute),
+		ritualjob.NewHeraldJob(ritualDispatcher, 5*time.Minute),
 	}, mongodb.NewDeadLetterStore(database, time.Now), logger, time.Now)
 
-	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 2))
+	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 4))
 	if err := jobs.NewModule(scheduler).Run(ctx); err != nil {
 		return err
 	}

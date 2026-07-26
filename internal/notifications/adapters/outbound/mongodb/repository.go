@@ -12,9 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
+	"github.com/stanleyHayes/obiara/internal/notifications/application"
+	"github.com/stanleyHayes/obiara/internal/notifications/domain"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
-	"github.com/stanleyHayes/obiara/services/api/internal/notifications/application"
-	"github.com/stanleyHayes/obiara/services/api/internal/notifications/domain"
 )
 
 type Repository struct {

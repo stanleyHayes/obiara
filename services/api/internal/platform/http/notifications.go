@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/stanleyHayes/obiara/services/api/internal/notifications/domain"
+	"github.com/stanleyHayes/obiara/internal/notifications/domain"
 )
 
 // Notifications is the inbound port for notification preferences (E13-S01).
