@@ -131,7 +131,7 @@ export function FieHome() {
             <p>7:30 PM · 46 of 80 seats</p>
             <div>
               <span>Hosted by Nana Esi</span>
-              <button type="button">See the fire</button>
+              <Link href="/fie/fires/fire_7Qp9kL2xV4mN8zTa">See the fire</Link>
             </div>
           </article>
         </section>

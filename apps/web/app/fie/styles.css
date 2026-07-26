@@ -125,7 +125,7 @@
 
 .fie-tools button,
 .connection-banner button,
-.fie-fire-card button {
+.fie-fire-card a {
   font: inherit;
   min-height: 48px;
 }
@@ -289,13 +289,16 @@
   padding-top: 18px;
 }
 
-.fie-fire-card button {
+.fie-fire-card a {
+  align-items: center;
   background: #3a0e2e;
   border: 0;
   border-radius: 999px;
   color: #fff3e6;
   font-weight: 800;
+  display: flex;
   padding: 0 18px;
+  text-decoration: none;
 }
 
 .zone-section {

@@ -70,3 +70,26 @@ test("Abusua Gate requires mutual consent and stays bounded", async ({
     ),
   ).toBe(false);
 });
+
+test("Fire degradation keeps captions, safety and leave available", async ({
+  page,
+}) => {
+  await page.goto("/fie/fires/fire_7Qp9kL2xV4mN8zTa");
+  await expect(
+    page.getByRole("heading", { name: "Stories we inherited." }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Use audio only" }).click();
+  await expect(page.getByText("Audio only · using less data.")).toBeVisible();
+  await page.getByRole("button", { name: "Safety" }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Help stays available in every mode.",
+    }),
+  ).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+  ).toBe(false);
+});
