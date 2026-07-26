@@ -51,7 +51,7 @@ export function FieHome() {
 
   return (
     <main className="fie-shell">
-      <CompoundRail current="fie" />
+      <CompoundRail current="home" />
 
       <section className="fie-main">
         <header className="fie-topbar">
@@ -173,7 +173,7 @@ export function FieHome() {
           <Link href="/fie/okyeame">See capability status</Link>
         </aside>
 
-        <CompoundBottomNavigation current="fie" />
+        <CompoundBottomNavigation current="home" />
       </section>
     </main>
   );

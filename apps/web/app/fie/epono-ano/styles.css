@@ -123,6 +123,10 @@
   margin: 24px 0;
 }
 
+.epono-review .fie-kicker {
+  color: #ff849b;
+}
+
 .epono-voice {
   align-items: center;
   display: flex;

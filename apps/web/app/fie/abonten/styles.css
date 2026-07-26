@@ -73,6 +73,10 @@
   max-width: 900px;
 }
 
+.abonten-welcome .fie-kicker {
+  color: #ff849b;
+}
+
 .abonten-principle {
   align-self: end;
   border-left: 2px solid var(--street-orange);

@@ -1,44 +1,28 @@
+import { fieRoutes, type FieRouteId } from "@obiara/fie-routing";
 import Link from "next/link";
 
-export type FieZone = "fie" | "abonten" | "adiwo" | "epono-ano" | "dan-mu";
+export type FieZone = Exclude<FieRouteId, "welcome" | "okyeame">;
 
-const navigation: readonly {
-  label: string;
-  gloss: string;
-  zone: FieZone;
-  href: string;
-  mark: string;
-}[] = [
-  { label: "Fie", gloss: "home", zone: "fie", href: "/fie", mark: "F" },
-  {
-    label: "Abɔnten",
-    gloss: "street",
-    zone: "abonten",
-    href: "/fie/abonten",
-    mark: "A",
-  },
-  {
-    label: "Adiwo",
-    gloss: "courtyard",
-    zone: "adiwo",
-    href: "/fie/adiwo",
-    mark: "D",
-  },
-  {
-    label: "Ɛpono ano",
-    gloss: "doorway",
-    zone: "epono-ano",
-    href: "/fie/epono-ano",
-    mark: "Ɛ",
-  },
-  {
-    label: "Dan mu",
-    gloss: "inner room",
-    zone: "dan-mu",
-    href: "/fie/dan-mu",
-    mark: "M",
-  },
-];
+const marks: Record<FieZone, string> = {
+  home: "F",
+  abonten: "A",
+  adiwo: "D",
+  "epono-ano": "Ɛ",
+  "dan-mu": "M",
+};
+
+const navigation = fieRoutes
+  .filter(
+    (route): route is (typeof fieRoutes)[number] & { id: FieZone } =>
+      route.id in marks,
+  )
+  .map((route) => ({
+    label: route.label,
+    gloss: route.gloss,
+    zone: route.id,
+    href: route.webPath,
+    mark: marks[route.id],
+  }));
 
 interface CompoundNavigationProps {
   readonly current?: FieZone;

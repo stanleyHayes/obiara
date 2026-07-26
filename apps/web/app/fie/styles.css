@@ -267,7 +267,7 @@
 }
 
 .fie-fire-card .fie-kicker {
-  color: #7b3d00;
+  color: #542600;
 }
 
 .fie-fire-card h3 {
@@ -403,6 +403,10 @@
 .okyeame-entry strong {
   display: block;
   margin-top: 5px;
+}
+
+.okyeame-entry .fie-kicker {
+  color: #ff849b;
 }
 
 .okyeame-entry a {
