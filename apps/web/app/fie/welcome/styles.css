@@ -1,0 +1,313 @@
+.walk-shell {
+  background: #140912;
+  color: #fff3e6;
+  min-height: 100vh;
+  padding: 28px clamp(18px, 4vw, 64px) 48px;
+}
+
+.walk-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 auto 52px;
+  max-width: 1440px;
+}
+
+.walk-header a {
+  color: #fff3e6;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  text-decoration: none;
+}
+
+.walk-header button,
+.walk-header span {
+  background: transparent;
+  border: 0;
+  color: rgba(255, 243, 230, 0.72);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  min-height: 48px;
+  padding: 0 10px;
+}
+
+.walk-header button {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.walk-layout {
+  display: grid;
+  gap: clamp(28px, 6vw, 92px);
+  grid-template-columns: minmax(260px, 0.45fr) minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 1380px;
+}
+
+.walk-map {
+  padding-top: 22px;
+}
+
+.walk-map > p,
+.walk-kicker {
+  color: #ff6b8c;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.walk-map button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 243, 230, 0.14);
+  color: rgba(255, 243, 230, 0.54);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 12px;
+  grid-template-columns: 36px minmax(0, 1fr);
+  min-height: 86px;
+  padding: 12px 8px;
+  text-align: left;
+  width: 100%;
+}
+
+.walk-map button[aria-current="step"] {
+  color: #fff3e6;
+  box-shadow: inset 4px 0 var(--zone-tone);
+  padding-left: 18px;
+}
+
+.walk-map button > span {
+  color: var(--zone-tone);
+  grid-row: 1 / span 2;
+}
+
+.walk-map strong {
+  font-size: 1.05rem;
+}
+
+.walk-map small {
+  font-size: 0.72rem;
+}
+
+.walk-story {
+  background:
+    radial-gradient(
+      circle at 82% 14%,
+      color-mix(in srgb, var(--zone-tone) 32%, transparent),
+      transparent 21rem
+    ),
+    #26101f;
+  border: 1px solid rgba(255, 243, 230, 0.14);
+  border-radius: 32px;
+  display: flex;
+  flex-direction: column;
+  min-height: 700px;
+  overflow: hidden;
+  padding: clamp(34px, 6vw, 76px);
+  position: relative;
+}
+
+.walk-story h1,
+.walk-complete h1 {
+  font-size: clamp(3.2rem, 7vw, 7.4rem);
+  letter-spacing: -0.07em;
+  line-height: 0.88;
+  margin: 22px 0 30px;
+  max-width: 980px;
+  position: relative;
+}
+
+.walk-body {
+  color: rgba(255, 243, 230, 0.72);
+  font-size: clamp(1rem, 2vw, 1.3rem);
+  line-height: 1.65;
+  max-width: 650px;
+  position: relative;
+}
+
+.walk-rule {
+  align-items: flex-start;
+  border-left: 3px solid var(--zone-tone);
+  display: flex;
+  gap: 12px;
+  margin-top: 36px;
+  max-width: 680px;
+  padding: 10px 18px;
+  position: relative;
+}
+
+.walk-rule span {
+  color: var(--zone-tone);
+}
+
+.walk-rule p {
+  color: rgba(255, 243, 230, 0.82);
+  line-height: 1.5;
+}
+
+.walk-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  position: relative;
+}
+
+.walk-actions button,
+.walk-complete a {
+  align-items: center;
+  background: #fff3e6;
+  border: 1px solid #fff3e6;
+  border-radius: 999px;
+  color: #3a0e2e;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 24px;
+  text-decoration: none;
+}
+
+.walk-actions button:first-child {
+  background: transparent;
+  color: #fff3e6;
+}
+
+.walk-actions button:disabled {
+  opacity: 0.35;
+}
+
+.walk-orbit {
+  height: 320px;
+  opacity: 0.55;
+  position: absolute;
+  right: -70px;
+  top: -80px;
+  width: 320px;
+}
+
+.walk-orbit span {
+  border: 1px solid color-mix(in srgb, var(--zone-tone) 65%, transparent);
+  border-radius: 50%;
+  inset: 0;
+  position: absolute;
+}
+
+.walk-orbit span:nth-child(2) {
+  inset: 42px;
+}
+
+.walk-orbit span:nth-child(3) {
+  background: var(--zone-tone);
+  inset: 112px;
+}
+
+.walk-complete {
+  display: grid;
+  margin: 12vh auto 0;
+  max-width: 960px;
+  place-items: start;
+}
+
+.walk-complete > p:not(.walk-kicker) {
+  color: rgba(255, 243, 230, 0.72);
+  font-size: 1.1rem;
+  line-height: 1.7;
+  margin-bottom: 36px;
+  max-width: 620px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .walk-story {
+    animation: walk-enter 280ms ease-out;
+  }
+
+  @keyframes walk-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@media (max-width: 800px) {
+  .walk-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .walk-map {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 0 0 8px;
+  }
+
+  .walk-map > p {
+    display: none;
+  }
+
+  .walk-map button {
+    border: 1px solid rgba(255, 243, 230, 0.16);
+    border-radius: 999px;
+    display: block;
+    min-height: 48px;
+    min-width: max-content;
+    padding: 0 18px;
+    text-align: center;
+    width: auto;
+  }
+
+  .walk-map button[aria-current="step"] {
+    background: var(--zone-tone);
+    box-shadow: none;
+    color: #140912;
+    padding-left: 18px;
+  }
+
+  .walk-map button span,
+  .walk-map button small {
+    display: none;
+  }
+
+  .walk-story {
+    border-radius: 24px;
+    min-height: 640px;
+  }
+}
+
+@media (max-width: 480px) {
+  .walk-shell {
+    padding-inline: 16px;
+  }
+
+  .walk-header {
+    margin-bottom: 28px;
+  }
+
+  .walk-story {
+    min-height: 610px;
+    padding: 32px 24px;
+  }
+
+  .walk-story h1,
+  .walk-complete h1 {
+    font-size: 3.55rem;
+  }
+
+  .walk-actions button {
+    flex: 1;
+    padding-inline: 14px;
+  }
+}
