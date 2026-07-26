@@ -8,7 +8,7 @@ import {
 } from "@expo-google-fonts/outfit";
 import { Stack } from "expo-router";
 import { View } from "react-native";
-import { MobileThemeProvider } from "../../../packages/ui-mobile/src";
+import { MobileThemeProvider } from "@obiara/ui-mobile";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
