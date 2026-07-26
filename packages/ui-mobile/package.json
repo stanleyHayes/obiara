@@ -1,0 +1,26 @@
+{
+  "name": "@obiara/ui-mobile",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "build": "pnpm run typecheck",
+    "lint": "pnpm run typecheck",
+    "test": "node --test src/theme.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@obiara/design-tokens": "workspace:*",
+    "react": "19.2.3",
+    "react-native": "0.86.0"
+  },
+  "devDependencies": {
+    "@obiara/config-typescript": "workspace:*",
+    "@obiara/design-tokens": "workspace:*",
+    "@types/react": "19.2.14",
+    "react": "19.2.3",
+    "react-native": "0.86.0",
+    "typescript": "5.9.3"
+  }
+}

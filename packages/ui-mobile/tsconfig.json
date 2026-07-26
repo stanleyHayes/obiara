@@ -1,0 +1,8 @@
+{
+  "extends": "@obiara/config-typescript/expo.json",
+  "compilerOptions": {
+    "types": ["react"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/**/*.test.ts"]
+}

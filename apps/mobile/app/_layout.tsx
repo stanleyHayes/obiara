@@ -8,6 +8,7 @@ import {
 } from "@expo-google-fonts/outfit";
 import { Stack } from "expo-router";
 import { View } from "react-native";
+import { MobileThemeProvider } from "../../../packages/ui-mobile/src";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -22,5 +23,9 @@ export default function RootLayout() {
     return <View style={{ backgroundColor: "#FFF3E6", flex: 1 }} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <MobileThemeProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </MobileThemeProvider>
+  );
 }
