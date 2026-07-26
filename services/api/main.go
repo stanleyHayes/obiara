@@ -22,6 +22,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
+	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
 )
 
 func main() {
@@ -55,10 +56,9 @@ func run() error {
 		_ = client.Disconnect(disconnectCtx)
 	}()
 
-	// Modules are composed here at startup (agent_plan.md §7.2). Inbound
-	// HTTP adapters for module use cases arrive with the API envelope task
-	// (S1-003); until then the member module is built but not routed.
-	if _, err := member.NewModule(ctx, client.Database(cfg.MongoDatabase)); err != nil {
+	// Modules are composed here at startup (agent_plan.md §7.2).
+	memberModule, err := member.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
 		return fmt.Errorf("build member module: %w", err)
 	}
 
@@ -67,10 +67,11 @@ func run() error {
 	mux.Handle("GET /ready", health.Ready(func(ctx context.Context) error {
 		return client.Ping(ctx, readpref.Primary())
 	}))
+	apihttp.RegisterMemberRoutes(mux, memberModule.Register.Handle)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           mux,
+		Handler:           apihttp.Correlation(mux),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

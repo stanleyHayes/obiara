@@ -1,0 +1,282 @@
+openapi: 3.1.0
+info:
+  title: Obiara API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: |
+    Authoritative REST contract for Obiara member clients. Durable API changes
+    are additive within v1. Retriable writes require an Idempotency-Key.
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+servers:
+  - url: /
+    description: API root
+tags:
+  - name: Health
+    description: Process and required-dependency health probes.
+  - name: Members
+    description: Member account commands and resources.
+paths:
+  /live:
+    get:
+      operationId: getLiveness
+      tags: [Health]
+      summary: Report process liveness
+      security: []
+      responses:
+        "200":
+          description: The API process is alive.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: ok
+        "405":
+          description: The HTTP method is not supported for this route.
+  /ready:
+    get:
+      operationId: getReadiness
+      tags: [Health]
+      summary: Report required-dependency readiness
+      security: []
+      responses:
+        "200":
+          description: Required dependencies are available.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: ok
+        "503":
+          description: A required dependency is unavailable.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            text/plain:
+              schema:
+                type: string
+                const: dependency unavailable
+        "405":
+          description: The HTTP method is not supported for this route.
+  /v1/members:
+    post:
+      operationId: registerMember
+      tags: [Members]
+      summary: Register the baseline member record
+      security: []
+      description: |
+        Creates the baseline member record through the member application
+        boundary. Repeated delivery must use the same Idempotency-Key.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterMemberRequest"
+      responses:
+        "201":
+          description: Member registered.
+          headers:
+            Location:
+              description: Relative URL of the created member.
+              schema:
+                type: string
+                pattern: ^/v1/members/
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+components:
+  parameters:
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Safe caller-provided identifier; invalid values are replaced.
+      schema:
+        $ref: "#/components/schemas/CorrelationId"
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Stable key reused for retries of the same command.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+  headers:
+    CorrelationId:
+      required: true
+      description: Effective request correlation identifier.
+      schema:
+        $ref: "#/components/schemas/CorrelationId"
+  responses:
+    InvalidJSON:
+      description: The body is malformed, oversized, contains unknown fields, or contains multiple values.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            invalidJSON:
+              value:
+                error:
+                  code: invalid_json
+                  message: The request body must be one valid JSON object.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    UnsupportedMediaType:
+      description: Content-Type is not application/json.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ValidationFailed:
+      description: Request fields or the idempotency key are invalid.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            invalidEmail:
+              value:
+                error:
+                  code: validation_failed
+                  message: One or more fields are invalid.
+                  details:
+                    - field: email
+                      reason: must be a valid email address
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    InternalError:
+      description: An unexpected server failure occurred.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ServiceUnavailable:
+      description: The application capability is temporarily unavailable.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    CorrelationId:
+      type: string
+      minLength: 8
+      maxLength: 128
+      pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    RegisterMemberRequest:
+      type: object
+      additionalProperties: false
+      required: [id, email]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        email:
+          type: string
+          format: email
+          maxLength: 254
+    Member:
+      type: object
+      additionalProperties: false
+      required: [id, email, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+    Metadata:
+      type: object
+      additionalProperties: false
+      required: [correlationId]
+      properties:
+        correlationId:
+          $ref: "#/components/schemas/CorrelationId"
+    MemberEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/Member"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+        reason:
+          type: string
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          pattern: ^[a-z][a-z0-9_]*$
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error, meta]
+      properties:
+        error:
+          $ref: "#/components/schemas/Error"
+        meta:
+          $ref: "#/components/schemas/Metadata"
