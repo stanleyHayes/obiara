@@ -15,6 +15,7 @@
     "@obiara/fie-routing": "workspace:*",
     "@obiara/nnoboa-policy": "workspace:*",
     "@obiara/notification-settings": "workspace:*",
+    "@obiara/matchmaker-marketplace": "workspace:*",
     "@obiara/okyeame-policy": "workspace:*",
     "@obiara/ui-mobile": "workspace:*",
     "expo": "57.0.8",

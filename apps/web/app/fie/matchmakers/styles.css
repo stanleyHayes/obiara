@@ -1,0 +1,247 @@
+.matchmaker-main {
+  background: #f5eee4;
+  color: #29151f;
+  min-height: 100vh;
+  padding: 0 5vw 5rem;
+}
+
+.matchmaker-topbar {
+  align-items: center;
+  border-bottom: 1px solid #ddcdc3;
+  display: flex;
+  justify-content: space-between;
+  min-height: 5rem;
+}
+
+.matchmaker-topbar a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.matchmaker-topbar span {
+  color: #725d66;
+  font-size: 0.82rem;
+}
+
+.matchmaker-hero {
+  max-width: 63rem;
+  padding: clamp(4rem, 8vw, 7.5rem) 0 3rem;
+}
+
+.matchmaker-hero h1 {
+  font-size: clamp(3.8rem, 8vw, 7.7rem);
+  letter-spacing: -0.075em;
+  line-height: 0.86;
+  margin: 1rem 0 1.6rem;
+  max-width: 10ch;
+}
+
+.matchmaker-hero > p:last-child {
+  color: #69535d;
+  font-size: 1.1rem;
+  line-height: 1.65;
+  max-width: 46rem;
+}
+
+.language-filter {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.language-filter button,
+.service-list button {
+  background: transparent;
+  border: 1px solid #a98f9a;
+  border-radius: 999px;
+  color: #38172c;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  min-height: 2.8rem;
+  padding: 0 1rem;
+}
+
+.language-filter button[aria-pressed="true"],
+.service-list button[aria-pressed="true"] {
+  background: #38172c;
+  color: #fff5e9;
+}
+
+.matchmaker-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.12fr) minmax(21rem, 0.88fr);
+}
+
+.profile-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.profile-list article,
+.booking-panel {
+  background: #fffaf2;
+  border: 1px solid #d8c7bd;
+  border-radius: 1.5rem;
+  padding: clamp(1.4rem, 3vw, 2rem);
+}
+
+.profile-list article {
+  display: grid;
+  gap: 1.2rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.profile-mark {
+  align-items: center;
+  background: #d98a42;
+  border-radius: 1rem;
+  display: flex;
+  font-size: 1.4rem;
+  font-weight: 800;
+  height: 4.2rem;
+  justify-content: center;
+  width: 4.2rem;
+}
+
+.license {
+  color: #27755f;
+  font-size: 0.73rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.profile-list h2,
+.booking-panel h2 {
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  letter-spacing: -0.05em;
+  line-height: 1;
+  margin: 0.5rem 0;
+}
+
+.profile-list p,
+.booking-panel > p {
+  color: #6d5861;
+  line-height: 1.55;
+}
+
+.profile-list dl {
+  margin: 0;
+}
+
+.profile-list dl div + div {
+  margin-top: 0.8rem;
+}
+
+.profile-list dt {
+  color: #75616a;
+  font-size: 0.72rem;
+}
+
+.profile-list dd {
+  font-weight: 800;
+  margin: 0.2rem 0 0;
+}
+
+.profile-list article > button,
+.booking-action {
+  background: #38172c;
+  border: 0;
+  border-radius: 999px;
+  color: #fff5e9;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  grid-column: 2 / -1;
+  min-height: 3rem;
+}
+
+.booking-panel {
+  align-self: start;
+  background: #38172c;
+  color: #fff5e9;
+  position: sticky;
+  top: 1rem;
+}
+
+.booking-panel > p {
+  color: #d8c4ce;
+}
+
+.service-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1.5rem 0;
+}
+
+.service-list button {
+  align-items: center;
+  border-color: rgba(255, 245, 233, 0.35);
+  color: #fff5e9;
+  display: flex;
+  justify-content: space-between;
+}
+
+.service-list button[aria-pressed="true"] {
+  background: #fff5e9;
+  color: #38172c;
+}
+
+.booking-action {
+  background: #ffb34f;
+  color: #2b151f;
+  grid-column: auto;
+  padding: 0 1rem;
+  width: 100%;
+}
+
+.booking-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.proposal-consent {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.proposal-consent label {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+  line-height: 1.4;
+}
+
+.booking-note {
+  color: #d8c4ce;
+  display: block;
+  line-height: 1.5;
+  margin-top: 1rem;
+}
+
+@media (max-width: 920px) {
+  .matchmaker-main {
+    padding: 0 1rem 7rem;
+  }
+
+  .matchmaker-topbar span {
+    display: none;
+  }
+
+  .matchmaker-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-list article {
+    grid-template-columns: auto 1fr;
+  }
+
+  .profile-list dl {
+    grid-column: 1 / -1;
+  }
+
+  .booking-panel {
+    position: static;
+  }
+}

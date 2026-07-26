@@ -191,6 +191,14 @@ export function FieHome() {
           </Link>
         </aside>
 
+        <aside className="garden-entry">
+          <div>
+            <p className="fie-kicker">Agyina · licensed matchmakers</p>
+            <strong>Guidance with fees, consent and clear boundaries.</strong>
+          </div>
+          <Link href="/fie/matchmakers">Find a licensed guide</Link>
+        </aside>
+
         <CompoundBottomNavigation current="home" />
       </section>
     </main>
