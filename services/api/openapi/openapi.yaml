@@ -1597,6 +1597,44 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/scam-arc/signals:
+    post:
+      operationId: observeScamArcSignal
+      tags: [Safety]
+      summary: Record a scam-arc indicator for a room
+      security: []
+      description: |
+        Records one scam-arc signal kind for a room and returns the
+        recomputed ladder state (E11-S11). Monitoring is consent-governed;
+        opted-out rooms return 409. Producers are server-side classifiers.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScamArcSignalInput"
+      responses:
+        "200":
+          description: Ladder state after scoring.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScamArcStateEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "409":
+          $ref: "#/components/responses/MonitoringOptedOut"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -2083,6 +2121,15 @@ components:
             $ref: "#/components/schemas/ErrorEnvelope"
     CallNotOpen:
       description: The call is already over.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    MonitoringOptedOut:
+      description: The room has opted out of scam-arc monitoring.
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/CorrelationId"
@@ -3268,6 +3315,49 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/FunnelReportData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    ScamArcSignalInput:
+      type: object
+      additionalProperties: false
+      required: [roomId, actorId, kind]
+      properties:
+        roomId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        actorId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        kind:
+          type: string
+          enum:
+            [
+              affection_cadence,
+              emergency_narrative,
+              off_platform_pull,
+              ask_pattern,
+            ]
+    ScamArcStateData:
+      type: object
+      additionalProperties: false
+      required: [ladder, educate]
+      properties:
+        ladder:
+          type: string
+          enum: [none, watch, education, friction, case]
+        educate:
+          type: boolean
+    ScamArcStateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ScamArcStateData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

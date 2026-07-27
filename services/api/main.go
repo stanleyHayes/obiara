@@ -44,6 +44,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit"
 	livekitapp "github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
+	"github.com/stanleyHayes/obiara/services/api/internal/sentinel/scamarc"
 	"github.com/stanleyHayes/obiara/services/api/internal/suban"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification"
@@ -166,6 +167,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build suban module: %w", err)
 	}
+	// Scam-arc detection (E11-S11): rules-first signals with the action
+	// ladder; case creation bridges to the safety context when wired.
+	scamModule, err := scamarc.NewModule(ctx, client.Database(cfg.MongoDatabase), nil, nil)
+	if err != nil {
+		return fmt.Errorf("build scamarc module: %w", err)
+	}
 	// Analytics pipeline and P0 funnel metrics (E15-S01/S02/S07).
 	analyticsModule, err := analytics.NewModule(ctx, client.Database(cfg.MongoDatabase), nil)
 	if err != nil {
@@ -220,6 +227,7 @@ func run() error {
 	apihttp.RegisterAdminRoutes(mux, adminModule.Admin)
 	apihttp.RegisterCallRoutes(mux, callsModule.Calls)
 	apihttp.RegisterMetricsRoutes(mux, analyticsModule.Metrics)
+	apihttp.RegisterScamArcRoutes(mux, scamModule.ScamArc)
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{

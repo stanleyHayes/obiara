@@ -753,6 +753,28 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/scam-arc/signals": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Record a scam-arc indicator for a room
+     * @description Records one scam-arc signal kind for a room and returns the
+     *     recomputed ladder state (E11-S11). Monitoring is consent-governed;
+     *     opted-out rooms return 409. Producers are server-side classifiers.
+     */
+    readonly post: operations["observeScamArcSignal"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/suban/events/{memberId}": {
     readonly parameters: {
       readonly query?: never;
@@ -1234,6 +1256,25 @@ export interface components {
       readonly memberId: string;
       readonly tier: number;
     };
+    readonly ScamArcSignalInput: {
+      readonly actorId: string;
+      /** @enum {string} */
+      readonly kind:
+        | "affection_cadence"
+        | "emergency_narrative"
+        | "off_platform_pull"
+        | "ask_pattern";
+      readonly roomId: string;
+    };
+    readonly ScamArcStateData: {
+      readonly educate: boolean;
+      /** @enum {string} */
+      readonly ladder: "none" | "watch" | "education" | "friction" | "case";
+    };
+    readonly ScamArcStateEnvelope: {
+      readonly data: components["schemas"]["ScamArcStateData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly SessionData: {
       /** Format: date-time */
       readonly accessExpiresAt: string;
@@ -1552,6 +1593,16 @@ export interface components {
     };
     /** @description The MFA code is invalid, expired, consumed, or attempts are exhausted. */
     readonly MfaInvalid: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The room has opted out of scam-arc monitoring. */
+    readonly MonitoringOptedOut: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -3089,6 +3140,39 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidJSON"];
       readonly 403: components["responses"]["NotRoomMember"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly observeScamArcSignal: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ScamArcSignalInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Ladder state after scoring. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ScamArcStateEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 409: components["responses"]["MonitoringOptedOut"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
