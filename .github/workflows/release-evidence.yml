@@ -1,0 +1,64 @@
+name: Release evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Non-production boundary to qualify
+        required: true
+        type: choice
+        options:
+          - preview
+          - staging
+          - production
+      commit_sha:
+        description: Exact 40-character main commit to qualify
+        required: true
+        type: string
+      change_record:
+        description: Opaque approved change-record reference
+        required: true
+        type: string
+
+concurrency:
+  group: release-evidence-${{ inputs.target }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+jobs:
+  qualify:
+    name: Qualify immutable release candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: ${{ inputs.target }}
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Verify main identity and required checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TARGET: ${{ inputs.target }}
+          RELEASE_COMMIT_SHA: ${{ inputs.commit_sha }}
+          RELEASE_CHANGE_RECORD: ${{ inputs.change_record }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          RELEASE_REQUESTED_BY: ${{ github.actor }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          RELEASE_SOURCE_REF: ${{ github.ref }}
+        run: scripts/release/qualify.sh release-evidence.json
+
+      - name: Upload immutable release evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-evidence-${{ inputs.target }}-${{ inputs.commit_sha }}
+          path: release-evidence.json
+          if-no-files-found: error
+          retention-days: 90
+
