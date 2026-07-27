@@ -26,6 +26,7 @@ const navigation = [
   ["¤", "Finance", ""],
   ["▦", "Analytics", ""],
   ["Aa", "Language governance", ""],
+  ["⏻", "Runtime controls", ""],
   ["≡", "Audit trail", ""],
 ];
 
@@ -110,6 +111,8 @@ export default function AdminHome() {
                         ? "/analytics"
                         : label === "Language governance"
                           ? "/governance"
+                          : label === "Runtime controls"
+                            ? "/controls"
                       : undefined
               }
             >
