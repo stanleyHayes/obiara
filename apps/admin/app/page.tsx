@@ -97,7 +97,9 @@ export default function AdminHome() {
               className={`rail-link ${badge === "active" ? "is-active" : ""}`}
               aria-current={badge === "active" ? "page" : undefined}
               href={
-                label === "Care queue"
+                label === "Circles & hosts"
+                  ? "/community"
+                  : label === "Care queue"
                   ? "/care"
                   : label === "Mpanyimfo"
                     ? "/mpanyimfo"
