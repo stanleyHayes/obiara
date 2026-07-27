@@ -3,7 +3,7 @@
 - Owner: Release manager
 - Last reconciled: 2026-07-27
 - Engineering backlog: **complete**
-- Synthetic staging qualification: **in progress**
+- Synthetic staging qualification: **complete**
 - Production: **blocked**
 
 This inventory is the handoff from completed engineering delivery to launch
@@ -45,6 +45,11 @@ Launch 1 can close only these items:
 4. An exact-SHA synthetic staging qualification package that can qualify
    staging only.
 5. Full repository verification and synchronized `main`.
+
+Launch 1 is complete. The remaining external gates are promoted into the final
+repository handoff milestone in
+[`external-gate-handoff.md`](external-gate-handoff.md); their real-world acts
+remain blocked.
 
 ## Non-claims
 
