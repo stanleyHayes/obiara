@@ -282,6 +282,26 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/calls/{id}/end": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * End an in-app call
+     * @description Only a call participant may end it.
+     */
+    readonly post: operations["endCall"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/doorway-question": {
     readonly parameters: {
       readonly query?: never;
@@ -689,6 +709,28 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/rooms/{roomId}/calls": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Initiate an in-app call
+     * @description Opens a call between the two room members and issues a speaker
+     *     token to each (E09-S09). No phone number ever appears in the flow
+     *     (FR-304); participant keys are opaque hashes.
+     */
+    readonly post: operations["initiateCall"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/suban/events/{memberId}": {
     readonly parameters: {
       readonly query?: never;
@@ -931,6 +973,17 @@ export interface components {
     readonly EmberRedeemInput: {
       readonly memberId: string;
     };
+    readonly EndCallData: {
+      /** @constant */
+      readonly status: "ended";
+    };
+    readonly EndCallEnvelope: {
+      readonly data: components["schemas"]["EndCallData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly EndCallInput: {
+      readonly actorId: string;
+    };
     readonly Error: {
       readonly code: string;
       readonly details?: readonly components["schemas"]["FieldError"][];
@@ -994,6 +1047,25 @@ export interface components {
       readonly listenerId: string;
       readonly ranges: readonly components["schemas"]["HeartbeatRange"][];
       readonly voiceAssetId: string;
+    };
+    readonly InitiateCallData: {
+      readonly callId: string;
+      readonly tokens: {
+        readonly [key: string]: components["schemas"]["JoinTokenData"];
+      };
+    };
+    readonly InitiateCallEnvelope: {
+      readonly data: components["schemas"]["InitiateCallData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly InitiateCallInput: {
+      readonly initiatorId: string;
+      readonly otherId: string;
+    };
+    readonly JoinTokenData: {
+      /** Format: date-time */
+      readonly expiresAt: string;
+      readonly signed: string;
     };
     readonly Member: {
       /** Format: date-time */
@@ -1319,6 +1391,26 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description No call with this identifier exists. */
+    readonly CallNotFound: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The call is already over. */
+    readonly CallNotOpen: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description No delivery exists for the referenced provider id. */
     readonly DeliveryNotFound: {
       headers: {
@@ -1449,8 +1541,28 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description Only a call participant may end the call. */
+    readonly NotParticipant: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description Only the recipient may redeem an ember. */
     readonly NotRecipient: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description Calls are only between the two room members. */
+    readonly NotRoomMember: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -2163,6 +2275,43 @@ export interface operations {
       readonly 500: components["responses"]["InternalError"];
     };
   };
+  readonly endCall: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["EndCallInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Call ended. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["EndCallEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 403: components["responses"]["NotParticipant"];
+      readonly 404: components["responses"]["CallNotFound"];
+      readonly 409: components["responses"]["CallNotOpen"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
   readonly setDoorwayQuestion: {
     readonly parameters: {
       readonly query?: never;
@@ -2838,6 +2987,41 @@ export interface operations {
         };
       };
       readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly initiateCall: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly roomId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["InitiateCallInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Call initiated with one join token per participant. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["InitiateCallEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 403: components["responses"]["NotRoomMember"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];

@@ -26,6 +26,8 @@ import (
 	"github.com/stanleyHayes/obiara/internal/safety"
 	"github.com/stanleyHayes/obiara/services/api/internal/admin"
 	adminemail "github.com/stanleyHayes/obiara/services/api/internal/admin/adapters/outbound/email"
+	"github.com/stanleyHayes/obiara/services/api/internal/calls"
+	callsapp "github.com/stanleyHayes/obiara/services/api/internal/calls/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
@@ -38,6 +40,8 @@ import (
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/telemetry"
 	"github.com/stanleyHayes/obiara/services/api/internal/profile"
+	"github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit"
+	livekitapp "github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
 	"github.com/stanleyHayes/obiara/services/api/internal/suban"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"
@@ -161,6 +165,23 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build suban module: %w", err)
 	}
+	// In-app calls (E09-S09): LiveKit tokens, no phone exposure. The
+	// realtime adapter activates when LIVEKIT_API_KEY/LIVEKIT_API_SECRET are
+	// configured; otherwise the call routes report not-configured cleanly.
+	tokenIssuer := callsapp.TokenIssuer(unconfiguredLivekit{})
+	if apiKey, apiSecret := os.Getenv("LIVEKIT_API_KEY"), os.Getenv("LIVEKIT_API_SECRET"); apiKey != "" && apiSecret != "" {
+		adapter, adapterErr := livekit.New(livekit.Config{
+			APIKey: apiKey, APISecret: apiSecret, MaxTTL: 30 * time.Minute, ClockSkew: 30 * time.Second,
+		}, time.Now)
+		if adapterErr != nil {
+			return fmt.Errorf("configure livekit: %w", adapterErr)
+		}
+		tokenIssuer = adapter
+	}
+	callsModule, err := calls.NewModule(ctx, client.Database(cfg.MongoDatabase), tokenIssuer)
+	if err != nil {
+		return fmt.Errorf("build calls module: %w", err)
+	}
 	// Safety intake (E12-S01): reports ride the durable outbox to queue
 	// processors.
 	safetyOutbox := outbox.NewStore(client.Database(cfg.MongoDatabase), time.Now)
@@ -191,6 +212,7 @@ func run() error {
 	apihttp.RegisterSafetyRoutes(mux, safetyModule.Safety)
 	apihttp.RegisterSubanRoutes(mux, subanModule.Suban)
 	apihttp.RegisterAdminRoutes(mux, adminModule.Admin)
+	apihttp.RegisterCallRoutes(mux, callsModule.Calls)
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{
@@ -231,6 +253,14 @@ type ownerEndpointAuthorizer struct{}
 
 func (ownerEndpointAuthorizer) CanReveal(_ context.Context, requesterID, endpointID string) (bool, error) {
 	return requesterID != "" && requesterID == endpointID, nil
+}
+
+// unconfiguredLivekit reports cleanly when no LiveKit credentials exist
+// (local/dev without the managed boundary).
+type unconfiguredLivekit struct{}
+
+func (unconfiguredLivekit) Issue(context.Context, livekitapp.JoinRequest) (livekitapp.JoinToken, error) {
+	return livekitapp.JoinToken{}, errors.New("livekit is not configured")
 }
 
 // tierBridge adapts the verification context's provider-neutral tier port

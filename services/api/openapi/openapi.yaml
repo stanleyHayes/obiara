@@ -1476,6 +1476,93 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/rooms/{roomId}/calls:
+    post:
+      operationId: initiateCall
+      tags: [Calls]
+      summary: Initiate an in-app call
+      security: []
+      description: |
+        Opens a call between the two room members and issues a speaker
+        token to each (E09-S09). No phone number ever appears in the flow
+        (FR-304); participant keys are opaque hashes.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiateCallInput"
+      responses:
+        "201":
+          description: Call initiated with one join token per participant.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InitiateCallEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "403":
+          $ref: "#/components/responses/NotRoomMember"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/calls/{id}/end:
+    post:
+      operationId: endCall
+      tags: [Calls]
+      summary: End an in-app call
+      security: []
+      description: Only a call participant may end it.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EndCallInput"
+      responses:
+        "200":
+          description: Call ended.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EndCallEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "403":
+          $ref: "#/components/responses/NotParticipant"
+        "404":
+          $ref: "#/components/responses/CallNotFound"
+        "409":
+          $ref: "#/components/responses/CallNotOpen"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -1926,6 +2013,42 @@ components:
             $ref: "#/components/schemas/ErrorEnvelope"
     FireNotClosable:
       description: The fire is not in a state that can dim to embers.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotRoomMember:
+      description: Calls are only between the two room members.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotParticipant:
+      description: Only a call participant may end the call.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    CallNotFound:
+      description: No call with this identifier exists.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    CallNotOpen:
+      description: The call is already over.
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/CorrelationId"
@@ -2994,6 +3117,78 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/CloseFireData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    InitiateCallInput:
+      type: object
+      additionalProperties: false
+      required: [initiatorId, otherId]
+      properties:
+        initiatorId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        otherId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    EndCallInput:
+      type: object
+      additionalProperties: false
+      required: [actorId]
+      properties:
+        actorId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    JoinTokenData:
+      type: object
+      additionalProperties: false
+      required: [signed, expiresAt]
+      properties:
+        signed:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    InitiateCallData:
+      type: object
+      additionalProperties: false
+      required: [callId, tokens]
+      properties:
+        callId:
+          type: string
+        tokens:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/JoinTokenData"
+    InitiateCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/InitiateCallData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    EndCallData:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ended
+    EndCallEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/EndCallData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:
