@@ -20,6 +20,7 @@ import (
 	"github.com/stanleyHayes/obiara/internal/platform/inbox"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
+	"github.com/stanleyHayes/obiara/internal/platform/retention"
 	"github.com/stanleyHayes/obiara/internal/platform/secrets"
 	privacymongodb "github.com/stanleyHayes/obiara/internal/privacy/adapters/outbound/mongodb"
 	privacyapplication "github.com/stanleyHayes/obiara/internal/privacy/application"
@@ -30,6 +31,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/application"
 	privacyjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/privacy"
 	"github.com/stanleyHayes/obiara/services/worker/internal/jobs/relay"
+	retentionjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/retention"
 	ritualjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/ritual"
 	ritualmongodb "github.com/stanleyHayes/obiara/services/worker/internal/jobs/ritual/adapters/outbound/mongodb"
 	safetyjob "github.com/stanleyHayes/obiara/services/worker/internal/jobs/safety"
@@ -129,9 +131,10 @@ func run() error {
 		ritualjob.NewHeraldJob(ritualDispatcher, 5*time.Minute),
 		safetyjob.NewBuilderJob(safetyBuilder, 50, 30*time.Second),
 		reactivation.NewJob(reactivation.NewStore(database, time.Now), 5*time.Minute),
+		retentionjob.NewJob(retention.NewRunner(database, retention.BindingPolicies, time.Now), 6*time.Hour),
 	}, mongodb.NewDeadLetterStore(database, time.Now), logger, time.Now)
 
-	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 6))
+	logger.InfoContext(ctx, "worker started", slog.Int("jobs", 7))
 	if err := jobs.NewModule(scheduler).Run(ctx); err != nil {
 		return err
 	}
