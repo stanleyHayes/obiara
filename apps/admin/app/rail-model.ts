@@ -37,6 +37,7 @@ export const railGroups: readonly RailGroup[] = [
   {
     title: "Platform",
     links: [
+      { icon: "⚷", label: "Operators & roles", href: "/operators" },
       { icon: "¤", label: "Finance", href: "/finance" },
       { icon: "▦", label: "Analytics", href: "/analytics" },
       { icon: "Aa", label: "Language governance", href: "/governance" },
