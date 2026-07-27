@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "obiara.ghana-field-test.v1",
+  "environment": "staging",
+  "syntheticOnly": true,
+  "candidateSha": "68bf7b18d7a2c872640265d5b6f58ba96b29561c",
+  "device": {
+    "deviceRef": "fixture-device-api26",
+    "android": "8.0",
+    "apiLevel": 26,
+    "ramMiB": 2048,
+    "physical": false,
+    "cleanInstall": true
+  },
+  "networks": [
+    {
+      "id": "ghana-3g",
+      "kind": "representative-3g",
+      "downKbps": 1024,
+      "upKbps": 384,
+      "latencyMs": 300,
+      "jitterMs": 50,
+      "packetLossBps": 200,
+      "externalTraffic": false
+    },
+    {
+      "id": "fixed-local",
+      "kind": "fixed",
+      "downKbps": 10000,
+      "upKbps": 10000,
+      "latencyMs": 30,
+      "jitterMs": 5,
+      "packetLossBps": 0,
+      "externalTraffic": false
+    }
+  ],
+  "measurements": [
+    {
+      "path": "cold-launch",
+      "category": "compute",
+      "metric": "cold-start",
+      "networkId": "ghana-3g",
+      "unit": "ms",
+      "samples": [1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 1021, 1022, 1023, 1024, 1025, 1026, 1027, 1028, 1029],
+      "p50": 1014,
+      "p90": 1026,
+      "p95": 1028,
+      "p90Budget": 3000,
+      "evidenceRef": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "path": "warm-launch",
+      "category": "compute",
+      "metric": "warm-start",
+      "networkId": "fixed-local",
+      "unit": "ms",
+      "samples": [500, 501, 502, 503, 504, 505, 506, 507, 508, 509, 510, 511, 512, 513, 514, 515, 516, 517, 518, 519, 520, 521, 522, 523, 524, 525, 526, 527, 528, 529],
+      "p50": 514,
+      "p90": 526,
+      "p95": 528,
+      "p90Budget": 1500,
+      "evidenceRef": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "path": "offline-reconcile",
+      "category": "database",
+      "metric": "offline-reconcile",
+      "networkId": "ghana-3g",
+      "unit": "ms",
+      "samples": [1200, 1201, 1202, 1203, 1204, 1205, 1206, 1207, 1208, 1209, 1210, 1211, 1212, 1213, 1214, 1215, 1216, 1217, 1218, 1219, 1220, 1221, 1222, 1223, 1224, 1225, 1226, 1227, 1228, 1229],
+      "p50": 1214,
+      "p90": 1226,
+      "p95": 1228,
+      "p90Budget": 3000,
+      "evidenceRef": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "path": "voice-upload-60s",
+      "category": "media",
+      "metric": "voice-upload-60s",
+      "networkId": "ghana-3g",
+      "unit": "ms",
+      "samples": [2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029],
+      "p50": 2014,
+      "p90": 2026,
+      "p95": 2028,
+      "p90Budget": 3000,
+      "evidenceRef": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "path": "progressive-playback",
+      "category": "media",
+      "metric": "progressive-playback",
+      "networkId": "ghana-3g",
+      "unit": "ms",
+      "samples": [800, 801, 802, 803, 804, 805, 806, 807, 808, 809, 810, 811, 812, 813, 814, 815, 816, 817, 818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829],
+      "p50": 814,
+      "p90": 826,
+      "p95": 828,
+      "p90Budget": 2000,
+      "evidenceRef": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    {
+      "path": "fire-listen-only",
+      "category": "media",
+      "metric": "listen-only-transition",
+      "networkId": "ghana-3g",
+      "unit": "ms",
+      "samples": [2500, 2501, 2502, 2503, 2504, 2505, 2506, 2507, 2508, 2509, 2510, 2511, 2512, 2513, 2514, 2515, 2516, 2517, 2518, 2519, 2520, 2521, 2522, 2523, 2524, 2525, 2526, 2527, 2528, 2529],
+      "p50": 2514,
+      "p90": 2526,
+      "p95": 2528,
+      "p90Budget": 5000,
+      "evidenceRef": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  ],
+  "safety": {
+    "productionData": false,
+    "memberData": false,
+    "externalSpend": false
+  },
+  "operatorRef": "role/field-operator",
+  "reviewerRef": "role/field-reviewer",
+  "generatedAt": "2026-07-27T10:00:00Z",
+  "expiresAt": "2026-08-03T10:00:00Z",
+  "disposition": "blocked",
+  "blockers": ["physical-api26-device-required", "synthetic-evidence"]
+}
