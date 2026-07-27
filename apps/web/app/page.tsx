@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Avatar,
   Box,
@@ -10,6 +12,8 @@ import {
   Typography,
 } from "@mui/material";
 import Image from "next/image";
+import Link from "next/link";
+import { useState } from "react";
 import brandMark from "../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-onlight_transparent.png";
 
 const zones = [
@@ -20,6 +24,7 @@ const zones = [
     count: "3 live",
     color: "#FF9F1C",
     icon: "✦",
+    href: "/fie/abonten",
   },
   {
     name: "Adiwo",
@@ -28,6 +33,7 @@ const zones = [
     count: "4 circles",
     color: "#12A67C",
     icon: "◌",
+    href: "/fie/adiwo",
   },
   {
     name: "Ɛpono ano",
@@ -36,6 +42,7 @@ const zones = [
     count: "2 waiting",
     color: "#FF4D6D",
     icon: "⌂",
+    href: "/fie/epono-ano",
   },
   {
     name: "Dan mu",
@@ -44,6 +51,7 @@ const zones = [
     count: "1 drum",
     color: "#3A0E2E",
     icon: "●",
+    href: "/fie/dan-mu",
   },
 ];
 
@@ -74,14 +82,33 @@ function ZoneCard({
         <Typography className="zone-gloss">{zone.gloss}</Typography>
       </Box>
       <Typography className="zone-detail">{zone.detail}</Typography>
-      <Button className="zone-action" aria-label={`Enter ${zone.name}`}>
+      <Button
+        className="zone-action"
+        aria-label={`Enter ${zone.name}`}
+        href={zone.href}
+      >
         Step inside <span aria-hidden="true">↗</span>
       </Button>
     </Card>
   );
 }
 
+const heroCopy = {
+  EN: {
+    title: "Akwaaba, Ama.",
+    outline: "Your fie is awake.",
+    body: "Two voices are waiting at your doorway. The drum is with you in one room, and tonight’s Legon fire still has a seat.",
+  },
+  TWI: {
+    title: "Akwaaba, Ama.",
+    outline: "Wo fie anyan.",
+    body: "Nnero abien reten wo Ɛpono ano. Kankyere wɔ wo nkyɛn wɔ dan bi mu, na anɔpmwe Gyaase ogya no da so wɔ bea.",
+  },
+} as const;
+
 export default function Home() {
+  const [language, setLanguage] = useState<"EN" | "TWI">("EN");
+  const hero = heroCopy[language];
   return (
     <Box component="main" className="fie-page">
       <Container maxWidth={false} className="shell">
@@ -102,8 +129,21 @@ export default function Home() {
             sx={{ alignItems: "center" }}
             spacing={{ xs: 1, sm: 1.5 }}
           >
-            <Button className="language-button">EN · Twi</Button>
-            <Avatar className="profile-avatar" aria-label="Ama’s profile">
+            <Button
+              className="language-button"
+              onClick={() =>
+                setLanguage((current) => (current === "EN" ? "TWI" : "EN"))
+              }
+            >
+              {language === "EN" ? "EN · Twi" : "Twi · EN"}
+            </Button>
+            <Avatar
+              aria-label="Ama’s profile"
+              className="profile-avatar"
+              component={Link}
+              href="/fie/settings/profile"
+              sx={{ cursor: "pointer", textDecoration: "none" }}
+            >
               A
             </Avatar>
           </Stack>
@@ -116,14 +156,11 @@ export default function Home() {
               label="Sunday · your quiet morning"
             />
             <Typography component="h1" className="welcome-title">
-              Akwaaba, Ama.
+              {hero.title}
               <br />
-              <span>Your fie is awake.</span>
+              <span>{hero.outline}</span>
             </Typography>
-            <Typography className="welcome-body">
-              Two voices are waiting at your doorway. The drum is with you in
-              one room, and tonight’s Legon fire still has a seat.
-            </Typography>
+            <Typography className="welcome-body">{hero.body}</Typography>
           </Box>
 
           <Card className="dawn-card">
@@ -155,7 +192,7 @@ export default function Home() {
                 <span>seeds this week</span>
               </Box>
             </Stack>
-            <Button variant="contained" className="dawn-action">
+            <Button variant="contained" className="dawn-action" href="/fie/garden">
               Visit my garden
             </Button>
           </Card>
@@ -201,7 +238,7 @@ export default function Home() {
               </Typography>
             </Box>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-              <Button variant="contained" className="fire-action">
+              <Button variant="contained" className="fire-action" href="/fie/fires/fire_legon_gyaase">
                 Keep my seat
               </Button>
               <Stack
@@ -246,7 +283,7 @@ export default function Home() {
               <Chip label="Gracious" />
               <Chip label="Verified" />
             </Stack>
-            <Button className="standing-action">
+            <Button className="standing-action" href="/fie/settings/suban">
               See what your marks mean
             </Button>
           </Card>
@@ -260,7 +297,7 @@ export default function Home() {
         </Box>
       </Container>
 
-      <Button className="okyeame-button" aria-label="Open the Okyeame">
+      <Button className="okyeame-button" aria-label="Open the Okyeame" href="/fie/okyeame">
         <span aria-hidden="true">◉</span>
         <span>Ask the okyeame</span>
       </Button>
