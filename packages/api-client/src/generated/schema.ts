@@ -302,6 +302,49 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/consent/{memberId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read the member's consent switchboard
+     * @description Effective state for every consent-map purpose (Doc 08 §8).
+     */
+    readonly get: operations["getConsentSwitchboard"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/consent/{memberId}/{purpose}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    /**
+     * Change a consent purpose
+     * @description Applies a member toggle within the purpose's control level (Doc 08
+     *     §8). Identity & safety processing is locked; opt-in purposes only
+     *     enable, opt-out purposes only disable. Every change writes an
+     *     immutable receipt.
+     */
+    readonly put: operations["setConsentPurpose"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/doorway-question": {
     readonly parameters: {
       readonly query?: never;
@@ -999,6 +1042,26 @@ export interface components {
     };
     readonly CloseFireInput: {
       readonly actorId: string;
+    };
+    readonly ConsentPurposeInput: {
+      readonly enabled: boolean;
+    };
+    readonly ConsentStateData: {
+      readonly enabled: boolean;
+      readonly purpose: string;
+    };
+    readonly ConsentStateEnvelope: {
+      readonly data: components["schemas"]["ConsentStateData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly ConsentSwitchboardData: {
+      readonly purposes: {
+        readonly [key: string]: boolean;
+      };
+    };
+    readonly ConsentSwitchboardEnvelope: {
+      readonly data: components["schemas"]["ConsentSwitchboardData"];
+      readonly meta: components["schemas"]["Metadata"];
     };
     readonly CorrelationId: string;
     readonly DeliveryStatsData: {
@@ -1762,6 +1825,16 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description The purpose cannot be changed (required) or only allows the other direction. */
+    readonly PurposeLocked: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description The member already has an RSVP, or the fire is not open. */
     readonly RsvpConflict: {
       headers: {
@@ -1837,6 +1910,16 @@ export interface components {
      *     authentication, owner mismatch, policy denial and hidden resources.
      */
     readonly TrustPathsNotFound: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The consent purpose does not exist. */
+    readonly UnknownPurpose: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -2440,6 +2523,75 @@ export interface operations {
       readonly 409: components["responses"]["CallNotOpen"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly getConsentSwitchboard: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly memberId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Purpose states. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ConsentSwitchboardEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly setConsentPurpose: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly memberId: string;
+        readonly purpose:
+          | "identity_safety"
+          | "matching_personalization"
+          | "scam_arc_monitoring"
+          | "play_portraits"
+          | "product_analytics";
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ConsentPurposeInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Purpose updated. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ConsentStateEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 409: components["responses"]["PurposeLocked"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["UnknownPurpose"];
       readonly 500: components["responses"]["InternalError"];
     };
   };

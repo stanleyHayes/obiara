@@ -31,6 +31,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/analytics"
 	"github.com/stanleyHayes/obiara/services/api/internal/calls"
 	callsapp "github.com/stanleyHayes/obiara/services/api/internal/calls/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
@@ -169,6 +170,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build suban module: %w", err)
 	}
+	// Consent map (Doc 08 §8): purpose toggles with receipts.
+	consentModule, err := consentmap.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build consent module: %w", err)
+	}
 	// Scam-arc detection (E11-S11): rules-first signals with the action
 	// ladder; case creation bridges to the safety context when wired.
 	scamModule, err := scamarc.NewModule(ctx, client.Database(cfg.MongoDatabase), nil, nil)
@@ -231,6 +237,7 @@ func run() error {
 	apihttp.RegisterMetricsRoutes(mux, analyticsModule.Metrics)
 	apihttp.RegisterScamArcRoutes(mux, scamModule.ScamArc)
 	apihttp.RegisterDeliveryStatsRoutes(mux, deliverystatsapp.NewStatsService(deliverystats.NewStore(client.Database(cfg.MongoDatabase)), time.Now))
+	apihttp.RegisterConsentRoutes(mux, consentModule.ConsentMap)
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{

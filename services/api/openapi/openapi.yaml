@@ -1669,6 +1669,91 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/consent/{memberId}:
+    get:
+      operationId: getConsentSwitchboard
+      tags: [Privacy]
+      summary: Read the member's consent switchboard
+      security: []
+      description: Effective state for every consent-map purpose (Doc 08 §8).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Purpose states.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentSwitchboardEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/consent/{memberId}/{purpose}:
+    put:
+      operationId: setConsentPurpose
+      tags: [Privacy]
+      summary: Change a consent purpose
+      security: []
+      description: |
+        Applies a member toggle within the purpose's control level (Doc 08
+        §8). Identity & safety processing is locked; opt-in purposes only
+        enable, opt-out purposes only disable. Every change writes an
+        immutable receipt.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: purpose
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              [
+                identity_safety,
+                matching_personalization,
+                scam_arc_monitoring,
+                play_portraits,
+                product_analytics,
+              ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsentPurposeInput"
+      responses:
+        "200":
+          description: Purpose updated.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsentStateEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "409":
+          $ref: "#/components/responses/PurposeLocked"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/UnknownPurpose"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -2164,6 +2249,32 @@ components:
             $ref: "#/components/schemas/ErrorEnvelope"
     MonitoringOptedOut:
       description: The room has opted out of scam-arc monitoring.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PurposeLocked:
+      description: The purpose cannot be changed (required) or only allows the other direction.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            purposeLocked:
+              value:
+                error:
+                  code: purpose_locked
+                  message: Identity and safety processing is required for the service and cannot be turned off.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    UnknownPurpose:
+      description: The consent purpose does not exist.
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/CorrelationId"
@@ -3430,6 +3541,49 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/DeliveryStatsData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    ConsentPurposeInput:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+    ConsentSwitchboardData:
+      type: object
+      additionalProperties: false
+      required: [purposes]
+      properties:
+        purposes:
+          type: object
+          additionalProperties:
+            type: boolean
+    ConsentSwitchboardEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ConsentSwitchboardData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    ConsentStateData:
+      type: object
+      additionalProperties: false
+      required: [purpose, enabled]
+      properties:
+        purpose:
+          type: string
+        enabled:
+          type: boolean
+    ConsentStateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/ConsentStateData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:
