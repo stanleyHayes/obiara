@@ -25,6 +25,7 @@ const navigation = [
   ["✦", "Fires", ""],
   ["¤", "Finance", ""],
   ["▦", "Analytics", ""],
+  ["Aa", "Language governance", ""],
   ["≡", "Audit trail", ""],
 ];
 
@@ -107,6 +108,8 @@ export default function AdminHome() {
                       ? "/finance"
                       : label === "Analytics"
                         ? "/analytics"
+                        : label === "Language governance"
+                          ? "/governance"
                       : undefined
               }
             >
