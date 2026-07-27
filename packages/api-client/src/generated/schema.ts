@@ -67,6 +67,60 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/market-packs": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Draft a market pack */
+    readonly post: operations["draftMarketPack"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/market-packs/{id}/publish": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Publish a market pack (four-eyes)
+     * @description The approver must differ from the proposer; audited (E16-S06).
+     */
+    readonly post: operations["publishMarketPack"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/market-packs/{id}/retire": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Retire a market pack */
+    readonly post: operations["retireMarketPack"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/principals": {
     readonly parameters: {
       readonly query?: never;
@@ -550,6 +604,23 @@ export interface paths {
      *     to the voice owner (FR-205).
      */
     readonly post: operations["recordListeningHeartbeats"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/market-packs/published": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List published market packs */
+    readonly get: operations["listPublishedMarketPacks"];
+    readonly put?: never;
+    readonly post?: never;
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -1091,6 +1162,15 @@ export interface components {
       readonly memberId: string;
       readonly text: string;
     };
+    readonly DraftPackInput: {
+      readonly features?: {
+        readonly [key: string]: boolean;
+      };
+      /** @enum {string} */
+      readonly market: "gh_en" | "gh_tw" | "gh_pidgin" | "gh_ga";
+      readonly proposerId: string;
+      readonly terminologyRef: string;
+    };
     readonly EligibilityData: {
       readonly eligible: boolean;
       /** @constant */
@@ -1232,6 +1312,27 @@ export interface components {
       readonly expiresAt: string;
       readonly signed: string;
     };
+    readonly MarketPackData: {
+      readonly approvedBy?: string;
+      /** Format: date-time */
+      readonly createdAt: string;
+      readonly market: string;
+      readonly packId: string;
+      readonly proposedBy: string;
+      /** @enum {string} */
+      readonly status: "draft" | "published" | "retired";
+    };
+    readonly MarketPackEnvelope: {
+      readonly data: components["schemas"]["MarketPackData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly MarketPackListData: {
+      readonly packs: readonly components["schemas"]["MarketPackData"][];
+    };
+    readonly MarketPackListEnvelope: {
+      readonly data: components["schemas"]["MarketPackListData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly Member: {
       /** Format: date-time */
       readonly createdAt: string;
@@ -1284,6 +1385,9 @@ export interface components {
       readonly code: string;
       readonly deviceId: string;
       readonly phone: components["schemas"]["PhoneNumber"];
+    };
+    readonly PackActorInput: {
+      readonly actorId: string;
     };
     /** @description E.164 phone number. */
     readonly PhoneNumber: string;
@@ -1785,6 +1889,26 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description No market pack with this identifier exists. */
+    readonly PackNotFound: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The pack is not in the required state for this action. */
+    readonly PackState: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description A principal with that email already exists. */
     readonly PrincipalExists: {
       headers: {
@@ -1857,6 +1981,16 @@ export interface components {
     };
     /** @description Safety notifications cannot be muted, or the input is invalid. */
     readonly SafetyCannotBeMuted: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The approver must differ from the proposer (four-eyes). */
+    readonly SelfApproval: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -2132,6 +2266,109 @@ export interface operations {
       readonly 404: components["responses"]["PrincipalNotFound"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly draftMarketPack: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["DraftPackInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Pack drafted. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MarketPackEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly publishMarketPack: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PackActorInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Pack published. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MarketPackEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 404: components["responses"]["PackNotFound"];
+      readonly 409: components["responses"]["SelfApproval"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly retireMarketPack: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PackActorInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Pack retired. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MarketPackEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 404: components["responses"]["PackNotFound"];
+      readonly 409: components["responses"]["PackState"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 500: components["responses"]["InternalError"];
     };
   };
@@ -2949,6 +3186,34 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidJSON"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly listPublishedMarketPacks: {
+    readonly parameters: {
+      readonly query?: {
+        readonly market?: "gh_en" | "gh_tw" | "gh_pidgin" | "gh_ga";
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Published packs. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MarketPackListEnvelope"];
+        };
+      };
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };

@@ -1754,6 +1754,147 @@ paths:
           $ref: "#/components/responses/UnknownPurpose"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/market-packs:
+    post:
+      operationId: draftMarketPack
+      tags: [Admin]
+      summary: Draft a market pack
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftPackInput"
+      responses:
+        "201":
+          description: Pack drafted.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketPackEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/market-packs/{id}/publish:
+    post:
+      operationId: publishMarketPack
+      tags: [Admin]
+      summary: Publish a market pack (four-eyes)
+      security: []
+      description: The approver must differ from the proposer; audited (E16-S06).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PackActorInput"
+      responses:
+        "200":
+          description: Pack published.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketPackEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "404":
+          $ref: "#/components/responses/PackNotFound"
+        "409":
+          $ref: "#/components/responses/SelfApproval"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/market-packs/{id}/retire:
+    post:
+      operationId: retireMarketPack
+      tags: [Admin]
+      summary: Retire a market pack
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PackActorInput"
+      responses:
+        "200":
+          description: Pack retired.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketPackEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "404":
+          $ref: "#/components/responses/PackNotFound"
+        "409":
+          $ref: "#/components/responses/PackState"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/market-packs/published:
+    get:
+      operationId: listPublishedMarketPacks
+      tags: [Admin]
+      summary: List published market packs
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: market
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gh_en, gh_tw, gh_pidgin, gh_ga]
+      responses:
+        "200":
+          description: Published packs.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketPackListEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -2275,6 +2416,33 @@ components:
                   correlationId: 01J9EXAMPLE000000000000000
     UnknownPurpose:
       description: The consent purpose does not exist.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    SelfApproval:
+      description: The approver must differ from the proposer (four-eyes).
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PackNotFound:
+      description: No market pack with this identifier exists.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PackState:
+      description: The pack is not in the required state for this action.
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/CorrelationId"
@@ -3584,6 +3752,82 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/ConsentStateData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    DraftPackInput:
+      type: object
+      additionalProperties: false
+      required: [market, terminologyRef, proposerId]
+      properties:
+        market:
+          type: string
+          enum: [gh_en, gh_tw, gh_pidgin, gh_ga]
+        terminologyRef:
+          type: string
+          minLength: 1
+        features:
+          type: object
+          additionalProperties:
+            type: boolean
+        proposerId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    PackActorInput:
+      type: object
+      additionalProperties: false
+      required: [actorId]
+      properties:
+        actorId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    MarketPackData:
+      type: object
+      additionalProperties: false
+      required: [packId, market, status, proposedBy, createdAt]
+      properties:
+        packId:
+          type: string
+        market:
+          type: string
+        status:
+          type: string
+          enum: [draft, published, retired]
+        proposedBy:
+          type: string
+        approvedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    MarketPackEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/MarketPackData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    MarketPackListData:
+      type: object
+      additionalProperties: false
+      required: [packs]
+      properties:
+        packs:
+          type: array
+          items:
+            $ref: "#/components/schemas/MarketPackData"
+    MarketPackListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/MarketPackListData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

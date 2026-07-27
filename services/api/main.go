@@ -39,6 +39,7 @@ import (
 	identitymongodb "github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/mongodb"
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
+	"github.com/stanleyHayes/obiara/services/api/internal/marketpack"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
@@ -171,6 +172,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build suban module: %w", err)
 	}
+	// Market-pack governance (E16-S06): four-eyes publishing with
+	// configuration audit.
+	marketPackModule, err := marketpack.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build market pack module: %w", err)
+	}
 	// Consent map (Doc 08 §8): purpose toggles with receipts.
 	consentModule, err := consentmap.NewModule(ctx, client.Database(cfg.MongoDatabase))
 	if err != nil {
@@ -240,6 +247,7 @@ func run() error {
 	apihttp.RegisterScamArcRoutes(mux, scamModule.ScamArc)
 	apihttp.RegisterDeliveryStatsRoutes(mux, deliverystatsapp.NewStatsService(deliverystats.NewStore(client.Database(cfg.MongoDatabase)), time.Now))
 	apihttp.RegisterConsentRoutes(mux, consentModule.ConsentMap)
+	apihttp.RegisterMarketPackRoutes(mux, marketPackModule.Packs)
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{
