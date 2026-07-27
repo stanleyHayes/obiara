@@ -192,7 +192,11 @@ export default function Home() {
                 <span>seeds this week</span>
               </Box>
             </Stack>
-            <Button variant="contained" className="dawn-action" href="/fie/garden">
+            <Button
+              variant="contained"
+              className="dawn-action"
+              href="/fie/garden"
+            >
               Visit my garden
             </Button>
           </Card>
@@ -238,7 +242,11 @@ export default function Home() {
               </Typography>
             </Box>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-              <Button variant="contained" className="fire-action" href="/fie/fires/fire_legon_gyaase">
+              <Button
+                variant="contained"
+                className="fire-action"
+                href="/fie/fires/fire_legon_gyaase"
+              >
                 Keep my seat
               </Button>
               <Stack
@@ -297,7 +305,11 @@ export default function Home() {
         </Box>
       </Container>
 
-      <Button className="okyeame-button" aria-label="Open the Okyeame" href="/fie/okyeame">
+      <Button
+        className="okyeame-button"
+        aria-label="Open the Okyeame"
+        href="/fie/okyeame"
+      >
         <span aria-hidden="true">◉</span>
         <span>Ask the okyeame</span>
       </Button>
