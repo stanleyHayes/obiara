@@ -1,0 +1,106 @@
+schemaVersion: obiara.observability.v1
+telemetry:
+  exporter: otlp-http
+  transport: https
+  allowedDimensions:
+    - service.name
+    - deployment.environment
+    - http.request.method
+    - http.route
+    - http.response.status_code
+    - job.name
+    - result
+  forbiddenDimensions:
+    - member.id
+    - session.id
+    - correlation.id
+    - request.id
+    - phone
+    - email
+    - content
+    - secret
+objectives:
+  - id: core-api-availability
+    owner: platform-on-call
+    indicator: successful_non_cancelled_requests / eligible_requests
+    target: 0.999
+    windowDays: 30
+    releaseBlocking: true
+  - id: core-api-latency
+    owner: platform-on-call
+    indicator: eligible_requests_at_or_below_300ms / eligible_requests
+    target: 0.95
+    windowDays: 30
+    releaseBlocking: true
+  - id: fire-window-availability
+    owner: community-on-call
+    indicator: successful_fire_window_commands / eligible_fire_window_commands
+    target: 0.999
+    windowDays: 30
+    releaseBlocking: true
+  - id: tier-a-routing
+    owner: safety-on-call
+    indicator: tier_a_reports_routed_at_or_below_60s / tier_a_reports
+    target: 0.999
+    windowDays: 30
+    releaseBlocking: true
+alerts:
+  - id: core-api-fast-burn
+    objective: core-api-availability
+    severity: page
+    owner: platform-on-call
+    burnRate: 14.4
+    longWindowMinutes: 60
+    shortWindowMinutes: 5
+    runbook: deploy/observability/on-call-runbook.md#availability-or-latency
+  - id: core-api-slow-burn
+    objective: core-api-availability
+    severity: ticket
+    owner: platform-on-call
+    burnRate: 6
+    longWindowMinutes: 360
+    shortWindowMinutes: 30
+    runbook: deploy/observability/on-call-runbook.md#availability-or-latency
+  - id: mongo-readiness-lost
+    signal: ready_dependency_mongodb == 0
+    severity: page
+    owner: platform-on-call
+    forMinutes: 5
+    runbook: deploy/observability/on-call-runbook.md#dependency-readiness
+  - id: tier-a-routing-breach
+    objective: tier-a-routing
+    severity: page
+    owner: safety-on-call
+    burnRate: 1
+    longWindowMinutes: 5
+    shortWindowMinutes: 1
+    runbook: deploy/observability/on-call-runbook.md#safety-routing
+  - id: worker-dead-letter
+    signal: job_dead_letters_total > 0
+    severity: page
+    owner: platform-on-call
+    forMinutes: 1
+    runbook: deploy/observability/on-call-runbook.md#worker-dead-letters
+dashboards:
+  - id: service-red
+    owner: platform-on-call
+    panels:
+      - request-rate-by-route
+      - error-ratio-by-route
+      - latency-p50-p95-p99
+      - live-and-ready
+      - mongodb-latency-and-pool-pressure
+  - id: worker-health
+    owner: platform-on-call
+    panels:
+      - job-runs-by-result
+      - job-duration
+      - retry-and-dead-letter-count
+      - oldest-pending-outbox-age
+  - id: safety-routing
+    owner: safety-on-call
+    panels:
+      - tier-a-route-latency
+      - unresolved-tier-a-count
+      - oldest-tier-a-age
+
