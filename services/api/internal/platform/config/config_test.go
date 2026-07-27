@@ -34,16 +34,20 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadOverrides(t *testing.T) {
+	now := time.Now().UTC()
 	cfg, err := Load(envWith(map[string]string{
-		"PORT":                        "9090",
-		"MONGODB_URI":                 "mongodb://mongo.internal:27017",
-		"MONGODB_DATABASE":            "obiara_staging",
-		"MONGO_CONNECT_TIMEOUT":       "3s",
-		"SHUTDOWN_TIMEOUT":            "250ms",
-		"OTEL_EXPORTER_OTLP_ENDPOINT": "https://collector.example.test",
-		"OTEL_EXPORTER_OTLP_INSECURE": "false",
-		"SERVICE_VERSION":             "git-abc123",
-		"APP_ENV":                     "staging",
+		"PORT":                             "9090",
+		"MONGODB_URI":                      "mongodb://mongo.internal:27017",
+		"MONGODB_DATABASE":                 "obiara_staging",
+		"MONGO_CONNECT_TIMEOUT":            "3s",
+		"SHUTDOWN_TIMEOUT":                 "250ms",
+		"OTEL_EXPORTER_OTLP_ENDPOINT":      "https://collector.example.test",
+		"OTEL_EXPORTER_OTLP_INSECURE":      "false",
+		"SERVICE_VERSION":                  "git-abc123",
+		"APP_ENV":                          "staging",
+		"MONGODB_URI_ROTATED_AT":           now.Format(time.RFC3339),
+		"RESEND_WEBHOOK_SECRET":            "synthetic-test-only",
+		"RESEND_WEBHOOK_SECRET_ROTATED_AT": now.Format(time.RFC3339),
 	}))
 	if err != nil {
 		t.Fatalf("Load with overrides returned error: %v", err)
@@ -66,6 +70,23 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.TelemetryEndpoint != "https://collector.example.test" || cfg.TelemetryInsecure ||
 		cfg.ServiceVersion != "git-abc123" || cfg.Environment != "staging" {
 		t.Errorf("telemetry config = %#v", cfg)
+	}
+}
+
+func TestLoadStagingRejectsMissingOrStaleSecretMetadata(t *testing.T) {
+	now := time.Date(2026, 7, 27, 6, 0, 0, 0, time.UTC)
+	base := map[string]string{
+		"APP_ENV": "staging", "MONGODB_URI": "synthetic-test-only",
+		"RESEND_WEBHOOK_SECRET":            "synthetic-test-only",
+		"MONGODB_URI_ROTATED_AT":           now.Format(time.RFC3339),
+		"RESEND_WEBHOOK_SECRET_ROTATED_AT": now.Format(time.RFC3339),
+	}
+	if _, err := loadAt(envWith(base), now); err != nil {
+		t.Fatal(err)
+	}
+	delete(base, "RESEND_WEBHOOK_SECRET_ROTATED_AT")
+	if _, err := loadAt(envWith(base), now); err == nil {
+		t.Fatal("staging accepted missing rotation metadata")
 	}
 }
 

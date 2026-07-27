@@ -47,7 +47,9 @@ for least-privilege database users. Neither service has a persistent disk.
 | `APP_ENV` | Non-secret | yes | yes | no | no | Staging environment group |
 | `MONGODB_DATABASE` | Non-secret | yes | yes | no | no | Blueprint value `obiara_staging` |
 | `MONGODB_URI` | Secret | yes | yes | no | no | Independent `sync: false` values; never shared in Git |
+| `MONGODB_URI_ROTATED_AT` | Rotation metadata | yes | yes | no | no | Independent RFC3339 activation evidence; `sync: false` |
 | `RESEND_WEBHOOK_SECRET` | Secret | yes | no | no | no | `sync: false`; staging-only Resend webhook |
+| `RESEND_WEBHOOK_SECRET_ROTATED_AT` | Rotation metadata | yes | no | no | no | RFC3339 activation evidence; `sync: false` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Configuration | yes | yes | no | no | `sync: false`; absolute credential-free HTTPS URL |
 | `SERVICE_VERSION` | Build identity | yes | yes | no | no | Derived at start from immutable `RENDER_GIT_COMMIT` |
 | `NEXT_PUBLIC_API_BASE_URL` | Public build configuration | no | no | yes | yes | `sync: false`; staging API URL, no credentials |

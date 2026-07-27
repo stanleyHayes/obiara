@@ -47,9 +47,13 @@ projects:
                 value: obiara_staging
               - key: MONGODB_URI
                 sync: false
+              - key: MONGODB_URI_ROTATED_AT
+                sync: false
               - key: OTEL_EXPORTER_OTLP_ENDPOINT
                 sync: false
               - key: RESEND_WEBHOOK_SECRET
+                sync: false
+              - key: RESEND_WEBHOOK_SECRET_ROTATED_AT
                 sync: false
 
           - name: obiara-worker-staging
@@ -74,6 +78,8 @@ projects:
               - key: MONGODB_DATABASE
                 value: obiara_staging
               - key: MONGODB_URI
+                sync: false
+              - key: MONGODB_URI_ROTATED_AT
                 sync: false
               - key: OTEL_EXPORTER_OTLP_ENDPOINT
                 sync: false

@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/stanleyHayes/obiara/internal/platform/secrets"
 )
 
 // Config is the runtime configuration for the api composition root.
@@ -27,6 +29,10 @@ type Config struct {
 // validates it. Defaults target local development; staging and production
 // must set every value explicitly through the environment matrix.
 func Load(getenv func(string) string) (Config, error) {
+	return loadAt(getenv, time.Now().UTC())
+}
+
+func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 	cfg := Config{
 		Port:              valueOrDefault(getenv("PORT"), "8080"),
 		MongoURI:          valueOrDefault(getenv("MONGODB_URI"), "mongodb://localhost:27017"),
@@ -56,6 +62,9 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 	if strings.TrimSpace(cfg.MongoDatabase) == "" {
 		return Config{}, fmt.Errorf("MONGODB_DATABASE must not be empty")
+	}
+	if err := secrets.ValidateRuntime(secrets.API, cfg.Environment, getenv, now); err != nil {
+		return Config{}, fmt.Errorf("runtime secret policy: %w", err)
 	}
 
 	return cfg, nil

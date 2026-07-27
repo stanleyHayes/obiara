@@ -20,6 +20,7 @@ import (
 	"github.com/stanleyHayes/obiara/internal/platform/inbox"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
+	"github.com/stanleyHayes/obiara/internal/platform/secrets"
 	privacymongodb "github.com/stanleyHayes/obiara/internal/privacy/adapters/outbound/mongodb"
 	privacyapplication "github.com/stanleyHayes/obiara/internal/privacy/application"
 	safetymongodb "github.com/stanleyHayes/obiara/internal/safety/adapters/outbound/mongodb"
@@ -46,9 +47,13 @@ func main() {
 func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	environment := envOrDefault("APP_ENV", "development")
+	if err := secrets.ValidateRuntime(secrets.Worker, environment, os.Getenv, time.Now().UTC()); err != nil {
+		return fmt.Errorf("runtime secret policy: %w", err)
+	}
 	telemetryRuntime, err := workertelemetry.New(ctx, os.Stdout, workertelemetry.Config{
 		Version:     envOrDefault("SERVICE_VERSION", "dev"),
-		Environment: envOrDefault("APP_ENV", "development"),
+		Environment: environment,
 		Endpoint:    os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		Insecure:    envOrDefault("OTEL_EXPORTER_OTLP_INSECURE", "false") == "true",
 	})

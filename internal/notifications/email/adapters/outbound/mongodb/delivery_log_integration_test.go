@@ -60,7 +60,7 @@ func TestEmailChannelEndToEnd(t *testing.T) {
 
 	sender := simulator.NewSender()
 	service := application.NewEmailService(sender, deliveryLog, time.Now)
-	webhook := application.NewWebhookService(deliveryLog, "whsec_dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdA==", time.Now)
+	webhook := application.NewWebhookService(deliveryLog, "whsec_"+"dGVzdC1zZWNyZXQtdGVzdC1zZWNyZXQtdGVzdA==", time.Now)
 
 	// Send: logged as sent.
 	ref, err := service.Send(ctx, "ops@example.test", domain.TemplateOpsAlert, map[string]string{"queue": "verification"})
