@@ -1,0 +1,21 @@
+{
+  "name": "@obiara/escrow-engagement",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@obiara/config-eslint": "workspace:*",
+    "@obiara/config-typescript": "workspace:*",
+    "eslint": "9.39.2",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}
