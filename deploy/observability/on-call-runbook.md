@@ -19,11 +19,11 @@ incident commander. Safety pages also notify the Trust and Safety lead and
 must not wait for platform diagnosis before protective routing. Incident notes
 use opaque case/change references and the existing redacted incident packet.
 
-| Severity | Meaning | Acknowledge | Update cadence | Authority |
-| --- | --- | --- | --- | --- |
-| P0 | Confirmed active safety/data breach or broad critical outage | 5 min | 15 min | Incident commander plus T&S/privacy lead as applicable |
-| P1 | Material degradation, Tier-A routing breach, payment integrity risk or dependency outage | 5 min | 30 min | Incident commander |
-| P2 | Slow-burn budget loss or bounded non-critical failure | 4 business hours | Daily | Service owner |
+| Severity | Meaning                                                                                  | Acknowledge      | Update cadence | Authority                                              |
+| -------- | ---------------------------------------------------------------------------------------- | ---------------- | -------------- | ------------------------------------------------------ |
+| P0       | Confirmed active safety/data breach or broad critical outage                             | 5 min            | 15 min         | Incident commander plus T&S/privacy lead as applicable |
+| P1       | Material degradation, Tier-A routing breach, payment integrity risk or dependency outage | 5 min            | 30 min         | Incident commander                                     |
+| P2       | Slow-burn budget loss or bounded non-critical failure                                    | 4 business hours | Daily          | Service owner                                          |
 
 ## Availability or latency
 
@@ -65,4 +65,3 @@ Two roles confirm restored SLI health and completed safety/privacy follow-up.
 P0/P1 incidents require a blameless review with contributing controls,
 evidence, owner and dated backlog actions. Closing an alert does not close an
 incident automatically, replenish an error budget, or authorize release.
-

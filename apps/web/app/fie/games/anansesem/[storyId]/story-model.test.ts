@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  canPublish,
-  initialStoryState,
-  storyReducer,
-} from "./story-model";
+import { canPublish, initialStoryState, storyReducer } from "./story-model";
 
 describe("private Anansesɛm relay", () => {
   it("requires a bounded contribution and hands over the turn", () => {

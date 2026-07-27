@@ -1,222 +1,222 @@
 {
- "logo/png/mark-color-ondark_transparent.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-color-ondark_on-umber.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-color-onlight_transparent.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-color-onlight_on-shea.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-mono-ink_transparent.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-mono-ink_on-shea.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-mono-ink_on-gold.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-mono-cream_transparent.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-mono-cream_on-umber.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-gold_transparent.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/mark-gold_on-umber.png": {
-  "w": 2000,
-  "h": 2000
- },
- "logo/png/lockup-h-color-ondark_transparent.png": {
-  "w": 2000,
-  "h": 565
- },
- "logo/png/lockup-h-color-ondark_on-umber.png": {
-  "w": 2000,
-  "h": 565
- },
- "logo/png/lockup-h-color-onlight_transparent.png": {
-  "w": 2000,
-  "h": 565
- },
- "logo/png/lockup-h-color-onlight_on-shea.png": {
-  "w": 2000,
-  "h": 565
- },
- "logo/png/lockup-h-mono-ink_transparent.png": {
-  "w": 2000,
-  "h": 565
- },
- "logo/png/lockup-h-mono-ink_on-shea.png": {
-  "w": 2000,
-  "h": 565
- },
- "logo/png/lockup-h-mono-cream_transparent.png": {
-  "w": 2000,
-  "h": 565
- },
- "logo/png/lockup-h-mono-cream_on-umber.png": {
-  "w": 2000,
-  "h": 565
- },
- "logo/png/lockup-s-color-ondark_transparent.png": {
-  "w": 2000,
-  "h": 2728
- },
- "logo/png/lockup-s-color-ondark_on-umber.png": {
-  "w": 2000,
-  "h": 2728
- },
- "logo/png/lockup-s-color-onlight_transparent.png": {
-  "w": 2000,
-  "h": 2728
- },
- "logo/png/lockup-s-color-onlight_on-shea.png": {
-  "w": 2000,
-  "h": 2728
- },
- "logo/png/lockup-s-mono-ink_transparent.png": {
-  "w": 2000,
-  "h": 2728
- },
- "logo/png/lockup-s-mono-ink_on-shea.png": {
-  "w": 2000,
-  "h": 2728
- },
- "logo/png/lockup-s-mono-cream_transparent.png": {
-  "w": 2000,
-  "h": 2728
- },
- "logo/png/lockup-s-mono-cream_on-umber.png": {
-  "w": 2000,
-  "h": 2728
- },
- "logo/png/wordmark-ink_transparent.png": {
-  "w": 2000,
-  "h": 1054
- },
- "logo/png/wordmark-ink_on-shea.png": {
-  "w": 2000,
-  "h": 1054
- },
- "logo/png/wordmark-cream_transparent.png": {
-  "w": 2000,
-  "h": 1054
- },
- "logo/png/wordmark-cream_on-umber.png": {
-  "w": 2000,
-  "h": 1054
- },
- "logo/png/wordmark-gold_transparent.png": {
-  "w": 2000,
-  "h": 1054
- },
- "logo/png/wordmark-gold_on-umber.png": {
-  "w": 2000,
-  "h": 1054
- },
- "icons/app-icon-ink-1024.png": {
-  "w": 1024,
-  "h": 1024
- },
- "icons/app-icon-gold-1024.png": {
-  "w": 1024,
-  "h": 1024
- },
- "icons/favicon-512.png": {
-  "w": 512,
-  "h": 512
- },
- "icons/favicon-192.png": {
-  "w": 192,
-  "h": 192
- },
- "icons/favicon-48.png": {
-  "w": 48,
-  "h": 48
- },
- "icons/profile-avatar-gold-1024.png": {
-  "w": 1024,
-  "h": 1024
- },
- "icons/profile-avatar-ink-1024.png": {
-  "w": 1024,
-  "h": 1024
- },
- "icons/profile-avatar-cream-1024.png": {
-  "w": 1024,
-  "h": 1024
- },
- "social/facebook-cover-1640x624.png": {
-  "w": 1640,
-  "h": 624
- },
- "social/linkedin-banner-2256x382.png": {
-  "w": 2256,
-  "h": 382
- },
- "social/x-header-1500x500.png": {
-  "w": 1500,
-  "h": 500
- },
- "social/instagram-flyer-1080x1080.png": {
-  "w": 1080,
-  "h": 1080
- },
- "social/story-flyer-1080x1920.png": {
-  "w": 1080,
-  "h": 1920
- },
- "mockups/tshirts.png": {
-  "w": 2000,
-  "h": 1300
- },
- "mockups/billboard.png": {
-  "w": 1920,
-  "h": 1080
- },
- "mockups/business-card.png": {
-  "w": 2200,
-  "h": 800
- },
- "doc/doc-hero-onshea.png": {
-  "w": 1400,
-  "h": 520
- },
- "doc/doc-hero-onumber.png": {
-  "w": 1400,
-  "h": 520
- },
- "doc/doc-variants.png": {
-  "w": 1476,
-  "h": 892
- },
- "doc/doc-clearspace.png": {
-  "w": 1200,
-  "h": 560
- },
- "doc/doc-type.png": {
-  "w": 1400,
-  "h": 760
- },
- "doc/doc-misuse.png": {
-  "w": 1830,
-  "h": 424
- }
+  "logo/png/mark-color-ondark_transparent.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-color-ondark_on-umber.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-color-onlight_transparent.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-color-onlight_on-shea.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-mono-ink_transparent.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-mono-ink_on-shea.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-mono-ink_on-gold.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-mono-cream_transparent.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-mono-cream_on-umber.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-gold_transparent.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/mark-gold_on-umber.png": {
+    "w": 2000,
+    "h": 2000
+  },
+  "logo/png/lockup-h-color-ondark_transparent.png": {
+    "w": 2000,
+    "h": 565
+  },
+  "logo/png/lockup-h-color-ondark_on-umber.png": {
+    "w": 2000,
+    "h": 565
+  },
+  "logo/png/lockup-h-color-onlight_transparent.png": {
+    "w": 2000,
+    "h": 565
+  },
+  "logo/png/lockup-h-color-onlight_on-shea.png": {
+    "w": 2000,
+    "h": 565
+  },
+  "logo/png/lockup-h-mono-ink_transparent.png": {
+    "w": 2000,
+    "h": 565
+  },
+  "logo/png/lockup-h-mono-ink_on-shea.png": {
+    "w": 2000,
+    "h": 565
+  },
+  "logo/png/lockup-h-mono-cream_transparent.png": {
+    "w": 2000,
+    "h": 565
+  },
+  "logo/png/lockup-h-mono-cream_on-umber.png": {
+    "w": 2000,
+    "h": 565
+  },
+  "logo/png/lockup-s-color-ondark_transparent.png": {
+    "w": 2000,
+    "h": 2728
+  },
+  "logo/png/lockup-s-color-ondark_on-umber.png": {
+    "w": 2000,
+    "h": 2728
+  },
+  "logo/png/lockup-s-color-onlight_transparent.png": {
+    "w": 2000,
+    "h": 2728
+  },
+  "logo/png/lockup-s-color-onlight_on-shea.png": {
+    "w": 2000,
+    "h": 2728
+  },
+  "logo/png/lockup-s-mono-ink_transparent.png": {
+    "w": 2000,
+    "h": 2728
+  },
+  "logo/png/lockup-s-mono-ink_on-shea.png": {
+    "w": 2000,
+    "h": 2728
+  },
+  "logo/png/lockup-s-mono-cream_transparent.png": {
+    "w": 2000,
+    "h": 2728
+  },
+  "logo/png/lockup-s-mono-cream_on-umber.png": {
+    "w": 2000,
+    "h": 2728
+  },
+  "logo/png/wordmark-ink_transparent.png": {
+    "w": 2000,
+    "h": 1054
+  },
+  "logo/png/wordmark-ink_on-shea.png": {
+    "w": 2000,
+    "h": 1054
+  },
+  "logo/png/wordmark-cream_transparent.png": {
+    "w": 2000,
+    "h": 1054
+  },
+  "logo/png/wordmark-cream_on-umber.png": {
+    "w": 2000,
+    "h": 1054
+  },
+  "logo/png/wordmark-gold_transparent.png": {
+    "w": 2000,
+    "h": 1054
+  },
+  "logo/png/wordmark-gold_on-umber.png": {
+    "w": 2000,
+    "h": 1054
+  },
+  "icons/app-icon-ink-1024.png": {
+    "w": 1024,
+    "h": 1024
+  },
+  "icons/app-icon-gold-1024.png": {
+    "w": 1024,
+    "h": 1024
+  },
+  "icons/favicon-512.png": {
+    "w": 512,
+    "h": 512
+  },
+  "icons/favicon-192.png": {
+    "w": 192,
+    "h": 192
+  },
+  "icons/favicon-48.png": {
+    "w": 48,
+    "h": 48
+  },
+  "icons/profile-avatar-gold-1024.png": {
+    "w": 1024,
+    "h": 1024
+  },
+  "icons/profile-avatar-ink-1024.png": {
+    "w": 1024,
+    "h": 1024
+  },
+  "icons/profile-avatar-cream-1024.png": {
+    "w": 1024,
+    "h": 1024
+  },
+  "social/facebook-cover-1640x624.png": {
+    "w": 1640,
+    "h": 624
+  },
+  "social/linkedin-banner-2256x382.png": {
+    "w": 2256,
+    "h": 382
+  },
+  "social/x-header-1500x500.png": {
+    "w": 1500,
+    "h": 500
+  },
+  "social/instagram-flyer-1080x1080.png": {
+    "w": 1080,
+    "h": 1080
+  },
+  "social/story-flyer-1080x1920.png": {
+    "w": 1080,
+    "h": 1920
+  },
+  "mockups/tshirts.png": {
+    "w": 2000,
+    "h": 1300
+  },
+  "mockups/billboard.png": {
+    "w": 1920,
+    "h": 1080
+  },
+  "mockups/business-card.png": {
+    "w": 2200,
+    "h": 800
+  },
+  "doc/doc-hero-onshea.png": {
+    "w": 1400,
+    "h": 520
+  },
+  "doc/doc-hero-onumber.png": {
+    "w": 1400,
+    "h": 520
+  },
+  "doc/doc-variants.png": {
+    "w": 1476,
+    "h": 892
+  },
+  "doc/doc-clearspace.png": {
+    "w": 1200,
+    "h": 560
+  },
+  "doc/doc-type.png": {
+    "w": 1400,
+    "h": 760
+  },
+  "doc/doc-misuse.png": {
+    "w": 1830,
+    "h": 424
+  }
 }

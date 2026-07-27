@@ -61,7 +61,10 @@ export function governanceReducer(
       publishState: "first_approved",
     };
   }
-  if (action.type === "second-approver" && state.publishState === "first_approved") {
+  if (
+    action.type === "second-approver" &&
+    state.publishState === "first_approved"
+  ) {
     return { ...state, secondApprover: action.actor };
   }
   if (

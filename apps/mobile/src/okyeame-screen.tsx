@@ -1,7 +1,4 @@
-import {
-  decideOkyeame,
-  type OkyeameCapability,
-} from "@obiara/okyeame-policy";
+import { decideOkyeame, type OkyeameCapability } from "@obiara/okyeame-policy";
 import { type Href, useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -21,8 +18,7 @@ const requestOptions: readonly {
 
 export function OkyeameScreen() {
   const router = useRouter();
-  const [selected, setSelected] =
-    useState<OkyeameCapability>("feature_help");
+  const [selected, setSelected] = useState<OkyeameCapability>("feature_help");
   const decision = decideOkyeame({
     capability: selected,
     memberInvoked: true,
@@ -91,9 +87,7 @@ export function OkyeameScreen() {
           </View>
           <Pressable
             accessibilityRole="link"
-            onPress={() =>
-              router.push("/fie/okyeame-accountability" as Href)
-            }
+            onPress={() => router.push("/fie/okyeame-accountability" as Href)}
             style={({ pressed }) => [
               styles.accountabilityLink,
               pressed && styles.pressed,

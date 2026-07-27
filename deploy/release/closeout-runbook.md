@@ -35,4 +35,3 @@ confirms dependency readiness and opens an incident/change record. It never
 rewrites a database migration or closes the incident automatically. Hypercare
 reviews continue at the declared cadence; closing an alert or feedback item
 does not silently alter this immutable bundle.
-

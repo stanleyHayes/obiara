@@ -68,12 +68,14 @@ describe("mobile release policy", () => {
         }),
       ).toThrow("release builds require");
     } finally {
-      if (previousChannel === undefined) delete process.env.OBIARA_RELEASE_CHANNEL;
+      if (previousChannel === undefined)
+        delete process.env.OBIARA_RELEASE_CHANNEL;
       else process.env.OBIARA_RELEASE_CHANNEL = previousChannel;
       if (previousProject === undefined)
         delete process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
       else process.env.EXPO_PUBLIC_EAS_PROJECT_ID = previousProject;
-      if (previousApi === undefined) delete process.env.EXPO_PUBLIC_API_BASE_URL;
+      if (previousApi === undefined)
+        delete process.env.EXPO_PUBLIC_API_BASE_URL;
       else process.env.EXPO_PUBLIC_API_BASE_URL = previousApi;
     }
   });

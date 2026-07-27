@@ -3,36 +3,87 @@
   "$id": "https://obiara.invalid/schemas/provider-diligence.v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "generatedAt", "expiresAt", "environment", "market", "providers"],
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "expiresAt",
+    "environment",
+    "market",
+    "providers"
+  ],
   "properties": {
-    "schemaVersion": {"const": "obiara.provider-diligence.v1"},
-    "generatedAt": {"type": "string", "format": "date-time"},
-    "expiresAt": {"type": "string", "format": "date-time"},
-    "environment": {"const": "production"},
-    "market": {"const": "GH"},
+    "schemaVersion": { "const": "obiara.provider-diligence.v1" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "environment": { "const": "production" },
+    "market": { "const": "GH" },
     "providers": {
-      "type": "array", "minItems": 4, "maxItems": 4,
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["id", "outcome", "synthetic", "issuerRef", "reviewerRef", "evidence"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "outcome",
+          "synthetic",
+          "issuerRef",
+          "reviewerRef",
+          "evidence"
+        ],
         "properties": {
-          "id": {"enum": ["atlas", "storage-cdn", "livekit", "communications"]},
-          "outcome": {"enum": ["approved", "pending", "blocked"]},
-          "synthetic": {"type": "boolean"},
-          "issuerRef": {"type": "string", "pattern": "^role/[a-z][a-z0-9-]{2,63}$"},
-          "reviewerRef": {"type": "string", "pattern": "^role/[a-z][a-z0-9-]{2,63}$"},
+          "id": {
+            "enum": ["atlas", "storage-cdn", "livekit", "communications"]
+          },
+          "outcome": { "enum": ["approved", "pending", "blocked"] },
+          "synthetic": { "type": "boolean" },
+          "issuerRef": {
+            "type": "string",
+            "pattern": "^role/[a-z][a-z0-9-]{2,63}$"
+          },
+          "reviewerRef": {
+            "type": "string",
+            "pattern": "^role/[a-z][a-z0-9-]{2,63}$"
+          },
           "evidence": {
-            "type": "array", "minItems": 10, "maxItems": 10,
+            "type": "array",
+            "minItems": 10,
+            "maxItems": 10,
             "items": {
-              "type": "object", "additionalProperties": false,
-              "required": ["subject", "evidenceRef", "collectedAt", "expiresAt", "outcome", "synthetic"],
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "subject",
+                "evidenceRef",
+                "collectedAt",
+                "expiresAt",
+                "outcome",
+                "synthetic"
+              ],
               "properties": {
-                "subject": {"enum": ["dpa", "subprocessors", "locations", "retention", "deletion", "keys", "support", "breach", "cost", "exit"]},
-                "evidenceRef": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-                "collectedAt": {"type": "string", "format": "date-time"},
-                "expiresAt": {"type": "string", "format": "date-time"},
-                "outcome": {"enum": ["accepted", "pending", "rejected"]},
-                "synthetic": {"type": "boolean"}
+                "subject": {
+                  "enum": [
+                    "dpa",
+                    "subprocessors",
+                    "locations",
+                    "retention",
+                    "deletion",
+                    "keys",
+                    "support",
+                    "breach",
+                    "cost",
+                    "exit"
+                  ]
+                },
+                "evidenceRef": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "collectedAt": { "type": "string", "format": "date-time" },
+                "expiresAt": { "type": "string", "format": "date-time" },
+                "outcome": { "enum": ["accepted", "pending", "rejected"] },
+                "synthetic": { "type": "boolean" }
               }
             }
           }

@@ -29,8 +29,7 @@ describe("membership settings boundary", () => {
     state = membershipReducer(state, { type: "request-refund" });
     expect(state.refundState).toBe("pending");
     expect(
-      membershipReducer(state, { type: "provider-confirm-refund" })
-        .refundState,
+      membershipReducer(state, { type: "provider-confirm-refund" }).refundState,
     ).toBe("provider_confirmed");
   });
 });

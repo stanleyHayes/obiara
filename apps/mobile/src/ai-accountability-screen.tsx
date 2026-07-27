@@ -55,9 +55,7 @@ export function AiAccountabilityScreen() {
               <Pressable
                 accessibilityRole="button"
                 disabled={appealReference !== null}
-                onPress={() =>
-                  setAppealReference(`appeal-${capability.id}`)
-                }
+                onPress={() => setAppealReference(`appeal-${capability.id}`)}
                 style={({ pressed }) => [
                   styles.button,
                   appealReference !== null && styles.buttonDisabled,

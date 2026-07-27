@@ -26,7 +26,10 @@
   ],
   "properties": {
     "schemaVersion": { "const": "obiara.residency-dpia-decision.v1" },
-    "decisionId": { "type": "string", "pattern": "^decision/[a-z0-9][a-z0-9-]{7,79}$" },
+    "decisionId": {
+      "type": "string",
+      "pattern": "^decision/[a-z0-9][a-z0-9-]{7,79}$"
+    },
     "environment": { "const": "production" },
     "market": { "const": "GH" },
     "candidateSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
@@ -38,17 +41,19 @@
       "type": "array",
       "uniqueItems": true,
       "maxItems": 9,
-      "items": { "enum": [
-        "identity-and-authentication",
-        "biometric-liveness",
-        "profile-and-matching",
-        "private-voice-and-media",
-        "community-and-trust",
-        "safety-care-and-evidence",
-        "ai-counsel-and-language",
-        "commerce-and-financial-ledger",
-        "analytics-audit-and-operations"
-      ] }
+      "items": {
+        "enum": [
+          "identity-and-authentication",
+          "biometric-liveness",
+          "profile-and-matching",
+          "private-voice-and-media",
+          "community-and-trust",
+          "safety-care-and-evidence",
+          "ai-counsel-and-language",
+          "commerce-and-financial-ledger",
+          "analytics-audit-and-operations"
+        ]
+      }
     },
     "scopeLocations": {
       "type": "array",
@@ -56,7 +61,10 @@
       "maxItems": 12,
       "items": { "$ref": "#/$defs/scopeLocation" }
     },
-    "transferAssessmentRef": { "type": "string", "pattern": "^$|^[0-9a-f]{64}$" },
+    "transferAssessmentRef": {
+      "type": "string",
+      "pattern": "^$|^[0-9a-f]{64}$"
+    },
     "dpiaRef": { "type": "string", "pattern": "^$|^[0-9a-f]{64}$" },
     "residualRiskOutcome": { "enum": ["pending", "accepted", "declined"] },
     "issuedAt": { "type": ["string", "null"], "format": "date-time" },
@@ -70,8 +78,14 @@
       "additionalProperties": false,
       "required": ["actorRef", "signatureEvidenceRef", "signedAt"],
       "properties": {
-        "actorRef": { "type": "string", "pattern": "^$|^role/[a-z][a-z0-9-]{2,63}$" },
-        "signatureEvidenceRef": { "type": "string", "pattern": "^$|^[0-9a-f]{64}$" },
+        "actorRef": {
+          "type": "string",
+          "pattern": "^$|^role/[a-z][a-z0-9-]{2,63}$"
+        },
+        "signatureEvidenceRef": {
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
+        },
         "signedAt": { "type": ["string", "null"], "format": "date-time" }
       }
     },
@@ -88,25 +102,39 @@
     "scopeLocation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["boundary", "providerRef", "countryCode", "regionCode", "dataClasses"],
+      "required": [
+        "boundary",
+        "providerRef",
+        "countryCode",
+        "regionCode",
+        "dataClasses"
+      ],
       "properties": {
-        "boundary": { "enum": [
-          "compute",
-          "operational-database",
-          "database-backups",
-          "object-storage",
-          "cdn-cache",
-          "logs-observability",
-          "live-media-network",
-          "live-media-recording-egress",
-          "transactional-email",
-          "ai-vendor-processing",
-          "identity-provider-processing",
-          "provider-support-access"
-        ] },
-        "providerRef": { "type": "string", "pattern": "^provider/[a-z][a-z0-9-]{2,63}$" },
+        "boundary": {
+          "enum": [
+            "compute",
+            "operational-database",
+            "database-backups",
+            "object-storage",
+            "cdn-cache",
+            "logs-observability",
+            "live-media-network",
+            "live-media-recording-egress",
+            "transactional-email",
+            "ai-vendor-processing",
+            "identity-provider-processing",
+            "provider-support-access"
+          ]
+        },
+        "providerRef": {
+          "type": "string",
+          "pattern": "^provider/[a-z][a-z0-9-]{2,63}$"
+        },
         "countryCode": { "type": "string", "pattern": "^[A-Z]{2}$" },
-        "regionCode": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "regionCode": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"
+        },
         "dataClasses": {
           "type": "array",
           "minItems": 1,

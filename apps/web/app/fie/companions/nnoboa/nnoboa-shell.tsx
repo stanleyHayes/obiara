@@ -1,13 +1,13 @@
 "use client";
 
-import {
-  initialNnoboaState,
-  nnoboaReducer,
-} from "@obiara/nnoboa-policy";
+import { initialNnoboaState, nnoboaReducer } from "@obiara/nnoboa-policy";
 import Link from "next/link";
 import { useReducer } from "react";
 
-import { CompoundBottomNavigation, CompoundRail } from "../../compound-navigation";
+import {
+  CompoundBottomNavigation,
+  CompoundRail,
+} from "../../compound-navigation";
 
 export function NnoboaShell() {
   const [state, dispatch] = useReducer(nnoboaReducer, initialNnoboaState);
@@ -23,7 +23,9 @@ export function NnoboaShell() {
 
         <section className="nnoboa-hero" aria-labelledby="nnoboa-title">
           <p className="fie-kicker">Nnoboa · trusted hands</p>
-          <h1 id="nnoboa-title">You choose who may suggest. You still decide.</h1>
+          <h1 id="nnoboa-title">
+            You choose who may suggest. You still decide.
+          </h1>
           <p>
             Name up to three people you trust. They may offer one bounded
             nomination from an approved extended-network connection—never your

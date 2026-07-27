@@ -1,30 +1,184 @@
-.escrow-main { background:#f7efe3; color:#2b151f; min-height:100vh; padding:0 5vw 5rem; }
-.escrow-topbar { align-items:center; border-bottom:1px solid #ddcdc3; display:flex; justify-content:space-between; min-height:5rem; }
-.escrow-topbar a { color:inherit; font-weight:700; }
-.escrow-topbar span { color:#725d66; font-size:.82rem; }
-.escrow-hero { max-width:64rem; padding:clamp(4rem,8vw,7rem) 0 3rem; }
-.escrow-hero h1 { font-size:clamp(3.6rem,8vw,7rem); letter-spacing:-.075em; line-height:.88; margin:1rem 0 1.5rem; max-width:12ch; }
-.escrow-hero>p:last-child,.escrow-dispute>p,.evidence-card>p { color:#69535d; line-height:1.6; max-width:48rem; }
-.escrow-ledger { background:#38172c; border-radius:1.5rem; color:#fff5e9; display:grid; gap:1px; grid-template-columns:repeat(4,minmax(0,1fr)); overflow:hidden; }
-.escrow-ledger div { background:#462038; display:grid; gap:.5rem; padding:1.5rem; }
-.escrow-ledger span { color:#d9becb; font-size:.78rem; text-transform:uppercase; }
-.escrow-ledger strong { font-size:clamp(1.1rem,2vw,1.7rem); overflow-wrap:anywhere; }
-.escrow-workspace { display:grid; gap:1rem; grid-template-columns:minmax(0,1.35fr) minmax(19rem,.65fr); margin-top:1rem; }
-.escrow-milestones,.escrow-dispute { background:#fffaf2; border:1px solid #d8c7bd; border-radius:1.5rem; padding:clamp(1.4rem,3vw,2.2rem); }
-.escrow-workspace h2 { font-size:clamp(2rem,4vw,3.6rem); letter-spacing:-.055em; line-height:.98; margin:.6rem 0 1.4rem; }
-.milestone-tabs { display:grid; gap:.6rem; grid-template-columns:1fr 1fr; }
-.milestone-tabs button { background:#f3e8dd; border:1px solid transparent; border-radius:1rem; color:inherit; cursor:pointer; display:grid; font:inherit; gap:.5rem; padding:1rem; text-align:left; }
-.milestone-tabs button[aria-pressed="true"] { border-color:#8e3159; box-shadow:inset 0 0 0 1px #8e3159; }
-.evidence-card { border-top:1px solid #e4d6cc; margin-top:1.5rem; padding-top:1.5rem; }
-.evidence-card h3 { font-size:1.5rem; margin:0; }
-.evidence-actions { display:grid; gap:.6rem; grid-template-columns:1fr 1fr; }
-.escrow-workspace button { background:#38172c; border:0; border-radius:999px; color:#fff5e9; cursor:pointer; font:inherit; font-weight:800; min-height:3.2rem; padding:.7rem 1rem; }
-.escrow-workspace button:disabled { cursor:not-allowed; opacity:.38; }
-.settlement-button { margin-top:.7rem; width:100%; }
-.settlement-ready,.dispute-status { background:#dcefe6; border-radius:1rem; color:#1c654f; padding:1rem; }
-.escrow-dispute textarea { border:1px solid #bda9b1; border-radius:.9rem; box-sizing:border-box; font:inherit; margin:1rem 0; padding:.8rem; resize:vertical; width:100%; }
-.escrow-dispute>button { width:100%; }
-.dispute-status { display:grid; gap:.8rem; }
-.dispute-status p { margin:0; }
-@media(max-width:900px){.escrow-main{padding:0 1rem 7rem}.escrow-topbar span{display:none}.escrow-ledger{grid-template-columns:1fr 1fr}.escrow-workspace{grid-template-columns:1fr}}
-@media(max-width:540px){.escrow-ledger,.milestone-tabs,.evidence-actions{grid-template-columns:1fr}}
+.escrow-main {
+  background: #f7efe3;
+  color: #2b151f;
+  min-height: 100vh;
+  padding: 0 5vw 5rem;
+}
+.escrow-topbar {
+  align-items: center;
+  border-bottom: 1px solid #ddcdc3;
+  display: flex;
+  justify-content: space-between;
+  min-height: 5rem;
+}
+.escrow-topbar a {
+  color: inherit;
+  font-weight: 700;
+}
+.escrow-topbar span {
+  color: #725d66;
+  font-size: 0.82rem;
+}
+.escrow-hero {
+  max-width: 64rem;
+  padding: clamp(4rem, 8vw, 7rem) 0 3rem;
+}
+.escrow-hero h1 {
+  font-size: clamp(3.6rem, 8vw, 7rem);
+  letter-spacing: -0.075em;
+  line-height: 0.88;
+  margin: 1rem 0 1.5rem;
+  max-width: 12ch;
+}
+.escrow-hero > p:last-child,
+.escrow-dispute > p,
+.evidence-card > p {
+  color: #69535d;
+  line-height: 1.6;
+  max-width: 48rem;
+}
+.escrow-ledger {
+  background: #38172c;
+  border-radius: 1.5rem;
+  color: #fff5e9;
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+}
+.escrow-ledger div {
+  background: #462038;
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.5rem;
+}
+.escrow-ledger span {
+  color: #d9becb;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+.escrow-ledger strong {
+  font-size: clamp(1.1rem, 2vw, 1.7rem);
+  overflow-wrap: anywhere;
+}
+.escrow-workspace {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(19rem, 0.65fr);
+  margin-top: 1rem;
+}
+.escrow-milestones,
+.escrow-dispute {
+  background: #fffaf2;
+  border: 1px solid #d8c7bd;
+  border-radius: 1.5rem;
+  padding: clamp(1.4rem, 3vw, 2.2rem);
+}
+.escrow-workspace h2 {
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  margin: 0.6rem 0 1.4rem;
+}
+.milestone-tabs {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: 1fr 1fr;
+}
+.milestone-tabs button {
+  background: #f3e8dd;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 0.5rem;
+  padding: 1rem;
+  text-align: left;
+}
+.milestone-tabs button[aria-pressed="true"] {
+  border-color: #8e3159;
+  box-shadow: inset 0 0 0 1px #8e3159;
+}
+.evidence-card {
+  border-top: 1px solid #e4d6cc;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+}
+.evidence-card h3 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+.evidence-actions {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: 1fr 1fr;
+}
+.escrow-workspace button {
+  background: #38172c;
+  border: 0;
+  border-radius: 999px;
+  color: #fff5e9;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 3.2rem;
+  padding: 0.7rem 1rem;
+}
+.escrow-workspace button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+.settlement-button {
+  margin-top: 0.7rem;
+  width: 100%;
+}
+.settlement-ready,
+.dispute-status {
+  background: #dcefe6;
+  border-radius: 1rem;
+  color: #1c654f;
+  padding: 1rem;
+}
+.escrow-dispute textarea {
+  border: 1px solid #bda9b1;
+  border-radius: 0.9rem;
+  box-sizing: border-box;
+  font: inherit;
+  margin: 1rem 0;
+  padding: 0.8rem;
+  resize: vertical;
+  width: 100%;
+}
+.escrow-dispute > button {
+  width: 100%;
+}
+.dispute-status {
+  display: grid;
+  gap: 0.8rem;
+}
+.dispute-status p {
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .escrow-main {
+    padding: 0 1rem 7rem;
+  }
+  .escrow-topbar span {
+    display: none;
+  }
+  .escrow-ledger {
+    grid-template-columns: 1fr 1fr;
+  }
+  .escrow-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 540px) {
+  .escrow-ledger,
+  .milestone-tabs,
+  .evidence-actions {
+    grid-template-columns: 1fr;
+  }
+}

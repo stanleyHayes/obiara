@@ -8,9 +8,9 @@ import {
 
 describe("finance operations boundary", () => {
   it("requires a human reason before resolving an exception", () => {
-    expect(
-      financeReducer(initialFinanceState, { type: "resolve" }),
-    ).toEqual(initialFinanceState);
+    expect(financeReducer(initialFinanceState, { type: "resolve" })).toEqual(
+      initialFinanceState,
+    );
     const reasoned = financeReducer(initialFinanceState, {
       type: "resolution-reason",
       value: "Matched provider settlement evidence",
@@ -31,9 +31,9 @@ describe("finance operations boundary", () => {
       type: "export-redaction",
       value: true,
     });
-    expect(
-      financeReducer(state, { type: "confirm-export" }).lastExport,
-    ).toBe("finance-export-REC-204");
+    expect(financeReducer(state, { type: "confirm-export" }).lastExport).toBe(
+      "finance-export-REC-204",
+    );
   });
 
   it("requires a distinct second approver before price publication", () => {

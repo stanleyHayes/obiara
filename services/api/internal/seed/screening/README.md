@@ -14,4 +14,3 @@ store, translation, model, or vendor client.
 MongoDB and Testcontainers are intentionally inapplicable: this slice has no
 material state. The existing sow acceptance transaction remains the sole
 owner of persistence and allowance spend after an approved screening result.
-

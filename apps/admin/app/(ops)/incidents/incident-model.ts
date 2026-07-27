@@ -129,7 +129,9 @@ export function incidentReducer(
   }
 }
 
-export function regulatoryPacketHasRawMemberData(state: IncidentState): boolean {
+export function regulatoryPacketHasRawMemberData(
+  state: IncidentState,
+): boolean {
   const projection = JSON.stringify({
     id: state.id,
     severity: state.severity,

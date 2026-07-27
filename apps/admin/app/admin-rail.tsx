@@ -45,7 +45,9 @@ export function AdminRail() {
       <Card className="safety-card">
         <Box className="safety-pulse" />
         <Typography className="safety-label">Safety desk</Typography>
-        <Typography className="safety-value">All critical queues covered</Typography>
+        <Typography className="safety-value">
+          All critical queues covered
+        </Typography>
         <Typography>Last handover · 11:42 GMT</Typography>
       </Card>
 

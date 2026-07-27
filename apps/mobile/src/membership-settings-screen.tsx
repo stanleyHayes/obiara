@@ -123,9 +123,7 @@ export function MembershipSettingsScreen() {
               </Text>
               {state.refundState === "pending" ? (
                 <Pressable
-                  onPress={() =>
-                    dispatch({ type: "provider-confirm-refund" })
-                  }
+                  onPress={() => dispatch({ type: "provider-confirm-refund" })}
                   style={styles.primary}
                 >
                   <Text style={styles.primaryText}>

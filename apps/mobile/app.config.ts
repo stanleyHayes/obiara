@@ -10,7 +10,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 
   if (channel && !allowedChannels.has(channel)) {
-    throw new Error("OBIARA_RELEASE_CHANNEL must be preview, staging, or production");
+    throw new Error(
+      "OBIARA_RELEASE_CHANNEL must be preview, staging, or production",
+    );
   }
   if (channel && (!projectId || !apiBaseUrl)) {
     throw new Error(
@@ -41,4 +43,3 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
   };
 };
-

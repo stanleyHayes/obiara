@@ -1,9 +1,7 @@
 export type SafetyTier = "A" | "B" | "C" | "care";
 export type HoldStatus = "none" | "pending" | "active";
 export type SafetyActionKind =
-  | "warning"
-  | "surface_restriction"
-  | "account_review";
+  "warning" | "surface_restriction" | "account_review";
 
 export interface SafetyCase {
   readonly id: string;
@@ -78,7 +76,11 @@ export const initialSafetyCases: readonly SafetyCase[] = [
     evidence: [
       { label: "Sequence signal", value: "3 bounded events", redacted: false },
       { label: "Reporter identity", value: "Redacted", redacted: true },
-      { label: "Message content", value: "Not exposed in queue", redacted: true },
+      {
+        label: "Message content",
+        value: "Not exposed in queue",
+        redacted: true,
+      },
     ],
   },
   {

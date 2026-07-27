@@ -1,5 +1,6 @@
 export type Gesture = "together" | "apart";
-export type AmpeStage = "ready" | "choosing" | "locked" | "revealed" | "reconnecting";
+export type AmpeStage =
+  "ready" | "choosing" | "locked" | "revealed" | "reconnecting";
 
 export interface AmpeState {
   readonly stage: AmpeStage;

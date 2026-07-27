@@ -19,7 +19,9 @@ export function buildConnectionCopy(
       queueBody: queued
         ? "Saved safely on this device. It will send when your connection returns."
         : "Try the offline state without sending anything.",
-      queueTitle: queued ? "Your voice reply is queued" : "Replies can wait with you",
+      queueTitle: queued
+        ? "Your voice reply is queued"
+        : "Replies can wait with you",
       title: "Data saver · 3G ready",
     };
   }

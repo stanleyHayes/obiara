@@ -54,8 +54,8 @@ describe("incident runbook", () => {
       commander: "Operator A",
       recorder: "Operator A",
     };
-    expect(
-      incidentReducer(sameOperator, { type: "prepare-close" }),
-    ).toEqual(sameOperator);
+    expect(incidentReducer(sameOperator, { type: "prepare-close" })).toEqual(
+      sameOperator,
+    );
   });
 });

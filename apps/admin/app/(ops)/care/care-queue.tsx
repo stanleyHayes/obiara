@@ -23,14 +23,9 @@ import {
 } from "./care-model";
 
 export function CareQueue() {
-  const [state, dispatch] = useReducer(
-    careQueueReducer,
-    initialCareQueueState,
-  );
+  const [state, dispatch] = useReducer(careQueueReducer, initialCareQueueState);
   const selected = state.cases.find((item) => item.id === state.selectedId);
-  const script = careScripts.find(
-    (item) => item.id === state.selectedScriptId,
-  );
+  const script = careScripts.find((item) => item.id === state.selectedScriptId);
 
   return (
     <main className="verification-shell care-shell">
@@ -40,7 +35,9 @@ export function CareQueue() {
             Return to command centre
           </Link>
           <Typography className="section-kicker">Care queue</Typography>
-          <Typography component="h1">Resources first. People always.</Typography>
+          <Typography component="h1">
+            Resources first. People always.
+          </Typography>
           <Typography>
             This desk offers reviewed support resources without diagnosis,
             pressure or punitive action.
@@ -111,7 +108,9 @@ export function CareQueue() {
                 </Box>
                 <Chip
                   color={
-                    selected.contactPreference === "none" ? "default" : "success"
+                    selected.contactPreference === "none"
+                      ? "default"
+                      : "success"
                   }
                   label={
                     selected.contactPreference === "none"
@@ -157,9 +156,7 @@ export function CareQueue() {
 
               <Box className="verification-actions">
                 <Button
-                  disabled={
-                    !script || selected.contactPreference === "none"
-                  }
+                  disabled={!script || selected.contactPreference === "none"}
                   onClick={() => dispatch({ type: "prepare-send" })}
                   variant="contained"
                 >
@@ -183,8 +180,8 @@ export function CareQueue() {
           <Stack spacing={2}>
             <Alert severity="info">
               This prepares one approved message for the member&apos;s chosen
-              channel. It does not diagnose, schedule repeated contact or
-              change a safety case.
+              channel. It does not diagnose, schedule repeated contact or change
+              a safety case.
             </Alert>
             <Typography component="strong">{script?.title}</Typography>
             <Typography>{script?.body}</Typography>

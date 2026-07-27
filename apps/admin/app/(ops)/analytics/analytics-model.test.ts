@@ -9,11 +9,16 @@ import {
 describe("analytics dashboard model", () => {
   it("fails closed on a missed threshold or incomplete denominator", () => {
     expect(releaseBlocked(initialAnalyticsState)).toBe(true);
-    expect(initialAnalyticsState.gates.find((item) => item.id === "d30")?.passes).toBe(false);
+    expect(
+      initialAnalyticsState.gates.find((item) => item.id === "d30")?.passes,
+    ).toBe(false);
   });
 
   it("shows every numerator and denominator", () => {
-    for (const metric of [...initialAnalyticsState.gates, ...initialAnalyticsState.fairness]) {
+    for (const metric of [
+      ...initialAnalyticsState.gates,
+      ...initialAnalyticsState.fairness,
+    ]) {
       expect(Number.isInteger(metric.numerator)).toBe(true);
       expect(Number.isInteger(metric.denominator)).toBe(true);
     }
@@ -33,7 +38,10 @@ describe("analytics dashboard model", () => {
 
   it("rejects an unreasoned review", () => {
     const short = analyticsReducer(
-      analyticsReducer(initialAnalyticsState, { type: "review-note", value: "hold" }),
+      analyticsReducer(initialAnalyticsState, {
+        type: "review-note",
+        value: "hold",
+      }),
       { type: "record-review" },
     );
     expect(short.reviewState).toBe("none");

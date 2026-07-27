@@ -26,10 +26,7 @@ const categoryLabels: Readonly<Record<ExposureCategory, string>> = {
 };
 
 export function WorkforceSafeguards() {
-  const [state, dispatch] = useReducer(
-    workforceReducer,
-    initialWorkforceState,
-  );
+  const [state, dispatch] = useReducer(workforceReducer, initialWorkforceState);
 
   return (
     <main className="verification-shell workforce-shell">
@@ -80,8 +77,7 @@ export function WorkforceSafeguards() {
             <Chip label="No productivity score" />
           </Box>
           <Typography>
-            Exposure limits protect wellbeing. They are not performance
-            targets.
+            Exposure limits protect wellbeing. They are not performance targets.
           </Typography>
           <LinearProgress
             aria-label="Current exposure limit"
@@ -126,7 +122,9 @@ export function WorkforceSafeguards() {
               }
               variant="contained"
             >
-              {state.breakActive ? "End protected break" : "Start protected break"}
+              {state.breakActive
+                ? "End protected break"
+                : "Start protected break"}
             </Button>
             <Button
               disabled={state.optedOut}

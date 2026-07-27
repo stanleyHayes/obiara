@@ -6,11 +6,11 @@
 
 ## Profiles and channels
 
-| Profile | Distribution | Channel | Store destination | Data/API boundary |
-| --- | --- | --- | --- | --- |
-| `preview` | Internal APK and iOS simulator | `preview` | None | Synthetic preview API only |
-| `staging` | Store-signed Android App Bundle and iOS archive | `staging` | Google Play internal draft; TestFlight only after App Store Connect setup | Synthetic staging API only |
-| `production` | Store-signed release binary | `production` | Not configured | Blocked until the repository production gates close |
+| Profile      | Distribution                                    | Channel      | Store destination                                                         | Data/API boundary                                   |
+| ------------ | ----------------------------------------------- | ------------ | ------------------------------------------------------------------------- | --------------------------------------------------- |
+| `preview`    | Internal APK and iOS simulator                  | `preview`    | None                                                                      | Synthetic preview API only                          |
+| `staging`    | Store-signed Android App Bundle and iOS archive | `staging`    | Google Play internal draft; TestFlight only after App Store Connect setup | Synthetic staging API only                          |
+| `production` | Store-signed release binary                     | `production` | Not configured                                                            | Blocked until the repository production gates close |
 
 Every EAS build must originate from a committed Git state. EAS CLI, Node and
 pnpm are pinned in `eas.json`; application version, Android version code and
@@ -60,4 +60,3 @@ and incident. For a bad binary, halt its store release and restore the last
 known-good store build. A production rollout and rollback rehearsal must be
 documented and approved before the production submit profile or any production
 automation is added.
-

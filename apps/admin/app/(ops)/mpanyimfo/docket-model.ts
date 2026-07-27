@@ -78,7 +78,10 @@ export function docketReducer(
         ? { ...state, rulingReason: action.value.slice(0, 400) }
         : state;
     case "confirm-ruling": {
-      if (state.status !== "deliberating" || state.rulingReason.trim().length < 20) {
+      if (
+        state.status !== "deliberating" ||
+        state.rulingReason.trim().length < 20
+      ) {
         return state;
       }
       const active = state.seats.filter((seat) => !seat.recused);

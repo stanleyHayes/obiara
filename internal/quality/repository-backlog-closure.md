@@ -15,14 +15,14 @@ and handoff backlog is implemented and evidence-mapped. No `BACKLOG`, `READY`,
 
 ## Final handoff evidence
 
-| Boundary | Repository evidence | Synthetic fixture result |
-| --- | --- | --- |
-| Residency and DPIA decision | `internal/quality/residencydecision/`, `deploy/legal/` | Valid decision packet remains ineligible; compiled CLI exits 2 |
-| Provider diligence | `internal/quality/providerdiligence/`, provider schema/runbook | Four providers remain blocked; compiled CLI exits 2 |
-| Ghana device/network field evidence | `internal/quality/fieldtest/`, `deploy/field-test/` | Valid synthetic/non-physical evidence emits blocked JSON; compiled CLI exits 2 |
-| Credential, store, cohort and operations readiness | `internal/quality/readinesshandoff/`, release schema/runbook | Eleven requirements remain blocked; compiled CLI exits 2 |
-| Production dependency graph | `internal/quality/launchgates/` | Seventeen production gates remain blocked; compiled CLI exits 2 |
-| Operator handoff | `apps/admin/app/launch/` | Opaque coordination only; no upload, approval or activation control |
+| Boundary                                           | Repository evidence                                            | Synthetic fixture result                                                       |
+| -------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Residency and DPIA decision                        | `internal/quality/residencydecision/`, `deploy/legal/`         | Valid decision packet remains ineligible; compiled CLI exits 2                 |
+| Provider diligence                                 | `internal/quality/providerdiligence/`, provider schema/runbook | Four providers remain blocked; compiled CLI exits 2                            |
+| Ghana device/network field evidence                | `internal/quality/fieldtest/`, `deploy/field-test/`            | Valid synthetic/non-physical evidence emits blocked JSON; compiled CLI exits 2 |
+| Credential, store, cohort and operations readiness | `internal/quality/readinesshandoff/`, release schema/runbook   | Eleven requirements remain blocked; compiled CLI exits 2                       |
+| Production dependency graph                        | `internal/quality/launchgates/`                                | Seventeen production gates remain blocked; compiled CLI exits 2                |
+| Operator handoff                                   | `apps/admin/app/launch/`                                       | Opaque coordination only; no upload, approval or activation control            |
 
 ## Integrated verification
 

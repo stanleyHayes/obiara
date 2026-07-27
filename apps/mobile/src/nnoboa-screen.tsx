@@ -1,16 +1,7 @@
-import {
-  initialNnoboaState,
-  nnoboaReducer,
-} from "@obiara/nnoboa-policy";
+import { initialNnoboaState, nnoboaReducer } from "@obiara/nnoboa-policy";
 import { type Href, useRouter } from "expo-router";
 import { useReducer } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export function NnoboaScreen() {
@@ -98,7 +89,9 @@ export function NnoboaScreen() {
             </View>
           ) : state.memberDecision === "accepted" ? (
             <View style={styles.result}>
-              <Text style={styles.resultTitle}>Mutual permission confirmed.</Text>
+              <Text style={styles.resultTitle}>
+                Mutual permission confirmed.
+              </Text>
               <Text style={styles.resultCopy}>
                 This does not open a room, spend a seed or send a message.
               </Text>

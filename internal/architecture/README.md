@@ -14,14 +14,14 @@ safety controls, or founder decisions in `agent_plan.md`.
 
 ## Index
 
-| ADR | Decision | Status |
-|---|---|---|
-| [0001](0001-monorepo.md) | One polyglot monorepo | Accepted |
-| [0002](0002-go-hexagonal-modular-monolith.md) | Go hexagonal modular monolith | Accepted |
-| [0003](0003-mongodb-operational-store.md) | MongoDB as initial operational store | Accepted |
-| [0004](0004-rest-openapi-client-contract.md) | REST and OpenAPI 3.1 client contract | Accepted |
-| [0005](0005-expo-cross-platform-mobile.md) | Expo cross-platform mobile client | Accepted |
-| [0006](0006-render-blueprint-deployment.md) | Render Blueprint deployment | Accepted |
+| ADR                                           | Decision                             | Status   |
+| --------------------------------------------- | ------------------------------------ | -------- |
+| [0001](0001-monorepo.md)                      | One polyglot monorepo                | Accepted |
+| [0002](0002-go-hexagonal-modular-monolith.md) | Go hexagonal modular monolith        | Accepted |
+| [0003](0003-mongodb-operational-store.md)     | MongoDB as initial operational store | Accepted |
+| [0004](0004-rest-openapi-client-contract.md)  | REST and OpenAPI 3.1 client contract | Accepted |
+| [0005](0005-expo-cross-platform-mobile.md)    | Expo cross-platform mobile client    | Accepted |
+| [0006](0006-render-blueprint-deployment.md)   | Render Blueprint deployment          | Accepted |
 
 ## Maintenance
 

@@ -42,11 +42,7 @@ function SafetyQueueItem({
   onSelect: () => void;
 }>) {
   return (
-    <Button
-      aria-pressed={selected}
-      className="safety-case"
-      onClick={onSelect}
-    >
+    <Button aria-pressed={selected} className="safety-case" onClick={onSelect}>
       <Box>
         <Stack direction="row" spacing={1}>
           <Typography component="strong">{item.id}</Typography>
@@ -248,9 +244,7 @@ export function SafetyDesk() {
                   ).map((kind) => (
                     <Button
                       key={kind}
-                      onClick={() =>
-                        dispatch({ type: "propose-action", kind })
-                      }
+                      onClick={() => dispatch({ type: "propose-action", kind })}
                       variant={kind === "warning" ? "contained" : "outlined"}
                     >
                       {actionLabels[kind]}

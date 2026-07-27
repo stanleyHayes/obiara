@@ -1,13 +1,13 @@
 "use client";
 
-import {
-  initialSubanState,
-  subanReducer,
-} from "@obiara/suban-explanation";
+import { initialSubanState, subanReducer } from "@obiara/suban-explanation";
 import Link from "next/link";
 import { useReducer } from "react";
 
-import { CompoundBottomNavigation, CompoundRail } from "../../compound-navigation";
+import {
+  CompoundBottomNavigation,
+  CompoundRail,
+} from "../../compound-navigation";
 
 export function SubanExplanation() {
   const [state, dispatch] = useReducer(subanReducer, initialSubanState);
@@ -44,7 +44,9 @@ export function SubanExplanation() {
             <p>{state.explanation}</p>
             <div className="suban-rule">
               <strong>No cached authority</strong>
-              <span>Marks are recomputed from the event record and decay rules.</span>
+              <span>
+                Marks are recomputed from the event record and decay rules.
+              </span>
             </div>
           </article>
 
@@ -68,7 +70,9 @@ export function SubanExplanation() {
               ))}
             </div>
             <div className="suban-detail">
-              <span>{selected.decays ? "Decays over time" : "Does not decay"}</span>
+              <span>
+                {selected.decays ? "Decays over time" : "Does not decay"}
+              </span>
               <h3>{selected.label}</h3>
               <p>{selected.effect}</p>
               <dl>
@@ -90,7 +94,9 @@ export function SubanExplanation() {
           </div>
           {state.appealState === "none" ? (
             <div>
-              <label htmlFor="appeal-reason">Why should this be reviewed?</label>
+              <label htmlFor="appeal-reason">
+                Why should this be reviewed?
+              </label>
               <textarea
                 id="appeal-reason"
                 onChange={(event) =>

@@ -55,8 +55,7 @@ const refusalCopy: Readonly<
     string
   >
 > = {
-  matchmaking_decision:
-    "I cannot choose, rank or recommend a person for you.",
+  matchmaking_decision: "I cannot choose, rank or recommend a person for you.",
   autonomous_romance:
     "I cannot start, continue or manage a romantic conversation for you.",
   impersonation: "I cannot speak as a member, host, elder or reviewer.",

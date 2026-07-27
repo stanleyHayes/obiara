@@ -35,19 +35,19 @@ Product-law invariants that are also security invariants (`agent_plan.md` §4):
 
 ## 2. Assets and security objectives
 
-| Asset | Objective |
-|---|---|
-| Verified identity artifacts (Ghana Card data, verification proofs) | Confidentiality + integrity; isolated storage, envelope encryption, minimal retained proof set |
-| Biometric/liveness media (face + voice) | Confidentiality; 30-day raw-media retention; human review on uncertainty |
-| Voice of Introduction and in-room voice/content | Confidentiality; owner-controlled export; crypto-erasure on retention expiry |
-| Account/session credentials (OTP, tokens, refresh sessions) | Confidentiality + integrity; takeover resistance |
-| State-machine truth (allowance, alternation, doorway, room, pause, water, Gate) | Integrity; server-authoritative, race-safe, idempotent |
-| Ledger and suban events | Integrity; append-only, immutable, recomputable |
-| Consent records | Integrity + availability; the enforcement switchboard (Doc 08 §8) |
-| T&S evidence and safety cases | Confidentiality + integrity; least-exposure, audit, legal hold |
-| Admin plane | Confidentiality + integrity; least privilege, MFA, four-eyes |
-| Provider secrets and signing keys | Confidentiality; HSM/secrets manager, rotation |
-| Audit trail | Integrity + non-repudiation; append-only |
+| Asset                                                                           | Objective                                                                                      |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Verified identity artifacts (Ghana Card data, verification proofs)              | Confidentiality + integrity; isolated storage, envelope encryption, minimal retained proof set |
+| Biometric/liveness media (face + voice)                                         | Confidentiality; 30-day raw-media retention; human review on uncertainty                       |
+| Voice of Introduction and in-room voice/content                                 | Confidentiality; owner-controlled export; crypto-erasure on retention expiry                   |
+| Account/session credentials (OTP, tokens, refresh sessions)                     | Confidentiality + integrity; takeover resistance                                               |
+| State-machine truth (allowance, alternation, doorway, room, pause, water, Gate) | Integrity; server-authoritative, race-safe, idempotent                                         |
+| Ledger and suban events                                                         | Integrity; append-only, immutable, recomputable                                                |
+| Consent records                                                                 | Integrity + availability; the enforcement switchboard (Doc 08 §8)                              |
+| T&S evidence and safety cases                                                   | Confidentiality + integrity; least-exposure, audit, legal hold                                 |
+| Admin plane                                                                     | Confidentiality + integrity; least privilege, MFA, four-eyes                                   |
+| Provider secrets and signing keys                                               | Confidentiality; HSM/secrets manager, rotation                                                 |
+| Audit trail                                                                     | Integrity + non-repudiation; append-only                                                       |
 
 ## 3. Trust boundaries
 

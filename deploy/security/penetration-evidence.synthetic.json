@@ -2,9 +2,7 @@
   "schemaVersion": "obiara.penetration-evidence.v1",
   "assessmentId": "assessment:synthetic-ci:2026-07-27",
   "assessmentKind": "synthetic-ci-exercise",
-  "scopeRefs": [
-    "service:security-fixture"
-  ],
+  "scopeRefs": ["service:security-fixture"],
   "assessorRef": "role:security-exercise",
   "startedAt": "2026-07-27T10:00:00Z",
   "completedAt": "2026-07-27T10:05:00Z",

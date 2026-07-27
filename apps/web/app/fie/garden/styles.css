@@ -301,10 +301,18 @@
   width: 10px;
 }
 
-.garden-state-sprouted { background: #0f7059; }
-.garden-state-heard { background: #7a3800; }
-.garden-state-delivered { background: #315f8a; }
-.garden-state-expired { background: #866d80; }
+.garden-state-sprouted {
+  background: #0f7059;
+}
+.garden-state-heard {
+  background: #7a3800;
+}
+.garden-state-delivered {
+  background: #315f8a;
+}
+.garden-state-expired {
+  background: #866d80;
+}
 
 .garden-dawn > footer {
   border-bottom: 1px solid rgba(58, 14, 46, 0.1);

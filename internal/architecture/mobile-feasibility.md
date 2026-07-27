@@ -22,19 +22,19 @@ budgets.
 
 ## Reproducible environment
 
-| Concern | Resolved value | Evidence |
-|---|---|---|
-| Expo | `57.0.8` | exact workspace dependency; Expo Doctor |
-| React Native | `0.86.0` | exact workspace dependency; Expo SDK compatibility |
-| React | `19.2.3` | Expo-compatible exact workspace dependency |
-| Router | `57.0.8` | exact dependency; native autolinking |
-| Android minimum | API 24 / Android 7 | generated Gradle configuration |
-| Obiara reference floor | API 26 / Android 8 | PRD and SRS |
-| Compile / target SDK | API 36 / API 36 | generated Gradle configuration |
-| Java | Azul Zulu JDK 17.0.16 | local native build |
-| Local emulator inventory | API 36 ARM64 only | `emulator -list-avds` and SDK inventory |
-| Font | Outfit 400–800 | bundled through `@expo-google-fonts/outfit` |
-| Universal release APK | 97,331,093 bytes | `assembleRelease` and `aapt` |
+| Concern                  | Resolved value        | Evidence                                           |
+| ------------------------ | --------------------- | -------------------------------------------------- |
+| Expo                     | `57.0.8`              | exact workspace dependency; Expo Doctor            |
+| React Native             | `0.86.0`              | exact workspace dependency; Expo SDK compatibility |
+| React                    | `19.2.3`              | Expo-compatible exact workspace dependency         |
+| Router                   | `57.0.8`              | exact dependency; native autolinking               |
+| Android minimum          | API 24 / Android 7    | generated Gradle configuration                     |
+| Obiara reference floor   | API 26 / Android 8    | PRD and SRS                                        |
+| Compile / target SDK     | API 36 / API 36       | generated Gradle configuration                     |
+| Java                     | Azul Zulu JDK 17.0.16 | local native build                                 |
+| Local emulator inventory | API 36 ARM64 only     | `emulator -list-avds` and SDK inventory            |
+| Font                     | Outfit 400–800        | bundled through `@expo-google-fonts/outfit`        |
+| Universal release APK    | 97,331,093 bytes      | `assembleRelease` and `aapt`                       |
 
 The Expo validation pass originally exposed missing native Router peers and
 three SDK-version mismatches. The mobile package now directly installs
@@ -130,14 +130,14 @@ protocol, screening endpoint and Ghana network profiles.
 
 ## Acceptance matrix
 
-| Requirement | Sprint 0 evidence | Remaining release evidence |
-|---|---|---|
-| NFR-101 start time | Buildable representative shell | p90 cold/warm measurements on API 26, 2 GB physical hardware |
-| NFR-102 size | Native release artifact measurement | Play-delivered size and lazy language-pack proof |
-| NFR-103 voice | Payload math and state model | real recording, Opus encoder, resumable upload and progressive-playback timing |
-| NFR-104 fire | listen-only state represented | Ghana-hosted media provider test at loss/jitter/throughput thresholds |
-| NFR-105 data | image-light home shell; no feed | 24-hour median cohort traffic capture and 90-minute fire measurement |
-| NFR-106 offline | visible local queue behavior and unit tests | encrypted persistence, process-death recovery and authoritative reconciliation |
+| Requirement        | Sprint 0 evidence                           | Remaining release evidence                                                     |
+| ------------------ | ------------------------------------------- | ------------------------------------------------------------------------------ |
+| NFR-101 start time | Buildable representative shell              | p90 cold/warm measurements on API 26, 2 GB physical hardware                   |
+| NFR-102 size       | Native release artifact measurement         | Play-delivered size and lazy language-pack proof                               |
+| NFR-103 voice      | Payload math and state model                | real recording, Opus encoder, resumable upload and progressive-playback timing |
+| NFR-104 fire       | listen-only state represented               | Ghana-hosted media provider test at loss/jitter/throughput thresholds          |
+| NFR-105 data       | image-light home shell; no feed             | 24-hour median cohort traffic capture and 90-minute fire measurement           |
+| NFR-106 offline    | visible local queue behavior and unit tests | encrypted persistence, process-death recovery and authoritative reconciliation |
 
 ## Required device and network test
 

@@ -25,14 +25,14 @@ The homepage must communicate three ideas quickly:
 
 ## Homepage story and media
 
-| Sequence | Story | Media requirement | Primary action |
-| --- | --- | --- | --- |
-| Hero | Meet properly | Wide Accra courtyard portrait with space for the main message | Explore the compound |
-| Voice | Be heard before being judged | Intimate vertical portrait recording a voice introduction | Continue scrolling |
-| Compound | A compound, not a feed | Typographic map of Fie, Circles and Rooms | Understand the model |
-| Trust | Access is earned and boundaries are visible | Deliberately quiet editorial section | Read the principles |
-| Fires | Good meetings can be hosted | Wide dusk image of a hosted courtyard circle | Enter Obiara |
-| Close | Come as a whole person | Large closing statement | Enter the member app |
+| Sequence | Story                                       | Media requirement                                             | Primary action       |
+| -------- | ------------------------------------------- | ------------------------------------------------------------- | -------------------- |
+| Hero     | Meet properly                               | Wide Accra courtyard portrait with space for the main message | Explore the compound |
+| Voice    | Be heard before being judged                | Intimate vertical portrait recording a voice introduction     | Continue scrolling   |
+| Compound | A compound, not a feed                      | Typographic map of Fie, Circles and Rooms                     | Understand the model |
+| Trust    | Access is earned and boundaries are visible | Deliberately quiet editorial section                          | Read the principles  |
+| Fires    | Good meetings can be hosted                 | Wide dusk image of a hosted courtyard circle                  | Enter Obiara         |
+| Close    | Come as a whole person                      | Large closing statement                                       | Enter the member app |
 
 ## Content rules
 

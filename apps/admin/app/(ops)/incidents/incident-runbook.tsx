@@ -21,10 +21,7 @@ import { useReducer } from "react";
 import { incidentReducer, initialIncidentState } from "./incident-model";
 
 export function IncidentRunbook() {
-  const [state, dispatch] = useReducer(
-    incidentReducer,
-    initialIncidentState,
-  );
+  const [state, dispatch] = useReducer(incidentReducer, initialIncidentState);
   const mandatoryComplete = state.steps
     .filter((step) => step.mandatory)
     .every((step) => step.complete);
@@ -36,9 +33,7 @@ export function IncidentRunbook() {
           <Link href="/" className="verification-back">
             Return to command centre
           </Link>
-          <Typography className="section-kicker">
-            Incident response
-          </Typography>
+          <Typography className="section-kicker">Incident response</Typography>
           <Typography component="h1">
             One runbook. Two accountable roles.
           </Typography>
@@ -96,9 +91,9 @@ export function IncidentRunbook() {
               value={state.recorder}
             />
             <Alert severity="info">
-              P1 regulatory notification clock: assess and record the
-              applicable deadline immediately. External notice remains a human
-              legal decision.
+              P1 regulatory notification clock: assess and record the applicable
+              deadline immediately. External notice remains a human legal
+              decision.
             </Alert>
           </Stack>
         </Card>
@@ -139,9 +134,7 @@ export function IncidentRunbook() {
 
       <Card className="incident-packet">
         <Box>
-          <Typography className="section-kicker">
-            Regulatory packet
-          </Typography>
+          <Typography className="section-kicker">Regulatory packet</Typography>
           <Typography component="h2">
             Redacted facts, explicit human submission.
           </Typography>

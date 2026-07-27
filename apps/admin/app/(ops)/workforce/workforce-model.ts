@@ -1,7 +1,5 @@
 export type ExposureCategory =
-  | "financial_coercion"
-  | "harassment"
-  | "sexual_safety";
+  "financial_coercion" | "harassment" | "sexual_safety";
 
 export interface WorkforceState {
   readonly shiftMinutes: number;
@@ -40,7 +38,9 @@ export function workforceReducer(
 ): WorkforceState {
   switch (action.type) {
     case "preview":
-      return state.breakActive || state.optedOut || state.exposureCount >= state.maxExposure
+      return state.breakActive ||
+        state.optedOut ||
+        state.exposureCount >= state.maxExposure
         ? state
         : {
             ...state,

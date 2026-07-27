@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useReducer } from "react";
-import {
-  canPublish,
-  initialStoryState,
-  storyReducer,
-} from "./story-model";
+import { canPublish, initialStoryState, storyReducer } from "./story-model";
 
 const passages = [
-  ["Ama", "At dusk, Ananse found a calabash humming beside the old silk-cotton tree."],
-  ["You", "He leaned close, but the song moved into the path beneath his feet."],
+  [
+    "Ama",
+    "At dusk, Ananse found a calabash humming beside the old silk-cotton tree.",
+  ],
+  [
+    "You",
+    "He leaned close, but the song moved into the path beneath his feet.",
+  ],
   ["Ama", "Every step gave him one memory and borrowed another from the moon."],
   ["You", "So he stopped walking and asked the path what it wanted in return."],
 ] as const;
@@ -20,7 +22,9 @@ export function StoryRelay({ storyId }: Readonly<{ storyId: string }>) {
   return (
     <main className="story-relay">
       <header>
-        <Link href="/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa">← Private room</Link>
+        <Link href="/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa">
+          ← Private room
+        </Link>
         <strong>Anansesɛm · private relay</strong>
         <button type="button">Safety</button>
       </header>
@@ -42,18 +46,29 @@ export function StoryRelay({ storyId }: Readonly<{ storyId: string }>) {
         <div className="story-passages">
           {passages.map(([who, text], index) => (
             <article key={text}>
-              <span>{String(index + 1).padStart(2, "0")} · {who}</span>
+              <span>
+                {String(index + 1).padStart(2, "0")} · {who}
+              </span>
               <p>{text}</p>
             </article>
           ))}
           {state.turn === "ama" ? (
-            <article><span>05 · You</span><p>The path answered with a drumbeat.</p></article>
+            <article>
+              <span>05 · You</span>
+              <p>The path answered with a drumbeat.</p>
+            </article>
           ) : null}
         </div>
         <div className="story-compose">
           <div>
-            <p className="fie-kicker">The relay is {state.turn === "you" ? "with you" : "with Ama"}</p>
-            <h3>{state.turn === "you" ? "Add one passage." : "Your words are resting."}</h3>
+            <p className="fie-kicker">
+              The relay is {state.turn === "you" ? "with you" : "with Ama"}
+            </p>
+            <h3>
+              {state.turn === "you"
+                ? "Add one passage."
+                : "Your words are resting."}
+            </h3>
           </div>
           <label>
             <span>Your next passage · {state.draft.length}/280</span>
@@ -86,14 +101,22 @@ export function StoryRelay({ storyId }: Readonly<{ storyId: string }>) {
           </p>
         </div>
         <div className="publish-card">
-          <div><span>Ama</span><strong>{state.amaPublishConsent ? "Consents" : "Not yet"}</strong></div>
-          <div><span>You</span><strong>{state.yourPublishConsent ? "Consent" : "Private"}</strong></div>
+          <div>
+            <span>Ama</span>
+            <strong>{state.amaPublishConsent ? "Consents" : "Not yet"}</strong>
+          </div>
+          <div>
+            <span>You</span>
+            <strong>{state.yourPublishConsent ? "Consent" : "Private"}</strong>
+          </div>
           <button
             aria-pressed={state.yourPublishConsent}
             onClick={() => dispatch({ type: "toggle-publish-consent" })}
             type="button"
           >
-            {state.yourPublishConsent ? "Withdraw my consent" : "Consent to a redacted edition"}
+            {state.yourPublishConsent
+              ? "Withdraw my consent"
+              : "Consent to a redacted edition"}
           </button>
           <p aria-live="polite">
             {canPublish(state)

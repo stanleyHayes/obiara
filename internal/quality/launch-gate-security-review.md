@@ -18,21 +18,21 @@ activate, provision, submit, notify, call a provider, or mutate an account.
 
 ## Required adversarial checks
 
-| Attack or error | Required outcome |
-|---|---|
-| Synthetic fixture presented as real evidence | Reject or retain explicit blocker |
-| Evidence completed after its expiry or evaluated after expiry | Reject as stale |
-| Evidence issued for preview, local, test, or staging | Reject for a production gate |
-| Repository evidence used for an external, provider, credential, store, or production-action gate | Reject kind mismatch |
-| Duplicate evidence ID or duplicate gate ID | Reject the entire registry/evidence set |
-| Required dependency is missing or blocked | Keep dependent gate blocked |
-| Evidence owner also acts as required approver/verifier | Reject self-approval |
-| Approval roles contain duplicate actors | Reject insufficient separation |
-| Evidence ref contains a URL, credential/token shape, email, phone, member ID, request/response body, or free text | Reject as unsafe metadata |
-| Unknown field, evidence kind, environment, status, severity, or gate | Reject rather than ignore |
-| External result merely declared `approved` without bounded provenance and current evidence | Keep the gate blocked |
-| Production authorization evidence is valid | Return a decision only; perform no production action |
-| One gate remains unresolved | Overall production eligibility is false |
+| Attack or error                                                                                                   | Required outcome                                     |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Synthetic fixture presented as real evidence                                                                      | Reject or retain explicit blocker                    |
+| Evidence completed after its expiry or evaluated after expiry                                                     | Reject as stale                                      |
+| Evidence issued for preview, local, test, or staging                                                              | Reject for a production gate                         |
+| Repository evidence used for an external, provider, credential, store, or production-action gate                  | Reject kind mismatch                                 |
+| Duplicate evidence ID or duplicate gate ID                                                                        | Reject the entire registry/evidence set              |
+| Required dependency is missing or blocked                                                                         | Keep dependent gate blocked                          |
+| Evidence owner also acts as required approver/verifier                                                            | Reject self-approval                                 |
+| Approval roles contain duplicate actors                                                                           | Reject insufficient separation                       |
+| Evidence ref contains a URL, credential/token shape, email, phone, member ID, request/response body, or free text | Reject as unsafe metadata                            |
+| Unknown field, evidence kind, environment, status, severity, or gate                                              | Reject rather than ignore                            |
+| External result merely declared `approved` without bounded provenance and current evidence                        | Keep the gate blocked                                |
+| Production authorization evidence is valid                                                                        | Return a decision only; perform no production action |
+| One gate remains unresolved                                                                                       | Overall production eligibility is false              |
 
 ## Evidence minimization
 

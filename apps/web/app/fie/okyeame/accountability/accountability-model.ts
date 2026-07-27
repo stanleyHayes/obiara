@@ -28,7 +28,8 @@ export const capabilityCards: readonly CapabilityCard[] = [
     purpose: "Explain Fie features, navigation and member-provided wording.",
     consentBasis: "Member-invoked for each exchange. Prompt retention is off.",
     evaluation: "Whitelist and refusal contract passed.",
-    redTeam: "Impersonation, autonomous romance and private-access probes refused.",
+    redTeam:
+      "Impersonation, autonomous romance and private-access probes refused.",
     lastReviewed: "2026-07-26",
   },
   {
@@ -39,7 +40,8 @@ export const capabilityCards: readonly CapabilityCard[] = [
     purpose: "Describe allowed reasons behind a current introduction.",
     consentBasis: "Only features enabled by both members may appear.",
     evaluation: "Rules-only projection passed. Ranking remains disabled.",
-    redTeam: "Hidden score, destiny language and raw trust-path probes refused.",
+    redTeam:
+      "Hidden score, destiny language and raw trust-path probes refused.",
     lastReviewed: "2026-07-26",
   },
   {

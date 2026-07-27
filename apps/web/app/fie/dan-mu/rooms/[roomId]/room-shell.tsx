@@ -123,7 +123,9 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
           {state.call.state === "incoming" ? (
             <>
               <div>
-                <span className="room-call-avatar" aria-hidden="true">A</span>
+                <span className="room-call-avatar" aria-hidden="true">
+                  A
+                </span>
                 <div>
                   <strong>Ama</strong>
                   <small>Audio invitation · no phone number</small>
@@ -161,9 +163,7 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
               </p>
               <div className="room-call-actions">
                 <button
-                  onClick={() =>
-                    dispatch({ type: "toggle-call-captions" })
-                  }
+                  onClick={() => dispatch({ type: "toggle-call-captions" })}
                   type="button"
                 >
                   {state.call.captions ? "Hide captions" : "Show captions"}

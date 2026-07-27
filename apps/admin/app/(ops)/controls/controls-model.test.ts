@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  controlsReducer,
-  initialControlsState,
-} from "./controls-model";
+import { controlsReducer, initialControlsState } from "./controls-model";
 
 describe("runtime control proposal", () => {
   it("is narrow, expiring and fail closed", () => {
@@ -16,7 +13,10 @@ describe("runtime control proposal", () => {
 
   it("requires a substantive reason", () => {
     const short = controlsReducer(
-      controlsReducer(initialControlsState, { type: "reason", value: "testing" }),
+      controlsReducer(initialControlsState, {
+        type: "reason",
+        value: "testing",
+      }),
       { type: "first-approve" },
     );
     expect(short.state).toBe("draft");
@@ -31,12 +31,18 @@ describe("runtime control proposal", () => {
       { type: "first-approve" },
     );
     const self = controlsReducer(
-      controlsReducer(first, { type: "second-approver", actor: "operator•••A1" }),
+      controlsReducer(first, {
+        type: "second-approver",
+        actor: "operator•••A1",
+      }),
       { type: "confirm-second" },
     );
     expect(self.state).toBe("first_approved");
     const distinct = controlsReducer(
-      controlsReducer(first, { type: "second-approver", actor: "operator•••C9" }),
+      controlsReducer(first, {
+        type: "second-approver",
+        actor: "operator•••C9",
+      }),
       { type: "confirm-second" },
     );
     expect(distinct.state).toBe("apply_ready");

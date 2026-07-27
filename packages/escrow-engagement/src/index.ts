@@ -75,8 +75,8 @@ export function canPreviewSettlement(state: EscrowState) {
   );
   return Boolean(
     selected?.memberConfirmed &&
-      selected.matchmakerConfirmed &&
-      state.disputeState === "none",
+    selected.matchmakerConfirmed &&
+    state.disputeState === "none",
   );
 }
 
@@ -90,7 +90,10 @@ export function escrowReducer(
       : state;
   }
   if (action.type === "confirm-member" && state.disputeState === "none") {
-    return { ...state, milestones: updateSelected(state, { memberConfirmed: true }) };
+    return {
+      ...state,
+      milestones: updateSelected(state, { memberConfirmed: true }),
+    };
   }
   if (action.type === "confirm-matchmaker" && state.disputeState === "none") {
     return {

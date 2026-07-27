@@ -7,7 +7,10 @@ import {
 import Link from "next/link";
 import { useReducer } from "react";
 
-import { CompoundBottomNavigation, CompoundRail } from "../../compound-navigation";
+import {
+  CompoundBottomNavigation,
+  CompoundRail,
+} from "../../compound-navigation";
 
 export function MembershipSettings() {
   const [state, dispatch] = useReducer(
@@ -156,7 +159,12 @@ export function MembershipSettings() {
       </section>
 
       {state.cancellationPending ? (
-        <div className="membership-modal" role="dialog" aria-modal="true" aria-labelledby="cancel-title">
+        <div
+          className="membership-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-title"
+        >
           <div>
             <p className="fie-kicker">Before you cancel</p>
             <h2 id="cancel-title">Your paid time remains yours.</h2>

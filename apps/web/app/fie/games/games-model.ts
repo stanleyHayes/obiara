@@ -10,12 +10,17 @@ export type GamesAction =
   | { readonly type: "open-review" }
   | { readonly type: "appeal" };
 
-export const initialGamesState: GamesState = { joined: false, fairPlay: "clear" };
+export const initialGamesState: GamesState = {
+  joined: false,
+  fairPlay: "clear",
+};
 
-export function gamesReducer(state: GamesState, action: GamesAction): GamesState {
+export function gamesReducer(
+  state: GamesState,
+  action: GamesAction,
+): GamesState {
   if (action.type === "join") return { ...state, joined: true };
-  if (action.type === "open-review")
-    return { ...state, fairPlay: "review" };
+  if (action.type === "open-review") return { ...state, fairPlay: "review" };
   if (action.type === "appeal" && state.fairPlay === "review")
     return { ...state, fairPlay: "appealed" };
   return state;

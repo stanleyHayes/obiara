@@ -37,7 +37,9 @@ export function OwareRoom({ gameId }: Readonly<{ gameId: string }>) {
           </p>
         </div>
         <aside>
-          <span>Move {state.moveNumber} · {gameId.slice(0, 8)}</span>
+          <span>
+            Move {state.moveNumber} · {gameId.slice(0, 8)}
+          </span>
           <strong>{names[state.turn]} to sow</strong>
           <small>18h 42m remains · no streak pressure</small>
         </aside>
@@ -45,8 +47,14 @@ export function OwareRoom({ gameId }: Readonly<{ gameId: string }>) {
 
       <section className="oware-table" aria-labelledby="oware-board-title">
         <div className="oware-score">
-          <div><span>Ama captured</span><strong>{state.captured.ama}</strong></div>
-          <div><span>You captured</span><strong>{state.captured.you}</strong></div>
+          <div>
+            <span>Ama captured</span>
+            <strong>{state.captured.ama}</strong>
+          </div>
+          <div>
+            <span>You captured</span>
+            <strong>{state.captured.you}</strong>
+          </div>
         </div>
         <div>
           <p className="fie-kicker">Abapa rules · 48 seeds</p>
@@ -63,11 +71,19 @@ export function OwareRoom({ gameId }: Readonly<{ gameId: string }>) {
           role="group"
         >
           <div className="oware-row is-ama" aria-label="Ama’s houses">
-            {[...state.pits].slice(6).reverse().map((seeds, index) => (
-              <div aria-label={`${seeds} seeds`} className="oware-pit" key={`ama-${index}`}>
-                <strong>{seeds}</strong><span>seeds</span>
-              </div>
-            ))}
+            {[...state.pits]
+              .slice(6)
+              .reverse()
+              .map((seeds, index) => (
+                <div
+                  aria-label={`${seeds} seeds`}
+                  className="oware-pit"
+                  key={`ama-${index}`}
+                >
+                  <strong>{seeds}</strong>
+                  <span>seeds</span>
+                </div>
+              ))}
           </div>
           <div className="oware-row" aria-label="Your houses">
             {state.pits.slice(0, 6).map((seeds, pit) => (
@@ -80,7 +96,8 @@ export function OwareRoom({ gameId }: Readonly<{ gameId: string }>) {
                 onClick={() => dispatch({ type: "select", pit })}
                 type="button"
               >
-                <strong>{seeds}</strong><span>house {pit + 1}</span>
+                <strong>{seeds}</strong>
+                <span>house {pit + 1}</span>
               </button>
             ))}
           </div>
@@ -94,7 +111,9 @@ export function OwareRoom({ gameId }: Readonly<{ gameId: string }>) {
                   ? "No house selected."
                   : `House ${state.selectedPit + 1} selected.`}
             </strong>
-            <small>Notation: {state.moveNumber - 1}. 3C · awaiting next move</small>
+            <small>
+              Notation: {state.moveNumber - 1}. 3C · awaiting next move
+            </small>
           </div>
           <button
             disabled={state.selectedPit === null}

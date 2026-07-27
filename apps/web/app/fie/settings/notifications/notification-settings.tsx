@@ -9,17 +9,36 @@ import {
 import Link from "next/link";
 import { useReducer } from "react";
 
-import { CompoundBottomNavigation, CompoundRail } from "../../compound-navigation";
+import {
+  CompoundBottomNavigation,
+  CompoundRail,
+} from "../../compound-navigation";
 
 const categories: ReadonlyArray<{
   id: NotificationCategory;
   label: string;
   detail: string;
 }> = [
-  { id: "courtship", label: "Courtship", detail: "Turns, consent and room milestones" },
-  { id: "community", label: "Community", detail: "Circle and fire updates you joined" },
-  { id: "games", label: "Games", detail: "Private turns and tournament activity" },
-  { id: "rituals", label: "Rituals", detail: "Dawn, Monday and Sunday rhythms" },
+  {
+    id: "courtship",
+    label: "Courtship",
+    detail: "Turns, consent and room milestones",
+  },
+  {
+    id: "community",
+    label: "Community",
+    detail: "Circle and fire updates you joined",
+  },
+  {
+    id: "games",
+    label: "Games",
+    detail: "Private turns and tournament activity",
+  },
+  {
+    id: "rituals",
+    label: "Rituals",
+    detail: "Dawn, Monday and Sunday rhythms",
+  },
 ];
 
 const channels: ReadonlyArray<{ id: NotificationChannel; label: string }> = [
@@ -166,10 +185,9 @@ export function NotificationSettings() {
               <div>
                 <strong>Safety and OTP service messages stay available.</strong>
                 <p>
-                  They may bypass ordinary preferences and quiet hours only
-                  when needed for safety or account access. They never carry
-                  “someone viewed you,” jealousy, popularity or fake urgency
-                  copy.
+                  They may bypass ordinary preferences and quiet hours only when
+                  needed for safety or account access. They never carry “someone
+                  viewed you,” jealousy, popularity or fake urgency copy.
                 </p>
               </div>
             </div>

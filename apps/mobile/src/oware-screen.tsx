@@ -19,9 +19,7 @@ function sow(pits: readonly number[], origin: number) {
 
 export function OwareScreen() {
   const router = useRouter();
-  const [pits, setPits] = useState(() =>
-    Array.from({ length: 12 }, () => 4),
-  );
+  const [pits, setPits] = useState(() => Array.from({ length: 12 }, () => 4));
   const [selected, setSelected] = useState<number | null>(null);
   const [sent, setSent] = useState(false);
   const confirm = () => {
@@ -36,9 +34,7 @@ export function OwareScreen() {
         <View style={styles.topbar}>
           <Pressable
             onPress={() =>
-              router.push(
-                "/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa" as Href,
-              )
+              router.push("/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa" as Href)
             }
             style={styles.control}
           >
@@ -57,7 +53,9 @@ export function OwareScreen() {
           you or how you are matched.
         </Text>
         <View style={styles.status}>
-          <Text style={styles.statusLabel}>{sent ? "AMA’S TURN" : "YOUR TURN"}</Text>
+          <Text style={styles.statusLabel}>
+            {sent ? "AMA’S TURN" : "YOUR TURN"}
+          </Text>
           <Text style={styles.statusCopy}>
             18h 42m remains · no streak pressure
           </Text>
@@ -84,11 +82,17 @@ export function OwareScreen() {
           </Text>
           <View accessibilityLabel="Oware board" style={styles.board}>
             <View accessibilityLabel="Ama's houses" style={styles.pitRow}>
-              {pits.slice(6).reverse().map((seeds, index) => (
-                <View key={`ama-${index}`} style={[styles.pit, styles.amaPit]}>
-                  <Text style={styles.pitSeeds}>{seeds}</Text>
-                </View>
-              ))}
+              {pits
+                .slice(6)
+                .reverse()
+                .map((seeds, index) => (
+                  <View
+                    key={`ama-${index}`}
+                    style={[styles.pit, styles.amaPit]}
+                  >
+                    <Text style={styles.pitSeeds}>{seeds}</Text>
+                  </View>
+                ))}
             </View>
             <View accessibilityLabel="Your houses" style={styles.pitRow}>
               {pits.slice(0, 6).map((seeds, pit) => (
@@ -102,10 +106,7 @@ export function OwareScreen() {
                   disabled={sent}
                   key={`you-${pit}`}
                   onPress={() => setSelected(pit)}
-                  style={[
-                    styles.pit,
-                    selected === pit && styles.selectedPit,
-                  ]}
+                  style={[styles.pit, selected === pit && styles.selectedPit]}
                 >
                   <Text style={styles.pitSeeds}>{seeds}</Text>
                 </Pressable>
@@ -119,7 +120,9 @@ export function OwareScreen() {
                 ? "No house selected."
                 : `House ${selected + 1} selected.`}
           </Text>
-          <Text style={styles.notation}>Notation: 18. 3C · awaiting next move</Text>
+          <Text style={styles.notation}>
+            Notation: 18. 3C · awaiting next move
+          </Text>
           <Pressable
             disabled={selected === null}
             onPress={confirm}

@@ -162,15 +162,15 @@ assessment or any required DPC consultation.
 
 ## 2. Cross-cutting risks and consultations
 
-| Item | Status | Owner / trigger |
-|---|---|---|
-| Member-content residency (Render has no African region) | Open — production blocked | Founder + DPO/legal; plan §24.6 |
-| E2E encryption vs safety processing | Open — must close before E07 | Architecture + legal; threat model §6 |
-| DPC registration and DPO appointment | Required pre-P0 | Founder/ops; Doc 09 §7 |
-| CERT-GH liaison and 72-hour incident runbook | Required P0 | Security workstream |
-| Ghana DPC consultation on biometric processing | Assess with DPO once vendor PoC exists | DPO |
-| Diaspora GDPR/SCC posture | P2 scope; single-standard commitment recorded | DPO/legal |
-| DPIA refresh per new AI purpose | Standing rule | DPO; Doc 09 §7 |
+| Item                                                    | Status                                        | Owner / trigger                       |
+| ------------------------------------------------------- | --------------------------------------------- | ------------------------------------- |
+| Member-content residency (Render has no African region) | Open — production blocked                     | Founder + DPO/legal; plan §24.6       |
+| E2E encryption vs safety processing                     | Open — must close before E07                  | Architecture + legal; threat model §6 |
+| DPC registration and DPO appointment                    | Required pre-P0                               | Founder/ops; Doc 09 §7                |
+| CERT-GH liaison and 72-hour incident runbook            | Required P0                                   | Security workstream                   |
+| Ghana DPC consultation on biometric processing          | Assess with DPO once vendor PoC exists        | DPO                                   |
+| Diaspora GDPR/SCC posture                               | P2 scope; single-standard commitment recorded | DPO/legal                             |
+| DPIA refresh per new AI purpose                         | Standing rule                                 | DPO; Doc 09 §7                        |
 
 ## 3. Rights handling commitments
 

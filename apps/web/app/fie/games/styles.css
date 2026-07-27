@@ -1,5 +1,200 @@
-.games-hall{background:#f7efe2;color:#28161f;min-height:100vh;padding:0 max(24px,calc((100vw - 1160px)/2)) 76px}.games-hall button,.games-hall a{font:inherit;min-height:48px}.games-hall header{align-items:center;border-bottom:1px solid #d8c9bc;display:grid;grid-template-columns:1fr auto 1fr;min-height:84px}.games-hall header a{align-items:center;color:#28161f;display:flex;font-weight:800}.games-hall header button{background:transparent;border:1px solid #8f7885;border-radius:999px;justify-self:end;padding:0 20px}.games-hall .fie-kicker{color:#9b315d}.games-hero{padding:88px 0 72px}.games-hero h1{font-size:clamp(4.7rem,9vw,9rem);letter-spacing:-.09em;line-height:.83;margin:16px 0 28px;max-width:1050px}.games-hero>p:last-child{color:#705c67;line-height:1.65;max-width:680px}
-.games-grid{border-top:1px solid #d8c9bc;display:grid;gap:48px;grid-template-columns:.55fr 1.45fr;padding:70px 0}.games-grid h2,.tournament h2,.fair-play h2{font-size:clamp(3rem,6vw,5.8rem);letter-spacing:-.075em;line-height:.9;margin:14px 0}.games-list{display:grid;gap:10px;grid-template-columns:1fr 1fr}.games-list a{background:#28161f;border-radius:22px;color:#fff3e6;display:flex;flex-direction:column;min-height:230px;padding:24px;text-decoration:none}.games-list span{color:#ffb7c4;font-size:.75rem;font-weight:750}.games-list h3{font-size:2.2rem;letter-spacing:-.05em;margin:34px 0}.games-list strong{margin-top:auto}
-.tournament{background:#fff0d9;border-radius:30px;display:grid;gap:50px;grid-template-columns:1.2fr .8fr;padding:clamp(24px,5vw,56px)}.tournament>div>p:last-of-type,.fair-play>div>p:last-child{color:#705c67;line-height:1.6;max-width:620px}.tournament-facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px}.tournament-facts span{border:1px solid #cab5c0;border-radius:999px;font-size:.78rem;font-weight:750;padding:9px 12px}.tournament aside{background:#28161f;border-radius:22px;color:#fff3e6;padding:28px}.tournament aside strong{font-size:1.7rem}.tournament aside p{color:rgba(255,243,230,.65);line-height:1.55}.tournament aside button,.review-card button{background:#ffad3d;border:0;border-radius:999px;color:#28161f;font-weight:850;padding:0 20px}.tournament aside button:disabled{opacity:.65}
-.fair-play{display:grid;gap:50px;grid-template-columns:1fr 1fr;padding-top:80px}.review-card{background:#28161f;border-radius:24px;color:#fff3e6;padding:30px}.review-card span{color:#ffb7c4;font-size:.75rem;font-weight:800;text-transform:uppercase}.review-card strong{display:block;font-size:1.7rem;line-height:1.25;margin:12px 0}.review-card p{color:rgba(255,243,230,.65);line-height:1.55}.review-card button{margin-top:12px}
-@media(max-width:760px){.games-hall header{grid-template-columns:1fr auto}.games-hall header strong{display:none}.games-hero{padding:54px 0}.games-hero h1{font-size:4.5rem}.games-grid,.tournament,.fair-play{grid-template-columns:1fr}.games-list{grid-template-columns:1fr}.tournament{margin-inline:-10px}}
+.games-hall {
+  background: #f7efe2;
+  color: #28161f;
+  min-height: 100vh;
+  padding: 0 max(24px, calc((100vw - 1160px) / 2)) 76px;
+}
+.games-hall button,
+.games-hall a {
+  font: inherit;
+  min-height: 48px;
+}
+.games-hall header {
+  align-items: center;
+  border-bottom: 1px solid #d8c9bc;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  min-height: 84px;
+}
+.games-hall header a {
+  align-items: center;
+  color: #28161f;
+  display: flex;
+  font-weight: 800;
+}
+.games-hall header button {
+  background: transparent;
+  border: 1px solid #8f7885;
+  border-radius: 999px;
+  justify-self: end;
+  padding: 0 20px;
+}
+.games-hall .fie-kicker {
+  color: #9b315d;
+}
+.games-hero {
+  padding: 88px 0 72px;
+}
+.games-hero h1 {
+  font-size: clamp(4.7rem, 9vw, 9rem);
+  letter-spacing: -0.09em;
+  line-height: 0.83;
+  margin: 16px 0 28px;
+  max-width: 1050px;
+}
+.games-hero > p:last-child {
+  color: #705c67;
+  line-height: 1.65;
+  max-width: 680px;
+}
+.games-grid {
+  border-top: 1px solid #d8c9bc;
+  display: grid;
+  gap: 48px;
+  grid-template-columns: 0.55fr 1.45fr;
+  padding: 70px 0;
+}
+.games-grid h2,
+.tournament h2,
+.fair-play h2 {
+  font-size: clamp(3rem, 6vw, 5.8rem);
+  letter-spacing: -0.075em;
+  line-height: 0.9;
+  margin: 14px 0;
+}
+.games-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+.games-list a {
+  background: #28161f;
+  border-radius: 22px;
+  color: #fff3e6;
+  display: flex;
+  flex-direction: column;
+  min-height: 230px;
+  padding: 24px;
+  text-decoration: none;
+}
+.games-list span {
+  color: #ffb7c4;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+.games-list h3 {
+  font-size: 2.2rem;
+  letter-spacing: -0.05em;
+  margin: 34px 0;
+}
+.games-list strong {
+  margin-top: auto;
+}
+.tournament {
+  background: #fff0d9;
+  border-radius: 30px;
+  display: grid;
+  gap: 50px;
+  grid-template-columns: 1.2fr 0.8fr;
+  padding: clamp(24px, 5vw, 56px);
+}
+.tournament > div > p:last-of-type,
+.fair-play > div > p:last-child {
+  color: #705c67;
+  line-height: 1.6;
+  max-width: 620px;
+}
+.tournament-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 28px;
+}
+.tournament-facts span {
+  border: 1px solid #cab5c0;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  padding: 9px 12px;
+}
+.tournament aside {
+  background: #28161f;
+  border-radius: 22px;
+  color: #fff3e6;
+  padding: 28px;
+}
+.tournament aside strong {
+  font-size: 1.7rem;
+}
+.tournament aside p {
+  color: rgba(255, 243, 230, 0.65);
+  line-height: 1.55;
+}
+.tournament aside button,
+.review-card button {
+  background: #ffad3d;
+  border: 0;
+  border-radius: 999px;
+  color: #28161f;
+  font-weight: 850;
+  padding: 0 20px;
+}
+.tournament aside button:disabled {
+  opacity: 0.65;
+}
+.fair-play {
+  display: grid;
+  gap: 50px;
+  grid-template-columns: 1fr 1fr;
+  padding-top: 80px;
+}
+.review-card {
+  background: #28161f;
+  border-radius: 24px;
+  color: #fff3e6;
+  padding: 30px;
+}
+.review-card span {
+  color: #ffb7c4;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.review-card strong {
+  display: block;
+  font-size: 1.7rem;
+  line-height: 1.25;
+  margin: 12px 0;
+}
+.review-card p {
+  color: rgba(255, 243, 230, 0.65);
+  line-height: 1.55;
+}
+.review-card button {
+  margin-top: 12px;
+}
+@media (max-width: 760px) {
+  .games-hall header {
+    grid-template-columns: 1fr auto;
+  }
+  .games-hall header strong {
+    display: none;
+  }
+  .games-hero {
+    padding: 54px 0;
+  }
+  .games-hero h1 {
+    font-size: 4.5rem;
+  }
+  .games-grid,
+  .tournament,
+  .fair-play {
+    grid-template-columns: 1fr;
+  }
+  .games-list {
+    grid-template-columns: 1fr;
+  }
+  .tournament {
+    margin-inline: -10px;
+  }
+}

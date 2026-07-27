@@ -98,7 +98,12 @@ a {
 
 .hero-scrim {
   background:
-    linear-gradient(90deg, rgba(24, 6, 18, 0.92) 0%, rgba(24, 6, 18, 0.62) 43%, rgba(24, 6, 18, 0.05) 72%),
+    linear-gradient(
+      90deg,
+      rgba(24, 6, 18, 0.92) 0%,
+      rgba(24, 6, 18, 0.62) 43%,
+      rgba(24, 6, 18, 0.05) 72%
+    ),
     linear-gradient(0deg, rgba(24, 6, 18, 0.5), transparent 45%);
 }
 
@@ -464,7 +469,11 @@ footer p:last-child {
   }
 
   .hero-scrim {
-    background: linear-gradient(0deg, rgba(24, 6, 18, 0.94), rgba(24, 6, 18, 0.04) 74%);
+    background: linear-gradient(
+      0deg,
+      rgba(24, 6, 18, 0.94),
+      rgba(24, 6, 18, 0.04) 74%
+    );
   }
 
   .hero h1 {

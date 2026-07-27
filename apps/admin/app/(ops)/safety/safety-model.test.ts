@@ -31,15 +31,14 @@ describe("safety evidence desk", () => {
     });
     expect(initialSafetyDeskState.cases[0]?.holdStatus).toBe("none");
     expect(
-      safetyDeskReducer(pending, { type: "confirm-hold" }).cases[0]
-        ?.holdStatus,
+      safetyDeskReducer(pending, { type: "confirm-hold" }).cases[0]?.holdStatus,
     ).toBe("pending");
   });
 
   it("keeps every queue projection free of raw reporter and evidence fields", () => {
-    expect(initialSafetyDeskState.cases.every(evidenceProjectionIsRedacted)).toBe(
-      true,
-    );
+    expect(
+      initialSafetyDeskState.cases.every(evidenceProjectionIsRedacted),
+    ).toBe(true);
   });
 
   it("requires reason and scope before a human action is recorded", () => {
@@ -47,9 +46,9 @@ describe("safety evidence desk", () => {
       type: "propose-action",
       kind: "warning",
     });
-    expect(
-      safetyDeskReducer(proposed, { type: "confirm-action" }),
-    ).toEqual(proposed);
+    expect(safetyDeskReducer(proposed, { type: "confirm-action" })).toEqual(
+      proposed,
+    );
     const reasoned = safetyDeskReducer(proposed, {
       type: "action-reason",
       value: "Explain current policy boundary",
@@ -80,9 +79,7 @@ describe("safety evidence desk", () => {
     let state = safetyDeskReducer(initialSafetyDeskState, {
       type: "request-export",
     });
-    expect(safetyDeskReducer(state, { type: "confirm-export" })).toEqual(
-      state,
-    );
+    expect(safetyDeskReducer(state, { type: "confirm-export" })).toEqual(state);
     state = safetyDeskReducer(state, {
       type: "export-consent",
       checked: true,

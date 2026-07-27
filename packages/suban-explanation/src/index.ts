@@ -53,7 +53,8 @@ export const initialSubanState: SubanState = {
       kind: "conduct_finding",
       label: "Reviewed conduct finding",
       date: "23 July 2026",
-      effect: "Temporarily suppresses this mark; it does not erase earlier events.",
+      effect:
+        "Temporarily suppresses this mark; it does not erase earlier events.",
       weight: 0,
       decays: false,
     },

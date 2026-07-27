@@ -1,4 +1,5 @@
-export type Feature = "shared_intentions" | "trust_context" | "voice_reflections";
+export type Feature =
+  "shared_intentions" | "trust_context" | "voice_reflections";
 
 export interface ExplanationState {
   readonly enabled: Readonly<Record<Feature, boolean>>;
@@ -35,8 +36,14 @@ export function explanationReducer(
 
 export function activeReasons(state: ExplanationState) {
   return [
-    state.enabled.shared_intentions ? "You both chose family-minded partnership." : null,
-    state.enabled.trust_context ? "A private trust path is available to each of you." : null,
-    state.enabled.voice_reflections ? "You both consented to compare selected voice reflections." : null,
+    state.enabled.shared_intentions
+      ? "You both chose family-minded partnership."
+      : null,
+    state.enabled.trust_context
+      ? "A private trust path is available to each of you."
+      : null,
+    state.enabled.voice_reflections
+      ? "You both consented to compare selected voice reflections."
+      : null,
   ].filter((reason): reason is string => reason !== null);
 }

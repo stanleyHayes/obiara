@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  initialNotificationSettings,
-  notificationSettingsReducer,
-} from ".";
+import { initialNotificationSettings, notificationSettingsReducer } from ".";
 
 describe("notification settings boundary", () => {
   it("changes categories without changing the server-owned cap", () => {

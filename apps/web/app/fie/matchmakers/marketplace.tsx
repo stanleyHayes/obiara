@@ -43,7 +43,10 @@ export function MatchmakerMarketplace() {
           </p>
         </section>
 
-        <nav aria-label="Filter matchmakers by language" className="language-filter">
+        <nav
+          aria-label="Filter matchmakers by language"
+          className="language-filter"
+        >
           {["All", "Twi", "Ga", "English"].map((language) => (
             <button
               aria-pressed={state.language === language}
@@ -67,7 +70,9 @@ export function MatchmakerMarketplace() {
                     .join("")}
                 </div>
                 <div>
-                  <span className="license">Licensed · {profile.licenseRef}</span>
+                  <span className="license">
+                    Licensed · {profile.licenseRef}
+                  </span>
                   <h2>{profile.name}</h2>
                   <p>{profile.specialties.join(" · ")}</p>
                   <small>{profile.languages.join(" / ")}</small>
@@ -80,7 +85,8 @@ export function MatchmakerMarketplace() {
                   <div>
                     <dt>Post-engagement rating</dt>
                     <dd>
-                      {profile.rating} · {profile.completedEngagements} completed
+                      {profile.rating} · {profile.completedEngagements}{" "}
+                      completed
                     </dd>
                   </div>
                 </dl>
@@ -129,7 +135,9 @@ export function MatchmakerMarketplace() {
                   </button>
                 ) : (
                   <div className="proposal-consent">
-                    <strong>Candidate exposure needs two current consents.</strong>
+                    <strong>
+                      Candidate exposure needs two current consents.
+                    </strong>
                     <label>
                       <input
                         checked={state.yourProposalConsent}

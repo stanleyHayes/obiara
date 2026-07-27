@@ -23,9 +23,9 @@ describe("client Oware interaction model", () => {
 
   it("never permits a move from the opponent row or outside the board", () => {
     expect(legalPits(initialOwareState)).toEqual([0, 1, 2, 3, 4, 5]);
-    expect(
-      owareReducer(initialOwareState, { type: "select", pit: 8 }),
-    ).toEqual(initialOwareState);
+    expect(owareReducer(initialOwareState, { type: "select", pit: 8 })).toEqual(
+      initialOwareState,
+    );
   });
 
   it("preserves all 48 seeds and skips the origin on long sowing", () => {

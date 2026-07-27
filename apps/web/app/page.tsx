@@ -47,14 +47,21 @@ const zones = [
   },
 ];
 
-function ZoneCard({ zone, index }: Readonly<{ zone: (typeof zones)[number]; index: number }>) {
+function ZoneCard({
+  zone,
+  index,
+}: Readonly<{ zone: (typeof zones)[number]; index: number }>) {
   return (
     <Card
       className={`zone-card zone-${index + 1}`}
       component="article"
       sx={{ "--zone-color": zone.color }}
     >
-      <Stack className="zone-card__top" direction="row" sx={{ justifyContent: "space-between" }}>
+      <Stack
+        className="zone-card__top"
+        direction="row"
+        sx={{ justifyContent: "space-between" }}
+      >
         <Box className="zone-icon" aria-hidden="true">
           {zone.icon}
         </Box>
@@ -79,14 +86,22 @@ export default function Home() {
     <Box component="main" className="fie-page">
       <Container maxWidth={false} className="shell">
         <Box component="header" className="topbar">
-          <Stack direction="row" sx={{ alignItems: "center" }} className="brand">
+          <Stack
+            direction="row"
+            sx={{ alignItems: "center" }}
+            className="brand"
+          >
             <Image src={brandMark} alt="" className="brand-mark" priority />
             <Typography component="span" className="brand-name">
               obiara
             </Typography>
           </Stack>
 
-          <Stack direction="row" sx={{ alignItems: "center" }} spacing={{ xs: 1, sm: 1.5 }}>
+          <Stack
+            direction="row"
+            sx={{ alignItems: "center" }}
+            spacing={{ xs: 1, sm: 1.5 }}
+          >
             <Button className="language-button">EN · Twi</Button>
             <Avatar className="profile-avatar" aria-label="Ama’s profile">
               A
@@ -96,7 +111,10 @@ export default function Home() {
 
         <Box className="welcome-grid">
           <Box className="welcome-copy">
-            <Chip className="morning-chip" label="Sunday · your quiet morning" />
+            <Chip
+              className="morning-chip"
+              label="Sunday · your quiet morning"
+            />
             <Typography component="h1" className="welcome-title">
               Akwaaba, Ama.
               <br />
@@ -146,7 +164,9 @@ export default function Home() {
         <Box className="section-heading">
           <Box>
             <Typography component="h2">Walk through your compound</Typography>
-            <Typography>Every place has a purpose. Enter with intention.</Typography>
+            <Typography>
+              Every place has a purpose. Enter with intention.
+            </Typography>
           </Box>
           <Typography className="gather-hint">
             <span aria-hidden="true">⌘</span> Use the map anytime
@@ -170,8 +190,12 @@ export default function Home() {
               <Typography className="seat-count">18 seats left</Typography>
             </Stack>
             <Box className="fire-copy">
-              <Typography className="eyebrow">Gyaase fire · Legon courtyard</Typography>
-              <Typography component="h2">Come and sit. The fire is catching.</Typography>
+              <Typography className="eyebrow">
+                Gyaase fire · Legon courtyard
+              </Typography>
+              <Typography component="h2">
+                Come and sit. The fire is catching.
+              </Typography>
               <Typography>
                 Voice games, an Oware table and one ember to carry home.
               </Typography>
@@ -180,7 +204,11 @@ export default function Home() {
               <Button variant="contained" className="fire-action">
                 Keep my seat
               </Button>
-              <Stack direction="row" sx={{ alignItems: "center" }} className="host-row">
+              <Stack
+                direction="row"
+                sx={{ alignItems: "center" }}
+                className="host-row"
+              >
                 <Avatar className="host-avatar">K</Avatar>
                 <Typography>
                   Hosted by <strong>Kojo Mensah</strong>
@@ -209,18 +237,26 @@ export default function Home() {
               </Stack>
               <LinearProgress variant="determinate" value={100} />
             </Box>
-            <Stack className="marks-row" direction="row" sx={{ flexWrap: "wrap" }}>
+            <Stack
+              className="marks-row"
+              direction="row"
+              sx={{ flexWrap: "wrap" }}
+            >
               <Chip label="Keeps her word" />
               <Chip label="Gracious" />
               <Chip label="Verified" />
             </Stack>
-            <Button className="standing-action">See what your marks mean</Button>
+            <Button className="standing-action">
+              See what your marks mean
+            </Button>
           </Card>
         </Box>
 
         <Box component="footer" className="footer">
           <Typography>Meet properly.</Typography>
-          <Typography>Verified people · Voice first · No money passes here</Typography>
+          <Typography>
+            Verified people · Voice first · No money passes here
+          </Typography>
         </Box>
       </Container>
 

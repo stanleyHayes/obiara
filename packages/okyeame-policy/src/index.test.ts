@@ -11,9 +11,7 @@ describe("Okyeame policy", () => {
   it.each(okyeameAllowedCapabilities)(
     "allows member-invoked %s with disclosure and no retention",
     (capability) => {
-      expect(
-        decideOkyeame({ capability, memberInvoked: true }),
-      ).toMatchObject({
+      expect(decideOkyeame({ capability, memberInvoked: true })).toMatchObject({
         allowed: true,
         disclosure: "AI_GUIDED_HELP",
         retainsPrompt: false,
@@ -24,9 +22,7 @@ describe("Okyeame policy", () => {
   it.each(okyeameRefusedCapabilities)(
     "refuses %s without retaining the prompt",
     (capability) => {
-      expect(
-        decideOkyeame({ capability, memberInvoked: true }),
-      ).toMatchObject({
+      expect(decideOkyeame({ capability, memberInvoked: true })).toMatchObject({
         allowed: false,
         retainsPrompt: false,
       });

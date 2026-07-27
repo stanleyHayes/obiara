@@ -24,7 +24,10 @@ export interface CareQueueState {
   readonly selectedId: string | null;
   readonly selectedScriptId: string | null;
   readonly sendPending: boolean;
-  readonly lastSent: { readonly caseId: string; readonly scriptId: string } | null;
+  readonly lastSent: {
+    readonly caseId: string;
+    readonly scriptId: string;
+  } | null;
 }
 
 export type CareQueueAction =
@@ -39,8 +42,7 @@ export const careScripts: readonly CareScript[] = [
     id: "resource-check-in",
     version: "care-1.2",
     title: "Resource-first check-in",
-    body:
-      "You asked for support. A care team member can listen and share approved local resources. You choose whether to continue.",
+    body: "You asked for support. A care team member can listen and share approved local resources. You choose whether to continue.",
     resource: "Obiara reviewed support directory",
     approved: true,
   },
@@ -48,8 +50,7 @@ export const careScripts: readonly CareScript[] = [
     id: "safety-follow-up",
     version: "care-1.1",
     title: "Safety follow-up",
-    body:
-      "We are checking in after your report. You do not need to reply. If you want support, a care team member can share reviewed resources.",
+    body: "We are checking in after your report. You do not need to reply. If you want support, a care team member can share reviewed resources.",
     resource: "Obiara reviewed safety support directory",
     approved: true,
   },
@@ -99,9 +100,7 @@ export function careQueueReducer(
         ? { ...state, selectedScriptId: action.scriptId, sendPending: false }
         : state;
     case "prepare-send": {
-      const selected = state.cases.find(
-        (item) => item.id === state.selectedId,
-      );
+      const selected = state.cases.find((item) => item.id === state.selectedId);
       return selected &&
         selected.contactPreference !== "none" &&
         state.selectedScriptId

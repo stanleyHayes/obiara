@@ -36,9 +36,7 @@ export function MatchmakerMarketplaceScreen() {
 
         {state.profiles.map((profile) => (
           <View key={profile.id} style={styles.profile}>
-            <Text style={styles.license}>
-              LICENSED · {profile.licenseRef}
-            </Text>
+            <Text style={styles.license}>LICENSED · {profile.licenseRef}</Text>
             <Text style={styles.profileName}>{profile.name}</Text>
             <Text style={styles.meta}>{profile.specialties.join(" · ")}</Text>
             <Text style={styles.meta}>{profile.languages.join(" / ")}</Text>
@@ -65,7 +63,9 @@ export function MatchmakerMarketplaceScreen() {
           {selected ? (
             <>
               <Pressable
-                accessibilityState={{ selected: state.service === "consultation" }}
+                accessibilityState={{
+                  selected: state.service === "consultation",
+                }}
                 onPress={() =>
                   dispatch({ type: "service", value: "consultation" })
                 }

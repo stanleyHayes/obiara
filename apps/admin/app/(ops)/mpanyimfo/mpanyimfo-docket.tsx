@@ -33,7 +33,9 @@ export function MpanyimfoDocket() {
             Return to command centre
           </Link>
           <Typography className="section-kicker">Mpanyimfo docket</Typography>
-          <Typography component="h1">A ruling needs more than one voice.</Typography>
+          <Typography component="h1">
+            A ruling needs more than one voice.
+          </Typography>
           <Typography>
             Redacted records, conflict recusal, quorum and separate appeals
             protect the review process.
@@ -117,9 +119,7 @@ export function MpanyimfoDocket() {
                     {seat.recused ? "Restore seat" : "Recuse"}
                   </Button>
                   <Button
-                    disabled={
-                      seat.recused || state.status !== "deliberating"
-                    }
+                    disabled={seat.recused || state.status !== "deliberating"}
                     onClick={() =>
                       dispatch({
                         type: "vote",
@@ -132,9 +132,7 @@ export function MpanyimfoDocket() {
                     Uphold
                   </Button>
                   <Button
-                    disabled={
-                      seat.recused || state.status !== "deliberating"
-                    }
+                    disabled={seat.recused || state.status !== "deliberating"}
                     onClick={() =>
                       dispatch({
                         type: "vote",

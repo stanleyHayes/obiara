@@ -6,7 +6,9 @@ import "./styles.css";
 
 export const metadata: Metadata = { title: "Private room | Obiara" };
 
-export default async function RoomPage({ params }: Readonly<{ params: Promise<{ roomId: string }> }>) {
+export default async function RoomPage({
+  params,
+}: Readonly<{ params: Promise<{ roomId: string }> }>) {
   const { roomId } = await params;
   if (!isOpaqueRouteId(roomId)) notFound();
   return <RoomShell roomId={roomId} />;

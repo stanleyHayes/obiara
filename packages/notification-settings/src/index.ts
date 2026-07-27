@@ -1,8 +1,5 @@
 export type NotificationCategory =
-  | "courtship"
-  | "community"
-  | "games"
-  | "rituals";
+  "courtship" | "community" | "games" | "rituals";
 export type NotificationChannel = "push" | "in_app" | "sms" | "whatsapp";
 
 export interface NotificationSettingsState {

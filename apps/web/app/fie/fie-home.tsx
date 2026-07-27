@@ -186,9 +186,7 @@ export function FieHome() {
             <p className="fie-kicker">Nnoboa · trusted hands</p>
             <strong>Two of three nominator places are in use.</strong>
           </div>
-          <Link href="/fie/companions/nnoboa">
-            Review private nominations
-          </Link>
+          <Link href="/fie/companions/nnoboa">Review private nominations</Link>
         </aside>
 
         <aside className="garden-entry">
@@ -204,9 +202,7 @@ export function FieHome() {
             <p className="fie-kicker">Membership</p>
             <strong>Paid through 31 August · renewal off.</strong>
           </div>
-          <Link href="/fie/settings/membership">
-            Review terms and receipts
-          </Link>
+          <Link href="/fie/settings/membership">Review terms and receipts</Link>
         </aside>
 
         <CompoundBottomNavigation current="home" />

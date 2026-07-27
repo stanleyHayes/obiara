@@ -13,8 +13,7 @@ import {
 } from "./okyeame-model";
 
 export function OkyeameShell() {
-  const [capability, setCapability] =
-    useState<OkyeameAvailability>("resting");
+  const [capability, setCapability] = useState<OkyeameAvailability>("resting");
   const [selectedRequest, setSelectedRequest] = useState(
     okyeameRequests[0]!.capability,
   );
@@ -62,8 +61,8 @@ export function OkyeameShell() {
             <p className="fie-kicker">You ask first</p>
             <h2 id="console-title">Check the boundary before you begin.</h2>
             <p>
-              This preview shows what Okyeame may answer. It does not send,
-              save or learn from your request.
+              This preview shows what Okyeame may answer. It does not send, save
+              or learn from your request.
             </p>
           </header>
 

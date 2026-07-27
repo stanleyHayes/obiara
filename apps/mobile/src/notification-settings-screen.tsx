@@ -64,9 +64,7 @@ export function NotificationSettingsScreen() {
                 accessibilityRole="switch"
                 accessibilityState={{ checked: selected }}
                 key={id}
-                onPress={() =>
-                  dispatch({ type: "toggle-category", value: id })
-                }
+                onPress={() => dispatch({ type: "toggle-category", value: id })}
                 style={styles.row}
               >
                 <Text style={styles.rowLabel}>{label}</Text>
@@ -127,9 +125,7 @@ export function NotificationSettingsScreen() {
               <Text style={styles.timeLabel}>Until</Text>
               <TextInput
                 accessibilityLabel="Quiet hours end"
-                onChangeText={(value) =>
-                  dispatch({ type: "quiet-end", value })
-                }
+                onChangeText={(value) => dispatch({ type: "quiet-end", value })}
                 style={styles.timeInput}
                 value={state.quietEnd}
               />

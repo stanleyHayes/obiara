@@ -27,10 +27,34 @@ const palette = {
 };
 
 const zones = [
-  { name: "Abɔnten", gloss: "the street", count: "3 live", symbol: "✦", tone: palette.gold },
-  { name: "Adiwo", gloss: "the courtyard", count: "4 circles", symbol: "◌", tone: palette.green },
-  { name: "Ɛpono ano", gloss: "the doorway", count: "2 waiting", symbol: "⌂", tone: palette.pink },
-  { name: "Dan mu", gloss: "the inner room", count: "1 turn", symbol: "●", tone: palette.plum },
+  {
+    name: "Abɔnten",
+    gloss: "the street",
+    count: "3 live",
+    symbol: "✦",
+    tone: palette.gold,
+  },
+  {
+    name: "Adiwo",
+    gloss: "the courtyard",
+    count: "4 circles",
+    symbol: "◌",
+    tone: palette.green,
+  },
+  {
+    name: "Ɛpono ano",
+    gloss: "the doorway",
+    count: "2 waiting",
+    symbol: "⌂",
+    tone: palette.pink,
+  },
+  {
+    name: "Dan mu",
+    gloss: "the inner room",
+    count: "1 turn",
+    symbol: "●",
+    tone: palette.plum,
+  },
 ] as const;
 
 function ActionButton({
@@ -48,14 +72,18 @@ function ActionButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.actionButton,
-        variant === "cream" ? styles.actionButtonCream : styles.actionButtonPlum,
+        variant === "cream"
+          ? styles.actionButtonCream
+          : styles.actionButtonPlum,
         pressed && styles.pressed,
       ]}
     >
       <Text
         style={[
           styles.actionLabel,
-          variant === "cream" ? styles.actionLabelPlum : styles.actionLabelCream,
+          variant === "cream"
+            ? styles.actionLabelPlum
+            : styles.actionLabelCream,
         ]}
       >
         {label}
@@ -64,7 +92,9 @@ function ActionButton({
         aria-hidden
         style={[
           styles.actionArrow,
-          variant === "cream" ? styles.actionLabelPlum : styles.actionLabelCream,
+          variant === "cream"
+            ? styles.actionLabelPlum
+            : styles.actionLabelCream,
         ]}
       >
         ↗
@@ -98,9 +128,13 @@ function ZoneCard({ zone }: Readonly<{ zone: (typeof zones)[number] }>) {
 }
 
 export default function Home() {
-  const [connectionMode, setConnectionMode] = useState<ConnectionMode>("constrained");
+  const [connectionMode, setConnectionMode] =
+    useState<ConnectionMode>("constrained");
   const [queued, setQueued] = useState(false);
-  const connection = useMemo(() => buildConnectionCopy(connectionMode, queued), [connectionMode, queued]);
+  const connection = useMemo(
+    () => buildConnectionCopy(connectionMode, queued),
+    [connectionMode, queued],
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -123,14 +157,20 @@ export default function Home() {
             <Pressable
               accessibilityLabel="Switch language"
               accessibilityRole="button"
-              style={({ pressed }) => [styles.languageButton, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.languageButton,
+                pressed && styles.pressed,
+              ]}
             >
               <Text style={styles.languageText}>EN · TWI</Text>
             </Pressable>
             <Pressable
               accessibilityLabel="Open Ama's profile"
               accessibilityRole="button"
-              style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.avatar,
+                pressed && styles.pressed,
+              ]}
             >
               <Text style={styles.avatarText}>A</Text>
             </Pressable>
@@ -143,9 +183,14 @@ export default function Home() {
           accessibilityRole="switch"
           accessibilityState={{ checked: connectionMode === "constrained" }}
           onPress={() =>
-            setConnectionMode((current) => (current === "constrained" ? "online" : "constrained"))
+            setConnectionMode((current) =>
+              current === "constrained" ? "online" : "constrained",
+            )
           }
-          style={({ pressed }) => [styles.networkBanner, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.networkBanner,
+            pressed && styles.pressed,
+          ]}
         >
           <View style={styles.networkPulse} />
           <View style={styles.networkCopy}>
@@ -167,8 +212,8 @@ export default function Home() {
             <Text style={styles.heroOutline}>Your fie is awake.</Text>
           </Text>
           <Text style={styles.heroBody}>
-            Two voices are waiting at your doorway. The drum is with you in one room, and
-            tonight’s Legon fire still has a seat.
+            Two voices are waiting at your doorway. The drum is with you in one
+            room, and tonight’s Legon fire still has a seat.
           </Text>
         </View>
 
@@ -176,10 +221,14 @@ export default function Home() {
           <View style={styles.ritualTop}>
             <View style={styles.ritualHeading}>
               <Text style={styles.eyebrow}>YOUR DAWN RITUAL</Text>
-              <Text style={styles.ritualTitle}>A small look at what is growing.</Text>
+              <Text style={styles.ritualTitle}>
+                A small look at what is growing.
+              </Text>
             </View>
             <View style={styles.sun}>
-              <Text aria-hidden style={styles.sunText}>☼</Text>
+              <Text aria-hidden style={styles.sunText}>
+                ☼
+              </Text>
             </View>
           </View>
           <View style={styles.metrics}>
@@ -202,10 +251,14 @@ export default function Home() {
         <View style={styles.sectionHeading}>
           <View>
             <Text style={styles.sectionTitle}>Walk through your compound</Text>
-            <Text style={styles.sectionBody}>Every place has a purpose. Enter with intention.</Text>
+            <Text style={styles.sectionBody}>
+              Every place has a purpose. Enter with intention.
+            </Text>
           </View>
           <View style={styles.mapBadge}>
-            <Text aria-hidden style={styles.mapIcon}>⌘</Text>
+            <Text aria-hidden style={styles.mapIcon}>
+              ⌘
+            </Text>
           </View>
         </View>
 
@@ -225,17 +278,21 @@ export default function Home() {
             <Text style={styles.seatText}>18 seats left</Text>
           </View>
           <Text style={styles.fireEyebrow}>GYAASE FIRE · LEGON COURTYARD</Text>
-          <Text style={styles.fireTitle}>Come and sit.{"\n"}The fire is catching.</Text>
+          <Text style={styles.fireTitle}>
+            Come and sit.{"\n"}The fire is catching.
+          </Text>
           <Text style={styles.fireBody}>
-            Voice games, an Oware table and one ember to carry home. Audio automatically
-            becomes listen-only when the network is too weak.
+            Voice games, an Oware table and one ember to carry home. Audio
+            automatically becomes listen-only when the network is too weak.
           </Text>
           <ActionButton label="Keep my seat" variant="cream" />
         </View>
 
         <View style={styles.queueCard}>
           <View style={styles.queueIcon}>
-            <Text aria-hidden style={styles.queueIconText}>{queued ? "✓" : "↥"}</Text>
+            <Text aria-hidden style={styles.queueIconText}>
+              {queued ? "✓" : "↥"}
+            </Text>
           </View>
           <View style={styles.queueCopy}>
             <Text style={styles.queueTitle}>{connection.queueTitle}</Text>
@@ -244,9 +301,14 @@ export default function Home() {
           <Pressable
             accessibilityRole="button"
             onPress={() => setQueued((current) => !current)}
-            style={({ pressed }) => [styles.queueButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.queueButton,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.queueButtonText}>{queued ? "Undo" : "Try it"}</Text>
+            <Text style={styles.queueButtonText}>
+              {queued ? "Undo" : "Try it"}
+            </Text>
           </Pressable>
         </View>
 
@@ -265,11 +327,19 @@ export default function Home() {
             >
               <Text
                 aria-hidden
-                style={[styles.navSymbol, active ? styles.navSymbolActive : undefined]}
+                style={[
+                  styles.navSymbol,
+                  active ? styles.navSymbolActive : undefined,
+                ]}
               >
                 {symbol}
               </Text>
-              <Text style={[styles.navLabel, active ? styles.navLabelActive : undefined]}>
+              <Text
+                style={[
+                  styles.navLabel,
+                  active ? styles.navLabelActive : undefined,
+                ]}
+              >
                 {label}
               </Text>
             </Pressable>
@@ -354,7 +424,12 @@ const styles = StyleSheet.create({
   },
   networkCopy: { flex: 1 },
   networkTitle: { color: palette.plum, fontFamily: text.bold, fontSize: 13 },
-  networkBody: { color: palette.muted, fontFamily: text.regular, fontSize: 11, marginTop: 1 },
+  networkBody: {
+    color: palette.muted,
+    fontFamily: text.regular,
+    fontSize: 11,
+    marginTop: 1,
+  },
   chevron: { color: palette.plum, fontFamily: text.medium, fontSize: 25 },
   hero: { paddingHorizontal: 20, paddingBottom: 30, paddingTop: 38 },
   dayPill: {
@@ -369,7 +444,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  dayDot: { backgroundColor: palette.gold, borderRadius: 4, height: 7, width: 7 },
+  dayDot: {
+    backgroundColor: palette.gold,
+    borderRadius: 4,
+    height: 7,
+    width: 7,
+  },
   dayText: {
     color: palette.plum,
     fontFamily: text.bold,
@@ -473,7 +553,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     letterSpacing: -0.7,
   },
-  sectionBody: { color: palette.muted, fontFamily: text.regular, fontSize: 13, marginTop: 4 },
+  sectionBody: {
+    color: palette.muted,
+    fontFamily: text.regular,
+    fontSize: 13,
+    marginTop: 4,
+  },
   mapBadge: {
     alignItems: "center",
     backgroundColor: palette.paper,
@@ -513,7 +598,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  zoneCountText: { color: palette.plum, fontFamily: text.semibold, fontSize: 11 },
+  zoneCountText: {
+    color: palette.plum,
+    fontFamily: text.semibold,
+    fontSize: 11,
+  },
   fireCard: {
     backgroundColor: palette.plum,
     borderRadius: 30,
@@ -546,8 +635,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 8,
   },
-  liveDot: { backgroundColor: palette.white, borderRadius: 3, height: 6, width: 6 },
-  liveText: { color: palette.white, fontFamily: text.bold, fontSize: 9, letterSpacing: 0.6 },
+  liveDot: {
+    backgroundColor: palette.white,
+    borderRadius: 3,
+    height: 6,
+    width: 6,
+  },
+  liveText: {
+    color: palette.white,
+    fontFamily: text.bold,
+    fontSize: 9,
+    letterSpacing: 0.6,
+  },
   seatText: { color: palette.cream, fontFamily: text.medium, fontSize: 11 },
   fireEyebrow: {
     color: palette.gold,
@@ -624,10 +723,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
-  navItem: { alignItems: "center", flex: 1, justifyContent: "center", minHeight: 54 },
+  navItem: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 54,
+  },
   navSymbol: { color: palette.muted, fontFamily: text.medium, fontSize: 18 },
   navSymbolActive: { color: palette.pink },
-  navLabel: { color: palette.muted, fontFamily: text.medium, fontSize: 10, marginTop: 2 },
+  navLabel: {
+    color: palette.muted,
+    fontFamily: text.medium,
+    fontSize: 10,
+    marginTop: 2,
+  },
   navLabelActive: { color: palette.plum, fontFamily: text.bold },
   pressed: { opacity: 0.68, transform: [{ scale: 0.985 }] },
 });

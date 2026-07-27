@@ -35,8 +35,20 @@ export const initialCommunityState: CommunityState = {
   fireRef: "fire•••7D3",
   fireStarts: "31 July · 18:30 GMT",
   hostCandidates: [
-    { ref: "host•••A7", label: "Current host", verified: true, certified: true, certificationEnds: "30 September 2026" },
-    { ref: "host•••M4", label: "Backup candidate", verified: true, certified: false, certificationEnds: "Certification pending" },
+    {
+      ref: "host•••A7",
+      label: "Current host",
+      verified: true,
+      certified: true,
+      certificationEnds: "30 September 2026",
+    },
+    {
+      ref: "host•••M4",
+      label: "Backup candidate",
+      verified: true,
+      certified: false,
+      certificationEnds: "Certification pending",
+    },
   ],
   selectedHostRef: "host•••A7",
   actionReason: "",
@@ -64,7 +76,10 @@ export function communityReducer(
   if (action.type === "reason" && state.proposalState === "draft") {
     return { ...state, actionReason: action.value.slice(0, 180) };
   }
-  if (action.type === "confirm-notice-preview" && state.proposalState === "draft") {
+  if (
+    action.type === "confirm-notice-preview" &&
+    state.proposalState === "draft"
+  ) {
     return { ...state, noticePreviewConfirmed: true };
   }
   if (

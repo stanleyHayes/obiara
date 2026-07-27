@@ -1,0 +1,15 @@
+# Scratch/agent state
+.raven/
+.worktrees/
+
+# Build output
+.next/
+.turbo/
+storybook-static/
+playwright-report/
+test-results/
+coverage/
+dist/
+
+# Dependencies are ignored by default; keep generated lockfile noise out
+.pnpm-store/

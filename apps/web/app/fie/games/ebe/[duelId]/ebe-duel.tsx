@@ -9,7 +9,9 @@ export function EbeDuel({ duelId }: Readonly<{ duelId: string }>) {
   return (
     <main className="ebe-duel">
       <header>
-        <Link href="/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa">← Private room</Link>
+        <Link href="/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa">
+          ← Private room
+        </Link>
         <strong>Private duel · Ama and you</strong>
         <button type="button">Safety</button>
       </header>
@@ -29,7 +31,9 @@ export function EbeDuel({ duelId }: Readonly<{ duelId: string }>) {
         </div>
         <p className="fie-kicker">Round one of three</p>
         <h2 id="proverb-title">“Tikoro nko agyina.”</h2>
-        <p className="ebe-prompt">Which reflection sits closest to this proverb?</p>
+        <p className="ebe-prompt">
+          Which reflection sits closest to this proverb?
+        </p>
         <fieldset disabled={state.stage !== "answering"}>
           <legend>Choose one reviewed interpretation</legend>
           {answers.map((answer) => (
@@ -74,18 +78,26 @@ export function EbeDuel({ duelId }: Readonly<{ duelId: string }>) {
         </div>
         {state.stage === "revealed" ? (
           <div className="ebe-reveal" role="status">
-            <div><span>You chose</span><strong>{state.selected}</strong></div>
-            <div><span>Ama chose</span><strong>{answers[0]}</strong></div>
+            <div>
+              <span>You chose</span>
+              <strong>{state.selected}</strong>
+            </div>
+            <div>
+              <span>Ama chose</span>
+              <strong>{answers[0]}</strong>
+            </div>
             <p>
-              Reviewed context: shared counsel can see beyond one person’s
-              view. This is a learning note, not a measure of character.
+              Reviewed context: shared counsel can see beyond one person’s view.
+              This is a learning note, not a measure of character.
             </p>
           </div>
         ) : null}
       </section>
       <footer>
         <p>Reviewed cultural context stays versioned and attributable.</p>
-        <Link href="/fie/games/oware/game_4Nq8mK2xP7vR5tZa">Return to Oware</Link>
+        <Link href="/fie/games/oware/game_4Nq8mK2xP7vR5tZa">
+          Return to Oware
+        </Link>
       </footer>
     </main>
   );

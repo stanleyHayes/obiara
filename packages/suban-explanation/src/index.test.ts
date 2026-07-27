@@ -1,15 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  initialSubanState,
-  isPrivacySafe,
-  subanReducer,
-} from "./index";
+import { initialSubanState, isPrivacySafe, subanReducer } from "./index";
 
 describe("suban explanation", () => {
   it("keeps every contribution visible and explains decay and suppression", () => {
     expect(initialSubanState.events).toHaveLength(3);
-    expect(initialSubanState.events.filter((event) => event.decays)).toHaveLength(2);
+    expect(
+      initialSubanState.events.filter((event) => event.decays),
+    ).toHaveLength(2);
     expect(initialSubanState.events.at(-1)?.effect).toContain("does not erase");
     expect(initialSubanState.markState).toBe("suppressed");
   });
@@ -28,7 +26,10 @@ describe("suban explanation", () => {
 
   it("rejects short appeals and excludes restricted data", () => {
     const short = subanReducer(
-      subanReducer(initialSubanState, { type: "appeal-reason", value: "wrong" }),
+      subanReducer(initialSubanState, {
+        type: "appeal-reason",
+        value: "wrong",
+      }),
       { type: "submit-appeal" },
     );
     expect(short.appealState).toBe("none");

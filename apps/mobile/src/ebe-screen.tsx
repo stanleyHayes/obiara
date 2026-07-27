@@ -21,9 +21,7 @@ export function EbeScreen() {
         <View style={styles.topbar}>
           <Pressable
             onPress={() =>
-              router.push(
-                "/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa" as Href,
-              )
+              router.push("/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa" as Href)
             }
             style={styles.control}
           >
@@ -90,7 +88,10 @@ export function EbeScreen() {
             </Pressable>
           ) : null}
           {stage === "waiting" ? (
-            <Pressable onPress={() => setStage("revealed")} style={styles.primary}>
+            <Pressable
+              onPress={() => setStage("revealed")}
+              style={styles.primary}
+            >
               <Text style={styles.primaryText}>Reveal together</Text>
             </Pressable>
           ) : null}

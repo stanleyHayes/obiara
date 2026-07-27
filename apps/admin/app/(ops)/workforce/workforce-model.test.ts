@@ -26,9 +26,7 @@ describe("moderation workforce safeguards", () => {
       type: "preview",
       category: "sexual_safety",
     });
-    expect(
-      workforceReducer(previewed, { type: "start-break" }),
-    ).toMatchObject({
+    expect(workforceReducer(previewed, { type: "start-break" })).toMatchObject({
       breakActive: true,
       selectedCategory: null,
     });

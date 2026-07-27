@@ -31,12 +31,7 @@ export const initialGardenState: GardenState = {
 };
 
 export type SeedLifecycle =
-  | "queued"
-  | "delivered"
-  | "heard"
-  | "sprouted"
-  | "declined"
-  | "expired";
+  "queued" | "delivered" | "heard" | "sprouted" | "declined" | "expired";
 
 export interface GardenSeed {
   readonly id: string;
@@ -61,7 +56,10 @@ const lifecycleCopy: Record<
   heard: { label: "Heard", note: "Listened to; no reply promised" },
   sprouted: { label: "Sprouted", note: "A mutual doorway can begin" },
   declined: { label: "Resting", note: "Closed kindly for 90 days" },
-  expired: { label: "Returned to earth", note: "Closed without a public signal" },
+  expired: {
+    label: "Returned to earth",
+    note: "Closed without a public signal",
+  },
 };
 
 export function describeLifecycle(state: SeedLifecycle) {

@@ -43,17 +43,17 @@ stale revision fails without appending an event.
 
 The handoff envelope contains only:
 
-| Field | Contract |
-| --- | --- |
-| `handoffId` | Random opaque identifier |
-| `recipeKey` | Keyed opaque immutable recipe reference |
-| `recipeVersion` | Supported canonical grammar version |
-| `renderSeed` | Deterministic 64-character lowercase hex seed |
-| `productionTokens` | Six allowlisted bounded tokens produced by the grammar |
-| `format` | One of `woven_band`, `framed_cloth`, `digital_archive` |
-| `deliveryRef` | Envelope-encrypted opaque fulfillment reference |
-| `policyVersion` | Version that governed member approval |
-| `expiresAt` | Server timestamp, no more than seven days after readiness |
+| Field              | Contract                                                  |
+| ------------------ | --------------------------------------------------------- |
+| `handoffId`        | Random opaque identifier                                  |
+| `recipeKey`        | Keyed opaque immutable recipe reference                   |
+| `recipeVersion`    | Supported canonical grammar version                       |
+| `renderSeed`       | Deterministic 64-character lowercase hex seed             |
+| `productionTokens` | Six allowlisted bounded tokens produced by the grammar    |
+| `format`           | One of `woven_band`, `framed_cloth`, `digital_archive`    |
+| `deliveryRef`      | Envelope-encrypted opaque fulfillment reference           |
+| `policyVersion`    | Version that governed member approval                     |
+| `expiresAt`        | Server timestamp, no more than seven days after readiness |
 
 It never contains names, handles, phone numbers, email addresses, street
 addresses, payment details, voice, transcripts, prompt responses, reviewer

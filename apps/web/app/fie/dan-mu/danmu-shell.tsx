@@ -105,7 +105,10 @@ export function DanMuShell() {
             </div>
 
             <footer>
-              <Link className="danmu-open-room" href="/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa">
+              <Link
+                className="danmu-open-room"
+                href="/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa"
+              >
                 Open private room
               </Link>
               <button

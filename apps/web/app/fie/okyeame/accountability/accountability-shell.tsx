@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { CompoundBottomNavigation, CompoundRail } from "../../compound-navigation";
+import {
+  CompoundBottomNavigation,
+  CompoundRail,
+} from "../../compound-navigation";
 import {
   capabilityCards,
   initialAppealState,

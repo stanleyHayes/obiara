@@ -9,7 +9,10 @@ import {
 import Link from "next/link";
 import { useReducer } from "react";
 
-import { CompoundBottomNavigation, CompoundRail } from "../../compound-navigation";
+import {
+  CompoundBottomNavigation,
+  CompoundRail,
+} from "../../compound-navigation";
 
 export function EscrowEngagement() {
   const [state, dispatch] = useReducer(escrowReducer, initialEscrowState);
@@ -36,10 +39,22 @@ export function EscrowEngagement() {
         </section>
 
         <section className="escrow-ledger" aria-label="Engagement totals">
-          <div><span>Funded</span><strong>{formatGhs(state.fundedPesewas)}</strong></div>
-          <div><span>Platform fee</span><strong>{formatGhs(state.platformFeePesewas)}</strong></div>
-          <div><span>Matchmaker payout</span><strong>{formatGhs(state.payoutPesewas)}</strong></div>
-          <div><span>Payout statement</span><strong>{state.payoutStatementRef}</strong></div>
+          <div>
+            <span>Funded</span>
+            <strong>{formatGhs(state.fundedPesewas)}</strong>
+          </div>
+          <div>
+            <span>Platform fee</span>
+            <strong>{formatGhs(state.platformFeePesewas)}</strong>
+          </div>
+          <div>
+            <span>Matchmaker payout</span>
+            <strong>{formatGhs(state.payoutPesewas)}</strong>
+          </div>
+          <div>
+            <span>Payout statement</span>
+            <strong>{state.payoutStatementRef}</strong>
+          </div>
         </section>
 
         <section className="escrow-workspace">
@@ -61,21 +76,28 @@ export function EscrowEngagement() {
             </div>
             <div className="evidence-card">
               <h3>{selected.name}</h3>
-              <p>Both sides confirm delivery independently. Neither confirmation can release funds alone.</p>
+              <p>
+                Both sides confirm delivery independently. Neither confirmation
+                can release funds alone.
+              </p>
               <div className="evidence-actions">
                 <button
                   disabled={selected.memberConfirmed || frozen}
                   onClick={() => dispatch({ type: "confirm-member" })}
                   type="button"
                 >
-                  {selected.memberConfirmed ? "Member confirmed" : "Confirm as member"}
+                  {selected.memberConfirmed
+                    ? "Member confirmed"
+                    : "Confirm as member"}
                 </button>
                 <button
                   disabled={selected.matchmakerConfirmed || frozen}
                   onClick={() => dispatch({ type: "confirm-matchmaker" })}
                   type="button"
                 >
-                  {selected.matchmakerConfirmed ? "Matchmaker confirmed" : "Preview matchmaker confirmation"}
+                  {selected.matchmakerConfirmed
+                    ? "Matchmaker confirmed"
+                    : "Preview matchmaker confirmation"}
                 </button>
               </div>
               <button
@@ -96,13 +118,23 @@ export function EscrowEngagement() {
 
           <article className="escrow-dispute">
             <p className="fie-kicker">Dispute protection</p>
-            <h2>{frozen ? "Settlement is frozen." : "Something does not match?"}</h2>
+            <h2>
+              {frozen ? "Settlement is frozen." : "Something does not match?"}
+            </h2>
             {state.disputeState === "none" ? (
               <>
-                <p>Explain the delivery issue without phone, card or private conversation details.</p>
+                <p>
+                  Explain the delivery issue without phone, card or private
+                  conversation details.
+                </p>
                 <textarea
                   aria-label="Dispute reason"
-                  onChange={(event) => dispatch({ type: "dispute-reason", value: event.target.value })}
+                  onChange={(event) =>
+                    dispatch({
+                      type: "dispute-reason",
+                      value: event.target.value,
+                    })
+                  }
                   placeholder="Describe what differs from the agreed milestone"
                   rows={5}
                   value={state.disputeReason}
@@ -117,10 +149,18 @@ export function EscrowEngagement() {
               </>
             ) : (
               <div className="dispute-status">
-                <strong>Funds remain protected while people review the terms.</strong>
-                <p>This does not delete the engagement, evidence or payout statement.</p>
+                <strong>
+                  Funds remain protected while people review the terms.
+                </strong>
+                <p>
+                  This does not delete the engagement, evidence or payout
+                  statement.
+                </p>
                 {state.disputeState === "open" ? (
-                  <button onClick={() => dispatch({ type: "escalate-dispute" })} type="button">
+                  <button
+                    onClick={() => dispatch({ type: "escalate-dispute" })}
+                    type="button"
+                  >
                     Escalate to Mpanyimfo review
                   </button>
                 ) : (

@@ -1,6 +1,10 @@
 .nnoboa-main {
   background:
-    radial-gradient(circle at 86% 7%, rgba(240, 167, 92, 0.2), transparent 26rem),
+    radial-gradient(
+      circle at 86% 7%,
+      rgba(240, 167, 92, 0.2),
+      transparent 26rem
+    ),
     #f7efe3;
   color: #2b151f;
   min-height: 100vh;
