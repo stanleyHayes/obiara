@@ -86,13 +86,13 @@ export function FieHome() {
             >
               2
             </Link>
-            <button
+            <Link
               aria-label="Open profile and privacy"
               className="fie-avatar"
-              type="button"
+              href="/fie/settings/profile"
             >
               AM
-            </button>
+            </Link>
           </div>
         </header>
 
