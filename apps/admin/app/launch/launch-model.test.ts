@@ -65,4 +65,60 @@ describe("launch readiness", () => {
     expect(ready.throttleRef).toBe("waitlist-throttle•••3D5");
     expect(ready.gates).toEqual(initialLaunchState.gates);
   });
+
+  it("attributes campus quality only through aggregate consent and safety gates", () => {
+    expect(
+      initialLaunchState.campusAttribution.map((campus) => ({
+        campus: campus.campus,
+        passes:
+          campus.evidenceComplete &&
+          campus.unresolvedSafety === 0 &&
+          campus.sustainedThirtyDay > 0,
+      })),
+    ).toEqual([
+      { campus: "Legon", passes: true },
+      { campus: "KNUST", passes: false },
+      { campus: "UCC", passes: false },
+    ]);
+    expect(JSON.stringify(initialLaunchState.campusAttribution)).not.toMatch(
+      /ambassador|email|phone|member/i,
+    );
+  });
+
+  it("keeps incomplete UAT and unhealthy hypercare fail closed", () => {
+    expect(initialLaunchState.uat.consented).toBeLessThan(
+      initialLaunchState.uat.invited,
+    );
+    expect(initialLaunchState.uat.completed).toBeLessThan(
+      initialLaunchState.uat.trained,
+    );
+    expect(
+      initialLaunchState.hypercare.some((signal) => signal.state === "blocked"),
+    ).toBe(true);
+  });
+
+  it("prepares bounded feedback triage without changing source facts", () => {
+    const reasoned = launchReducer(initialLaunchState, {
+      type: "triage-reason",
+      value: "Route both critical findings to their named human owners.",
+    });
+    const prepared = launchReducer(reasoned, { type: "prepare-triage" });
+    expect(prepared.triageRef).toBe("uat-triage•••7H4");
+    expect(prepared.uat).toEqual(initialLaunchState.uat);
+    expect(prepared.hypercare).toEqual(initialLaunchState.hypercare);
+  });
+
+  it("rejects triage without critical findings or a substantive reason", () => {
+    expect(
+      launchReducer(initialLaunchState, { type: "prepare-triage" }).triageState,
+    ).toBe("none");
+    const noCritical = {
+      ...initialLaunchState,
+      uat: { ...initialLaunchState.uat, criticalFeedbackOpen: 0 },
+      triageReason: "Route critical findings to accountable human owners.",
+    } as const;
+    expect(
+      launchReducer(noCritical, { type: "prepare-triage" }).triageState,
+    ).toBe("none");
+  });
 });

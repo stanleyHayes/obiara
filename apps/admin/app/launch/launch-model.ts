@@ -31,13 +31,39 @@ export interface LaunchState {
   readonly reviewNote: string;
   readonly reviewState: "none" | "recorded";
   readonly reviewRef: string | null;
+  readonly campusAttribution: readonly {
+    readonly campus: string;
+    readonly consentedIntroductions: number;
+    readonly sustainedThirtyDay: number;
+    readonly unresolvedSafety: number;
+    readonly evidenceComplete: boolean;
+  }[];
+  readonly uat: {
+    readonly consented: number;
+    readonly invited: number;
+    readonly trained: number;
+    readonly completed: number;
+    readonly criticalFeedbackOpen: number;
+  };
+  readonly hypercare: readonly {
+    readonly signal: string;
+    readonly current: string;
+    readonly target: string;
+    readonly state: "healthy" | "blocked";
+    readonly owner: string;
+  }[];
+  readonly triageReason: string;
+  readonly triageState: "none" | "prepared";
+  readonly triageRef: string | null;
 }
 
 export type LaunchAction =
   | { readonly type: "review-note"; readonly value: string }
   | { readonly type: "record-review" }
   | { readonly type: "throttle-reason"; readonly value: string }
-  | { readonly type: "prepare-throttle" };
+  | { readonly type: "prepare-throttle" }
+  | { readonly type: "triage-reason"; readonly value: string }
+  | { readonly type: "prepare-triage" };
 
 export const initialLaunchState: LaunchState = {
   readinessRef: "launch-readiness•••4V6",
@@ -91,6 +117,62 @@ export const initialLaunchState: LaunchState = {
   reviewNote: "",
   reviewState: "none",
   reviewRef: null,
+  campusAttribution: [
+    {
+      campus: "Legon",
+      consentedIntroductions: 24,
+      sustainedThirtyDay: 18,
+      unresolvedSafety: 0,
+      evidenceComplete: true,
+    },
+    {
+      campus: "KNUST",
+      consentedIntroductions: 19,
+      sustainedThirtyDay: 11,
+      unresolvedSafety: 1,
+      evidenceComplete: true,
+    },
+    {
+      campus: "UCC",
+      consentedIntroductions: 12,
+      sustainedThirtyDay: 0,
+      unresolvedSafety: 0,
+      evidenceComplete: false,
+    },
+  ],
+  uat: {
+    consented: 18,
+    invited: 20,
+    trained: 16,
+    completed: 13,
+    criticalFeedbackOpen: 2,
+  },
+  hypercare: [
+    {
+      signal: "Core availability",
+      current: "99.82%",
+      target: "≥ 99.90%",
+      state: "blocked",
+      owner: "Platform on-call",
+    },
+    {
+      signal: "Tier-A routing",
+      current: "100% ≤ 60s",
+      target: "≥ 99.90%",
+      state: "healthy",
+      owner: "Safety on-call",
+    },
+    {
+      signal: "Critical feedback",
+      current: "2 open",
+      target: "0 open",
+      state: "blocked",
+      owner: "UAT lead",
+    },
+  ],
+  triageReason: "",
+  triageState: "none",
+  triageRef: null,
 };
 
 export function launchBlocked(state: LaunchState) {
@@ -106,6 +188,21 @@ export function launchReducer(
   }
   if (action.type === "throttle-reason" && state.throttleState === "none") {
     return { ...state, throttleReason: action.value.slice(0, 180) };
+  }
+  if (action.type === "triage-reason" && state.triageState === "none") {
+    return { ...state, triageReason: action.value.slice(0, 180) };
+  }
+  if (
+    action.type === "prepare-triage" &&
+    state.triageState === "none" &&
+    state.uat.criticalFeedbackOpen > 0 &&
+    state.triageReason.trim().length >= 12
+  ) {
+    return {
+      ...state,
+      triageState: "prepared",
+      triageRef: "uat-triage•••7H4",
+    };
   }
   if (
     action.type === "prepare-throttle" &&
