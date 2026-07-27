@@ -51,6 +51,7 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"  /v1/calls/{id}/end:",
 		"  /v1/metrics/funnel:",
 		"  /v1/scam-arc/signals:",
+		"  /v1/metrics/deliveries:",
 		"  /v1/admin/verifications:",
 		"  /v1/admin/verifications/{id}:",
 		"  /v1/admin/verifications/{id}/evidence-access:",
@@ -101,6 +102,7 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"operationId: endCall",
 		"operationId: getFunnelMetrics",
 		"operationId: observeScamArcSignal",
+		"operationId: getDeliveryStats",
 		"name: Idempotency-Key",
 		"name: X-Correlation-ID",
 		"additionalProperties: false",
@@ -136,7 +138,7 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 44 {
-		t.Errorf("operationId count = %d, want 44", len(seen))
+	if len(seen) != 45 {
+		t.Errorf("operationId count = %d, want 45", len(seen))
 	}
 }

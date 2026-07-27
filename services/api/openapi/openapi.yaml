@@ -1635,6 +1635,40 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/metrics/deliveries:
+    get:
+      operationId: getDeliveryStats
+      tags: [Notifications]
+      summary: Per-channel delivery statistics
+      security: []
+      description: |
+        Attempted, sent, delivered and failed counts with success rates
+        per channel (E13-S08). Computed from delivery logs only — never
+        message content.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+      responses:
+        "200":
+          description: Delivery statistics report.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryStatsEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -3358,6 +3392,44 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/ScamArcStateData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    ChannelStatsData:
+      type: object
+      additionalProperties: false
+      required: [attempted, sent, delivered, failed, successRate]
+      properties:
+        attempted:
+          type: integer
+        sent:
+          type: integer
+        delivered:
+          type: integer
+        failed:
+          type: integer
+        successRate:
+          type: number
+    DeliveryStatsData:
+      type: object
+      additionalProperties: false
+      required: [windowDays, channels, computedAt]
+      properties:
+        windowDays:
+          type: integer
+        channels:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ChannelStatsData"
+        computedAt:
+          type: string
+          format: date-time
+    DeliveryStatsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DeliveryStatsData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

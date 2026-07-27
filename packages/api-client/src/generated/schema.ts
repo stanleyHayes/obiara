@@ -557,6 +557,28 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/metrics/deliveries": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Per-channel delivery statistics
+     * @description Attempted, sent, delivered and failed counts with success rates
+     *     per channel (E13-S08). Computed from delivery logs only — never
+     *     message content.
+     */
+    readonly get: operations["getDeliveryStats"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/metrics/funnel": {
     readonly parameters: {
       readonly query?: never;
@@ -959,6 +981,13 @@ export interface components {
       readonly data: components["schemas"]["CancelRsvpData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly ChannelStatsData: {
+      readonly attempted: number;
+      readonly delivered: number;
+      readonly failed: number;
+      readonly sent: number;
+      readonly successRate: number;
+    };
     readonly CloseFireData: {
       readonly attendees: readonly string[];
       /** @constant */
@@ -972,6 +1001,18 @@ export interface components {
       readonly actorId: string;
     };
     readonly CorrelationId: string;
+    readonly DeliveryStatsData: {
+      readonly channels: {
+        readonly [key: string]: components["schemas"]["ChannelStatsData"];
+      };
+      /** Format: date-time */
+      readonly computedAt: string;
+      readonly windowDays: number;
+    };
+    readonly DeliveryStatsEnvelope: {
+      readonly data: components["schemas"]["DeliveryStatsData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly DoorwayQuestionData: {
       readonly custom: boolean;
       readonly text: string;
@@ -2829,6 +2870,34 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidTrustPathBounds"];
       readonly 404: components["responses"]["TrustPathsNotFound"];
+    };
+  };
+  readonly getDeliveryStats: {
+    readonly parameters: {
+      readonly query?: {
+        readonly days?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Delivery statistics report. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["DeliveryStatsEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly getFunnelMetrics: {

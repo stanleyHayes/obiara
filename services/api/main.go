@@ -18,6 +18,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 
 	"github.com/stanleyHayes/obiara/internal/notifications"
+	deliverystats "github.com/stanleyHayes/obiara/internal/notifications/deliverystats/adapters/outbound/mongodb"
+	deliverystatsapp "github.com/stanleyHayes/obiara/internal/notifications/deliverystats/application"
 	"github.com/stanleyHayes/obiara/internal/notifications/email"
 	"github.com/stanleyHayes/obiara/internal/platform/inbox"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
@@ -228,6 +230,7 @@ func run() error {
 	apihttp.RegisterCallRoutes(mux, callsModule.Calls)
 	apihttp.RegisterMetricsRoutes(mux, analyticsModule.Metrics)
 	apihttp.RegisterScamArcRoutes(mux, scamModule.ScamArc)
+	apihttp.RegisterDeliveryStatsRoutes(mux, deliverystatsapp.NewStatsService(deliverystats.NewStore(client.Database(cfg.MongoDatabase)), time.Now))
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{
