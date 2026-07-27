@@ -1,0 +1,19 @@
+version: 1
+environment: local_synthetic
+profiles:
+  - name: api_live
+    requests: 2000
+    concurrency: 16
+    maximum_p95_ms: 100
+    maximum_error_rate: 0
+  - name: mongodb_insert_read
+    requests: 800
+    concurrency: 16
+    maximum_p95_ms: 500
+    maximum_error_rate: 0
+guardrails:
+  maximum_requests: 10000
+  maximum_concurrency: 64
+  external_targets_allowed: false
+  production_data_allowed: false
+  benchmark_is_sla: false

@@ -1,0 +1,33 @@
+version: 1
+currency: USD_cents
+status: planning_assumption_not_provider_quote
+assumptions:
+  fixed_compute_cents: 400000
+  fixed_database_cents: 300000
+  storage_gib_cents: 50
+  egress_gib_cents: 15
+  notification_thousand_cents: 100
+  ai_minute_thousand_cents: 1000
+  live_seat_hour_thousand_cents: 750
+scenarios:
+  - name: pilot_10k_mau
+    mau: 10000
+    storage_gib: 500
+    egress_gib: 1000
+    notifications: 100000
+    ai_minutes: 50000
+    live_seat_hours: 20000
+  - name: architecture_100k_mau
+    mau: 100000
+    storage_gib: 4000
+    egress_gib: 10000
+    notifications: 1000000
+    ai_minutes: 500000
+    live_seat_hours: 200000
+  - name: sensitivity_1m_mau
+    mau: 1000000
+    storage_gib: 30000
+    egress_gib: 80000
+    notifications: 10000000
+    ai_minutes: 5000000
+    live_seat_hours: 2000000
