@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { type Href, useRouter } from "expo-router";
 
 import brandMark from "../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-onlight_transparent.png";
 import { buildConnectionCopy, type ConnectionMode } from "../src/connection";
@@ -33,6 +34,7 @@ const zones = [
     count: "3 live",
     symbol: "✦",
     tone: palette.gold,
+    href: "/fie/abonten",
   },
   {
     name: "Adiwo",
@@ -40,6 +42,7 @@ const zones = [
     count: "4 circles",
     symbol: "◌",
     tone: palette.green,
+    href: "/fie/adiwo",
   },
   {
     name: "Ɛpono ano",
@@ -47,6 +50,7 @@ const zones = [
     count: "2 waiting",
     symbol: "⌂",
     tone: palette.pink,
+    href: "/fie/epono-ano",
   },
   {
     name: "Dan mu",
@@ -54,8 +58,22 @@ const zones = [
     count: "1 turn",
     symbol: "●",
     tone: palette.plum,
+    href: "/fie/dan-mu",
   },
 ] as const;
+
+const heroCopy = {
+  EN: {
+    title: "Akwaaba, Ama.",
+    outline: "Your fie is awake.",
+    body: "Two voices are waiting at your doorway. The drum is with you in one room, and tonight’s Legon fire still has a seat.",
+  },
+  TWI: {
+    title: "Akwaaba, Ama.",
+    outline: "Wo fie anyan.",
+    body: "Nnero abien reten wo Ɛpono ano. Kankyere wɔ wo nkyɛn wɔ dan bi mu, na anɔpmwe Gyaase ogya no da so wɔ bea.",
+  },
+} as const;
 
 function ActionButton({
   label,
@@ -104,11 +122,13 @@ function ActionButton({
 }
 
 function ZoneCard({ zone }: Readonly<{ zone: (typeof zones)[number] }>) {
+  const router = useRouter();
   return (
     <Pressable
       accessibilityHint={`Enter ${zone.gloss}`}
       accessibilityLabel={`${zone.name}, ${zone.count}`}
       accessibilityRole="button"
+      onPress={() => router.push(zone.href as Href)}
       style={({ pressed }) => [styles.zoneCard, pressed && styles.pressed]}
     >
       <View style={[styles.zoneSymbol, { backgroundColor: zone.tone }]}>
@@ -128,13 +148,16 @@ function ZoneCard({ zone }: Readonly<{ zone: (typeof zones)[number] }>) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [connectionMode, setConnectionMode] =
     useState<ConnectionMode>("constrained");
   const [queued, setQueued] = useState(false);
+  const [language, setLanguage] = useState<"EN" | "TWI">("EN");
   const connection = useMemo(
     () => buildConnectionCopy(connectionMode, queued),
     [connectionMode, queued],
   );
+  const hero = heroCopy[language];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -157,16 +180,22 @@ export default function Home() {
             <Pressable
               accessibilityLabel="Switch language"
               accessibilityRole="button"
+              onPress={() =>
+                setLanguage((current) => (current === "EN" ? "TWI" : "EN"))
+              }
               style={({ pressed }) => [
                 styles.languageButton,
                 pressed && styles.pressed,
               ]}
             >
-              <Text style={styles.languageText}>EN · TWI</Text>
+              <Text style={styles.languageText}>
+                {language === "EN" ? "EN · TWI" : "TWI · EN"}
+              </Text>
             </Pressable>
             <Pressable
               accessibilityLabel="Open Ama's profile"
               accessibilityRole="button"
+              onPress={() => router.push("/fie/settings/profile" as Href)}
               style={({ pressed }) => [
                 styles.avatar,
                 pressed && styles.pressed,
@@ -208,13 +237,11 @@ export default function Home() {
             <Text style={styles.dayText}>SUNDAY · YOUR QUIET MORNING</Text>
           </View>
           <Text style={styles.heroTitle}>
-            Akwaaba, Ama.{"\n"}
-            <Text style={styles.heroOutline}>Your fie is awake.</Text>
+            {hero.title}
+            {"\n"}
+            <Text style={styles.heroOutline}>{hero.outline}</Text>
           </Text>
-          <Text style={styles.heroBody}>
-            Two voices are waiting at your doorway. The drum is with you in one
-            room, and tonight’s Legon fire still has a seat.
-          </Text>
+          <Text style={styles.heroBody}>{hero.body}</Text>
         </View>
 
         <View style={styles.ritualCard}>
@@ -245,7 +272,10 @@ export default function Home() {
               <Text style={styles.metricLabel}>seeds this week</Text>
             </View>
           </View>
-          <ActionButton label="Visit my garden" />
+          <ActionButton
+            label="Visit my garden"
+            onPress={() => router.push("/fie/garden" as Href)}
+          />
         </View>
 
         <View style={styles.sectionHeading}>
@@ -285,7 +315,11 @@ export default function Home() {
             Voice games, an Oware table and one ember to carry home. Audio
             automatically becomes listen-only when the network is too weak.
           </Text>
-          <ActionButton label="Keep my seat" variant="cream" />
+          <ActionButton
+            label="Keep my seat"
+            onPress={() => router.push("/fie/fires/fire_legon_gyaase" as Href)}
+            variant="cream"
+          />
         </View>
 
         <View style={styles.queueCard}>
@@ -312,40 +346,59 @@ export default function Home() {
           </Pressable>
         </View>
 
-        <View style={styles.bottomNav} accessibilityRole="tablist">
-          {[
-            ["⌂", "Fie", true],
-            ["◌", "Circles", false],
-            ["●", "Rooms", false],
-            ["♙", "Me", false],
-          ].map(([symbol, label, active]) => (
-            <Pressable
-              accessibilityRole="tab"
-              accessibilityState={{ selected: Boolean(active) }}
-              key={String(label)}
-              style={styles.navItem}
-            >
-              <Text
-                aria-hidden
-                style={[
-                  styles.navSymbol,
-                  active ? styles.navSymbolActive : undefined,
-                ]}
-              >
-                {symbol}
-              </Text>
-              <Text
-                style={[
-                  styles.navLabel,
-                  active ? styles.navLabelActive : undefined,
-                ]}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Pressable
+          accessibilityHint="Opens the okyeame guide"
+          accessibilityLabel="Ask the okyeame"
+          accessibilityRole="button"
+          onPress={() => router.push("/fie/okyeame" as Href)}
+          style={({ pressed }) => [
+            styles.okyeamePill,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text aria-hidden style={styles.okyeameDot}>
+            ●
+          </Text>
+          <Text style={styles.okyeameText}>Ask the okyeame</Text>
+        </Pressable>
       </ScrollView>
+
+      <View style={styles.bottomNav} accessibilityRole="tablist">
+        {(
+          [
+            ["⌂", "Fie", "/", true],
+            ["◌", "Circles", "/fie/adiwo", false],
+            ["●", "Rooms", "/fie/dan-mu", false],
+            ["♙", "Me", "/fie/settings/profile", false],
+          ] as const
+        ).map(([symbol, label, href, active]) => (
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            key={label}
+            onPress={() => router.push(href as Href)}
+            style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}
+          >
+            <Text
+              aria-hidden
+              style={[
+                styles.navSymbol,
+                active ? styles.navSymbolActive : undefined,
+              ]}
+            >
+              {symbol}
+            </Text>
+            <Text
+              style={[
+                styles.navLabel,
+                active ? styles.navLabelActive : undefined,
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
     </SafeAreaView>
   );
 }
@@ -360,7 +413,7 @@ const text = {
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: palette.cream, flex: 1 },
-  scrollContent: { paddingBottom: 22 },
+  scrollContent: { paddingBottom: 110 },
   topbar: {
     alignItems: "center",
     borderBottomColor: palette.line,
@@ -712,16 +765,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   queueButtonText: { color: palette.plum, fontFamily: text.bold, fontSize: 12 },
+  okyeamePill: {
+    alignItems: "center",
+    alignSelf: "center",
+    backgroundColor: palette.gold,
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    marginTop: 22,
+    minHeight: 56,
+    paddingHorizontal: 28,
+  },
+  okyeameDot: { color: palette.plum, fontSize: 14 },
+  okyeameText: {
+    color: palette.plum,
+    fontFamily: text.bold,
+    fontSize: 16,
+  },
   bottomNav: {
     backgroundColor: palette.paper,
     borderColor: palette.line,
     borderRadius: 24,
     borderWidth: 1,
+    bottom: 12,
     flexDirection: "row",
-    marginHorizontal: 20,
-    marginTop: 22,
+    left: 20,
     paddingHorizontal: 8,
     paddingVertical: 8,
+    position: "absolute",
+    right: 20,
   },
   navItem: {
     alignItems: "center",
