@@ -4,7 +4,7 @@
 - Last reconciled: 2026-07-27
 - Product and engineering backlog: **complete**
 - Repository launch-decision tooling: **complete**
-- External-gate handoff tooling: **in progress**
+- External-gate handoff tooling: **complete**
 - Production: **blocked**
 
 This is the final boundary between agent-buildable work and actions that require
@@ -45,3 +45,6 @@ The repository backlog is complete only when every row above has:
 
 At that point, no agent-buildable task remains. The project is not production
 ready: the final column still requires real human and provider action.
+
+This completion rule passed on 2026-07-27. The integrated evidence is recorded
+in [`repository-backlog-closure.md`](repository-backlog-closure.md).
