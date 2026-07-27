@@ -84,6 +84,19 @@ body {
   scrollbar-gutter: stable;
 }
 
+.rail-group + .rail-group {
+  margin-top: 14px;
+}
+
+.rail-group-label {
+  color: rgba(255, 243, 230, 0.42);
+  font-size: 0.6rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.14em;
+  padding: 0 14px 4px;
+  text-transform: uppercase;
+}
+
 .rail-link {
   color: rgba(255, 243, 230, 0.66) !important;
   display: grid !important;
@@ -482,6 +495,7 @@ body {
     padding-inline: 0;
   }
   .rail-brand > div,
+  .rail-group-label,
   .rail-link > span:nth-child(2),
   .rail-link strong,
   .safety-card,
