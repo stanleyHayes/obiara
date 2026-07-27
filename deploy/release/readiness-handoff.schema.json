@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://obiara.invalid/schemas/readiness-handoff.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "expiresAt", "environment", "market", "evidence"],
+  "properties": {
+    "schemaVersion": {"const": "obiara.readiness-handoff.v1"},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "expiresAt": {"type": "string", "format": "date-time"},
+    "environment": {"const": "production"},
+    "market": {"const": "GH"},
+    "evidence": {
+      "type": "array", "minItems": 11, "maxItems": 11,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["requirementId", "kind", "provenance", "evidenceRef", "issuerRef", "reviewerRef", "outcome", "synthetic", "collectedAt", "expiresAt"],
+        "properties": {
+          "requirementId": {"enum": ["credential.runtime-account-custody", "store.play-account-custody", "store.app-account-custody", "store.signing-ceremony", "cohort.uat-consent", "cohort.uat-training", "cohort.uat-completion", "operations.circle-coverage", "operations.host-readiness", "operations.support-coverage", "operations.trust-safety-coverage"]},
+          "kind": {"enum": ["credential", "store", "cohort", "operations"]},
+          "provenance": {"enum": ["credential-custodian", "store-console", "signing-witness", "cohort-review", "operations-review"]},
+          "evidenceRef": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "issuerRef": {"type": "string", "pattern": "^role/[a-z][a-z0-9-]{2,63}$"},
+          "reviewerRef": {"type": "string", "pattern": "^role/[a-z][a-z0-9-]{2,63}$"},
+          "outcome": {"enum": ["satisfied", "pending", "blocked"]},
+          "synthetic": {"type": "boolean"},
+          "collectedAt": {"type": "string", "format": "date-time"},
+          "expiresAt": {"type": "string", "format": "date-time"}
+        }
+      }
+    }
+  }
+}
