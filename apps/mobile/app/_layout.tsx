@@ -7,8 +7,20 @@ import {
   useFonts,
 } from "@expo-google-fonts/outfit";
 import { Stack } from "expo-router";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { MobileThemeProvider } from "@obiara/ui-mobile";
+
+// On web the app presents as a phone-width frame centered on a soft
+// canvas; on device it fills the screen.
+const frameStyle =
+  Platform.OS === "web"
+    ? { flex: 1, maxWidth: 520, width: "100%" }
+    : { flex: 1 };
+
+const canvasStyle =
+  Platform.OS === "web"
+    ? { alignItems: "center" as const, backgroundColor: "#E9DED6", flex: 1 }
+    : { flex: 1 };
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -25,7 +37,11 @@ export default function RootLayout() {
 
   return (
     <MobileThemeProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <View style={canvasStyle}>
+        <View style={frameStyle}>
+          <Stack screenOptions={{ headerShown: false }} />
+        </View>
+      </View>
     </MobileThemeProvider>
   );
 }
