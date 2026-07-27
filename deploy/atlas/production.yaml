@@ -1,0 +1,87 @@
+apiVersion: obiara.platform/v1
+kind: AtlasEnvironment
+metadata:
+  name: obiara-production-candidate
+  environment: production
+  dataPolicy: member-data-after-approval
+activation:
+  state: blocked
+  residencyDecision: pending-signed-founder-dpo-legal
+  dpiaApproval: pending-signed-dpo
+  procurementApproval: pending-atlas-dpa-tier-support-review
+  restoreEvidence: pending-production-rehearsal
+topology:
+  provider: AWS
+  region: AF_SOUTH_1
+  mongoMajor: "8.0"
+  minimumTier: M10
+  electableNodes: 3
+  availabilityZones: 3
+  terminationProtection: true
+network:
+  publicAccess: false
+  minimumTLS: "1.2"
+  allowlistRefs:
+    - production-api-egress-approved-cidr
+    - production-worker-egress-approved-cidr
+    - break-glass-vpn-approved-cidr
+  privateEndpointRequiredWhenColocated: true
+encryption:
+  atRest: AES-256
+  transport: TLS
+  customerManagedKeyRef: atlas-production-kms-key
+  c4FieldEncryption: required
+  c4KeyRef: obiara-production-c4-envelope-key
+identities:
+  - name: api-production
+    credentialRef: atlas-api-production
+    roles: [app-api]
+  - name: worker-production
+    credentialRef: atlas-worker-production
+    roles: [app-worker]
+  - name: c4-identity-production
+    credentialRef: atlas-c4-identity-production
+    roles: [c4-identity]
+  - name: c4-safety-production
+    credentialRef: atlas-c4-safety-production
+    roles: [c4-safety]
+  - name: backup-production
+    credentialRef: atlas-backup-production
+    roles: [backup-operator]
+  - name: restore-production
+    credentialRef: atlas-restore-production
+    roles: [restore-operator]
+roleDefinitions:
+  app-api:
+    actions: [find, insert, update]
+    collections: [application-owned]
+  app-worker:
+    actions: [find, insert, update]
+    collections: [jobs, outbox, worker-owned]
+  c4-identity:
+    actions: [find, insert, update]
+    collections: [identity_verifications, identity_bindings, device_risk]
+  c4-safety:
+    actions: [find, insert, update]
+    collections: [reports, safety_cases, safety_evidence, suban_events]
+  backup-operator:
+    actions: [backup-read]
+    collections: [cluster]
+  restore-operator:
+    actions: [restore-to-isolated-target]
+    collections: [cluster]
+backup:
+  continuous: true
+  pointInTimeRecovery: true
+  region: AF_SOUTH_1
+  rpoMinutes: 5
+  rtoMinutes: 60
+  schedules:
+    dailyDays: 7
+    weeklyWeeks: 4
+    monthlyMonths: 13
+restore:
+  destructiveInPlace: false
+  isolatedTargetRequired: true
+  evidenceSchema: deploy/atlas/restore-evidence.schema.json
+  evidenceRef: ""

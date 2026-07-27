@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "environment": "staging",
+  "syntheticOnly": true,
+  "rehearsalId": "staging-restore-2026-07-27",
+  "sourceSnapshotAt": "2026-07-27T00:00:00Z",
+  "restoreStartedAt": "2026-07-27T00:05:00Z",
+  "restoreCompletedAt": "2026-07-27T00:44:00Z",
+  "target": "isolated-staging-restore",
+  "pointInTime": true,
+  "validationDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "dataOwnerApprovalRef": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "securityApprovalRef": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "result": "pass",
+  "rpoMinutesObserved": 5,
+  "rtoMinutesObserved": 39
+}

@@ -1,0 +1,86 @@
+apiVersion: obiara.platform/v1
+kind: AtlasEnvironment
+metadata:
+  name: obiara-staging
+  environment: staging
+  dataPolicy: synthetic-only
+activation:
+  state: synthetic-only
+  residencyDecision: not-required-for-synthetic
+  dpiaApproval: not-required-for-synthetic
+  procurementApproval: not-required-for-synthetic
+  restoreEvidence: synthetic-rehearsal-required
+topology:
+  provider: AWS
+  region: AF_SOUTH_1
+  mongoMajor: "8.0"
+  minimumTier: M10
+  electableNodes: 3
+  availabilityZones: 3
+  terminationProtection: true
+network:
+  publicAccess: false
+  minimumTLS: "1.2"
+  allowlistRefs:
+    - render-api-egress-staging
+    - render-worker-egress-staging
+  privateEndpointRequiredWhenColocated: true
+encryption:
+  atRest: AES-256
+  transport: TLS
+  customerManagedKeyRef: atlas-staging-kms-key
+  c4FieldEncryption: required
+  c4KeyRef: obiara-staging-c4-envelope-key
+identities:
+  - name: api-staging
+    credentialRef: atlas-api-staging
+    roles: [app-api]
+  - name: worker-staging
+    credentialRef: atlas-worker-staging
+    roles: [app-worker]
+  - name: c4-identity-staging
+    credentialRef: atlas-c4-identity-staging
+    roles: [c4-identity]
+  - name: c4-safety-staging
+    credentialRef: atlas-c4-safety-staging
+    roles: [c4-safety]
+  - name: backup-staging
+    credentialRef: atlas-backup-staging
+    roles: [backup-operator]
+  - name: restore-staging
+    credentialRef: atlas-restore-staging
+    roles: [restore-operator]
+roleDefinitions:
+  app-api:
+    actions: [find, insert, update]
+    collections: [application-owned]
+  app-worker:
+    actions: [find, insert, update]
+    collections: [jobs, outbox, worker-owned]
+  c4-identity:
+    actions: [find, insert, update]
+    collections: [identity_verifications, identity_bindings, device_risk]
+  c4-safety:
+    actions: [find, insert, update]
+    collections: [reports, safety_cases, safety_evidence, suban_events]
+  backup-operator:
+    actions: [backup-read]
+    collections: [cluster]
+  restore-operator:
+    actions: [restore-to-isolated-target]
+    collections: [cluster]
+backup:
+  continuous: true
+  pointInTimeRecovery: true
+  region: AF_SOUTH_1
+  rpoMinutes: 5
+  rtoMinutes: 60
+  schedules:
+    dailyDays: 7
+    weeklyWeeks: 4
+    monthlyMonths: 13
+restore:
+  destructiveInPlace: false
+  isolatedTargetRequired: true
+  evidenceSchema: deploy/atlas/restore-evidence.schema.json
+  evidenceRef: deploy/atlas/evidence/staging.synthetic.json

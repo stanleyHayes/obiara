@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Obiara Atlas restore rehearsal evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environment", "syntheticOnly", "rehearsalId", "sourceSnapshotAt", "restoreStartedAt", "restoreCompletedAt", "target", "pointInTime", "validationDigest", "dataOwnerApprovalRef", "securityApprovalRef", "result", "rpoMinutesObserved", "rtoMinutesObserved"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "environment": {"enum": ["staging", "production"]},
+    "syntheticOnly": {"type": "boolean"},
+    "rehearsalId": {"type": "string", "minLength": 8, "maxLength": 128},
+    "sourceSnapshotAt": {"type": "string", "format": "date-time"},
+    "restoreStartedAt": {"type": "string", "format": "date-time"},
+    "restoreCompletedAt": {"type": "string", "format": "date-time"},
+    "target": {"type": "string", "pattern": "^isolated-"},
+    "pointInTime": {"const": true},
+    "validationDigest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "dataOwnerApprovalRef": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "securityApprovalRef": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "result": {"const": "pass"},
+    "rpoMinutesObserved": {"type": "integer", "minimum": 0, "maximum": 5},
+    "rtoMinutesObserved": {"type": "integer", "minimum": 0, "maximum": 60}
+  }
+}
