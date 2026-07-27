@@ -463,3 +463,15 @@
     padding-right: 18px;
   }
 }
+
+.theme-reflections {
+  border-top: 1px solid rgba(43, 21, 31, 0.12);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.theme-reflections p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0.3rem 0;
+}

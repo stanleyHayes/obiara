@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useReducer } from "react";
 import { gamesReducer, initialGamesState } from "./games-model";
+import { SafetySheet } from "../safety-sheet";
 
 const games = [
   [
@@ -38,7 +39,7 @@ export function GamesHall() {
       <header>
         <Link href="/fie">← Fie</Link>
         <strong>Games of character</strong>
-        <button type="button">Safety</button>
+        <SafetySheet context="the games hall" />
       </header>
       <section className="games-hero">
         <p className="fie-kicker">Play reveals moments—not worth</p>

@@ -1,13 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useReducer } from "react";
+import { useReducer, useState } from "react";
 import {
   canOpenTheme,
   guidedThemes,
   roomReducer,
   initialRoomState,
 } from "./room-model";
+
+const sharedReflections: Readonly<
+  Record<number, { them: string; you: string }>
+> = {
+  1: {
+    them: "Home feels like people making room for one another.",
+    you: "Mine sounds like highlife and too many voices in one kitchen.",
+  },
+  2: {
+    them: "Care is remembering the small things without being asked.",
+    you: "Care is showing up on the hard days, not just the good ones.",
+  },
+  3: {
+    them: "We protect each other's families and our private boundaries.",
+    you: "We protect honesty, even when it costs comfort.",
+  },
+  4: {
+    them: "A home where both our people feel expected.",
+    you: "A garden, a long table, and Sundays that stay slow.",
+  },
+};
 
 const events = [
   {
@@ -32,6 +53,7 @@ const events = [
 
 export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
   const [state, dispatch] = useReducer(roomReducer, initialRoomState);
+  const [revisiting, setRevisiting] = useState<number | null>(null);
   return (
     <main className="room-detail">
       <header className="room-detail-top">
@@ -77,26 +99,53 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
           </p>
         </div>
         <div className="room-theme-grid">
-          {guidedThemes.map((theme) => (
-            <article className={`is-${theme.state}`} key={theme.number}>
-              <span>Theme {theme.number}</span>
-              <h3>{theme.title}</h3>
-              <p>
-                {theme.state === "revealed"
-                  ? "Both reflections are visible here."
-                  : theme.state === "ready"
-                    ? "Ready whenever you both want to continue."
-                    : `Opens after theme ${theme.number - 1} is revealed.`}
-              </p>
-              <button disabled={!canOpenTheme(theme.state)} type="button">
-                {theme.state === "revealed"
-                  ? "Revisit shared reveal"
-                  : theme.state === "ready"
-                    ? "Open theme two"
-                    : "Resting for now"}
-              </button>
-            </article>
-          ))}
+          {guidedThemes.map((theme) => {
+            const themeState = state.themes[theme.number - 1];
+            return (
+              <article className={`is-${themeState}`} key={theme.number}>
+                <span>Theme {theme.number}</span>
+                <h3>{theme.title}</h3>
+                <p>
+                  {themeState === "revealed"
+                    ? "Both reflections are visible here."
+                    : themeState === "ready"
+                      ? "Ready whenever you both want to continue."
+                      : `Opens after theme ${theme.number - 1} is revealed.`}
+                </p>
+                <button
+                  disabled={!canOpenTheme(themeState)}
+                  onClick={() =>
+                    themeState === "revealed"
+                      ? setRevisiting(
+                          revisiting === theme.number ? null : theme.number,
+                        )
+                      : dispatch({ type: "open-theme", number: theme.number })
+                  }
+                  type="button"
+                >
+                  {themeState === "revealed"
+                    ? revisiting === theme.number
+                      ? "Close shared reveal"
+                      : "Revisit shared reveal"
+                    : themeState === "ready"
+                      ? "Open this theme"
+                      : "Resting for now"}
+                </button>
+                {themeState === "revealed" && revisiting === theme.number ? (
+                  <div className="theme-reflections">
+                    <p>
+                      <strong>Them:</strong>{" "}
+                      {sharedReflections[theme.number].them}
+                    </p>
+                    <p>
+                      <strong>You:</strong>{" "}
+                      {sharedReflections[theme.number].you}
+                    </p>
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
         </div>
       </section>
       <section className="room-call" aria-labelledby="private-call-title">

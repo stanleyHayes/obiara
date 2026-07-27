@@ -4,11 +4,15 @@ export type Feature =
 export interface ExplanationState {
   readonly enabled: Readonly<Record<Feature, boolean>>;
   readonly detailsOpen: boolean;
+  readonly decision: "none" | "resting" | "opened";
 }
 
 export type ExplanationAction =
   | { readonly type: "toggle"; readonly feature: Feature }
-  | { readonly type: "toggle-details" };
+  | { readonly type: "toggle-details" }
+  | { readonly type: "rest" }
+  | { readonly type: "open" }
+  | { readonly type: "undo-decision" };
 
 export const initialExplanationState: ExplanationState = {
   enabled: {
@@ -17,6 +21,7 @@ export const initialExplanationState: ExplanationState = {
     voice_reflections: false,
   },
   detailsOpen: false,
+  decision: "none",
 };
 
 export function explanationReducer(
@@ -25,6 +30,9 @@ export function explanationReducer(
 ): ExplanationState {
   if (action.type === "toggle-details")
     return { ...state, detailsOpen: !state.detailsOpen };
+  if (action.type === "rest") return { ...state, decision: "resting" };
+  if (action.type === "open") return { ...state, decision: "opened" };
+  if (action.type === "undo-decision") return { ...state, decision: "none" };
   return {
     ...state,
     enabled: {

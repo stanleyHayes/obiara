@@ -74,7 +74,29 @@ export function AdiwoShell() {
               is required to perform.
             </p>
           </div>
-          <button type="button">Enter waiting room</button>
+          {state.waitingRoom ? (
+            <div className="adiwo-waiting" role="status">
+              <p>
+                You are in the waiting room. Sunday Readers opens in 24 minutes
+                — nobody sees whether you speak or only listen.
+              </p>
+              <button
+                onClick={() =>
+                  dispatch({ type: "waiting-room", joined: false })
+                }
+                type="button"
+              >
+                Leave waiting room
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => dispatch({ type: "waiting-room", joined: true })}
+              type="button"
+            >
+              Enter waiting room
+            </button>
+          )}
         </section>
 
         <section className="adiwo-circles" aria-labelledby="circles-title">

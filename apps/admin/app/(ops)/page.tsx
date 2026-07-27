@@ -53,13 +53,22 @@ function MetricCard({
   value,
   note,
   accent,
-}: Readonly<{ label: string; value: string; note: string; accent: string }>) {
+  href,
+}: Readonly<{
+  label: string;
+  value: string;
+  note: string;
+  accent: string;
+  href: string;
+}>) {
   return (
-    <Card className="metric-card" sx={{ "--metric-accent": accent }}>
-      <Typography className="metric-label">{label}</Typography>
-      <Typography className="metric-value">{value}</Typography>
-      <Typography className="metric-note">{note}</Typography>
-    </Card>
+    <Link href={href} style={{ textDecoration: "none" }}>
+      <Card className="metric-card" sx={{ "--metric-accent": accent }}>
+        <Typography className="metric-label">{label}</Typography>
+        <Typography className="metric-value">{value}</Typography>
+        <Typography className="metric-note">{note}</Typography>
+      </Card>
+    </Link>
   );
 }
 
@@ -108,24 +117,28 @@ export default function AdminHome() {
             value="18"
             note="p90 · 9 min"
             accent="#FF9F1C"
+            href="/verification"
           />
           <MetricCard
             label="Open safety cases"
             value="7"
             note="2 high priority"
             accent="#FF4D6D"
+            href="/safety"
           />
           <MetricCard
             label="Care follow-ups"
             value="2"
             note="both acknowledged"
             accent="#12A67C"
+            href="/care"
           />
           <MetricCard
             label="Live fires tonight"
             value="6"
             note="742 expected seats"
             accent="#3A0E2E"
+            href="/analytics"
           />
         </Box>
 
@@ -248,7 +261,9 @@ export default function AdminHome() {
                   label={route}
                   className={route === "Care" ? "tone-green" : "tone-pink"}
                 />
-                <Button aria-label={`Open ${id}`}>→</Button>
+                <Button aria-label={`Open ${id}`} href="/safety">
+                  →
+                </Button>
               </Box>
             ))}
           </Box>

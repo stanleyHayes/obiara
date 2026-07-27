@@ -27,6 +27,7 @@ export interface RoomState {
   readonly safetyOpen: boolean;
   readonly safetyStep: SafetyStep;
   readonly reportCategory: ReportCategory | null;
+  readonly themes: ReadonlyArray<ThemeState>;
   readonly call: {
     readonly state: CallState;
     readonly media: CallMedia;
@@ -48,6 +49,7 @@ export type RoomAction =
   | { readonly type: "submit-report" }
   | { readonly type: "confirm-block" }
   | { readonly type: "begin-closure" }
+  | { readonly type: "open-theme"; readonly number: number }
   | { readonly type: "accept-call" }
   | { readonly type: "decline-call" }
   | { readonly type: "end-call" }
@@ -60,10 +62,25 @@ export const initialRoomState: RoomState = {
   safetyOpen: false,
   safetyStep: "menu",
   reportCategory: null,
+  themes: guidedThemes.map((theme) => theme.state),
   call: { state: "incoming", media: "audio", captions: true },
 };
 
 export function roomReducer(state: RoomState, action: RoomAction): RoomState {
+  if (action.type === "open-theme") {
+    const index = action.number - 1;
+    if (state.themes[index] !== "ready") return state;
+    return {
+      ...state,
+      themes: state.themes.map((theme, position) =>
+        position === index
+          ? "revealed"
+          : position === index + 1 && theme === "locked"
+            ? "ready"
+            : theme,
+      ),
+    };
+  }
   if (action.type === "open-safety")
     return { ...state, safetyOpen: true, safetyStep: "menu" };
   if (action.type === "close-safety")

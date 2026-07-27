@@ -23,4 +23,16 @@ describe("introduction explanation consent", () => {
       /destiny|compatibility|attractiveness|score|rank/i,
     );
   });
+
+  it("records rest and open decisions and lets the member change their mind", () => {
+    const resting = explanationReducer(initialExplanationState, {
+      type: "rest",
+    });
+    expect(resting.decision).toBe("resting");
+    const opened = explanationReducer(resting, { type: "open" });
+    expect(opened.decision).toBe("opened");
+    expect(explanationReducer(opened, { type: "undo-decision" }).decision).toBe(
+      "none",
+    );
+  });
 });

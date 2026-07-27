@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer } from "react";
+import { DetailDialog } from "../detail-dialog";
 import Link from "next/link";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
@@ -64,11 +65,27 @@ export function DanMuShell() {
               Nothing is lost and nobody is notified. Return to Fie, or review
               the exact requirement at your own pace.
             </p>
-            <button type="button">
-              {state.gate === "tier-required"
-                ? "Review verification"
-                : "Return to doorway"}
-            </button>
+            {state.gate === "tier-required" ? (
+              <DetailDialog
+                kicker="Verification requirement"
+                title="Private rooms open at Tier 1."
+                trigger="Review verification"
+              >
+                <p>
+                  Romantic surfaces stay closed until identity verification
+                  completes (FR-101). Your current status: OTP confirmed,
+                  identity check pending.
+                </p>
+                <p>
+                  Complete the Ghana Card step or ask a verified member for an
+                  assisted vouch. Nothing about this room changes meanwhile.
+                </p>
+              </DetailDialog>
+            ) : (
+              <Link href="/fie/epono-ano">
+                <button type="button">Return to doorway</button>
+              </Link>
+            )}
           </section>
         ) : (
           <section className="danmu-room" aria-labelledby="room-title">

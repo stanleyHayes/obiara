@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useReducer } from "react";
 import { ampeReducer, initialAmpeState } from "./ampe-model";
+import { SafetySheet } from "../../../safety-sheet";
+import { DetailDialog } from "../../../detail-dialog";
 
 export function AmpePulse({ roundId }: Readonly<{ roundId: string }>) {
   const [state, dispatch] = useReducer(ampeReducer, initialAmpeState);
@@ -13,7 +15,7 @@ export function AmpePulse({ roundId }: Readonly<{ roundId: string }>) {
           ← Private room
         </Link>
         <strong>Ampe · private pulse</strong>
-        <button type="button">Safety</button>
+        <SafetySheet context="this round" />
       </header>
       <section className="ampe-hero">
         <p className="fie-kicker">No camera · no body inference</p>
@@ -136,7 +138,18 @@ export function AmpePulse({ roundId }: Readonly<{ roundId: string }>) {
           >
             Test weak connection
           </button>
-          <button type="button">Leave round</button>
+          <DetailDialog
+            kicker="Leave this round"
+            title="Leave before the reveal?"
+            trigger="Leave round"
+          >
+            <p>
+              Leaving now forfeits the current pulse but never your standing —
+              there is no rating here. Your partner is told the round ended, not
+              why.
+            </p>
+            <Link href="/fie/games">Return to the games hall</Link>
+          </DetailDialog>
         </footer>
       </section>
     </main>

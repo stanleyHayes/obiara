@@ -266,3 +266,16 @@
     flex: 1;
   }
 }
+
+.adiwo-waiting {
+  background: rgba(18, 166, 124, 0.08);
+  border: 1px solid rgba(18, 166, 124, 0.3);
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+}
+
+.adiwo-waiting p {
+  color: #2f5a4c;
+  font-size: 0.92rem;
+  margin: 0 0 0.75rem;
+}

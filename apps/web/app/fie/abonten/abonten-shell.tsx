@@ -3,6 +3,7 @@
 import { useReducer } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
+import { DetailDialog } from "../detail-dialog";
 import {
   abontenReducer,
   initialAbontenState,
@@ -125,7 +126,20 @@ export function AbontenShell() {
                   <p>{moment.detail}</p>
                   <small>{moment.meta}</small>
                   <div>
-                    <button type="button">Open details</button>
+                    <DetailDialog
+                      kicker={moment.eyebrow}
+                      title={moment.title}
+                      trigger="Open details"
+                    >
+                      <p>{moment.detail}</p>
+                      <p>
+                        <strong>{moment.meta}</strong>
+                      </p>
+                      <p>
+                        Seats and attendance stay approximate on the street.
+                        Join from the fire room when it opens.
+                      </p>
+                    </DetailDialog>
                     <button
                       aria-pressed={saved}
                       onClick={() =>

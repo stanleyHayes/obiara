@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useReducer } from "react";
 import { canPublish, initialStoryState, storyReducer } from "./story-model";
+import { SafetySheet } from "../../../safety-sheet";
 
 const passages = [
   [
@@ -26,7 +27,7 @@ export function StoryRelay({ storyId }: Readonly<{ storyId: string }>) {
           ← Private room
         </Link>
         <strong>Anansesɛm · private relay</strong>
-        <button type="button">Safety</button>
+        <SafetySheet context="this story relay" />
       </header>
       <section className="story-hero">
         <p className="fie-kicker">One line, then the other</p>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useReducer } from "react";
+import { SafetySheet } from "../../safety-sheet";
 import {
   activeReasons,
   explanationReducer,
@@ -40,7 +41,7 @@ export function IntroductionExplanation({
       <header>
         <Link href="/fie/garden">← Garden</Link>
         <strong>Private introduction</strong>
-        <button type="button">Safety</button>
+        <SafetySheet context="this introduction" />
       </header>
       <section className="intro-hero">
         <div>
@@ -139,10 +140,30 @@ export function IntroductionExplanation({
         </div>
       </section>
       <footer>
-        <div>
-          <button type="button">Let this introduction rest</button>
-          <button type="button">Open the introduction gently</button>
-        </div>
+        {state.decision === "none" ? (
+          <div>
+            <button onClick={() => dispatch({ type: "rest" })} type="button">
+              Let this introduction rest
+            </button>
+            <button onClick={() => dispatch({ type: "open" })} type="button">
+              Open the introduction gently
+            </button>
+          </div>
+        ) : (
+          <div className="intro-decision" role="status">
+            <p>
+              {state.decision === "resting"
+                ? "This introduction rests. The other person is told gently, without reasons or blame."
+                : "The introduction is open. Continue at your own pace — nobody is notified of your speed."}
+            </p>
+            <button
+              onClick={() => dispatch({ type: "undo-decision" })}
+              type="button"
+            >
+              Change my mind
+            </button>
+          </div>
+        )}
         <p>No urgency, read receipt or public activity signal.</p>
       </footer>
     </main>

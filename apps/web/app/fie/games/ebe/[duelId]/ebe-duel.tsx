@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useReducer } from "react";
 import { answers, ebeReducer, initialEbeState } from "./ebe-model";
+import { SafetySheet } from "../../../safety-sheet";
 
 export function EbeDuel({ duelId }: Readonly<{ duelId: string }>) {
   const [state, dispatch] = useReducer(ebeReducer, initialEbeState);
@@ -13,7 +14,7 @@ export function EbeDuel({ duelId }: Readonly<{ duelId: string }>) {
           ← Private room
         </Link>
         <strong>Private duel · Ama and you</strong>
-        <button type="button">Safety</button>
+        <SafetySheet context="this duel" />
       </header>
       <section className="ebe-hero">
         <p className="fie-kicker">Ɛbɛ · reviewed proverb pack</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useReducer } from "react";
+import { DetailDialog } from "../detail-dialog";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
 import {
@@ -61,11 +62,37 @@ export function EponoShell() {
               Your place in Obiara is unchanged. Return to Fie now, or continue
               the exact step when you are ready.
             </p>
-            <button type="button">
-              {state.gate === "tier-required"
-                ? "Review identity status"
-                : "Review consent"}
-            </button>
+            <DetailDialog
+              kicker={
+                state.gate === "tier-required"
+                  ? "Identity status"
+                  : "Consent status"
+              }
+              title={
+                state.gate === "tier-required"
+                  ? "The doorway opens at Tier 1."
+                  : "Introductions need your consent."
+              }
+              trigger={
+                state.gate === "tier-required"
+                  ? "Review identity status"
+                  : "Review consent"
+              }
+            >
+              {state.gate === "tier-required" ? (
+                <p>
+                  Your phone is confirmed; identity verification is still
+                  pending. Finish the Ghana Card step or an assisted vouch and
+                  the doorway opens on its own — nothing else is asked.
+                </p>
+              ) : (
+                <p>
+                  Seeing why an introduction was made requires your explicit
+                  consent for each signal. You can grant or withdraw each one
+                  separately, at any time, without losing your place.
+                </p>
+              )}
+            </DetailDialog>
           </section>
         ) : state.decision === "none" ? (
           <section

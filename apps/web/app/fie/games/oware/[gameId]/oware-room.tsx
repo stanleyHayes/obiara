@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useReducer } from "react";
+import { SafetySheet } from "../../../safety-sheet";
 import {
   initialOwareState,
   legalPits,
@@ -24,7 +25,7 @@ export function OwareRoom({ gameId }: Readonly<{ gameId: string }>) {
           <span aria-hidden="true">◉</span>
           <strong>Private game for two</strong>
         </div>
-        <button type="button">Safety</button>
+        <SafetySheet context="this game" />
       </header>
 
       <section className="oware-hero">

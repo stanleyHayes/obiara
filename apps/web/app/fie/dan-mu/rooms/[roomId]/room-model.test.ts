@@ -6,6 +6,27 @@ import {
   roomReducer,
 } from "./room-model";
 
+describe("open-theme progression", () => {
+  it("reveals a ready theme and readies the next locked one", () => {
+    const opened = roomReducer(initialRoomState, {
+      type: "open-theme",
+      number: 2,
+    });
+    expect(opened.themes).toEqual(["revealed", "revealed", "ready", "locked"]);
+    const third = roomReducer(opened, { type: "open-theme", number: 3 });
+    expect(third.themes).toEqual(["revealed", "revealed", "revealed", "ready"]);
+  });
+
+  it("ignores themes that are not ready", () => {
+    expect(
+      roomReducer(initialRoomState, { type: "open-theme", number: 3 }),
+    ).toBe(initialRoomState);
+    expect(
+      roomReducer(initialRoomState, { type: "open-theme", number: 1 }),
+    ).toBe(initialRoomState);
+  });
+});
+
 describe("private room interaction law", () => {
   it("requires a voice draft and then hands over the turn", () => {
     expect(roomReducer(initialRoomState, { type: "send-confirmed" })).toEqual(

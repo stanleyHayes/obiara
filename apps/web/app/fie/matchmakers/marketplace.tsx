@@ -9,6 +9,7 @@ import {
 } from "@obiara/matchmaker-marketplace";
 import Link from "next/link";
 import { useReducer } from "react";
+import { DetailDialog } from "../detail-dialog";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
 
@@ -164,13 +165,37 @@ export function MatchmakerMarketplace() {
                       />
                       Preview the candidate&apos;s separate consent
                     </label>
-                    <button
-                      className="booking-action"
-                      disabled={!canExposeCuratedProposal(state)}
-                      type="button"
+                    <span
+                      className={
+                        canExposeCuratedProposal(state)
+                          ? ""
+                          : "booking-action-disabled"
+                      }
                     >
-                      Review consented proposal
-                    </button>
+                      {canExposeCuratedProposal(state) ? (
+                        <DetailDialog
+                          kicker="Consented proposal"
+                          title="Consultation proposal preview"
+                          trigger="Review consented proposal"
+                        >
+                          <p>
+                            One 45-minute consultation with your chosen
+                            matchmaker. Both consents are on record; the
+                            proposal shows format and scope only — final fees,
+                            milestones and dispute terms appear before any
+                            payment.
+                          </p>
+                        </DetailDialog>
+                      ) : (
+                        <button
+                          className="booking-action"
+                          disabled
+                          type="button"
+                        >
+                          Review consented proposal
+                        </button>
+                      )}
+                    </span>
                   </div>
                 )}
                 <small className="booking-note">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useReducer } from "react";
+import { SafetySheet } from "../../safety-sheet";
 
 import { fireRoomReducer, initialFireRoomState } from "./fire-model";
 
@@ -121,7 +122,7 @@ export function FireRoom({ fireId }: Readonly<{ fireId: string }>) {
               Leave immediately, report a live concern, or return to the fire.
               The host is not shown who opened this sheet.
             </p>
-            <button type="button">Report live concern</button>
+            <SafetySheet context="this fire" label="Report live concern" />
             <button onClick={() => dispatch({ type: "leave" })} type="button">
               Leave now
             </button>
