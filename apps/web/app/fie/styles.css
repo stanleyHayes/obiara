@@ -1,9 +1,7 @@
 .fie-shell {
   background: #f8f2ee;
   color: #26101f;
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .fie-rail {
@@ -11,10 +9,14 @@
   color: #fff3e6;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100dvh;
+  inset: 0 auto 0 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 30px 20px 24px;
-  position: sticky;
-  top: 0;
+  position: fixed;
+  width: 248px;
+  z-index: 30;
 }
 
 .fie-wordmark {
@@ -29,7 +31,12 @@
 .fie-rail nav {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 6px;
+  min-height: 0;
+  overscroll-behavior: contain;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .fie-rail nav a {
@@ -67,7 +74,7 @@
 
 .fie-rail-note {
   border-top: 1px solid rgba(255, 243, 230, 0.13);
-  margin-top: auto;
+  flex: 0 0 auto;
   padding: 22px 12px 0;
 }
 
@@ -90,7 +97,9 @@
 }
 
 .fie-main {
+  margin-left: 248px;
   min-width: 0;
+  min-height: 100dvh;
   padding: 0 clamp(24px, 4vw, 60px) 64px;
 }
 
@@ -443,8 +452,12 @@
 }
 
 @media (max-width: 1120px) {
-  .fie-shell {
-    grid-template-columns: 86px minmax(0, 1fr);
+  .fie-rail {
+    width: 86px;
+  }
+
+  .fie-main {
+    margin-left: 86px;
   }
 
   .fie-wordmark {
@@ -479,7 +492,8 @@
   }
 
   .fie-main {
-    padding: 0 16px 110px;
+    margin-left: 0;
+    padding: 0 16px calc(86px + env(safe-area-inset-bottom));
   }
 
   .fie-topbar {
@@ -524,14 +538,15 @@
 
   .fie-bottom-nav {
     background: rgba(32, 11, 25, 0.97);
-    bottom: 0;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    left: 0;
+    inset: auto 0 0;
+    max-width: 100vw;
+    overflow: hidden;
     padding: 8px max(8px, env(safe-area-inset-left))
       calc(8px + env(safe-area-inset-bottom));
     position: fixed;
-    right: 0;
+    width: 100%;
     z-index: 20;
   }
 
