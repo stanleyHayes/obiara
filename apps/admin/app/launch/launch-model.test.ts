@@ -39,4 +39,30 @@ describe("launch readiness", () => {
     );
     expect(short.reviewState).toBe("none");
   });
+
+  it("fails staffing coverage with exact denominators", () => {
+    expect(
+      initialLaunchState.staffing.some((desk) => desk.staffed < desk.required),
+    ).toBe(true);
+    for (const desk of initialLaunchState.staffing) {
+      expect(desk.required).toBeGreaterThan(0);
+      expect(desk.staffed).toBeLessThanOrEqual(desk.required);
+    }
+  });
+
+  it("requires density evidence and a reason for throttle proposals", () => {
+    const reasoned = launchReducer(initialLaunchState, {
+      type: "throttle-reason",
+      value: "Hold new entries while circle density remains below gate.",
+    });
+    expect(
+      launchReducer(
+        { ...reasoned, lowDensityEvidence: false },
+        { type: "prepare-throttle" },
+      ).throttleState,
+    ).toBe("none");
+    const ready = launchReducer(reasoned, { type: "prepare-throttle" });
+    expect(ready.throttleRef).toBe("waitlist-throttle•••3D5");
+    expect(ready.gates).toEqual(initialLaunchState.gates);
+  });
 });

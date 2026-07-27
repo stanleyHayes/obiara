@@ -58,6 +58,65 @@ export function LaunchReadinessDesk() {
           ))}
         </Box>
 
+        <Typography component="h2" sx={{ fontSize: 34, fontWeight: 800, mb: 2, mt: 5 }}>Launch-day coverage</Typography>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "repeat(3,minmax(0,1fr))" } }}>
+          {state.staffing.map((desk) => (
+            <Card key={desk.desk} sx={{ borderRadius: 4, p: 3 }}>
+              <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
+                <Typography sx={{ fontWeight: 800 }}>{desk.desk}</Typography>
+                <Chip color={desk.staffed >= desk.required ? "success" : "error"} label={desk.staffed >= desk.required ? "Covered" : "Gap"} size="small" />
+              </Stack>
+              <Typography sx={{ fontSize: 36, fontWeight: 800, mt: 1 }}>{desk.staffed}/{desk.required}</Typography>
+              <Typography sx={{ color: "text.secondary" }}>{desk.window}</Typography>
+            </Card>
+          ))}
+        </Box>
+
+        <Card sx={{ borderRadius: 4, display: "grid", gap: 4, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, mt: 3, p: 3 }}>
+          <Box>
+            <Typography sx={{ color: "#8e3159", fontSize: 12, fontWeight: 800, letterSpacing: 1.2 }}>LAUNCH CALENDAR</Typography>
+            <Typography component="h2" sx={{ fontSize: 34, fontWeight: 800, mt: 1 }}>Dates do not overrule gates.</Typography>
+            <Stack spacing={1.2} sx={{ mt: 2 }}>
+              {state.milestones.map((milestone) => (
+                <Stack direction="row" key={milestone.label} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+                  <Box><Typography sx={{ fontWeight: 800 }}>{milestone.label}</Typography><Typography sx={{ color: "text.secondary" }}>{milestone.date}</Typography></Box>
+                  <Chip color={milestone.state === "ready" ? "success" : "error"} label={milestone.state} size="small" />
+                </Stack>
+              ))}
+            </Stack>
+          </Box>
+          <Box>
+            <Typography sx={{ color: "#8e3159", fontSize: 12, fontWeight: 800, letterSpacing: 1.2 }}>WAITLIST THROTTLE</Typography>
+            {state.throttleState === "none" ? (
+              <>
+                <Alert severity="warning" sx={{ my: 1.5 }}>Low-density evidence is current. A proposal can slow new entry; it cannot message or remove anyone.</Alert>
+                <TextField
+                  fullWidth
+                  label="Throttle reason"
+                  multiline
+                  onChange={(event) => dispatch({ type: "throttle-reason", value: event.target.value })}
+                  rows={3}
+                  value={state.throttleReason}
+                />
+                <Button
+                  disabled={!state.lowDensityEvidence || state.throttleReason.trim().length < 12}
+                  fullWidth
+                  onClick={() => dispatch({ type: "prepare-throttle" })}
+                  sx={{ mt: 1.5 }}
+                  variant="contained"
+                >
+                  Prepare waitlist throttle proposal
+                </Button>
+              </>
+            ) : (
+              <Alert severity="info">
+                <strong>{state.throttleRef}</strong><br />
+                Proposal ready for separate approval. Waitlist and notification state remain unchanged.
+              </Alert>
+            )}
+          </Box>
+        </Card>
+
         <Card sx={{ borderRadius: 4, display: "grid", gap: 4, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, mt: 3, p: 3 }}>
           <Box>
             <Typography sx={{ color: "#8e3159", fontSize: 12, fontWeight: 800, letterSpacing: 1.2 }}>HUMAN READINESS REVIEW</Typography>
