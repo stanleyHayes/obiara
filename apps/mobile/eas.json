@@ -1,0 +1,62 @@
+{
+  "cli": {
+    "version": "21.2.0",
+    "requireCommit": true,
+    "appVersionSource": "local"
+  },
+  "build": {
+    "base": {
+      "node": "22.13.0",
+      "pnpm": "11.17.0",
+      "env": {
+        "CI": "true"
+      }
+    },
+    "preview": {
+      "extends": "base",
+      "channel": "preview",
+      "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "OBIARA_RELEASE_CHANNEL": "preview"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "staging": {
+      "extends": "base",
+      "channel": "staging",
+      "environment": "staging",
+      "env": {
+        "OBIARA_RELEASE_CHANNEL": "staging"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "channel": "production",
+      "environment": "production",
+      "env": {
+        "OBIARA_RELEASE_CHANNEL": "production"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "staging": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
+  }
+}
+

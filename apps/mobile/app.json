@@ -3,7 +3,7 @@
     "name": "Obiara",
     "slug": "obiara",
     "scheme": "obiara",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "plugins": [
@@ -14,10 +14,15 @@
       "typedRoutes": true
     },
     "android": {
-      "package": "com.obiara.mobile"
+      "package": "com.obiara.mobile",
+      "versionCode": 1
     },
     "ios": {
-      "bundleIdentifier": "com.obiara.mobile"
+      "bundleIdentifier": "com.obiara.mobile",
+      "buildNumber": "1"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "web": {
       "bundler": "metro"

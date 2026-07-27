@@ -1,4 +1,7 @@
 {
   "extends": "@obiara/config-typescript/expo.json",
+  "compilerOptions": {
+    "types": ["node", "react", "vitest/globals"]
+  },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }
