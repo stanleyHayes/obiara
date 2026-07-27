@@ -26,9 +26,7 @@ body {
 }
 
 .admin-page {
-  display: grid;
-  grid-template-columns: 274px minmax(0, 1fr);
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .admin-rail {
@@ -42,10 +40,14 @@ body {
   color: var(--admin-cream);
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100dvh;
+  inset: 0 auto 0 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 26px 20px 22px;
-  position: sticky;
-  top: 0;
+  position: fixed;
+  width: 274px;
+  z-index: 30;
 }
 
 .rail-brand {
@@ -73,8 +75,13 @@ body {
 
 .rail-nav {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 5px;
+  min-height: 0;
+  overscroll-behavior: contain;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .rail-link {
@@ -125,7 +132,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: none !important;
   color: var(--admin-cream) !important;
-  margin-top: auto;
+  flex: 0 0 auto;
   padding: 18px;
 }
 
@@ -157,6 +164,7 @@ body {
 .rail-user {
   align-items: center;
   display: grid;
+  flex: 0 0 auto;
   gap: 10px;
   grid-template-columns: 38px 1fr auto;
   padding: 22px 8px 0;
@@ -176,6 +184,8 @@ body {
 }
 
 .admin-main {
+  margin-left: 274px;
+  min-height: 100dvh;
   min-width: 0;
 }
 .admin-shell {
@@ -460,11 +470,12 @@ body {
 }
 
 @media (max-width: 1150px) {
-  .admin-page {
-    grid-template-columns: 88px minmax(0, 1fr);
-  }
   .admin-rail {
     padding-inline: 14px;
+    width: 88px;
+  }
+  .admin-main {
+    margin-left: 88px;
   }
   .rail-brand {
     justify-content: center;
@@ -503,9 +514,16 @@ body {
   .admin-rail {
     align-items: center;
     flex-direction: row;
-    min-height: auto;
+    height: auto;
+    inset: 0 0 auto;
+    overflow: hidden;
     padding: 10px 16px;
-    position: static;
+    position: fixed;
+    width: 100%;
+  }
+  .admin-main {
+    margin-left: 0;
+    padding-top: 58px;
   }
   .rail-brand {
     padding: 0;
