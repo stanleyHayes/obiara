@@ -16,6 +16,10 @@ type Template string
 const (
 	TemplateOtpCode  Template = "otp_code"
 	TemplatePodAlert Template = "pod_alert"
+	// TemplateNnoboaConsent invites a nominated kin to consent as an Nnoboa
+	// companion (E13-S06). The template names only the kin — never the
+	// member's romantic life.
+	TemplateNnoboaConsent Template = "nnoboa_consent"
 )
 
 var (
@@ -23,6 +27,7 @@ var (
 	ErrInvalidTemplate    = errors.New("unknown whatsapp template")
 	ErrInvalidOtpCode     = errors.New("otp code must be 6 digits")
 	ErrPodRefRequired     = errors.New("pod reference is required")
+	ErrKinNameRequired    = errors.New("kin name is required")
 	ErrFreeTextNotAllowed = errors.New("whatsapp templates take bounded parameters, never free text")
 )
 
@@ -59,6 +64,19 @@ func NewPodAlertMessage(to, podRef string) (Message, error) {
 		return Message{}, ErrPodRefRequired
 	}
 	return Message{to: to, template: TemplatePodAlert, params: map[string]string{"ref": podRef}}, nil
+}
+
+// NewNnoboaConsentMessage builds the Nnoboa kin-consent invite (E13-S06).
+// The kin name is the only parameter — the message says nothing about the
+// member or their journey.
+func NewNnoboaConsentMessage(to, kinName string) (Message, error) {
+	if !e164Pattern.MatchString(to) {
+		return Message{}, ErrInvalidPhone
+	}
+	if strings.TrimSpace(kinName) == "" {
+		return Message{}, ErrKinNameRequired
+	}
+	return Message{to: to, template: TemplateNnoboaConsent, params: map[string]string{"kin_name": kinName}}, nil
 }
 
 func (message Message) To() string                { return message.to }

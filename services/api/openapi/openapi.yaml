@@ -980,6 +980,136 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/nominations:
+    post:
+      operationId: nominateKin
+      tags: [Companions]
+      summary: Nominate a trusted kin as Nnoboa companion
+      security: []
+      description: |
+        Opens a pending Nnoboa nomination (E13-S06, FR-1302): the kin receives
+        a consent invite over WhatsApp and becomes an active companion only
+        after explicit consent. The invite names the kin only — it says
+        nothing about the member's romantic life. Nominations lapse after
+        30 days without a response.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NominationInput"
+      responses:
+        "201":
+          description: Nomination opened; consent invite sent.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NominationEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "409":
+          $ref: "#/components/responses/NominationConflict"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      operationId: listNominations
+      tags: [Companions]
+      summary: List a member's Nnoboa nominations
+      security: []
+      description: Lists the member's nominations latest first, applying lazy expiry (E13-S06).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      responses:
+        "200":
+          description: Nominations, latest first.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NominationListEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/nominations/{id}/consent:
+    post:
+      operationId: consentNomination
+      tags: [Companions]
+      summary: Record kin consent to a nomination
+      security: []
+      description: Records the kin's explicit consent (FR-1302); only then do they become an active companion.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Consent recorded.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NominationEnvelope"
+        "404":
+          $ref: "#/components/responses/NominationNotFound"
+        "409":
+          $ref: "#/components/responses/NominationConflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/nominations/{id}/decline:
+    post:
+      operationId: declineNomination
+      tags: [Companions]
+      summary: Record kin decline of a nomination
+      security: []
+      description: Decline is always respected, without consequence (FR-1302).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Decline recorded.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NominationEnvelope"
+        "404":
+          $ref: "#/components/responses/NominationNotFound"
+        "409":
+          $ref: "#/components/responses/NominationConflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/notification-preferences/{memberId}:
     get:
       operationId: getNotificationPreferences
@@ -2228,6 +2358,24 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorEnvelope"
+    NominationNotFound:
+      description: No nomination with this identifier exists.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NominationConflict:
+      description: A pending nomination already exists for this kin, or the nomination was already answered.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
     SafetyCannotBeMuted:
       description: Safety notifications cannot be muted, or the input is invalid.
       headers:
@@ -3142,6 +3290,76 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/EmberData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    NominationInput:
+      type: object
+      additionalProperties: false
+      required: [memberId, kinName, kinPhone, relationship]
+      properties:
+        memberId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        kinName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        kinPhone:
+          type: string
+          pattern: ^\+[1-9]\d{7,14}$
+        relationship:
+          type: string
+          enum: [aunt, uncle, mother, father, elder]
+    NominationData:
+      type: object
+      additionalProperties: false
+      required: [id, memberId, kinName, relationship, status, createdAt]
+      properties:
+        id:
+          type: string
+        memberId:
+          type: string
+        kinName:
+          type: string
+        relationship:
+          type: string
+          enum: [aunt, uncle, mother, father, elder]
+        status:
+          type: string
+          enum: [pending, consented, declined, expired]
+        createdAt:
+          type: string
+          format: date-time
+        respondedAt:
+          type: string
+          format: date-time
+    NominationEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/NominationData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    NominationListData:
+      type: object
+      additionalProperties: false
+      required: [nominations]
+      properties:
+        nominations:
+          type: array
+          items:
+            $ref: "#/components/schemas/NominationData"
+    NominationListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/NominationListData"
         meta:
           $ref: "#/components/schemas/Metadata"
     NotificationPreferencesInput:

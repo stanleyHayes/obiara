@@ -715,6 +715,74 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/nominations": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List a member's Nnoboa nominations
+     * @description Lists the member's nominations latest first, applying lazy expiry (E13-S06).
+     */
+    readonly get: operations["listNominations"];
+    readonly put?: never;
+    /**
+     * Nominate a trusted kin as Nnoboa companion
+     * @description Opens a pending Nnoboa nomination (E13-S06, FR-1302): the kin receives
+     *     a consent invite over WhatsApp and becomes an active companion only
+     *     after explicit consent. The invite names the kin only — it says
+     *     nothing about the member's romantic life. Nominations lapse after
+     *     30 days without a response.
+     */
+    readonly post: operations["nominateKin"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/nominations/{id}/consent": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Record kin consent to a nomination
+     * @description Records the kin's explicit consent (FR-1302); only then do they become an active companion.
+     */
+    readonly post: operations["consentNomination"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/nominations/{id}/decline": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Record kin decline of a nomination
+     * @description Decline is always respected, without consequence (FR-1302).
+     */
+    readonly post: operations["declineNomination"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/notification-preferences/{memberId}": {
     readonly parameters: {
       readonly query?: never;
@@ -1347,6 +1415,37 @@ export interface components {
     readonly Metadata: {
       readonly correlationId: components["schemas"]["CorrelationId"];
     };
+    readonly NominationData: {
+      /** Format: date-time */
+      readonly createdAt: string;
+      readonly id: string;
+      readonly kinName: string;
+      readonly memberId: string;
+      /** @enum {string} */
+      readonly relationship: "aunt" | "uncle" | "mother" | "father" | "elder";
+      /** Format: date-time */
+      readonly respondedAt?: string;
+      /** @enum {string} */
+      readonly status: "pending" | "consented" | "declined" | "expired";
+    };
+    readonly NominationEnvelope: {
+      readonly data: components["schemas"]["NominationData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly NominationInput: {
+      readonly kinName: string;
+      readonly kinPhone: string;
+      readonly memberId: string;
+      /** @enum {string} */
+      readonly relationship: "aunt" | "uncle" | "mother" | "father" | "elder";
+    };
+    readonly NominationListData: {
+      readonly nominations: readonly components["schemas"]["NominationData"][];
+    };
+    readonly NominationListEnvelope: {
+      readonly data: components["schemas"]["NominationListData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly NotificationPreferencesData: {
       readonly muted: {
         readonly [key: string]: boolean;
@@ -1811,6 +1910,26 @@ export interface components {
     };
     /** @description The room has opted out of scam-arc monitoring. */
     readonly MonitoringOptedOut: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description A pending nomination already exists for this kin, or the nomination was already answered. */
+    readonly NominationConflict: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description No nomination with this identifier exists. */
+    readonly NominationNotFound: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -3342,6 +3461,125 @@ export interface operations {
         };
       };
       readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly listNominations: {
+    readonly parameters: {
+      readonly query: {
+        readonly memberId: string;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Nominations, latest first. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NominationListEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly nominateKin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["NominationInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Nomination opened; consent invite sent. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NominationEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 409: components["responses"]["NominationConflict"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly consentNomination: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Consent recorded. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NominationEnvelope"];
+        };
+      };
+      readonly 404: components["responses"]["NominationNotFound"];
+      readonly 409: components["responses"]["NominationConflict"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly declineNomination: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Decline recorded. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["NominationEnvelope"];
+        };
+      };
+      readonly 404: components["responses"]["NominationNotFound"];
+      readonly 409: components["responses"]["NominationConflict"];
       readonly 500: components["responses"]["InternalError"];
     };
   };

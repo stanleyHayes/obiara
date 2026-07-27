@@ -21,6 +21,10 @@ import (
 	deliverystats "github.com/stanleyHayes/obiara/internal/notifications/deliverystats/adapters/outbound/mongodb"
 	deliverystatsapp "github.com/stanleyHayes/obiara/internal/notifications/deliverystats/application"
 	"github.com/stanleyHayes/obiara/internal/notifications/email"
+	whatsappmongodb "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/adapters/outbound/mongodb"
+	wasimulator "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/adapters/outbound/simulator"
+	whatsappapp "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/application"
+	whatsappdomain "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/domain"
 	"github.com/stanleyHayes/obiara/internal/platform/inbox"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
@@ -31,6 +35,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/analytics"
 	"github.com/stanleyHayes/obiara/services/api/internal/calls"
 	callsapp "github.com/stanleyHayes/obiara/services/api/internal/calls/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/companions/nnoboa"
 	"github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap"
 	consentdomain "github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
@@ -223,6 +228,21 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build safety module: %w", err)
 	}
+	// Nnoboa kin nominations (E13-S06): consent invites ride the WhatsApp
+	// channel over the simulator sender until a scored provider is selected.
+	whatsappLog := whatsappmongodb.NewDeliveryLog(client.Database(cfg.MongoDatabase))
+	if err := whatsappLog.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("ensure whatsapp delivery indexes: %w", err)
+	}
+	whatsappChannel := whatsappapp.NewChannelService(wasimulator.NewSender(), whatsappLog, nil, time.Now)
+	nnoboaModule, err := nnoboa.NewModule(ctx, client.Database(cfg.MongoDatabase), nnoboa.SenderFunc(
+		func(ctx context.Context, msg whatsappdomain.Message) error {
+			_, err := whatsappChannel.SendNnoboaConsent(ctx, msg.To(), msg.Params()["kin_name"])
+			return err
+		}))
+	if err != nil {
+		return fmt.Errorf("build nnoboa module: %w", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /live", health.Live())
@@ -248,6 +268,7 @@ func run() error {
 	apihttp.RegisterDeliveryStatsRoutes(mux, deliverystatsapp.NewStatsService(deliverystats.NewStore(client.Database(cfg.MongoDatabase)), time.Now))
 	apihttp.RegisterConsentRoutes(mux, consentModule.ConsentMap)
 	apihttp.RegisterMarketPackRoutes(mux, marketPackModule.Packs)
+	apihttp.RegisterNominationRoutes(mux, nnoboaModule.Nominations)
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{
