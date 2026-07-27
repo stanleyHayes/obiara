@@ -55,6 +55,14 @@ export function ProfileSettingsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const initials =
+    displayName
+      .split(" ")
+      .map((part) => part[0] ?? "")
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "AS";
+
   function save() {
     const name = displayName.trim();
     if (name === "") {
@@ -88,10 +96,7 @@ export function ProfileSettingsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Pressable
-          onPress={() => router.push("/fie" as Href)}
-          style={styles.back}
-        >
+        <Pressable onPress={() => router.back()} style={styles.back}>
           <Text style={styles.backText}>Fie</Text>
         </Pressable>
         <Text style={styles.eyebrow}>YOUR PROFILE</Text>
@@ -102,7 +107,7 @@ export function ProfileSettingsScreen() {
         <View style={styles.card}>
           <View style={styles.identity}>
             <View style={styles.monogram}>
-              <Text style={styles.monogramText}>AS</Text>
+              <Text style={styles.monogramText}>{initials}</Text>
             </View>
             <View>
               <Text style={styles.identityName}>
@@ -132,6 +137,7 @@ export function ProfileSettingsScreen() {
             Display name · {[...displayName].length}/{displayNameLimit}
           </Text>
           <TextInput
+            accessibilityLabel="Display name"
             onChangeText={(value) => {
               setDisplayName(value);
               setSaved(false);
@@ -143,6 +149,10 @@ export function ProfileSettingsScreen() {
           <View style={styles.choiceRow}>
             {visibilityOptions.map((option) => (
               <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: nameVisibility === option.value,
+                }}
                 key={option.value}
                 onPress={() => setNameVisibility(option.value)}
                 style={[
@@ -165,6 +175,7 @@ export function ProfileSettingsScreen() {
             Introduction · {[...introduction].length}/{introductionLimit}
           </Text>
           <TextInput
+            accessibilityLabel="Introduction"
             multiline
             onChangeText={(value) => {
               setIntroduction(value);
@@ -177,6 +188,10 @@ export function ProfileSettingsScreen() {
           <View style={styles.choiceRow}>
             {visibilityOptions.map((option) => (
               <Pressable
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: introVisibility === option.value,
+                }}
                 key={option.value}
                 onPress={() => setIntroVisibility(option.value)}
                 style={[

@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useState, useSyncExternalStore } from "react";
 
 import {
   accountReducer,
@@ -32,6 +32,11 @@ import {
 const notificationsStorageKey = "obiara-admin-notifications";
 const languageStorageKey = "obiara-admin-language";
 const languages = ["English", "Twi", "Ga", "Ewe"] as const;
+
+function subscribeStorage(callback: () => void): () => void {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
 
 function ThemeCard({
   value,
@@ -71,45 +76,41 @@ function ThemeCard({
 }
 
 export function AccountSettings() {
-  const [state, dispatch] = useReducer(
-    accountReducer,
-    initialAccountState,
-    (base) => {
-      if (typeof window === "undefined") {
-        return base;
-      }
-      try {
-        const stored = window.localStorage.getItem(notificationsStorageKey);
-        if (!stored) {
-          return base;
-        }
-        const parsed = JSON.parse(stored) as Record<string, boolean>;
-        return {
-          ...base,
-          notifications: { ...base.notifications, ...parsed },
-        };
-      } catch {
-        return base;
-      }
-    },
-  );
+  const [state, dispatch] = useReducer(accountReducer, initialAccountState);
   const searchParams = useSearchParams();
   const themeMode = useThemeMode();
-  const [language, setLanguage] = useState<(typeof languages)[number]>(() => {
-    if (typeof window === "undefined") {
-      return "English";
-    }
-    const stored = window.localStorage.getItem(languageStorageKey);
-    return languages.some((item) => item === stored)
-      ? (stored as (typeof languages)[number])
-      : "English";
-  });
+  const language = useSyncExternalStore(
+    subscribeStorage,
+    () => {
+      const stored = window.localStorage.getItem(languageStorageKey);
+      return languages.some((item) => item === stored)
+        ? (stored as (typeof languages)[number])
+        : "English";
+    },
+    () => "English" as const,
+  );
   const [copied, setCopied] = useState(false);
 
   const tabParam = searchParams.get("tab");
   const activeTab: AccountTab = accountTabs.some((tab) => tab.id === tabParam)
     ? (tabParam as AccountTab)
     : "profile";
+
+  // Hydrate stored notification preferences after mount (keeps server and
+  // first client render identical).
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(notificationsStorageKey);
+      if (stored) {
+        dispatch({
+          type: "hydrate-notifications",
+          values: JSON.parse(stored) as Record<string, boolean>,
+        });
+      }
+    } catch {
+      // Ignore malformed preference blobs.
+    }
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -174,9 +175,9 @@ export function AccountSettings() {
         </Stack>
 
         <Stack
-          direction="row"
-          role="tablist"
           aria-label="Account settings"
+          component="nav"
+          direction="row"
           spacing={1}
           sx={{
             bgcolor: "background.paper",
@@ -191,9 +192,8 @@ export function AccountSettings() {
           {accountTabs.map((tab) => (
             <Button
               key={tab.id}
-              aria-selected={activeTab === tab.id}
+              aria-current={activeTab === tab.id ? "page" : undefined}
               href={`/account?tab=${tab.id}`}
-              role="tab"
               sx={{
                 borderRadius: 99,
                 color:
@@ -510,8 +510,8 @@ export function AccountSettings() {
                     color={language === item ? "primary" : "default"}
                     label={item}
                     onClick={() => {
-                      setLanguage(item);
                       window.localStorage.setItem(languageStorageKey, item);
+                      window.dispatchEvent(new Event("storage"));
                     }}
                     variant={language === item ? "filled" : "outlined"}
                   />

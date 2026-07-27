@@ -120,6 +120,8 @@ export function roomReducer(state: RoomState, action: RoomAction): RoomState {
     return { ...state, mode: "closing", draftReady: false };
   }
   if (action.type === "toggle-pause") {
+    // A closing room stays closing; pausing must never resurrect it.
+    if (state.mode === "closing") return state;
     return {
       ...state,
       mode: state.mode === "paused" ? "open" : "paused",

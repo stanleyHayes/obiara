@@ -14,7 +14,7 @@ import { MobileThemeProvider } from "@obiara/ui-mobile";
 // canvas; on device it fills the screen.
 const frameStyle =
   Platform.OS === "web"
-    ? { flex: 1, maxWidth: 520, width: "100%" }
+    ? { flex: 1, maxWidth: 520, width: "100%" as const }
     : { flex: 1 };
 
 const canvasStyle =

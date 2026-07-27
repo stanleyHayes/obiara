@@ -6,6 +6,14 @@ import {
   roomReducer,
 } from "./room-model";
 
+describe("closing rooms cannot be resurrected", () => {
+  it("toggle-pause is inert once closure begins or a block lands", () => {
+    const closing = roomReducer(initialRoomState, { type: "begin-closure" });
+    expect(closing.mode).toBe("closing");
+    expect(roomReducer(closing, { type: "toggle-pause" })).toBe(closing);
+  });
+});
+
 describe("open-theme progression", () => {
   it("reveals a ready theme and readies the next locked one", () => {
     const opened = roomReducer(initialRoomState, {

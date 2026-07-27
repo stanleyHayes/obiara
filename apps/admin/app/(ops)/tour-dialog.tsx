@@ -34,6 +34,7 @@ export function TourDialog() {
   const open = searchParams.get("tour") === "1";
 
   function close() {
+    setActive(0);
     router.replace("/", { scroll: false });
   }
 

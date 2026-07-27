@@ -97,6 +97,7 @@ export const memberPermissionMatrix: readonly MemberPermissionRow[] = [
 export type SuspensionWindow = "24h" | "7d" | "30d";
 
 export interface MembersState {
+  actorEmail: string;
   members: MemberRow[];
   selectedRef: string | null;
   actionReason: string;
@@ -116,6 +117,7 @@ export type MembersAction =
   | { type: "block" };
 
 export const initialMembersState: MembersState = {
+  actorEmail: "adwoa@obiara.com",
   members: [
     {
       ref: "member···92K",
@@ -274,7 +276,7 @@ export function membersReducer(
           error: "A Tier-A block needs a distinct second approver.",
         };
       }
-      if (state.secondApprover === member.ref) {
+      if (state.secondApprover === state.actorEmail) {
         return {
           ...state,
           error: "The second approver must be a different operator.",

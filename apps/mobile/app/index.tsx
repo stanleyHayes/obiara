@@ -11,7 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { type Href, useRouter } from "expo-router";
 
-import brandMark from "../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-onlight_transparent.png";
+import brandMark from "../assets/brand-mark.png";
 import { buildConnectionCopy, type ConnectionMode } from "../src/connection";
 
 const palette = {
@@ -376,7 +376,7 @@ export default function Home() {
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             key={label}
-            onPress={() => router.push(href as Href)}
+            onPress={() => router.replace(href as Href)}
             style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}
           >
             <Text

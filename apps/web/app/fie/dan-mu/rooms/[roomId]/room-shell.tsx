@@ -266,16 +266,19 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
         <div>
           <p className="fie-kicker">The talking drum</p>
           <h2 id="room-compose-title">
-            {state.mode === "paused"
-              ? "The room is resting."
-              : state.turn === "you"
-                ? "Speak when it feels right."
-                : "The drum is with Ama."}
+            {state.mode === "closing"
+              ? "The room is closing with care."
+              : state.mode === "paused"
+                ? "The room is resting."
+                : state.turn === "you"
+                  ? "Speak when it feels right."
+                  : "The drum is with Ama."}
           </h2>
           <p>A voice reply can be saved safely before one deliberate send.</p>
         </div>
         <div className="room-actions">
           <button
+            disabled={state.mode === "closing"}
             onClick={() => dispatch({ type: "toggle-pause" })}
             type="button"
           >
@@ -333,6 +336,7 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
                 </p>
                 <div>
                   <button
+                    disabled={state.mode === "closing"}
                     onClick={() => dispatch({ type: "toggle-pause" })}
                     type="button"
                   >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import "./safety-sheet.css";
@@ -20,6 +20,19 @@ export function DetailDialog({
   children: ReactNode;
 }>) {
   const [open, setOpen] = useState(false);
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   return (
     <>
       <button onClick={() => setOpen(true)} type="button">
@@ -28,11 +41,16 @@ export function DetailDialog({
       {open && typeof document !== "undefined"
         ? createPortal(
             <div className="safety-sheet-backdrop" role="presentation">
-              <section aria-modal="true" className="safety-sheet" role="dialog">
+              <section
+                aria-labelledby={titleId}
+                aria-modal="true"
+                className="safety-sheet"
+                role="dialog"
+              >
                 <p className="fie-kicker">{kicker}</p>
-                <h2>{title}</h2>
+                <h2 id={titleId}>{title}</h2>
                 {children}
-                <button onClick={() => setOpen(false)} type="button">
+                <button autoFocus onClick={() => setOpen(false)} type="button">
                   Close
                 </button>
               </section>

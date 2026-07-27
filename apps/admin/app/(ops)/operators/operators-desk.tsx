@@ -284,32 +284,32 @@ export function OperatorsDesk() {
                     a second approver.
                   </Typography>
                 </Box>
-                {(selected.roles.includes("admin") ||
-                  roleOrder.some((role) => role === "admin")) && (
-                  <TextField
-                    fullWidth
-                    label="Second approver (admin-role changes)"
-                    onChange={(event) =>
-                      dispatch({ type: "approver", value: event.target.value })
-                    }
-                    placeholder="approver@obiara.com"
-                    select
-                    value={state.secondApprover}
-                  >
-                    <MenuItem value="">Not required / not selected</MenuItem>
-                    {state.operators
-                      .filter(
-                        (operator) =>
-                          operator.id !== selected.id &&
-                          operator.status === "active",
-                      )
-                      .map((operator) => (
-                        <MenuItem key={operator.id} value={operator.email}>
-                          {operator.name} · {operator.email}
-                        </MenuItem>
-                      ))}
-                  </TextField>
-                )}
+                {/* Admin can be granted to or revoked from any operator, so
+                    the second-approver field is always relevant. */}
+                <TextField
+                  fullWidth
+                  label="Second approver (admin-role changes)"
+                  onChange={(event) =>
+                    dispatch({ type: "approver", value: event.target.value })
+                  }
+                  placeholder="approver@obiara.com"
+                  select
+                  value={state.secondApprover}
+                >
+                  <MenuItem value="">Not required / not selected</MenuItem>
+                  {state.operators
+                    .filter(
+                      (operator) =>
+                        operator.id !== selected.id &&
+                        operator.id !== state.actorId &&
+                        operator.status === "active",
+                    )
+                    .map((operator) => (
+                      <MenuItem key={operator.id} value={operator.email}>
+                        {operator.name} · {operator.email}
+                      </MenuItem>
+                    ))}
+                </TextField>
                 <TextField
                   fullWidth
                   helperText="At least 12 characters. Recorded with the actor in the audit trail."
@@ -446,6 +446,7 @@ export function OperatorsDesk() {
                 }}
               >
                 <Typography
+                  role="columnheader"
                   sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
                 >
                   CAPABILITY
@@ -453,6 +454,7 @@ export function OperatorsDesk() {
                 {matrixRoles.map((role) => (
                   <Typography
                     key={role}
+                    role="columnheader"
                     sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
                   >
                     {roleCatalog[role].label.toUpperCase()}
@@ -473,7 +475,7 @@ export function OperatorsDesk() {
                     py: 1.25,
                   }}
                 >
-                  <Box>
+                  <Box role="rowheader">
                     <Typography
                       sx={{
                         fontFamily: "monospace",
@@ -490,6 +492,7 @@ export function OperatorsDesk() {
                   {matrixRoles.map((role) => (
                     <Typography
                       key={role}
+                      role="cell"
                       sx={{
                         color: row.grants[role] ? "#173d32" : "text.disabled",
                         fontSize: 13,

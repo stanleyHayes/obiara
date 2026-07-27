@@ -139,6 +139,10 @@ body {
   grid-template-rows: 0fr;
 }
 
+.rail-group.is-closed .rail-group-links-inner {
+  visibility: hidden;
+}
+
 .rail-group-links-inner {
   border-left: 1px solid rgba(255, 243, 230, 0.16);
   display: flex;

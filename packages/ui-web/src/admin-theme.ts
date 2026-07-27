@@ -113,7 +113,7 @@ export function createObiaraAdminTheme(
     components: {
       MuiCssBaseline: {
         styleOverrides: {
-          ":root": { colorScheme: "light" },
+          ":root": { colorScheme: mode },
           "*:focus-visible": {
             outline: focusRing,
             outlineOffset: 2,

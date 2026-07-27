@@ -95,6 +95,7 @@ export const matrixRoles: readonly OperatorRole[] = [
 
 export interface OperatorsState {
   actorId: string;
+  actorEmail: string;
   operators: Operator[];
   selectedId: string | null;
   enrollOpen: boolean;
@@ -124,6 +125,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const initialOperatorsState: OperatorsState = {
   actorId: "op-adwoa",
+  actorEmail: "adwoa@obiara.com",
   operators: [
     {
       id: "op-adwoa",
@@ -330,7 +332,8 @@ export function operatorsReducer(
       }
       if (
         needsSecondApprover(operator, action.role) &&
-        state.secondApprover === operator.email
+        (state.secondApprover === state.actorEmail ||
+          state.secondApprover === operator.email)
       ) {
         return {
           ...state,

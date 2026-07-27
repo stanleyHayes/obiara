@@ -39,6 +39,7 @@ export type AccountAction =
   | { type: "first-name"; value: string }
   | { type: "last-name"; value: string }
   | { type: "save-profile" }
+  | { type: "hydrate-notifications"; values: Record<string, boolean> }
   | { type: "toggle-notification"; key: string }
   | { type: "revoke-session"; id: string };
 
@@ -150,6 +151,11 @@ export function accountReducer(
         error: null,
       };
     }
+    case "hydrate-notifications":
+      return {
+        ...state,
+        notifications: { ...state.notifications, ...action.values },
+      };
     case "toggle-notification":
       return {
         ...state,

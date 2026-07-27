@@ -40,9 +40,15 @@ export function ProfileSettings() {
     .toUpperCase();
 
   function copyRef() {
-    void navigator.clipboard?.writeText(account.memberRef);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard
+      ?.writeText(account.memberRef)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        // Clipboard unavailable (insecure context); stay silent.
+      });
   }
 
   return (
@@ -129,7 +135,6 @@ export function ProfileSettings() {
               </label>
               <input
                 id="display-name"
-                maxLength={displayNameLimit + 20}
                 onChange={(event) =>
                   dispatch({ type: "display-name", value: event.target.value })
                 }

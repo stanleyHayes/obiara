@@ -25,7 +25,7 @@ import {
 } from "./members-model";
 
 const tierOrder: readonly MemberTier[] = [0, 1, 2];
-const operators = ["adwoa@obiara.com", "kweku@obiara.com", "efua@obiara.com"];
+const operators = ["kweku@obiara.com", "efua@obiara.com"];
 
 export function MembersDesk() {
   const [state, dispatch] = useReducer(membersReducer, initialMembersState);
@@ -436,21 +436,25 @@ export function MembersDesk() {
                 }}
               >
                 <Typography
+                  role="columnheader"
                   sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
                 >
                   CAPABILITY
                 </Typography>
                 <Typography
+                  role="columnheader"
                   sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
                 >
                   TIER 0
                 </Typography>
                 <Typography
+                  role="columnheader"
                   sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
                 >
                   TIER 1
                 </Typography>
                 <Typography
+                  role="columnheader"
                   sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
                 >
                   TIER 2
@@ -470,7 +474,7 @@ export function MembersDesk() {
                     py: 1.25,
                   }}
                 >
-                  <Box>
+                  <Box role="rowheader">
                     <Typography
                       sx={{
                         fontFamily: "monospace",
@@ -487,6 +491,7 @@ export function MembersDesk() {
                   {[row.tier0, row.tier1, row.tier2].map((grant, index) => (
                     <Typography
                       key={index}
+                      role="cell"
                       sx={{
                         color: grant === "—" ? "text.disabled" : "#173d32",
                         fontSize: 13,

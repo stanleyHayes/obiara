@@ -147,9 +147,16 @@ describe("operators model", () => {
     });
     state = operatorsReducer(state, { type: "grant-role", role: "admin" });
     expect(state.error).toMatch(/different person/);
+    // The actor can never approve their own action.
     state = operatorsReducer(state, {
       type: "approver",
       value: "adwoa@obiara.com",
+    });
+    state = operatorsReducer(state, { type: "grant-role", role: "admin" });
+    expect(state.error).toMatch(/different person/);
+    state = operatorsReducer(state, {
+      type: "approver",
+      value: "efua@obiara.com",
     });
     state = operatorsReducer(state, { type: "grant-role", role: "admin" });
     expect(state.error).toBeNull();

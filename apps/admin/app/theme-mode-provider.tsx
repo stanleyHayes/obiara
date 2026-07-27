@@ -5,7 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -26,14 +26,30 @@ const ThemeModeContext = createContext<ThemeModeContextValue>({
 });
 
 const storageKey = "obiara-admin-theme";
+const mediaQuery = "(prefers-color-scheme: dark)";
 
-function resolveSystem(): "light" | "dark" {
-  if (typeof window === "undefined" || !window.matchMedia) {
-    return "light";
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
+// useSyncExternalStore keeps server and first client render identical
+// ("light"), then re-renders with the stored preference after hydration —
+// no hydration mismatch, no effect-set-state.
+function subscribe(callback: () => void): () => void {
+  const media = window.matchMedia(mediaQuery);
+  media.addEventListener("change", callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    media.removeEventListener("change", callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
+function readPreference(): ThemeModePreference {
+  const stored = window.localStorage.getItem(storageKey);
+  return stored === "light" || stored === "dark" || stored === "system"
+    ? stored
     : "light";
+}
+
+function readSystem(): "light" | "dark" {
+  return window.matchMedia(mediaQuery).matches ? "dark" : "light";
 }
 
 export function useThemeMode(): ThemeModeContextValue {
@@ -43,24 +59,16 @@ export function useThemeMode(): ThemeModeContextValue {
 export function ThemeModeProvider({
   children,
 }: Readonly<{ children: ReactNode }>) {
-  const [preference, setPreferenceState] = useState<ThemeModePreference>(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-    const stored = window.localStorage.getItem(storageKey);
-    return stored === "light" || stored === "dark" || stored === "system"
-      ? stored
-      : "light";
-  });
-  const [system, setSystem] = useState<"light" | "dark">(() => resolveSystem());
-
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const listener = (event: MediaQueryListEvent) =>
-      setSystem(event.matches ? "dark" : "light");
-    media.addEventListener("change", listener);
-    return () => media.removeEventListener("change", listener);
-  }, []);
+  const preference = useSyncExternalStore(
+    subscribe,
+    readPreference,
+    () => "light" as const,
+  );
+  const system = useSyncExternalStore(
+    subscribe,
+    readSystem,
+    () => "light" as const,
+  );
 
   const resolved = preference === "system" ? system : preference;
 
@@ -73,8 +81,9 @@ export function ThemeModeProvider({
       preference,
       resolved,
       setPreference: (next) => {
-        setPreferenceState(next);
         window.localStorage.setItem(storageKey, next);
+        // Notify subscribers in this tab (the storage event only fires cross-tab).
+        window.dispatchEvent(new Event("storage"));
       },
     }),
     [preference, resolved],

@@ -93,7 +93,10 @@ describe("members model", () => {
     });
     state = membersReducer(state, { type: "block" });
     expect(state.error).toMatch(/second approver/);
-    state = membersReducer(state, { type: "approver", value: "member···41F" });
+    state = membersReducer(state, {
+      type: "approver",
+      value: "adwoa@obiara.com",
+    });
     state = membersReducer(state, { type: "block" });
     expect(state.error).toMatch(/different operator/);
     state = membersReducer(state, {

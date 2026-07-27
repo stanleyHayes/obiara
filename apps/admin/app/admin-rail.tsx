@@ -102,6 +102,7 @@ function RailUserMenu() {
   return (
     <>
       <Box
+        aria-controls={anchor !== null ? "operator-account-menu" : undefined}
         aria-expanded={anchor !== null}
         aria-haspopup="menu"
         className="rail-user"
@@ -127,6 +128,7 @@ function RailUserMenu() {
       <Menu
         anchorEl={anchor}
         anchorOrigin={{ horizontal: "right", vertical: "top" }}
+        id="operator-account-menu"
         onClose={() => setAnchor(null)}
         open={anchor !== null}
         transformOrigin={{ horizontal: "left", vertical: "bottom" }}
