@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "obiara.release-evidence.v1",
+  "target": "staging",
+  "syntheticOnly": true,
+  "commitSha": "242f2214d29b10cdb70e046822b5146ab56db9a7",
+  "generatedAt": "2026-07-27T00:50:00Z",
+  "requiredChecks": [
+    "Lint, test, and build",
+    "CodeQL (go)",
+    "CodeQL (javascript-typescript)",
+    "Dependency vulnerabilities"
+  ],
+  "disposition": "qualified-non-production"
+}

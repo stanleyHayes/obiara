@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "obiara.synthetic-staging-qualification.v1",
+  "environment": "staging",
+  "syntheticOnly": true,
+  "candidateSha": "242f2214d29b10cdb70e046822b5146ab56db9a7",
+  "generatedAt": "2026-07-27T01:00:00Z",
+  "expiresAt": "2026-07-28T01:00:00Z",
+  "inputs": {
+    "releaseEvidence": {
+      "path": "deploy/release/evidence/staging.synthetic.json",
+      "sha256": "a88224a70abd2a2a762868288280f97d14d1e4abea59bd2358ec56535bc1b6f1"
+    },
+    "releaseBundle": {
+      "path": "deploy/release/examples/staging.synthetic.json",
+      "sha256": "9a2e31deca15e8538c8aeaf777d87f70825bd5be2fc9341be3b883ec6c5f339d"
+    },
+    "drRehearsal": {
+      "path": "deploy/atlas/evidence/staging.synthetic.json",
+      "sha256": "e6054fa87fb059bcc5c1a5282f2d1590e4b1bf2cb333199d6ec2c5a1ec64e642"
+    }
+  },
+  "limitations": {
+    "productionEvidence": false,
+    "legalEvidence": false,
+    "providerEvidence": false,
+    "cohortEvidence": false
+  },
+  "disposition": "synthetic-staging-qualified"
+}

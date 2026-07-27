@@ -2,8 +2,8 @@
   "schemaVersion": "obiara.release-bundle.v1",
   "environment": "staging",
   "candidate": {
-    "commitSha": "1111111111111111111111111111111111111111",
-    "releaseEvidenceRef": "release-evidence/staging/1111111"
+    "commitSha": "242f2214d29b10cdb70e046822b5146ab56db9a7",
+    "releaseEvidenceRef": "release-evidence/staging/242f221"
   },
   "notes": {
     "summary": "Synthetic staging bundle exercises release closeout without member data.",
@@ -38,4 +38,3 @@
   "expiresAt": "2026-08-03T00:00:00Z",
   "disposition": "blocked"
 }
-
