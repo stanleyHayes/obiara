@@ -24,6 +24,7 @@ const navigation = [
   ["◌", "Circles & hosts", ""],
   ["✦", "Fires", ""],
   ["¤", "Finance", ""],
+  ["▦", "Analytics", ""],
   ["≡", "Audit trail", ""],
 ];
 
@@ -102,8 +103,10 @@ export default function AdminHome() {
                       ? "/incidents"
                     : label === "Workforce"
                       ? "/workforce"
-                      : label === "Finance"
-                        ? "/finance"
+                    : label === "Finance"
+                      ? "/finance"
+                      : label === "Analytics"
+                        ? "/analytics"
                       : undefined
               }
             >
