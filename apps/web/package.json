@@ -20,6 +20,7 @@
     "@obiara/nnoboa-policy": "workspace:*",
     "@obiara/notification-settings": "workspace:*",
     "@obiara/matchmaker-marketplace": "workspace:*",
+    "@obiara/membership-settings": "workspace:*",
     "@obiara/okyeame-policy": "workspace:*",
     "@obiara/ui-web": "workspace:*",
     "next": "16.2.12",

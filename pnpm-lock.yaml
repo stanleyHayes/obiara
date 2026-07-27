@@ -110,6 +110,9 @@ importers:
       '@obiara/matchmaker-marketplace':
         specifier: workspace:*
         version: link:../../packages/matchmaker-marketplace
+      '@obiara/membership-settings':
+        specifier: workspace:*
+        version: link:../../packages/membership-settings
       '@obiara/nnoboa-policy':
         specifier: workspace:*
         version: link:../../packages/nnoboa-policy
@@ -207,6 +210,9 @@ importers:
       '@obiara/matchmaker-marketplace':
         specifier: workspace:*
         version: link:../../packages/matchmaker-marketplace
+      '@obiara/membership-settings':
+        specifier: workspace:*
+        version: link:../../packages/membership-settings
       '@obiara/nnoboa-policy':
         specifier: workspace:*
         version: link:../../packages/nnoboa-policy
@@ -323,6 +329,24 @@ importers:
   packages/i18n: {}
 
   packages/matchmaker-marketplace:
+    devDependencies:
+      '@obiara/config-eslint':
+        specifier: workspace:*
+        version: link:../config-eslint
+      '@obiara/config-typescript':
+        specifier: workspace:*
+        version: link:../config-typescript
+      eslint:
+        specifier: 9.39.2
+        version: 9.39.2(supports-color@10.2.2)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@24.10.1)(vite@8.1.5(@types/node@24.10.1)(esbuild@0.28.1)(terser@5.49.0)(yaml@2.9.0))
+
+  packages/membership-settings:
     devDependencies:
       '@obiara/config-eslint':
         specifier: workspace:*

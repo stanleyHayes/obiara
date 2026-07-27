@@ -199,6 +199,16 @@ export function FieHome() {
           <Link href="/fie/matchmakers">Find a licensed guide</Link>
         </aside>
 
+        <aside className="garden-entry">
+          <div>
+            <p className="fie-kicker">Membership</p>
+            <strong>Paid through 31 August · renewal off.</strong>
+          </div>
+          <Link href="/fie/settings/membership">
+            Review terms and receipts
+          </Link>
+        </aside>
+
         <CompoundBottomNavigation current="home" />
       </section>
     </main>
