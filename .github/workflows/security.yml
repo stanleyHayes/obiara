@@ -80,3 +80,59 @@ jobs:
 
       - name: Scan Go vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+  dast-local:
+    name: DAST (repository-owned localhost fixture)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: 1.26.5
+          cache: true
+
+      - name: Validate security policy and penetration evidence
+        run: go test ./internal/quality/securityclosure/...
+
+      - name: Start synthetic localhost fixture
+        run: |
+          go build -o "${RUNNER_TEMP}/obiara-security-fixture" ./internal/quality/securityclosure/cmd/fixture
+          "${RUNNER_TEMP}/obiara-security-fixture" >"${RUNNER_TEMP}/obiara-security-fixture.log" 2>&1 &
+          echo "SECURITY_FIXTURE_PID=$!" >> "$GITHUB_ENV"
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error http://127.0.0.1:18080/live >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Fixture did not become ready after ${attempt} attempts"
+          cat "${RUNNER_TEMP}/obiara-security-fixture.log"
+          exit 1
+
+      - name: Run bounded passive ZAP baseline
+        run: |
+          mkdir -p "${RUNNER_TEMP}/zap"
+          docker run --rm --network host \
+            --volume "${PWD}/deploy/security/zap-rules.tsv:/zap/wrk/zap-rules.tsv:ro" \
+            --volume "${RUNNER_TEMP}/zap:/zap/wrk/output:rw" \
+            ghcr.io/zaproxy/zaproxy@sha256:c558ee87358911ab17278c70991e856f57793e115d9cd0f88ca475cf82907a1a \
+            zap-baseline.py \
+            -t http://127.0.0.1:18080 \
+            -m 1 \
+            -T 3 \
+            -I \
+            -c /zap/wrk/zap-rules.tsv \
+            -J /zap/wrk/output/zap-report.json
+
+      - name: Stop synthetic localhost fixture
+        if: always()
+        run: |
+          if [[ -n "${SECURITY_FIXTURE_PID:-}" ]]; then
+            kill "$SECURITY_FIXTURE_PID" 2>/dev/null || true
+          fi

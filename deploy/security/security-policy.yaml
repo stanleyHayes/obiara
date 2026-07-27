@@ -1,0 +1,22 @@
+schemaVersion: obiara.security-closure.v1
+dast:
+  target: http://127.0.0.1:18080
+  mode: passive-baseline
+  maximumMinutes: 3
+  image: ghcr.io/zaproxy/zaproxy@sha256:c558ee87358911ab17278c70991e856f57793e115d9cd0f88ca475cf82907a1a
+  imageVersion: 2.17.0
+  allowExternalTargets: false
+  allowProductionTargets: false
+penetration:
+  maximumEvidenceAgeDays: 90
+  maximumAcceptanceDays: 30
+  productionRequiresIndependentAssessment: true
+  productionRequiresAllFindingsClosed: true
+  forbiddenEvidenceFields:
+    - member
+    - email
+    - phone
+    - token
+    - secret
+    - requestBody
+    - responseBody
