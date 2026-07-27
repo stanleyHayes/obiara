@@ -12,8 +12,8 @@ them with task-ledger labels, then inspected code and focused tests for every
 apparent miss. Combined labels such as `E15-S01+S02` and
 `E18-S06+S07+S08` account for five apparent misses. Eleven stories were
 implemented under an earlier or broader task label. Two P2 stories were
-genuinely absent and were opened as S8-074 and S8-073; this audit cannot close
-until both are DONE.
+genuinely absent, opened as S8-074 and S8-073, and are now implemented and
+DONE.
 
 ## Implemented stories whose exact ID was absent from a row label
 
@@ -54,3 +54,11 @@ green, `main` is synchronized, and the production blockers remain truthfully
 documented. Completion of engineering backlog does not provision providers,
 approve residency/DPIA, release stores, deploy production, recruit members or
 declare launch readiness.
+
+## Final result
+
+All 182 unique E01–E18 story identifiers now map to completed implementation
+evidence. S8-073 and S8-074 closed the two genuine code gaps found by this
+audit. The repository-wide `pnpm run check` gate completed with all 58
+TypeScript workspace tasks and the complete Go suite green. The ledger has no
+remaining TODO, READY, IN PROGRESS, PENDING or BLOCKED task row.
