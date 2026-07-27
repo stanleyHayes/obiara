@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=https://json.schemastore.org/render.json
+previews:
+  generation: manual
+  expireAfterDays: 7
+
+projects:
+  - name: obiara
+    environments:
+      - name: staging
+        networking:
+          isolation: enabled
+        permissions:
+          protection: enabled
+        envVarGroups:
+          - name: obiara-staging-runtime
+            envVars:
+              - key: APP_ENV
+                value: staging
+              - key: MONGO_CONNECT_TIMEOUT
+                value: 10s
+              - key: SHUTDOWN_TIMEOUT
+                value: 20s
+              - key: OTEL_EXPORTER_OTLP_INSECURE
+                value: "false"
+        services:
+          - name: obiara-api-staging
+            type: web
+            runtime: go
+            region: frankfurt
+            plan: starter
+            buildCommand: go build -trimpath -ldflags="-s -w" -o bin/obiara-api ./services/api
+            startCommand: SERVICE_VERSION="${RENDER_GIT_COMMIT:?missing commit}" ./bin/obiara-api
+            healthCheckPath: /live
+            autoDeployTrigger: checksPass
+            numInstances: 1
+            buildFilter:
+              paths:
+                - go.mod
+                - go.sum
+                - internal/**
+                - services/api/**
+            envVars:
+              - fromGroup: obiara-staging-runtime
+              - key: GO_VERSION
+                value: 1.26.5
+              - key: MONGODB_DATABASE
+                value: obiara_staging
+              - key: MONGODB_URI
+                sync: false
+              - key: OTEL_EXPORTER_OTLP_ENDPOINT
+                sync: false
+              - key: RESEND_WEBHOOK_SECRET
+                sync: false
+
+          - name: obiara-worker-staging
+            type: worker
+            runtime: go
+            region: frankfurt
+            plan: starter
+            buildCommand: go build -trimpath -ldflags="-s -w" -o bin/obiara-worker ./services/worker
+            startCommand: SERVICE_VERSION="${RENDER_GIT_COMMIT:?missing commit}" ./bin/obiara-worker
+            autoDeployTrigger: checksPass
+            numInstances: 1
+            buildFilter:
+              paths:
+                - go.mod
+                - go.sum
+                - internal/**
+                - services/worker/**
+            envVars:
+              - fromGroup: obiara-staging-runtime
+              - key: GO_VERSION
+                value: 1.26.5
+              - key: MONGODB_DATABASE
+                value: obiara_staging
+              - key: MONGODB_URI
+                sync: false
+              - key: OTEL_EXPORTER_OTLP_ENDPOINT
+                sync: false
+
+          - name: obiara-web-staging
+            type: web
+            runtime: node
+            region: frankfurt
+            plan: starter
+            buildCommand: corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @obiara/web build
+            startCommand: pnpm --filter @obiara/web start -- --hostname 0.0.0.0 --port "$PORT"
+            healthCheckPath: /
+            autoDeployTrigger: checksPass
+            numInstances: 1
+            buildFilter:
+              paths:
+                - package.json
+                - pnpm-lock.yaml
+                - pnpm-workspace.yaml
+                - turbo.json
+                - apps/web/**
+                - packages/**
+            envVars:
+              - key: NODE_VERSION
+                value: 22.13.0
+              - key: NEXT_PUBLIC_API_BASE_URL
+                sync: false
+
+          - name: obiara-admin-staging
+            type: web
+            runtime: node
+            region: frankfurt
+            plan: starter
+            buildCommand: corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @obiara/admin build
+            startCommand: pnpm --filter @obiara/admin start -- --hostname 0.0.0.0 --port "$PORT"
+            healthCheckPath: /
+            autoDeployTrigger: checksPass
+            numInstances: 1
+            buildFilter:
+              paths:
+                - package.json
+                - pnpm-lock.yaml
+                - pnpm-workspace.yaml
+                - turbo.json
+                - apps/admin/**
+                - packages/**
+            envVars:
+              - key: NODE_VERSION
+                value: 22.13.0
+              - key: NEXT_PUBLIC_API_BASE_URL
+                sync: false
