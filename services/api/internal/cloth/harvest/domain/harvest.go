@@ -164,7 +164,7 @@ func (h Harvest) Approve(command Command) (Harvest, error) {
 	if slices.Contains(h.approvals, command.ActorKey) {
 		return Harvest{}, ErrConsent
 	}
-	h.approvals = append(h.approvals, command.ActorKey)
+	h.approvals = append(append([]string(nil), h.approvals...), command.ActorKey)
 	slices.Sort(h.approvals)
 	if len(h.approvals) == 2 {
 		h.status, h.readyAt, h.expiresAt = StatusReady, command.At.UTC(), command.At.UTC().Add(ReadyValidity)
@@ -243,8 +243,11 @@ func (h *Harvest) apply(command Command, action, reasonCode string, values ...st
 	}
 	value := fingerprint(h.id, command, action, reasonCode, values...)
 	h.revision++
-	h.events = append(h.events, Event{Sequence: h.revision, CommandID: command.ID, Action: action, Reason: reasonCode, At: command.At.UTC()})
-	h.commands = append(h.commands, Applied{ID: command.ID, Fingerprint: value, Revision: h.revision})
+	// Clone-on-append: Harvest methods use value receivers, so the slices
+	// share backing arrays with the source aggregate. Appending into spare
+	// capacity would corrupt every copy derived from the same state.
+	h.events = append(append([]Event(nil), h.events...), Event{Sequence: h.revision, CommandID: command.ID, Action: action, Reason: reasonCode, At: command.At.UTC()})
+	h.commands = append(append([]Applied(nil), h.commands...), Applied{ID: command.ID, Fingerprint: value, Revision: h.revision})
 	return nil
 }
 

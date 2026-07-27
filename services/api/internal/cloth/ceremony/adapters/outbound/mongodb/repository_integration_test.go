@@ -58,7 +58,10 @@ func TestDualConfirmPublishAndPrivacy(t *testing.T) {
 		go func(v struct {
 			x domain.Ceremony
 			c string
-		}) { defer wg.Done(); results <- repository.Append(ctx, v.x, 1, v.c) }(v)
+		}) {
+			defer wg.Done()
+			results <- repository.Append(ctx, v.x, 1, v.c)
+		}(v)
 	}
 	wg.Wait()
 	close(results)

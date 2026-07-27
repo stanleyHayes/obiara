@@ -52,5 +52,9 @@ func (r *Repository) Save(ctx context.Context, t domain.Thread, expected uint64,
 	return nil
 }
 func toDoc(t domain.Thread) document {
-	return document{ID: t.ID(), Members: t.Members(), Provenance: t.Provenance(), Revision: t.Revision(), Commands: t.Commands()}
+	commands := t.Commands()
+	if commands == nil {
+		commands = []domain.Applied{}
+	}
+	return document{ID: t.ID(), Members: t.Members(), Provenance: t.Provenance(), Revision: t.Revision(), Commands: commands}
 }

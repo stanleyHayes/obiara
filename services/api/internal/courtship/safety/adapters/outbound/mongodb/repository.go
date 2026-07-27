@@ -61,5 +61,17 @@ func (r *Repository) Save(ctx context.Context, s domain.Safety, expected uint64,
 	return nil
 }
 func toDoc(s domain.Safety) document {
-	return document{ID: s.ID(), Members: s.Members(), Blocked: s.Blocked(), BlockedAt: s.BlockedAt(), Revision: s.Revision(), Events: s.Events(), Reviews: s.Reviews(), Commands: s.Commands()}
+	events := s.Events()
+	if events == nil {
+		events = []domain.Event{}
+	}
+	reviews := s.Reviews()
+	if reviews == nil {
+		reviews = []domain.CareReview{}
+	}
+	commands := s.Commands()
+	if commands == nil {
+		commands = []domain.Applied{}
+	}
+	return document{ID: s.ID(), Members: s.Members(), Blocked: s.Blocked(), BlockedAt: s.BlockedAt(), Revision: s.Revision(), Events: events, Reviews: reviews, Commands: commands}
 }

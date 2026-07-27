@@ -136,10 +136,10 @@ func (s Safety) apply(action Action, cmd Command) (Safety, error) {
 		s.blockedAt = cmd.At.UTC()
 	}
 	if action == ActionReport {
-		s.reviews = append(s.reviews, CareReview{ID: cmd.ID, ReporterKey: cmd.ActorKey, EvidenceRef: cmd.EvidenceRef, Category: cmd.Category, CreatedAt: cmd.At.UTC()})
+		s.reviews = append(append([]CareReview(nil), s.reviews...), CareReview{ID: cmd.ID, ReporterKey: cmd.ActorKey, EvidenceRef: cmd.EvidenceRef, Category: cmd.Category, CreatedAt: cmd.At.UTC()})
 	}
-	s.events = append(s.events, Event{Sequence: s.revision, CommandID: cmd.ID, Action: action, At: cmd.At.UTC()})
-	s.commands = append(s.commands, Applied{ID: cmd.ID, Fingerprint: fp, Revision: s.revision})
+	s.events = append(append([]Event(nil), s.events...), Event{Sequence: s.revision, CommandID: cmd.ID, Action: action, At: cmd.At.UTC()})
+	s.commands = append(append([]Applied(nil), s.commands...), Applied{ID: cmd.ID, Fingerprint: fp, Revision: s.revision})
 	return s, nil
 }
 func validCategory(c Category) bool {

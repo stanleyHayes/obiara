@@ -123,7 +123,7 @@ func (c Closure) apply(kind Kind, cmd Command, threshold time.Duration) (Closure
 	}
 	c.status, c.closedAt, c.revision = StatusClosed, cmd.At.UTC(), c.revision+1
 	c.event = &Event{Sequence: c.revision, CommandID: cmd.ID, Kind: kind, At: c.closedAt}
-	c.commands = append(c.commands, Applied{cmd.ID, fp, c.revision})
+	c.commands = append(append([]Applied(nil), c.commands...), Applied{cmd.ID, fp, c.revision})
 	return c, nil
 }
 func fingerprint(id string, kind Kind, c Command, threshold time.Duration) string {

@@ -79,9 +79,17 @@ func (repository *Repository) Save(ctx context.Context, pace domain.Pace, expect
 }
 
 func toDocument(pace domain.Pace) document {
+	events := pace.Events()
+	if events == nil {
+		events = []domain.Event{}
+	}
+	commands := pace.Commands()
+	if commands == nil {
+		commands = []domain.Applied{}
+	}
 	return document{
 		ID: pace.ID(), Members: pace.Members(), RelightGrants: pace.RelightGrants(),
 		Status: pace.Status(), ResponseAt: pace.ResponseAt(), ArchiveAt: pace.ArchiveAt(),
-		Revision: pace.Revision(), Events: pace.Events(), Commands: pace.Commands(),
+		Revision: pace.Revision(), Events: events, Commands: commands,
 	}
 }

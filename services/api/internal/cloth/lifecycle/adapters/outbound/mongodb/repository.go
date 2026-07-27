@@ -57,5 +57,9 @@ func (r *Repository) Save(ctx context.Context, v domain.Lifecycle, expected uint
 	return nil
 }
 func toDoc(v domain.Lifecycle) document {
-	return document{ID: v.ID(), Members: v.Members(), Status: v.Status(), Provenance: v.Provenance(), ArchiveRef: v.ArchiveRef(), ArchivedAt: v.ArchivedAt(), Tombstone: v.Tombstone(), Revision: v.Revision(), Commands: v.Commands()}
+	cs := v.Commands()
+	if cs == nil {
+		cs = []domain.Applied{}
+	}
+	return document{ID: v.ID(), Members: v.Members(), Status: v.Status(), Provenance: v.Provenance(), ArchiveRef: v.ArchiveRef(), ArchivedAt: v.ArchivedAt(), Tombstone: v.Tombstone(), Revision: v.Revision(), Commands: cs}
 }

@@ -139,7 +139,7 @@ func (v Lifecycle) apply(action string, c Command) (Lifecycle, error) {
 		v.archivedAt = time.Time{}
 	}
 	v.revision++
-	v.commands = append(v.commands, Applied{c.ID, fp, v.revision})
+	v.commands = append(append([]Applied(nil), v.commands...), Applied{c.ID, fp, v.revision})
 	return v, nil
 }
 func (v Lifecycle) Export(actor, archiveRef string) (Export, error) {

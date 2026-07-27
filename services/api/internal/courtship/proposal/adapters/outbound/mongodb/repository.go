@@ -2,13 +2,15 @@ package mongodb
 
 import (
 	"context"
+	"errors"
+	"time"
+
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/services/api/internal/courtship/proposal/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/courtship/proposal/domain"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
-	"time"
 )
 
 type Repository struct{ database *mongo.Database }
@@ -98,6 +100,17 @@ func (r *Repository) Append(ctx context.Context, p domain.Proposal, expected uin
 			return updateErr
 		}
 		if result.MatchedCount == 0 {
+			// A matched-zero update is either a genuine concurrent change or
+			// an idempotent replay of an already-applied command; the event
+			// log disambiguates.
+			var existing eventDocument
+			findErr := r.events().FindOne(tx, bson.M{"commandId": event.CommandID}).Decode(&existing)
+			if findErr == nil {
+				return application.ErrCommandApplied
+			}
+			if !errors.Is(findErr, mongo.ErrNoDocuments) {
+				return findErr
+			}
 			return application.ErrConcurrentChange
 		}
 		_, insertErr := r.events().InsertOne(tx, toEvent(s.ID, event))

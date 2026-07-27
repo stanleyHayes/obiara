@@ -151,7 +151,7 @@ func (pace Pace) Relight(command Command) (Pace, error) {
 	if slices.Contains(pace.relightGrants, command.ActorKey) {
 		return pace.record(ActionRelight, command)
 	}
-	pace.relightGrants = append(pace.relightGrants, command.ActorKey)
+	pace.relightGrants = append(append([]string(nil), pace.relightGrants...), command.ActorKey)
 	slices.Sort(pace.relightGrants)
 	if len(pace.relightGrants) == 2 {
 		pace.status = StatusActive
@@ -197,8 +197,8 @@ func (pace Pace) record(action Action, command Command) (Pace, error) {
 		return Pace{}, ErrStaleRevision
 	}
 	pace.revision++
-	pace.events = append(pace.events, Event{pace.revision, command.ID, command.ActorKey, action, command.At.UTC()})
-	pace.commands = append(pace.commands, Applied{command.ID, fp, pace.revision})
+	pace.events = append(append([]Event(nil), pace.events...), Event{pace.revision, command.ID, command.ActorKey, action, command.At.UTC()})
+	pace.commands = append(append([]Applied(nil), pace.commands...), Applied{command.ID, fp, pace.revision})
 	return pace, nil
 }
 
