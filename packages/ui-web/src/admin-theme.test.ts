@@ -16,7 +16,7 @@ test("keeps the operator theme dense, accessible and distinct", () => {
   );
   assert.equal(
     theme.components?.MuiCard?.styleOverrides?.root?.borderRadius,
-    20,
+    12,
   );
 });
 

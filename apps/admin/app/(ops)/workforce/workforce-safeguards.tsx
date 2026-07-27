@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useReducer } from "react";
 
+import { EmptyState } from "../../empty-state";
 import {
   initialWorkforceState,
   workforceReducer,
@@ -181,12 +182,11 @@ export function WorkforceSafeguards() {
             </Stack>
           </>
         ) : (
-          <Box role="status">
-            <Typography component="h2">No assignment selected.</Typography>
-            <Typography>
-              Choose a category preview only when you are ready.
-            </Typography>
-          </Box>
+          <EmptyState
+            icon="◌"
+            title="No assignment selected"
+            description="Choose a category preview only when you are ready."
+          />
         )}
       </Card>
     </main>

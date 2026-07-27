@@ -88,13 +88,68 @@ body {
   margin-top: 14px;
 }
 
+.rail-group-toggle {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 14px 6px;
+  width: 100%;
+}
+
 .rail-group-label {
   color: rgba(255, 243, 230, 0.42);
-  font-size: 0.6rem !important;
-  font-weight: 800 !important;
+  font-size: 0.6rem;
+  font-weight: 800;
   letter-spacing: 0.14em;
-  padding: 0 14px 4px;
   text-transform: uppercase;
+}
+
+.rail-group-chevron {
+  color: rgba(255, 243, 230, 0.42);
+  font-size: 0.66rem;
+  transition: transform 180ms ease;
+}
+
+.rail-group.is-closed .rail-group-chevron {
+  transform: rotate(-90deg);
+}
+
+.rail-group-links {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 180ms ease;
+}
+
+.rail-group.is-closed .rail-group-links {
+  grid-template-rows: 0fr;
+}
+
+.rail-group-links-inner {
+  border-left: 1px solid rgba(255, 243, 230, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-left: 13px;
+  min-height: 0;
+  overflow: hidden;
+  padding-left: 10px;
+}
+
+.rail-group-links-inner .rail-link {
+  position: relative;
+}
+
+.rail-group-links-inner .rail-link::after {
+  border-top: 1px solid rgba(255, 243, 230, 0.16);
+  content: "";
+  left: -11px;
+  position: absolute;
+  top: 50%;
+  width: 10px;
 }
 
 .rail-link {
@@ -196,6 +251,50 @@ body {
   font-size: 0.68rem;
 }
 
+.empty-state {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(2rem, 6vw, 4rem) 1.5rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  align-items: center;
+  animation: empty-state-float 2.6s ease-in-out infinite;
+  background: rgba(58, 14, 46, 0.06);
+  border: 1px solid rgba(58, 14, 46, 0.1);
+  border-radius: 50%;
+  color: var(--admin-plum);
+  display: flex;
+  font-size: 1.5rem;
+  height: 64px;
+  justify-content: center;
+  margin-bottom: 6px;
+  width: 64px;
+}
+
+.empty-state-title {
+  font-size: 1.3rem !important;
+  font-weight: 800 !important;
+}
+
+.empty-state-description {
+  color: var(--admin-muted) !important;
+  max-width: 42ch;
+}
+
+@keyframes empty-state-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 .admin-main {
   margin-left: 274px;
   min-height: 100dvh;
@@ -243,7 +342,7 @@ body {
   align-items: center;
   background: rgba(18, 166, 124, 0.08);
   border: 1px solid rgba(18, 166, 124, 0.16);
-  border-radius: 18px;
+  border-radius: 12px;
   display: flex;
   justify-content: space-between;
   margin: 24px 0;
@@ -442,7 +541,7 @@ body {
 }
 .incident-table {
   border: 1px solid rgba(58, 14, 46, 0.08);
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
 }
 .incident-head,
@@ -495,12 +594,20 @@ body {
     padding-inline: 0;
   }
   .rail-brand > div,
-  .rail-group-label,
+  .rail-group-toggle,
   .rail-link > span:nth-child(2),
   .rail-link strong,
   .safety-card,
   .rail-user > div,
   .rail-user > span {
+    display: none;
+  }
+  .rail-group-links-inner {
+    border-left: 0;
+    margin-left: 0;
+    padding-left: 0;
+  }
+  .rail-group-links-inner .rail-link::after {
     display: none;
   }
   .rail-link {
@@ -955,20 +1062,20 @@ body {
 
 .finance-grid > .MuiCard-root,
 .finance-pricing {
-  border-radius: 1.5rem;
+  border-radius: 12px;
   padding: clamp(1.3rem, 3vw, 2rem);
 }
 
 .finance-exception-row {
   align-items: center;
+  border-radius: 8px !important;
   border-top: 1px solid rgba(57, 24, 47, 0.12);
-  border-radius: 0;
   color: inherit;
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(0, 1fr) auto auto;
   justify-content: stretch;
-  padding: 1rem 0;
+  padding: 1rem 0.9rem;
   text-align: left;
   text-transform: none;
   width: 100%;
@@ -976,6 +1083,7 @@ body {
 
 .finance-exception-row[aria-pressed="true"] {
   background: rgba(255, 159, 28, 0.08);
+  box-shadow: inset 4px 0 var(--admin-gold);
 }
 
 .finance-exception-row > div:first-child {
@@ -1001,8 +1109,8 @@ body {
 }
 
 .finance-pricing h2 {
-  font-size: clamp(2rem, 4vw, 3.5rem);
-  letter-spacing: -0.05em;
+  font-size: clamp(1.5rem, 2.4vw, 2.1rem);
+  letter-spacing: -0.02em;
   margin: 0.5rem 0 1rem;
 }
 
@@ -1063,11 +1171,30 @@ body {
 }
 
 .verification-actions {
+  align-items: stretch;
   border-top: 1px solid rgba(58, 14, 46, 0.09);
   display: flex;
   gap: 12px;
   margin-top: 28px;
   padding-top: 22px;
+}
+
+.admin-main .MuiButton-root {
+  white-space: nowrap;
+}
+
+.verification-actions .MuiButton-root {
+  flex: 1 1 0;
+  line-height: 1.3;
+  min-width: 0;
+  padding-inline: 12px;
+  white-space: normal;
+}
+
+.safety-action-ladder .MuiButton-root {
+  line-height: 1.3;
+  min-height: 52px;
+  white-space: normal;
 }
 
 .verification-empty {
@@ -1102,6 +1229,10 @@ body {
 
   .safety-action-ladder {
     grid-template-columns: 1fr;
+  }
+
+  .verification-actions {
+    flex-direction: column;
   }
 
   .mpanyimfo-grid {

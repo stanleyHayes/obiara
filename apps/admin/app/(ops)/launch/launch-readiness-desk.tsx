@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { useReducer } from "react";
 
+import { EmptyState } from "../../empty-state";
 import {
   decisionGateSummary,
   initialLaunchState,
@@ -85,7 +86,7 @@ export function LaunchReadinessDesk() {
 
         <Alert
           severity={blocked ? "error" : "success"}
-          sx={{ borderRadius: 3, mb: 3 }}
+          sx={{ borderRadius: 1, mb: 3 }}
         >
           <strong>
             {blocked
@@ -99,7 +100,7 @@ export function LaunchReadinessDesk() {
         <Card
           sx={{
             bgcolor: "#2b151f",
-            borderRadius: 4,
+            borderRadius: 1,
             color: "#fff8f0",
             overflow: "hidden",
             p: { xs: 2.5, md: 4 },
@@ -145,7 +146,7 @@ export function LaunchReadinessDesk() {
             <Box
               sx={{
                 border: "1px solid rgba(255,255,255,.18)",
-                borderRadius: 3,
+                borderRadius: 1,
                 minWidth: { md: 280 },
                 p: 2,
               }}
@@ -207,7 +208,7 @@ export function LaunchReadinessDesk() {
                       gate.state === "verified"
                         ? "#3d8068"
                         : "rgba(255,255,255,.13)",
-                    borderRadius: 3,
+                    borderRadius: 1,
                     p: 2,
                   }}
                 >
@@ -294,7 +295,7 @@ export function LaunchReadinessDesk() {
               </Box>
             }
             severity="warning"
-            sx={{ bgcolor: "#fff1cc", borderRadius: 2.5, mt: 2.5 }}
+            sx={{ bgcolor: "#fff1cc", borderRadius: 1, mt: 2.5 }}
           >
             This desk has no launch action. Production remains absent until
             every prerequisite is independently evidenced and the named human
@@ -302,7 +303,7 @@ export function LaunchReadinessDesk() {
           </Alert>
         </Card>
 
-        <Card sx={{ borderRadius: 4, mt: 3, overflow: "hidden" }}>
+        <Card sx={{ borderRadius: 1, mt: 3, overflow: "hidden" }}>
           <Box
             sx={{
               borderBottom: "1px solid",
@@ -384,7 +385,7 @@ export function LaunchReadinessDesk() {
                           state.selectedHandoffId === gate.id
                             ? "#8e3159"
                             : "divider",
-                        borderRadius: 2.5,
+                        borderRadius: 1,
                         color: "#2b151f",
                         display: "flex",
                         flexDirection: "column",
@@ -485,15 +486,11 @@ export function LaunchReadinessDesk() {
                   </Button>
                 </Stack>
               ) : (
-                <Box sx={{ py: { xs: 2, md: 8 }, textAlign: "center" }}>
-                  <Typography sx={{ fontSize: 28, fontWeight: 800 }}>
-                    Select a blocked gate
-                  </Typography>
-                  <Typography sx={{ color: "text.secondary", mt: 1 }}>
-                    Requirements and the irreducible external act will appear
-                    here.
-                  </Typography>
-                </Box>
+                <EmptyState
+                  icon="▣"
+                  title="Select a blocked gate"
+                  description="Requirements and the irreducible external act will appear here."
+                />
               )}
             </Box>
           </Box>
@@ -510,7 +507,7 @@ export function LaunchReadinessDesk() {
             <Card
               key={gate.id}
               sx={{
-                borderRadius: 4,
+                borderRadius: 1,
                 display: "flex",
                 flexDirection: "column",
                 minHeight: 290,
@@ -548,7 +545,9 @@ export function LaunchReadinessDesk() {
                   size="small"
                 />
               </Stack>
-              <Typography sx={{ fontSize: 44, fontWeight: 800, mt: 2 }}>
+              <Typography
+                sx={{ fontSize: { xs: 32, md: 38 }, fontWeight: 800, mt: 2 }}
+              >
                 {gate.numerator}/{gate.denominator}
               </Typography>
               <LinearProgress
@@ -585,7 +584,7 @@ export function LaunchReadinessDesk() {
           }}
         >
           {state.staffing.map((desk) => (
-            <Card key={desk.desk} sx={{ borderRadius: 4, p: 3 }}>
+            <Card key={desk.desk} sx={{ borderRadius: 1, p: 3 }}>
               <Stack
                 direction="row"
                 sx={{ alignItems: "center", justifyContent: "space-between" }}
@@ -609,7 +608,7 @@ export function LaunchReadinessDesk() {
 
         <Card
           sx={{
-            borderRadius: 4,
+            borderRadius: 1,
             display: "grid",
             gap: 4,
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
@@ -718,7 +717,7 @@ export function LaunchReadinessDesk() {
         >
           Quality-gated campus attribution
         </Typography>
-        <Alert severity="info" sx={{ borderRadius: 3, mb: 2 }}>
+        <Alert severity="info" sx={{ borderRadius: 1, mb: 2 }}>
           Aggregate outcomes recognise programme quality—not individual
           recruitment volume. No ambassador identity, leaderboard or payout
           appears here.
@@ -736,7 +735,7 @@ export function LaunchReadinessDesk() {
               campus.unresolvedSafety === 0 &&
               campus.sustainedThirtyDay > 0;
             return (
-              <Card key={campus.campus} sx={{ borderRadius: 4, p: 3 }}>
+              <Card key={campus.campus} sx={{ borderRadius: 1, p: 3 }}>
                 <Stack
                   direction="row"
                   sx={{ alignItems: "center", justifyContent: "space-between" }}
@@ -768,7 +767,7 @@ export function LaunchReadinessDesk() {
 
         <Card
           sx={{
-            borderRadius: 4,
+            borderRadius: 1,
             display: "grid",
             gap: 4,
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
@@ -871,7 +870,7 @@ export function LaunchReadinessDesk() {
           }}
         >
           {state.hypercare.map((signal) => (
-            <Card key={signal.signal} sx={{ borderRadius: 4, p: 3 }}>
+            <Card key={signal.signal} sx={{ borderRadius: 1, p: 3 }}>
               <Stack
                 direction="row"
                 sx={{ alignItems: "center", justifyContent: "space-between" }}
@@ -897,14 +896,14 @@ export function LaunchReadinessDesk() {
             </Card>
           ))}
         </Box>
-        <Alert severity="warning" sx={{ borderRadius: 3, mt: 2 }}>
+        <Alert severity="warning" sx={{ borderRadius: 1, mt: 2 }}>
           Daily review stays blocked while any signal is red. This desk cannot
           close incidents, replenish budgets or activate production.
         </Alert>
 
         <Card
           sx={{
-            borderRadius: 4,
+            borderRadius: 1,
             display: "grid",
             gap: 4,
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },

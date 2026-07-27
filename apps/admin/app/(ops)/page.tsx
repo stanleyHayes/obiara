@@ -11,6 +11,8 @@ import {
 } from "@mui/material";
 import Link from "next/link";
 
+import { HandoverButton } from "./handover-button";
+
 const queue = [
   {
     name: "Ama Boateng",
@@ -72,10 +74,10 @@ export default function AdminHome() {
             <Typography>Here is what needs a human pair of eyes.</Typography>
           </Box>
           <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-            <Button className="search-button">⌕ Search cases</Button>
-            <Button variant="contained" className="handover-button">
-              Start handover
+            <Button className="search-button" href="/verification">
+              ⌕ Search cases
             </Button>
+            <HandoverButton />
             <Avatar className="header-avatar">AE</Avatar>
           </Stack>
         </Box>
@@ -92,7 +94,7 @@ export default function AdminHome() {
               </Typography>
             </Box>
           </Stack>
-          <Button>View system health ↗</Button>
+          <Button href="/controls">View system health ↗</Button>
         </Box>
 
         <Box className="metrics-grid">
@@ -133,7 +135,7 @@ export default function AdminHome() {
                   People waiting for review
                 </Typography>
               </Box>
-              <Button>Open full queue ↗</Button>
+              <Button href="/verification">Open full queue ↗</Button>
             </Box>
 
             <Box className="queue-list">
@@ -155,7 +157,9 @@ export default function AdminHome() {
                   </Box>
                   <Typography className="wait-time">{item.wait}</Typography>
                   <Chip className={`tone-${item.tone}`} label={item.priority} />
-                  <Button className="review-button">Review</Button>
+                  <Button className="review-button" href="/verification">
+                    Review
+                  </Button>
                 </Box>
               ))}
             </Box>
@@ -198,7 +202,9 @@ export default function AdminHome() {
                 <LinearProgress variant="determinate" value={89} />
               </Box>
             </Box>
-            <Button className="plain-action">Review SLA detail</Button>
+            <Button className="plain-action" href="/analytics">
+              Review SLA detail
+            </Button>
           </Card>
         </Box>
 

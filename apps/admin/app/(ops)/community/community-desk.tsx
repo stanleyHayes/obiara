@@ -78,7 +78,7 @@ export function CommunityDesk() {
             gridTemplateColumns: { xs: "1fr", md: "repeat(3,minmax(0,1fr))" },
           }}
         >
-          <Card sx={{ borderRadius: 4, p: 3 }}>
+          <Card sx={{ borderRadius: 1, p: 3 }}>
             <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
               Circle density
             </Typography>
@@ -89,7 +89,7 @@ export function CommunityDesk() {
               Active seats · no member list exposed
             </Typography>
           </Card>
-          <Card sx={{ borderRadius: 4, p: 3 }}>
+          <Card sx={{ borderRadius: 1, p: 3 }}>
             <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
               Scheduled fire
             </Typography>
@@ -100,7 +100,7 @@ export function CommunityDesk() {
               {state.fireRef} · immutable reference
             </Typography>
           </Card>
-          <Card sx={{ borderRadius: 4, p: 3 }}>
+          <Card sx={{ borderRadius: 1, p: 3 }}>
             <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
               Capacity posture
             </Typography>
@@ -111,7 +111,7 @@ export function CommunityDesk() {
           </Card>
         </Box>
 
-        <Card sx={{ borderRadius: 4, mt: 3, p: 3 }}>
+        <Card sx={{ borderRadius: 1, mt: 3, p: 3 }}>
           <Typography
             sx={{
               color: "#8e3159",
@@ -142,7 +142,7 @@ export function CommunityDesk() {
                 onClick={() => dispatch({ type: "select-host", ref: host.ref })}
                 sx={{
                   alignItems: "flex-start",
-                  borderRadius: 3,
+                  borderRadius: 1,
                   justifyContent: "space-between",
                   p: 2,
                   textAlign: "left",
@@ -175,7 +175,7 @@ export function CommunityDesk() {
 
         <Card
           sx={{
-            borderRadius: 4,
+            borderRadius: 1,
             display: "grid",
             gap: 4,
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },

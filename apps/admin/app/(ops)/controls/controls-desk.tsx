@@ -70,7 +70,7 @@ export function ControlsDesk() {
 
         <Alert
           severity={state.state === "apply_ready" ? "success" : "warning"}
-          sx={{ borderRadius: 3, mb: 3 }}
+          sx={{ borderRadius: 1, mb: 3 }}
         >
           <strong>
             {state.state === "apply_ready"
@@ -94,7 +94,7 @@ export function ControlsDesk() {
             ["Scope", `${state.environment} · ${state.market}`],
             ["Expiry", `${state.expiresInHours} hours · fail closed`],
           ].map(([label, value]) => (
-            <Card key={label} sx={{ borderRadius: 4, p: 2.5 }}>
+            <Card key={label} sx={{ borderRadius: 1, p: 2.5 }}>
               <Typography
                 sx={{ color: "text.secondary", fontSize: 13, fontWeight: 700 }}
               >
@@ -116,7 +116,7 @@ export function ControlsDesk() {
 
         <Card
           sx={{
-            borderRadius: 4,
+            borderRadius: 1,
             display: "grid",
             gap: 4,
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },

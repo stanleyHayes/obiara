@@ -137,7 +137,7 @@ export function createObiaraAdminTheme(
       MuiCard: {
         styleOverrides: {
           root: {
-            borderRadius: obiaraRadii.medium,
+            borderRadius: obiaraRadii.small,
             backgroundImage: "none",
             border: `1px solid ${colors.border}`,
             boxShadow: preferences.highContrast

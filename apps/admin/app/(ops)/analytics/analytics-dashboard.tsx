@@ -28,7 +28,7 @@ function Metric({ metric }: Readonly<{ metric: GateMetric }>) {
       ? Math.min(100, (metric.numerator / metric.denominator) * 100)
       : 0;
   return (
-    <Card variant="outlined" sx={{ borderRadius: 4, p: 2.5 }}>
+    <Card variant="outlined" sx={{ borderRadius: 1, p: 2.5 }}>
       <Stack
         direction="row"
         sx={{ alignItems: "flex-start", justifyContent: "space-between" }}
@@ -123,7 +123,7 @@ export function AnalyticsDashboard() {
 
         <Alert
           severity={blocked ? "error" : "success"}
-          sx={{ borderRadius: 3, mb: 3 }}
+          sx={{ borderRadius: 1, mb: 3 }}
         >
           <strong>
             {blocked ? "Release is blocked." : "Evidence gates pass."}
@@ -170,7 +170,7 @@ export function AnalyticsDashboard() {
 
         <Card
           sx={{
-            borderRadius: 4,
+            borderRadius: 1,
             display: "grid",
             gap: 3,
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },

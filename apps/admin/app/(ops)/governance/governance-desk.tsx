@@ -78,7 +78,7 @@ export function GovernanceDesk() {
 
         <Alert
           severity={state.publishState === "publish_ready" ? "success" : "info"}
-          sx={{ borderRadius: 3, mb: 3 }}
+          sx={{ borderRadius: 1, mb: 3 }}
         >
           <strong>
             {state.publishState === "publish_ready"
@@ -96,7 +96,7 @@ export function GovernanceDesk() {
             gridTemplateColumns: { xs: "1fr", md: "repeat(3,minmax(0,1fr))" },
           }}
         >
-          <Card sx={{ borderRadius: 4, p: 3 }}>
+          <Card sx={{ borderRadius: 1, p: 3 }}>
             <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
               Key parity
             </Typography>
@@ -114,7 +114,7 @@ export function GovernanceDesk() {
               }
             />
           </Card>
-          <Card sx={{ borderRadius: 4, p: 3 }}>
+          <Card sx={{ borderRadius: 1, p: 3 }}>
             <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
               Placeholder validation
             </Typography>
@@ -125,7 +125,7 @@ export function GovernanceDesk() {
               Names and counts preserve typed parameters.
             </Typography>
           </Card>
-          <Card sx={{ borderRadius: 4, p: 3 }}>
+          <Card sx={{ borderRadius: 1, p: 3 }}>
             <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
               Terminology review
             </Typography>
@@ -140,7 +140,7 @@ export function GovernanceDesk() {
 
         <Card
           sx={{
-            borderRadius: 4,
+            borderRadius: 1,
             display: "grid",
             gap: 4,
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },

@@ -3,9 +3,59 @@
 import { Avatar, Box, Button, Card, Typography } from "@mui/material";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import brandMark from "../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-ondark_transparent.png";
-import { isActiveLink, railGroups } from "./rail-model";
+import { isActiveLink, railGroups, type RailGroup } from "./rail-model";
+
+function RailGroupSection({
+  group,
+  pathname,
+}: Readonly<{ group: RailGroup; pathname: string }>) {
+  const [open, setOpen] = useState(true);
+  const labelId = `rail-group-${group.title.toLowerCase().replaceAll(" ", "-")}`;
+  return (
+    <Box className={`rail-group ${open ? "is-open" : "is-closed"}`}>
+      <button
+        type="button"
+        className="rail-group-toggle"
+        id={labelId}
+        aria-expanded={open}
+        aria-controls={`${labelId}-links`}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="rail-group-label">{group.title}</span>
+        <span className="rail-group-chevron" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+      <Box
+        className="rail-group-links"
+        id={`${labelId}-links`}
+        role="group"
+        aria-labelledby={labelId}
+      >
+        <Box className="rail-group-links-inner">
+          {group.links.map((link) => {
+            const active = isActiveLink(pathname, link.href);
+            return (
+              <Button
+                key={link.href}
+                className={`rail-link ${active ? "is-active" : ""}`}
+                aria-current={active ? "page" : undefined}
+                href={link.href}
+              >
+                <span aria-hidden="true">{link.icon}</span>
+                <span>{link.label}</span>
+                {link.badge ? <strong>{link.badge}</strong> : null}
+              </Button>
+            );
+          })}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
 
 export function AdminRail() {
   const pathname = usePathname();
@@ -21,24 +71,11 @@ export function AdminRail() {
 
       <Box component="nav" aria-label="Admin navigation" className="rail-nav">
         {railGroups.map((group) => (
-          <Box className="rail-group" key={group.title}>
-            <Typography className="rail-group-label">{group.title}</Typography>
-            {group.links.map((link) => {
-              const active = isActiveLink(pathname, link.href);
-              return (
-                <Button
-                  key={link.href}
-                  className={`rail-link ${active ? "is-active" : ""}`}
-                  aria-current={active ? "page" : undefined}
-                  href={link.href}
-                >
-                  <span aria-hidden="true">{link.icon}</span>
-                  <span>{link.label}</span>
-                  {link.badge ? <strong>{link.badge}</strong> : null}
-                </Button>
-              );
-            })}
-          </Box>
+          <RailGroupSection
+            key={group.title}
+            group={group}
+            pathname={pathname}
+          />
         ))}
       </Box>
 
