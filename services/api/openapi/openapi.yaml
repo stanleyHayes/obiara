@@ -1260,6 +1260,175 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/principals:
+    post:
+      operationId: enrollAdminPrincipal
+      tags: [Admin]
+      summary: Enroll an admin principal
+      security: []
+      description: |
+        Privileged: the actor must hold the admin role. Enrollment is
+        immutably audited (E16-S01; FR-801).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminEnrollInput"
+      responses:
+        "201":
+          description: Principal enrolled.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPrincipalEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "409":
+          $ref: "#/components/responses/PrincipalExists"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/login/start:
+    post:
+      operationId: startAdminLogin
+      tags: [Admin]
+      summary: Start admin MFA login
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminEmailInput"
+      responses:
+        "202":
+          description: MFA code sent.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStatusEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "404":
+          $ref: "#/components/responses/PrincipalNotFound"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/login/complete:
+    post:
+      operationId: completeAdminLogin
+      tags: [Admin]
+      summary: Complete admin MFA login
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Admin session issued.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/MfaInvalid"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/sessions/{id}/step-up/start:
+    post:
+      operationId: startAdminStepUp
+      tags: [Admin]
+      summary: Start admin step-up verification
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Step-up code sent.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStatusEnvelope"
+        "401":
+          $ref: "#/components/responses/SessionClosed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/sessions/{id}/step-up/complete:
+    post:
+      operationId: completeAdminStepUp
+      tags: [Admin]
+      summary: Complete admin step-up verification
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCodeInput"
+      responses:
+        "200":
+          description: Session flagged stepped-up.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSessionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/MfaInvalid"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -1647,6 +1816,51 @@ components:
                   correlationId: 01J9EXAMPLE000000000000000
     DeliveryNotFound:
       description: No delivery exists for the referenced provider id.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    AdminRoleRequired:
+      description: The actor lacks the required admin role.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PrincipalExists:
+      description: A principal with that email already exists.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    PrincipalNotFound:
+      description: No admin principal for that account.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    MfaInvalid:
+      description: The MFA code is invalid, expired, consumed, or attempts are exhausted.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    SessionClosed:
+      description: The admin session is not active.
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/CorrelationId"
@@ -2568,6 +2782,122 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/SubanEventsData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminEnrollInput:
+      type: object
+      additionalProperties: false
+      required: [actorId, email, roles]
+      properties:
+        actorId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        email:
+          type: string
+          format: email
+        roles:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            enum: [verifier, ts_agent, host, finance, admin]
+    AdminEmailInput:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    AdminLoginInput:
+      type: object
+      additionalProperties: false
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: ^\d{6}$
+    AdminCodeInput:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: ^\d{6}$
+    AdminPrincipalData:
+      type: object
+      additionalProperties: false
+      required: [principalId, email, roles, createdAt]
+      properties:
+        principalId:
+          type: string
+        email:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+    AdminPrincipalEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminPrincipalData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminSessionData:
+      type: object
+      additionalProperties: false
+      required: [sessionId, roles, steppedUp, expiresAt]
+      properties:
+        sessionId:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        steppedUp:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+    AdminSessionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminSessionData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminStatusData:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+    AdminStatusEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminStatusData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

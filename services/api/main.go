@@ -24,6 +24,8 @@ import (
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
 	"github.com/stanleyHayes/obiara/internal/privacy"
 	"github.com/stanleyHayes/obiara/internal/safety"
+	"github.com/stanleyHayes/obiara/services/api/internal/admin"
+	adminemail "github.com/stanleyHayes/obiara/services/api/internal/admin/adapters/outbound/email"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
@@ -149,6 +151,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build email module: %w", err)
 	}
+	// Admin principals and MFA (E16-S01); codes ride the email channel.
+	adminModule, err := admin.NewModule(ctx, client.Database(cfg.MongoDatabase), adminemail.NewSender(emailModule.Email))
+	if err != nil {
+		return fmt.Errorf("build admin module: %w", err)
+	}
 	// Suban character ledger (E15-S04): append-only events, recomputed marks.
 	subanModule, err := suban.NewModule(ctx, client.Database(cfg.MongoDatabase))
 	if err != nil {
@@ -183,6 +190,7 @@ func run() error {
 	apihttp.RegisterNotificationRoutes(mux, notificationModule.Notifications)
 	apihttp.RegisterSafetyRoutes(mux, safetyModule.Safety)
 	apihttp.RegisterSubanRoutes(mux, subanModule.Suban)
+	apihttp.RegisterAdminRoutes(mux, adminModule.Admin)
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{

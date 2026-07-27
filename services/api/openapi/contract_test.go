@@ -41,6 +41,11 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"  /webhooks/resend:",
 		"  /v1/suban/marks/{memberId}:",
 		"  /v1/suban/events/{memberId}:",
+		"  /v1/admin/principals:",
+		"  /v1/admin/login/start:",
+		"  /v1/admin/login/complete:",
+		"  /v1/admin/sessions/{id}/step-up/start:",
+		"  /v1/admin/sessions/{id}/step-up/complete:",
 		"  /v1/admin/verifications:",
 		"  /v1/admin/verifications/{id}:",
 		"  /v1/admin/verifications/{id}/evidence-access:",
@@ -81,6 +86,11 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"operationId: resendDeliveryWebhook",
 		"operationId: getSubanMarks",
 		"operationId: getSubanEvents",
+		"operationId: enrollAdminPrincipal",
+		"operationId: startAdminLogin",
+		"operationId: completeAdminLogin",
+		"operationId: startAdminStepUp",
+		"operationId: completeAdminStepUp",
 		"name: Idempotency-Key",
 		"name: X-Correlation-ID",
 		"additionalProperties: false",
@@ -116,7 +126,7 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 34 {
-		t.Errorf("operationId count = %d, want 34", len(seen))
+	if len(seen) != 39 {
+		t.Errorf("operationId count = %d, want 39", len(seen))
 	}
 }

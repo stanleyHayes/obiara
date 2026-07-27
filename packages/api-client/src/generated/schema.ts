@@ -33,6 +33,95 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/login/complete": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Complete admin MFA login */
+    readonly post: operations["completeAdminLogin"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/login/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Start admin MFA login */
+    readonly post: operations["startAdminLogin"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/principals": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Enroll an admin principal
+     * @description Privileged: the actor must hold the admin role. Enrollment is
+     *     immutably audited (E16-S01; FR-801).
+     */
+    readonly post: operations["enrollAdminPrincipal"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/sessions/{id}/step-up/complete": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Complete admin step-up verification */
+    readonly post: operations["completeAdminStepUp"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/sessions/{id}/step-up/start": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Start admin step-up verification */
+    readonly post: operations["startAdminStepUp"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/verifications": {
     readonly parameters: {
       readonly query?: never;
@@ -669,6 +758,55 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    readonly AdminCodeInput: {
+      readonly code: string;
+    };
+    readonly AdminEmailInput: {
+      /** Format: email */
+      readonly email: string;
+    };
+    readonly AdminEnrollInput: {
+      readonly actorId: string;
+      /** Format: email */
+      readonly email: string;
+      readonly roles: readonly (
+        "verifier" | "ts_agent" | "host" | "finance" | "admin"
+      )[];
+    };
+    readonly AdminLoginInput: {
+      readonly code: string;
+      /** Format: email */
+      readonly email: string;
+    };
+    readonly AdminPrincipalData: {
+      /** Format: date-time */
+      readonly createdAt: string;
+      readonly email: string;
+      readonly principalId: string;
+      readonly roles: readonly string[];
+    };
+    readonly AdminPrincipalEnvelope: {
+      readonly data: components["schemas"]["AdminPrincipalData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly AdminSessionData: {
+      /** Format: date-time */
+      readonly expiresAt: string;
+      readonly roles: readonly string[];
+      readonly sessionId: string;
+      readonly steppedUp: boolean;
+    };
+    readonly AdminSessionEnvelope: {
+      readonly data: components["schemas"]["AdminSessionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly AdminStatusData: {
+      readonly status: string;
+    };
+    readonly AdminStatusEnvelope: {
+      readonly data: components["schemas"]["AdminStatusData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly AdminVerificationCaseData: {
       readonly caseId: string;
       /** @enum {string} */
@@ -1117,6 +1255,16 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description The actor lacks the required admin role. */
+    readonly AdminRoleRequired: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description The block edge already exists. */
     readonly BlockExists: {
       headers: {
@@ -1227,6 +1375,16 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description The MFA code is invalid, expired, consumed, or attempts are exhausted. */
+    readonly MfaInvalid: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description Embers require co-attendance at the same fire. */
     readonly NotCoAttendee: {
       headers: {
@@ -1259,6 +1417,26 @@ export interface components {
     };
     /** @description Too many OTP requests for this phone number. */
     readonly OtpRateLimited: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description A principal with that email already exists. */
+    readonly PrincipalExists: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description No admin principal for that account. */
+    readonly PrincipalNotFound: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -1319,6 +1497,16 @@ export interface components {
     };
     /** @description The application capability is temporarily unavailable. */
     readonly ServiceUnavailable: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description The admin session is not active. */
+    readonly SessionClosed: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -1500,6 +1688,167 @@ export interface operations {
           readonly "text/plain": "dependency unavailable";
         };
       };
+    };
+  };
+  readonly completeAdminLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AdminLoginInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Admin session issued. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminSessionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["MfaInvalid"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly startAdminLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AdminEmailInput"];
+      };
+    };
+    readonly responses: {
+      /** @description MFA code sent. */
+      readonly 202: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminStatusEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 404: components["responses"]["PrincipalNotFound"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly enrollAdminPrincipal: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AdminEnrollInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Principal enrolled. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminPrincipalEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      readonly 409: components["responses"]["PrincipalExists"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly completeAdminStepUp: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AdminCodeInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Session flagged stepped-up. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminSessionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["MfaInvalid"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly startAdminStepUp: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Step-up code sent. */
+      readonly 202: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminStatusEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["SessionClosed"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly listAdminVerificationQueue: {
