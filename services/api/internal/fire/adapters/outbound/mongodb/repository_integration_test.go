@@ -140,4 +140,24 @@ func TestFireAttendanceEndToEnd(t *testing.T) {
 	if err != nil || len(upcoming) == 0 {
 		t.Fatalf("upcoming = %#v, %v", upcoming, err)
 	}
+
+	// Ember close: non-host rejected, host closes, roster frozen at five,
+	// and admissions stop.
+	if _, err := service.CloseToEmbers(ctx, fire.ID(), "intruder"); err != domain.ErrNotHost {
+		t.Fatalf("non-host close = %v, want ErrNotHost", err)
+	}
+	attendees, err := service.CloseToEmbers(ctx, fire.ID(), "host-1")
+	if err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	if len(attendees) != 5 {
+		t.Fatalf("frozen roster = %d, want 5", len(attendees))
+	}
+	loaded, _ = repository.FindByID(ctx, fire.ID())
+	if loaded.Status() != domain.StatusEmbers {
+		t.Fatalf("status = %q, want embers", loaded.Status())
+	}
+	if _, err := service.RSVP(ctx, fire.ID(), "m-late", 2); err == nil {
+		t.Fatal("admission after close must be rejected")
+	}
 }

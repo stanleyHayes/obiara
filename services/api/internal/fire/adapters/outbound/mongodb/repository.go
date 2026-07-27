@@ -253,6 +253,41 @@ func (repository *Repository) ListUpcoming(ctx context.Context, now time.Time, l
 	return fires, cursor.Err()
 }
 
+// UpdateStatus persists a status transition pinned to the read version.
+func (repository *Repository) UpdateStatus(ctx context.Context, fire domain.Fire) error {
+	result, err := repository.fires().UpdateOne(ctx,
+		bson.M{"_id": fire.ID(), "version": fire.Version() - 1},
+		bson.M{"$set": bson.M{"status": string(fire.Status()), "version": fire.Version()}})
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return application.ErrFireNotFound
+	}
+	return nil
+}
+
+// ListGoing returns the going attendees in RSVP order.
+func (repository *Repository) ListGoing(ctx context.Context, fireID string) ([]domain.RSVP, error) {
+	cursor, err := repository.attendance().Find(ctx,
+		bson.M{"fireId": fireID, "status": string(domain.RSVPGoing)},
+		options.Find().SetSort(bson.D{{Key: "createdAt", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var attendees []domain.RSVP
+	for cursor.Next(ctx) {
+		var document rsvpDocument
+		if err := cursor.Decode(&document); err != nil {
+			return nil, err
+		}
+		attendees = append(attendees, toRSVPDomain(document))
+	}
+	return attendees, cursor.Err()
+}
+
 func rsvpKey(fireID, memberID string) string {
 	return fireID + "|" + memberID
 }

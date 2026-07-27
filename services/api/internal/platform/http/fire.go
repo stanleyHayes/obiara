@@ -18,6 +18,7 @@ type Fires interface {
 	RSVP(ctx context.Context, fireID, memberID string, tier int) (domain.RSVP, error)
 	Cancel(ctx context.Context, fireID, memberID string) (*domain.RSVP, error)
 	Upcoming(ctx context.Context, limit int) ([]domain.Fire, error)
+	CloseToEmbers(ctx context.Context, fireID, actorID string) ([]domain.RSVP, error)
 }
 
 // RegisterFireRoutes adds fire scheduling and RSVP routes.
@@ -26,6 +27,7 @@ func RegisterFireRoutes(mux *http.ServeMux, fires Fires) {
 	mux.Handle("GET /v1/fires", listFiresHandler(fires))
 	mux.Handle("POST /v1/fires/{id}/rsvps", rsvpHandler(fires))
 	mux.Handle("DELETE /v1/fires/{id}/rsvps/{memberId}", cancelRsvpHandler(fires))
+	mux.Handle("POST /v1/fires/{id}/close", closeFireHandler(fires))
 }
 
 type scheduleFireRequest struct {
@@ -213,8 +215,66 @@ func cancelRsvpHandler(fires Fires) http.Handler {
 	})
 }
 
+type closeFireRequest struct {
+	ActorID string `json:"actorId"`
+}
+
+type closeFireResponse struct {
+	Status    string   `json:"status"`
+	Attendees []string `json:"attendees"`
+}
+
+func closeFireHandler(fires Fires) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
+			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
+				Code:    "unsupported_media_type",
+				Message: "Content-Type must be application/json.",
+			})
+			return
+		}
+		var body closeFireRequest
+		if err := decodeJSON(w, r, &body); err != nil {
+			writeError(w, r, http.StatusBadRequest, APIError{
+				Code:    "invalid_json",
+				Message: "The request body must be one valid JSON object.",
+			})
+			return
+		}
+		body.ActorID = strings.TrimSpace(body.ActorID)
+		if !validOpaqueID(body.ActorID) {
+			writeError(w, r, http.StatusUnprocessableEntity, APIError{
+				Code:    "validation_failed",
+				Message: "One or more fields are invalid.",
+				Details: []FieldError{{Field: "actorId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"}},
+			})
+			return
+		}
+		attendees, err := fires.CloseToEmbers(r.Context(), r.PathValue("id"), body.ActorID)
+		if err != nil {
+			writeFireError(w, r, err)
+			return
+		}
+		response := closeFireResponse{Status: string(domain.StatusEmbers), Attendees: make([]string, 0, len(attendees))}
+		for _, attendee := range attendees {
+			response.Attendees = append(response.Attendees, attendee.MemberID())
+		}
+		writeSuccess(w, r, http.StatusOK, response)
+	})
+}
+
 func writeFireError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, domain.ErrNotHost):
+		writeError(w, r, http.StatusForbidden, APIError{
+			Code:    "not_host",
+			Message: "Only the host can close a fire.",
+		})
+	case errors.Is(err, domain.ErrFireNotClosable):
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "fire_not_closable",
+			Message: "This fire cannot dim to embers right now.",
+		})
 	case errors.Is(err, domain.ErrTierTooLow):
 		writeError(w, r, http.StatusForbidden, APIError{
 			Code:    "tier_too_low",

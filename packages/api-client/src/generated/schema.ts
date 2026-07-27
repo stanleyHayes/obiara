@@ -361,6 +361,28 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/fires/{id}/close": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Close a fire to the embers state
+     * @description Host-only (FR-401). The fire dims to embers, admissions stop, and
+     *     the going-attendee roster freezes for the ember session (E09-S07;
+     *     Doc 06 S-65).
+     */
+    readonly post: operations["closeFireToEmbers"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/fires/{id}/embers": {
     readonly parameters: {
       readonly query?: never;
@@ -851,6 +873,18 @@ export interface components {
       readonly data: components["schemas"]["CancelRsvpData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly CloseFireData: {
+      readonly attendees: readonly string[];
+      /** @constant */
+      readonly status: "embers";
+    };
+    readonly CloseFireEnvelope: {
+      readonly data: components["schemas"]["CloseFireData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly CloseFireInput: {
+      readonly actorId: string;
+    };
     readonly CorrelationId: string;
     readonly DoorwayQuestionData: {
       readonly custom: boolean;
@@ -1325,6 +1359,16 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description The fire is not in a state that can dim to embers. */
+    readonly FireNotClosable: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
     /** @description No fire with this identifier exists. */
     readonly FireNotFound: {
       headers: {
@@ -1387,6 +1431,16 @@ export interface components {
     };
     /** @description Embers require co-attendance at the same fire. */
     readonly NotCoAttendee: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description Only the host may close a fire. */
+    readonly NotHost: {
       headers: {
         readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
         readonly [name: string]: unknown;
@@ -2261,6 +2315,43 @@ export interface operations {
         };
       };
       readonly 400: components["responses"]["InvalidJSON"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly closeFireToEmbers: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CloseFireInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Fire dimmed; frozen attendee roster returned. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CloseFireEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 403: components["responses"]["NotHost"];
+      readonly 404: components["responses"]["FireNotFound"];
+      readonly 409: components["responses"]["FireNotClosable"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];

@@ -16,6 +16,7 @@ type FireStatus string
 const (
 	StatusScheduled FireStatus = "scheduled"
 	StatusLive      FireStatus = "live"
+	StatusEmbers    FireStatus = "embers"
 	StatusEnded     FireStatus = "ended"
 	StatusCancelled FireStatus = "cancelled"
 )
@@ -35,6 +36,8 @@ var (
 	ErrInvalidStart    = errors.New("fire start time is required")
 	ErrFireNotOpen     = errors.New("fire is not open for RSVP")
 	ErrTierTooLow      = errors.New("fire entry requires verification tier 1")
+	ErrNotHost         = errors.New("only the host can close a fire")
+	ErrFireNotClosable = errors.New("fire cannot dim to embers from its current state")
 )
 
 // Fire is one scheduled gathering.
@@ -133,6 +136,23 @@ func (fire *Fire) Promote(rsvp *RSVP, now time.Time) {
 	rsvp.status = RSVPGoing
 	rsvp.position = 0
 	rsvp.version++
+}
+
+// CloseToEmbers dims a scheduled or live fire to the embers state
+// (E09-S07; Doc 06 S-65: the fire dims, the attendee list freezes and
+// each attendee may give one ember). Only the host closes a fire
+// (FR-401: host-controllable in real time). Admissions stop because
+// embers is outside the open set in Admit.
+func (fire *Fire) CloseToEmbers(actorID string, now time.Time) error {
+	if actorID != fire.hostID {
+		return ErrNotHost
+	}
+	if fire.status != StatusScheduled && fire.status != StatusLive {
+		return ErrFireNotClosable
+	}
+	fire.status = StatusEmbers
+	fire.version++
+	return nil
 }
 
 func (fire Fire) ID() string           { return fire.id }

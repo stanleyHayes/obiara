@@ -32,6 +32,10 @@ type FireRepository interface {
 	CancelTx(ctx context.Context, fireID, memberID string, now time.Time) (*domain.RSVP, error)
 	FindRSVP(context.Context, string, string) (domain.RSVP, error)
 	ListUpcoming(context.Context, time.Time, int) ([]domain.Fire, error)
+	// UpdateStatus persists a status transition with optimistic concurrency.
+	UpdateStatus(context.Context, domain.Fire) error
+	// ListGoing returns the going attendees (the ember-session roster).
+	ListGoing(context.Context, string) ([]domain.RSVP, error)
 }
 
 // FireService schedules fires and manages attendance.
@@ -70,6 +74,22 @@ func (service FireService) RSVP(ctx context.Context, fireID, memberID string, ti
 // seat freed.
 func (service FireService) Cancel(ctx context.Context, fireID, memberID string) (promoted *domain.RSVP, err error) {
 	return service.fires.CancelTx(ctx, fireID, memberID, service.now())
+}
+
+// CloseToEmbers dims a fire to the embers state (E09-S07) and returns
+// the frozen going-attendee roster for the ember session.
+func (service FireService) CloseToEmbers(ctx context.Context, fireID, actorID string) ([]domain.RSVP, error) {
+	fire, err := service.fires.FindByID(ctx, fireID)
+	if err != nil {
+		return nil, err
+	}
+	if err := fire.CloseToEmbers(actorID, service.now()); err != nil {
+		return nil, err
+	}
+	if err := service.fires.UpdateStatus(ctx, fire); err != nil {
+		return nil, err
+	}
+	return service.fires.ListGoing(ctx, fireID)
 }
 
 // Upcoming lists scheduled fires from now onward.

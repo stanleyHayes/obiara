@@ -58,7 +58,10 @@ func TestAuthorizationReplayConcurrencyAndPrivacy(t *testing.T) {
 		go func(v struct {
 			f domain.Fire
 			c string
-		}) { defer wg.Done(); results <- repository.Append(ctx, v.f, 1, v.c) }(v)
+		}) {
+			defer wg.Done()
+			results <- repository.Append(ctx, v.f, 1, v.c)
+		}(v)
 	}
 	wg.Wait()
 	close(results)

@@ -1429,6 +1429,53 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/fires/{id}/close:
+    post:
+      operationId: closeFireToEmbers
+      tags: [Fires]
+      summary: Close a fire to the embers state
+      security: []
+      description: |
+        Host-only (FR-401). The fire dims to embers, admissions stop, and
+        the going-attendee roster freezes for the ember session (E09-S07;
+        Doc 06 S-65).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CloseFireInput"
+      responses:
+        "200":
+          description: Fire dimmed; frozen attendee roster returned.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CloseFireEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "403":
+          $ref: "#/components/responses/NotHost"
+        "404":
+          $ref: "#/components/responses/FireNotFound"
+        "409":
+          $ref: "#/components/responses/FireNotClosable"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -1861,6 +1908,24 @@ components:
             $ref: "#/components/schemas/ErrorEnvelope"
     SessionClosed:
       description: The admin session is not active.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotHost:
+      description: Only the host may close a fire.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    FireNotClosable:
+      description: The fire is not in a state that can dim to embers.
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/CorrelationId"
@@ -2898,6 +2963,37 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/AdminStatusData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    CloseFireInput:
+      type: object
+      additionalProperties: false
+      required: [actorId]
+      properties:
+        actorId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+    CloseFireData:
+      type: object
+      additionalProperties: false
+      required: [status, attendees]
+      properties:
+        status:
+          type: string
+          const: embers
+        attendees:
+          type: array
+          items:
+            type: string
+    CloseFireEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CloseFireData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

@@ -116,6 +116,21 @@ func (mr *MockFireRepositoryMockRecorder) FindRSVP(arg0, arg1, arg2 any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRSVP", reflect.TypeOf((*MockFireRepository)(nil).FindRSVP), arg0, arg1, arg2)
 }
 
+// ListGoing mocks base method.
+func (m *MockFireRepository) ListGoing(arg0 context.Context, arg1 string) ([]domain.RSVP, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListGoing", arg0, arg1)
+	ret0, _ := ret[0].([]domain.RSVP)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListGoing indicates an expected call of ListGoing.
+func (mr *MockFireRepositoryMockRecorder) ListGoing(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGoing", reflect.TypeOf((*MockFireRepository)(nil).ListGoing), arg0, arg1)
+}
+
 // ListUpcoming mocks base method.
 func (m *MockFireRepository) ListUpcoming(arg0 context.Context, arg1 time.Time, arg2 int) ([]domain.Fire, error) {
 	m.ctrl.T.Helper()
@@ -129,4 +144,18 @@ func (m *MockFireRepository) ListUpcoming(arg0 context.Context, arg1 time.Time, 
 func (mr *MockFireRepositoryMockRecorder) ListUpcoming(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUpcoming", reflect.TypeOf((*MockFireRepository)(nil).ListUpcoming), arg0, arg1, arg2)
+}
+
+// UpdateStatus mocks base method.
+func (m *MockFireRepository) UpdateStatus(arg0 context.Context, arg1 domain.Fire) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateStatus", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateStatus indicates an expected call of UpdateStatus.
+func (mr *MockFireRepositoryMockRecorder) UpdateStatus(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockFireRepository)(nil).UpdateStatus), arg0, arg1)
 }
