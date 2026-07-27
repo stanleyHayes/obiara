@@ -26,6 +26,9 @@ export function LaunchReadinessDesk() {
   const [state, dispatch] = useReducer(launchReducer, initialLaunchState);
   const blocked = launchBlocked(state);
   const decisionSummary = decisionGateSummary(state);
+  const selectedHandoff = state.decisionGates.find(
+    (gate) => gate.id === state.selectedHandoffId,
+  );
   const authorityLabels = {
     repository: "Repository",
     founder_legal: "Founder / legal",
@@ -297,6 +300,203 @@ export function LaunchReadinessDesk() {
             every prerequisite is independently evidenced and the named human
             authorities record a go/no-go decision.
           </Alert>
+        </Card>
+
+        <Card sx={{ borderRadius: 4, mt: 3, overflow: "hidden" }}>
+          <Box
+            sx={{
+              borderBottom: "1px solid",
+              borderColor: "divider",
+              p: { xs: 2.5, md: 3.5 },
+            }}
+          >
+            <Typography
+              sx={{
+                color: "#8e3159",
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: 1.2,
+              }}
+            >
+              EXTERNAL EVIDENCE HANDOFF
+            </Typography>
+            <Typography
+              component="h2"
+              sx={{
+                fontSize: { xs: 32, md: 42 },
+                fontWeight: 800,
+                letterSpacing: "-0.04em",
+                mt: 1,
+              }}
+            >
+              Prepare the packet. Preserve the authority.
+            </Typography>
+            <Typography
+              sx={{
+                color: "text.secondary",
+                lineHeight: 1.6,
+                maxWidth: 760,
+                mt: 1,
+              }}
+            >
+              Choose one blocked gate to see exactly what the named authority
+              must supply. A prepared handoff is an opaque coordination record
+              only—it cannot upload evidence, approve a decision or change
+              readiness.
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                lg: "minmax(0,1.15fr) minmax(340px,.85fr)",
+              },
+            }}
+          >
+            <Box
+              sx={{
+                borderBottom: { xs: "1px solid", lg: 0 },
+                borderColor: "divider",
+                borderRight: { lg: "1px solid" },
+                p: { xs: 2, md: 3 },
+              }}
+            >
+              <Stack spacing={1}>
+                {state.decisionGates
+                  .filter((gate) => gate.authority !== "repository")
+                  .map((gate) => (
+                    <Button
+                      aria-pressed={state.selectedHandoffId === gate.id}
+                      disabled={state.preparedHandoffRef !== null}
+                      key={gate.id}
+                      onClick={() =>
+                        dispatch({ type: "select-handoff", gateId: gate.id })
+                      }
+                      sx={{
+                        alignItems: "flex-start",
+                        bgcolor:
+                          state.selectedHandoffId === gate.id
+                            ? "#f3e1e7"
+                            : "transparent",
+                        border: "1px solid",
+                        borderColor:
+                          state.selectedHandoffId === gate.id
+                            ? "#8e3159"
+                            : "divider",
+                        borderRadius: 2.5,
+                        color: "#2b151f",
+                        display: "flex",
+                        flexDirection: "column",
+                        minHeight: 72,
+                        p: 1.5,
+                        textAlign: "left",
+                        textTransform: "none",
+                        width: "100%",
+                      }}
+                    >
+                      <Stack
+                        direction="row"
+                        sx={{
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          width: "100%",
+                        }}
+                      >
+                        <Typography sx={{ fontWeight: 800 }}>
+                          {gate.label}
+                        </Typography>
+                        <Typography aria-hidden sx={{ color: "#8e3159" }}>
+                          →
+                        </Typography>
+                      </Stack>
+                      <Typography
+                        sx={{ color: "text.secondary", fontSize: 13, mt: 0.4 }}
+                      >
+                        {gate.owner}
+                      </Typography>
+                    </Button>
+                  ))}
+              </Stack>
+            </Box>
+            <Box sx={{ bgcolor: "#fffaf4", p: { xs: 2.5, md: 3.5 } }}>
+              {state.preparedHandoffRef ? (
+                <Alert severity="info">
+                  <strong>{state.preparedHandoffRef}</strong>
+                  <br />
+                  Coordination record prepared. Evidence, authority and gate
+                  state are unchanged.
+                </Alert>
+              ) : selectedHandoff ? (
+                <Stack spacing={2}>
+                  <Box>
+                    <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
+                      {selectedHandoff.label}
+                    </Typography>
+                    <Typography sx={{ color: "text.secondary", mt: 0.5 }}>
+                      {authorityLabels[selectedHandoff.authority]} ·{" "}
+                      {selectedHandoff.owner}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography
+                      sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
+                    >
+                      REQUIRED EVIDENCE
+                    </Typography>
+                    <Stack
+                      component="ul"
+                      spacing={0.75}
+                      sx={{ m: 0, mt: 1, pl: 2.5 }}
+                    >
+                      {selectedHandoff.requiredEvidence.map((requirement) => (
+                        <Typography
+                          component="li"
+                          key={requirement}
+                          sx={{ lineHeight: 1.5 }}
+                        >
+                          {requirement}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  </Box>
+                  <Alert severity="warning">
+                    {selectedHandoff.externalAct}
+                  </Alert>
+                  <TextField
+                    fullWidth
+                    label="Handoff coordination note"
+                    multiline
+                    onChange={(event) =>
+                      dispatch({
+                        type: "handoff-note",
+                        value: event.target.value,
+                      })
+                    }
+                    rows={3}
+                    value={state.handoffNote}
+                  />
+                  <Button
+                    disabled={state.handoffNote.trim().length < 12}
+                    onClick={() => dispatch({ type: "prepare-handoff" })}
+                    variant="contained"
+                  >
+                    Prepare opaque handoff record
+                  </Button>
+                </Stack>
+              ) : (
+                <Box sx={{ py: { xs: 2, md: 8 }, textAlign: "center" }}>
+                  <Typography sx={{ fontSize: 28, fontWeight: 800 }}>
+                    Select a blocked gate
+                  </Typography>
+                  <Typography sx={{ color: "text.secondary", mt: 1 }}>
+                    Requirements and the irreducible external act will appear
+                    here.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
         </Card>
 
         <Box

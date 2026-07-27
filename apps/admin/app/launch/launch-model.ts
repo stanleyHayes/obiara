@@ -27,6 +27,8 @@ export interface DecisionGate {
   readonly evidence: string;
   readonly freshness: string;
   readonly dependency: string;
+  readonly requiredEvidence: readonly string[];
+  readonly externalAct: string;
 }
 
 export interface LaunchState {
@@ -35,6 +37,9 @@ export interface LaunchState {
   readonly candidateSha: string;
   readonly generatedAt: string;
   readonly decisionGates: readonly DecisionGate[];
+  readonly selectedHandoffId: string | null;
+  readonly handoffNote: string;
+  readonly preparedHandoffRef: string | null;
   readonly gates: readonly ReadinessGate[];
   readonly staffing: readonly {
     readonly desk: string;
@@ -86,13 +91,19 @@ export type LaunchAction =
   | { readonly type: "throttle-reason"; readonly value: string }
   | { readonly type: "prepare-throttle" }
   | { readonly type: "triage-reason"; readonly value: string }
-  | { readonly type: "prepare-triage" };
+  | { readonly type: "prepare-triage" }
+  | { readonly type: "select-handoff"; readonly gateId: string }
+  | { readonly type: "handoff-note"; readonly value: string }
+  | { readonly type: "prepare-handoff" };
 
 export const initialLaunchState: LaunchState = {
   readinessRef: "launch-readiness•••4V6",
   market: "Accra P0",
   candidateSha: "d072728",
   generatedAt: "27 July 2026 · 01:20 GMT",
+  selectedHandoffId: null,
+  handoffNote: "",
+  preparedHandoffRef: null,
   decisionGates: [
     {
       id: "engineering",
@@ -103,6 +114,8 @@ export const initialLaunchState: LaunchState = {
       evidence: "182 stories mapped · 58/58 checks",
       freshness: "Exact candidate required",
       dependency: "Synthetic staging qualification",
+      requiredEvidence: ["Exact candidate SHA", "Full quality-gate result"],
+      externalAct: "No external act; repository evidence is already verified.",
     },
     {
       id: "residency",
@@ -113,6 +126,12 @@ export const initialLaunchState: LaunchState = {
       evidence: "Technical options only",
       freshness: "No signed decision",
       dependency: "Ghana-only or Africa-region interpretation",
+      requiredEvidence: [
+        "Founder interpretation",
+        "DPO/legal transfer assessment",
+        "Signed DPIA decision",
+      ],
+      externalAct: "Founder and DPO/legal record the real decision.",
     },
     {
       id: "providers",
@@ -123,6 +142,12 @@ export const initialLaunchState: LaunchState = {
       evidence: "Replaceable adapters only",
       freshness: "No approved contracts",
       dependency: "Atlas, storage, LiveKit and communications diligence",
+      requiredEvidence: [
+        "DPA and subprocessors",
+        "Location and deletion map",
+        "Support, breach, cost and exit terms",
+      ],
+      externalAct: "Procurement obtains evidence and approves each service.",
     },
     {
       id: "stores",
@@ -133,6 +158,12 @@ export const initialLaunchState: LaunchState = {
       evidence: "No production secret in repository",
       freshness: "Accounts not bound",
       dependency: "Controlled accounts and signing ceremony",
+      requiredEvidence: [
+        "Named credential custodians",
+        "Signing-ceremony record",
+        "Store review evidence",
+      ],
+      externalAct: "Custodians create accounts and bind secrets outside Git.",
     },
     {
       id: "cohort",
@@ -143,6 +174,12 @@ export const initialLaunchState: LaunchState = {
       evidence: "Synthetic aggregates only",
       freshness: "Real UAT not started",
       dependency: "Consent, training, hosts and staffed desks",
+      requiredEvidence: [
+        "Consented and trained UAT aggregate",
+        "Current host certification",
+        "Named operational coverage",
+      ],
+      externalAct: "Launch operations runs the real cohort and staffs cover.",
     },
     {
       id: "activation",
@@ -153,6 +190,12 @@ export const initialLaunchState: LaunchState = {
       evidence: "Production topology absent",
       freshness: "Action prohibited",
       dependency: "Every prerequisite plus founder go/no-go",
+      requiredEvidence: [
+        "All 17 production gates satisfied",
+        "Founder go/no-go",
+        "Distinct change-authority review",
+      ],
+      externalAct: "Release authorities execute the approved change.",
     },
   ],
   gates: [
@@ -304,6 +347,35 @@ export function launchReducer(
   state: LaunchState,
   action: LaunchAction,
 ): LaunchState {
+  if (action.type === "select-handoff" && state.preparedHandoffRef === null) {
+    const gate = state.decisionGates.find(
+      (candidate) => candidate.id === action.gateId,
+    );
+    if (!gate || gate.authority === "repository") return state;
+    return {
+      ...state,
+      selectedHandoffId: gate.id,
+      handoffNote: "",
+    };
+  }
+  if (
+    action.type === "handoff-note" &&
+    state.selectedHandoffId !== null &&
+    state.preparedHandoffRef === null
+  ) {
+    return { ...state, handoffNote: action.value.slice(0, 180) };
+  }
+  if (
+    action.type === "prepare-handoff" &&
+    state.selectedHandoffId !== null &&
+    state.handoffNote.trim().length >= 12 &&
+    state.preparedHandoffRef === null
+  ) {
+    return {
+      ...state,
+      preparedHandoffRef: `external-handoff•••${state.selectedHandoffId.toUpperCase()}`,
+    };
+  }
   if (action.type === "review-note" && state.reviewState === "none") {
     return { ...state, reviewNote: action.value.slice(0, 180) };
   }

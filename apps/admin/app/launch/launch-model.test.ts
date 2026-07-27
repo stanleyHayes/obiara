@@ -52,6 +52,45 @@ describe("launch readiness", () => {
     ).toBe(true);
   });
 
+  it("prepares an opaque external handoff without changing gate evidence", () => {
+    const selected = launchReducer(initialLaunchState, {
+      type: "select-handoff",
+      gateId: "residency",
+    });
+    const noted = launchReducer(selected, {
+      type: "handoff-note",
+      value: "Route the packet to the founder and independent DPO reviewer.",
+    });
+    const prepared = launchReducer(noted, { type: "prepare-handoff" });
+    expect(prepared.preparedHandoffRef).toBe("external-handoff•••RESIDENCY");
+    expect(prepared.decisionGates).toEqual(initialLaunchState.decisionGates);
+    expect(launchBlocked(prepared)).toBe(true);
+  });
+
+  it("rejects repository handoffs, unknown gates, and short notes", () => {
+    expect(
+      launchReducer(initialLaunchState, {
+        type: "select-handoff",
+        gateId: "engineering",
+      }),
+    ).toBe(initialLaunchState);
+    expect(
+      launchReducer(initialLaunchState, {
+        type: "select-handoff",
+        gateId: "unknown",
+      }),
+    ).toBe(initialLaunchState);
+    const selected = launchReducer(initialLaunchState, {
+      type: "select-handoff",
+      gateId: "providers",
+    });
+    const short = launchReducer(
+      launchReducer(selected, { type: "handoff-note", value: "send" }),
+      { type: "prepare-handoff" },
+    );
+    expect(short.preparedHandoffRef).toBeNull();
+  });
+
   it("fails closed when targets or evidence are incomplete", () => {
     expect(launchBlocked(initialLaunchState)).toBe(true);
     expect(
