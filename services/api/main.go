@@ -32,6 +32,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/calls"
 	callsapp "github.com/stanleyHayes/obiara/services/api/internal/calls/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap"
+	consentdomain "github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
@@ -177,12 +178,13 @@ func run() error {
 	}
 	// Scam-arc detection (E11-S11): rules-first signals with the action
 	// ladder; case creation bridges to the safety context when wired.
-	scamModule, err := scamarc.NewModule(ctx, client.Database(cfg.MongoDatabase), nil, nil)
+	scamModule, err := scamarc.NewModule(ctx, client.Database(cfg.MongoDatabase), monitoringConsent{consents: consentModule.ConsentMap}, nil)
 	if err != nil {
 		return fmt.Errorf("build scamarc module: %w", err)
 	}
-	// Analytics pipeline and P0 funnel metrics (E15-S01/S02/S07).
-	analyticsModule, err := analytics.NewModule(ctx, client.Database(cfg.MongoDatabase), nil)
+	// Analytics pipeline and P0 funnel metrics (E15-S01/S02/S07), gated by
+	// the consent map's product-analytics row.
+	analyticsModule, err := analytics.NewModule(ctx, client.Database(cfg.MongoDatabase), consentGate{consents: consentModule.ConsentMap})
 	if err != nil {
 		return fmt.Errorf("build analytics module: %w", err)
 	}
@@ -278,6 +280,30 @@ type ownerEndpointAuthorizer struct{}
 
 func (ownerEndpointAuthorizer) CanReveal(_ context.Context, requesterID, endpointID string) (bool, error) {
 	return requesterID != "" && requesterID == endpointID, nil
+}
+
+// consentGate bridges the analytics ConsentGate port to the consent map.
+type consentGate struct {
+	consents consentMapService
+}
+
+func (gate consentGate) AllowsAnalytics(ctx context.Context, memberID string) (bool, error) {
+	return gate.consents.StateFor(ctx, memberID, consentdomain.PurposeProductAnalytics)
+}
+
+// monitoringConsent bridges the scam-arc MonitoringConsent port.
+type monitoringConsent struct {
+	consents consentMapService
+}
+
+func (bridge monitoringConsent) MonitoringAllowed(ctx context.Context, roomID string) (bool, error) {
+	// Rooms are member-scoped in the consent map (per-room override arrives
+	// with room-scoped consent records; member state applies meanwhile).
+	return bridge.consents.StateFor(ctx, roomID, consentdomain.PurposeScamArc)
+}
+
+type consentMapService interface {
+	StateFor(ctx context.Context, memberID string, purpose consentdomain.Purpose) (bool, error)
 }
 
 // unconfiguredLivekit reports cleanly when no LiveKit credentials exist
