@@ -10,8 +10,10 @@ import {
   Typography,
 } from "@mui/material";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { HandoverButton } from "./handover-button";
+import { TourDialog } from "./tour-dialog";
 
 const queue = [
   {
@@ -64,6 +66,9 @@ function MetricCard({
 export default function AdminHome() {
   return (
     <Box component="main">
+      <Suspense>
+        <TourDialog />
+      </Suspense>
       <Container maxWidth={false} className="admin-shell">
         <Box component="header" className="admin-header">
           <Box>

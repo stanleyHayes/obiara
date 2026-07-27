@@ -20,6 +20,12 @@ test("keeps the operator theme dense, accessible and distinct", () => {
   );
 });
 
+test("dark mode uses the dark token palette", () => {
+  const theme = createObiaraAdminTheme({ mode: "dark" });
+  assert.equal(theme.palette.mode, "dark");
+  assert.equal(theme.palette.background.default, "#180B14");
+});
+
 test("publishes finite semantic operator statuses", () => {
   assert.deepEqual(Object.keys(obiaraAdminStatusColors), [
     "healthy",

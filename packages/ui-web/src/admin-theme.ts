@@ -11,6 +11,7 @@ import {
 export interface ObiaraAdminThemePreferences {
   highContrast?: boolean;
   reducedMotion?: boolean;
+  mode?: "light" | "dark";
 }
 
 export const obiaraAdminStatusColors = {
@@ -23,18 +24,28 @@ export const obiaraAdminStatusColors = {
 export function createObiaraAdminTheme(
   preferences: ObiaraAdminThemePreferences = {},
 ): Theme {
+  const mode = preferences.mode ?? "light";
   const colors = preferences.highContrast
     ? obiaraSemanticColors.highContrast
-    : obiaraSemanticColors.light;
+    : mode === "dark"
+      ? obiaraSemanticColors.dark
+      : obiaraSemanticColors.light;
   const textSecondary = preferences.highContrast
     ? obiaraSemanticColors.highContrast.text
-    : obiaraSemanticColors.light.textMuted;
+    : obiaraSemanticColors[mode].textMuted;
   const focusRing = `${obiaraAccessibility.focusRingWidth}px solid ${colors.focus}`;
   const transitionDuration = preferences.reducedMotion ? 0 : 120;
+  const statusColors = {
+    positive: colors.positive,
+    warning:
+      "warning" in colors ? colors.warning : obiaraSemanticColors.light.warning,
+    danger: colors.danger,
+    info: "info" in colors ? colors.info : obiaraSemanticColors.light.info,
+  };
 
   return createTheme({
     palette: {
-      mode: "light",
+      mode,
       primary: {
         main: colors.action,
         contrastText: colors.actionText,
@@ -43,12 +54,16 @@ export function createObiaraAdminTheme(
         main: colors.focus,
         contrastText: colors.surface,
       },
-      success: { main: obiaraAdminStatusColors.healthy },
-      warning: { main: obiaraAdminStatusColors.attention },
-      error: { main: obiaraAdminStatusColors.critical },
-      info: { main: obiaraAdminStatusColors.informational },
+      success: { main: statusColors.positive },
+      warning: { main: statusColors.warning },
+      error: { main: statusColors.danger },
+      info: { main: statusColors.info },
       background: {
-        default: preferences.highContrast ? colors.canvas : "#F8F4F2",
+        default: preferences.highContrast
+          ? colors.canvas
+          : mode === "dark"
+            ? "#180B14"
+            : "#F8F4F2",
         paper: colors.surface,
       },
       text: {

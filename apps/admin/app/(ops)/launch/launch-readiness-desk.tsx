@@ -40,7 +40,12 @@ export function LaunchReadinessDesk() {
   } as const;
   return (
     <Box
-      sx={{ bgcolor: "#f7efe3", color: "#2b151f", minHeight: "100vh", py: 4 }}
+      sx={{
+        bgcolor: "background.default",
+        color: "text.primary",
+        minHeight: "100vh",
+        py: 4,
+      }}
     >
       <Container maxWidth="lg">
         <Stack
@@ -99,7 +104,7 @@ export function LaunchReadinessDesk() {
 
         <Card
           sx={{
-            bgcolor: "#2b151f",
+            bgcolor: "text.primary",
             borderRadius: 1,
             color: "#fff8f0",
             overflow: "hidden",
@@ -386,7 +391,7 @@ export function LaunchReadinessDesk() {
                             ? "#8e3159"
                             : "divider",
                         borderRadius: 1,
-                        color: "#2b151f",
+                        color: "text.primary",
                         display: "flex",
                         flexDirection: "column",
                         minHeight: 72,

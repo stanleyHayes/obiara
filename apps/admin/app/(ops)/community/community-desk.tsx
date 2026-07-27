@@ -27,7 +27,12 @@ export function CommunityDesk() {
   const eligible = selectedHostEligible(state);
   return (
     <Box
-      sx={{ bgcolor: "#f7efe3", color: "#2b151f", minHeight: "100vh", py: 4 }}
+      sx={{
+        bgcolor: "background.default",
+        color: "text.primary",
+        minHeight: "100vh",
+        py: 4,
+      }}
     >
       <Container maxWidth="lg">
         <Stack

@@ -25,6 +25,17 @@ body {
   color: var(--admin-ink);
 }
 
+:root[data-theme="dark"] body {
+  background: #180b14;
+  color: #fff3e6;
+}
+
+:root[data-theme="dark"] {
+  --admin-plum: #ffd9a0;
+  --admin-ink: #fff3e6;
+  --admin-muted: #c9a9bb;
+}
+
 .admin-page {
   min-height: 100dvh;
 }
@@ -1267,4 +1278,54 @@ body {
   .verification-actions > button {
     width: 100%;
   }
+}
+
+/* Dark mode structural overrides (theme toggle on the account page). */
+:root[data-theme="dark"] .metric-card,
+:root[data-theme="dark"] .queue-panel,
+:root[data-theme="dark"] .sla-panel,
+:root[data-theme="dark"] .incident-panel,
+:root[data-theme="dark"] .search-button {
+  background: #2b151f !important;
+  border-color: rgba(255, 243, 230, 0.14) !important;
+  box-shadow: none !important;
+  color: #fff3e6 !important;
+}
+
+:root[data-theme="dark"] .admin-header {
+  border-bottom-color: rgba(255, 243, 230, 0.14);
+}
+
+:root[data-theme="dark"] .status-banner {
+  background: rgba(18, 166, 124, 0.14);
+  border-color: rgba(18, 166, 124, 0.32);
+}
+
+:root[data-theme="dark"] .status-banner p:last-child,
+:root[data-theme="dark"] .metric-note,
+:root[data-theme="dark"] .incident-row > span {
+  color: #c9a9bb;
+}
+
+:root[data-theme="dark"] .incident-row > span:nth-child(2) {
+  color: #fff3e6;
+}
+
+:root[data-theme="dark"] .queue-row,
+:root[data-theme="dark"] .incident-row + .incident-row {
+  border-color: rgba(255, 243, 230, 0.1);
+}
+
+:root[data-theme="dark"] .incident-table {
+  background: #2b151f;
+  border-color: rgba(255, 243, 230, 0.14);
+}
+
+:root[data-theme="dark"] .incident-row button {
+  color: #ffc66e;
+}
+
+:root[data-theme="dark"] .handover-button {
+  background: #ffc66e !important;
+  color: #26101f !important;
 }

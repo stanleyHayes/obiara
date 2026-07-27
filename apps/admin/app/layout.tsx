@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "@fontsource-variable/outfit";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
-import { ObiaraAdminThemeProvider } from "@obiara/ui-web";
+import { ThemeModeProvider } from "./theme-mode-provider";
 import "./styles.css";
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
         <AppRouterCacheProvider>
-          <ObiaraAdminThemeProvider>{children}</ObiaraAdminThemeProvider>
+          <ThemeModeProvider>{children}</ThemeModeProvider>
         </AppRouterCacheProvider>
       </body>
     </html>

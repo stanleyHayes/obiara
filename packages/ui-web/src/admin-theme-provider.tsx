@@ -16,10 +16,11 @@ export function ObiaraAdminThemeProvider({
   children,
   highContrast = false,
   reducedMotion = false,
+  mode = "light",
 }: Readonly<ObiaraAdminThemeProviderProps>) {
   const theme = useMemo(
-    () => createObiaraAdminTheme({ highContrast, reducedMotion }),
-    [highContrast, reducedMotion],
+    () => createObiaraAdminTheme({ highContrast, reducedMotion, mode }),
+    [highContrast, reducedMotion, mode],
   );
 
   return (
