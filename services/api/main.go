@@ -26,6 +26,7 @@ import (
 	"github.com/stanleyHayes/obiara/internal/safety"
 	"github.com/stanleyHayes/obiara/services/api/internal/admin"
 	adminemail "github.com/stanleyHayes/obiara/services/api/internal/admin/adapters/outbound/email"
+	"github.com/stanleyHayes/obiara/services/api/internal/analytics"
 	"github.com/stanleyHayes/obiara/services/api/internal/calls"
 	callsapp "github.com/stanleyHayes/obiara/services/api/internal/calls/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
@@ -165,6 +166,11 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build suban module: %w", err)
 	}
+	// Analytics pipeline and P0 funnel metrics (E15-S01/S02/S07).
+	analyticsModule, err := analytics.NewModule(ctx, client.Database(cfg.MongoDatabase), nil)
+	if err != nil {
+		return fmt.Errorf("build analytics module: %w", err)
+	}
 	// In-app calls (E09-S09): LiveKit tokens, no phone exposure. The
 	// realtime adapter activates when LIVEKIT_API_KEY/LIVEKIT_API_SECRET are
 	// configured; otherwise the call routes report not-configured cleanly.
@@ -213,6 +219,7 @@ func run() error {
 	apihttp.RegisterSubanRoutes(mux, subanModule.Suban)
 	apihttp.RegisterAdminRoutes(mux, adminModule.Admin)
 	apihttp.RegisterCallRoutes(mux, callsModule.Calls)
+	apihttp.RegisterMetricsRoutes(mux, analyticsModule.Metrics)
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{

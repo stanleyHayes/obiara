@@ -557,6 +557,28 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/metrics/funnel": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * P0 funnel and phase-exit metrics
+     * @description Live funnel rates over the analytics pipeline (E15-S07): pods
+     *     heard, seed→sprout, sprout→room, weekly fire attendance against
+     *     the active cohort, and the regret trend (plan §22 gates).
+     */
+    readonly get: operations["getFunnelMetrics"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/notification-preferences/{memberId}": {
     readonly parameters: {
       readonly query?: never;
@@ -1030,6 +1052,23 @@ export interface components {
     };
     readonly FireListEnvelope: {
       readonly data: components["schemas"]["FireListData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly FunnelReportData: {
+      /** Format: date-time */
+      readonly computedAt: string;
+      readonly fireAttendanceRate: number;
+      readonly fireAttendeeCount: number;
+      readonly podsHeardRate: number;
+      readonly regretCount: number;
+      /** @enum {string} */
+      readonly regretTrend: "up" | "down" | "flat";
+      readonly seedToSproutRate: number;
+      readonly sproutToRoomRate: number;
+      readonly windowDays: number;
+    };
+    readonly FunnelReportEnvelope: {
+      readonly data: components["schemas"]["FunnelReportData"];
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly GhanaCardInput: {
@@ -2739,6 +2778,34 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidTrustPathBounds"];
       readonly 404: components["responses"]["TrustPathsNotFound"];
+    };
+  };
+  readonly getFunnelMetrics: {
+    readonly parameters: {
+      readonly query?: {
+        readonly days?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Funnel report. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["FunnelReportEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly getNotificationPreferences: {

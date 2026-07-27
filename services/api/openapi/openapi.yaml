@@ -1563,6 +1563,40 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/metrics/funnel:
+    get:
+      operationId: getFunnelMetrics
+      tags: [Analytics]
+      summary: P0 funnel and phase-exit metrics
+      security: []
+      description: |
+        Live funnel rates over the analytics pipeline (E15-S07): pods
+        heard, seed→sprout, sprout→room, weekly fire attendance against
+        the active cohort, and the regret trend (plan §22 gates).
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+      responses:
+        "200":
+          description: Funnel report.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FunnelReportEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     MemberBearer:
@@ -3189,6 +3223,51 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/EndCallData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    FunnelReportData:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          windowDays,
+          podsHeardRate,
+          seedToSproutRate,
+          sproutToRoomRate,
+          fireAttendeeCount,
+          fireAttendanceRate,
+          regretCount,
+          regretTrend,
+          computedAt,
+        ]
+      properties:
+        windowDays:
+          type: integer
+        podsHeardRate:
+          type: number
+        seedToSproutRate:
+          type: number
+        sproutToRoomRate:
+          type: number
+        fireAttendeeCount:
+          type: integer
+        fireAttendanceRate:
+          type: number
+        regretCount:
+          type: integer
+        regretTrend:
+          type: string
+          enum: [up, down, flat]
+        computedAt:
+          type: string
+          format: date-time
+    FunnelReportEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/FunnelReportData"
         meta:
           $ref: "#/components/schemas/Metadata"
     FieldError:

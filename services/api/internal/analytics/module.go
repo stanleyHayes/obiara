@@ -15,6 +15,7 @@ import (
 
 type Module struct {
 	Analytics application.AnalyticsService
+	Metrics   application.MetricsService
 }
 
 // NewModule builds the pipeline. consent may be nil to run without the
@@ -26,5 +27,7 @@ func NewModule(ctx context.Context, database *mongo.Database, consent applicatio
 	}
 	return Module{
 		Analytics: application.NewAnalyticsService(sink, consent, time.Now),
+		Metrics: application.NewMetricsService(
+			mongodb.NewQueryStore(database), mongodb.NewCohortStore(database), time.Now),
 	}, nil
 }
