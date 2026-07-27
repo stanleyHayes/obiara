@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://obiara.invalid/schemas/release-bundle.v1.json",
+  "title": "Obiara release closeout evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environment", "candidate", "notes", "uat", "rollback", "hypercare", "approvals", "generatedAt", "expiresAt", "disposition"],
+  "properties": {
+    "schemaVersion": { "const": "obiara.release-bundle.v1" },
+    "environment": { "enum": ["preview", "staging", "production"] },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitSha", "releaseEvidenceRef"],
+      "properties": {
+        "commitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "releaseEvidenceRef": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,79}$" }
+      }
+    },
+    "notes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "changeRefs"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 12, "maxLength": 240 },
+        "changeRefs": { "type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,79}$" } }
+      }
+    },
+    "uat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["invited", "consented", "trained", "completed", "criticalOpen", "evidenceRef"],
+      "properties": {
+        "invited": { "type": "integer", "minimum": 1 },
+        "consented": { "type": "integer", "minimum": 0 },
+        "trained": { "type": "integer", "minimum": 0 },
+        "completed": { "type": "integer", "minimum": 0 },
+        "criticalOpen": { "type": "integer", "minimum": 0 },
+        "evidenceRef": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,79}$" }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rehearsalRef", "knownGoodSha", "rtoMinutes"],
+      "properties": {
+        "rehearsalRef": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,79}$" },
+        "knownGoodSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "rtoMinutes": { "type": "integer", "minimum": 1, "maximum": 60 }
+      }
+    },
+    "hypercare": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platformOwner", "safetyOwner", "uatOwner", "cadenceMinutes", "blockers"],
+      "properties": {
+        "platformOwner": { "type": "string", "pattern": "^[A-Za-z0-9._:/-]{3,80}$" },
+        "safetyOwner": { "type": "string", "pattern": "^[A-Za-z0-9._:/-]{3,80}$" },
+        "uatOwner": { "type": "string", "pattern": "^[A-Za-z0-9._:/-]{3,80}$" },
+        "cadenceMinutes": { "type": "integer", "minimum": 15, "maximum": 1440 },
+        "blockers": { "type": "array", "maxItems": 20, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{2,79}$" } }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preparedBy", "reviewedBy", "productionApproved"],
+      "properties": {
+        "preparedBy": { "type": "string", "pattern": "^[A-Za-z0-9._:/-]{3,80}$" },
+        "reviewedBy": { "type": "string", "pattern": "^[A-Za-z0-9._:/-]{3,80}$" },
+        "productionApproved": { "type": "boolean" }
+      }
+    },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "disposition": { "enum": ["blocked", "qualified-non-production", "production-approved"] }
+  }
+}
+

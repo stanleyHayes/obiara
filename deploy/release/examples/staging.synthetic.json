@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "obiara.release-bundle.v1",
+  "environment": "staging",
+  "candidate": {
+    "commitSha": "1111111111111111111111111111111111111111",
+    "releaseEvidenceRef": "release-evidence/staging/1111111"
+  },
+  "notes": {
+    "summary": "Synthetic staging bundle exercises release closeout without member data.",
+    "changeRefs": ["S8-065", "S8-066", "S8-069"]
+  },
+  "uat": {
+    "invited": 20,
+    "consented": 18,
+    "trained": 16,
+    "completed": 13,
+    "criticalOpen": 2,
+    "evidenceRef": "uat/staging/7H4"
+  },
+  "rollback": {
+    "rehearsalRef": "dr/staging/restore-001",
+    "knownGoodSha": "2222222222222222222222222222222222222222",
+    "rtoMinutes": 42
+  },
+  "hypercare": {
+    "platformOwner": "role/platform-on-call",
+    "safetyOwner": "role/safety-on-call",
+    "uatOwner": "role/uat-lead",
+    "cadenceMinutes": 1440,
+    "blockers": ["uat/critical-open", "slo/core-availability"]
+  },
+  "approvals": {
+    "preparedBy": "role/release-manager",
+    "reviewedBy": "role/founder-reviewer",
+    "productionApproved": false
+  },
+  "generatedAt": "2026-07-27T00:00:00Z",
+  "expiresAt": "2026-08-03T00:00:00Z",
+  "disposition": "blocked"
+}
+
