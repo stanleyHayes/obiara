@@ -20,6 +20,7 @@ type Module struct {
 	Cases    application.CaseService
 	Actions  application.ActionService
 	Evidence application.EvidenceService
+	Care     application.CareService
 }
 
 // NewModule builds the safety context. Enforcement ports (identity
@@ -40,6 +41,7 @@ func NewModule(ctx context.Context, database *mongo.Database, outboxStore applic
 		Cases:    application.NewCaseService(caseRepository, time.Now, newID),
 		Actions:  application.NewActionService(caseRepository, actionLog, identity, sessions, actionLog, time.Now, newID),
 		Evidence: application.NewEvidenceService(repository, mongodb.NewAccessAuditStore(database), time.Now, newID),
+		Care:     application.NewCareService(mongodb.NewCareRepository(database), mongodb.NewCareRepository(database), time.Now, newID),
 	}, nil
 }
 

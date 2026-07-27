@@ -28,15 +28,27 @@ type DeliveryCounter interface {
 	ClaimSlot(ctx context.Context, memberID, localDate string, cap int) (claimed bool, err error)
 }
 
+// QuieteningChecker reports an active care quietening window (Doc 09 §5:
+// 72-hour notification quietening after closure).
+type QuieteningChecker interface {
+	QuietUntil(ctx context.Context, memberID string, now time.Time) (bool, error)
+}
+
 // NotificationService manages preferences and delivery decisions.
 type NotificationService struct {
 	preferences PreferencesRepository
 	counter     DeliveryCounter
+	quietening  QuieteningChecker
 	now         func() time.Time
 }
 
 func NewNotificationService(preferences PreferencesRepository, counter DeliveryCounter, now func() time.Time) NotificationService {
 	return NotificationService{preferences: preferences, counter: counter, now: now}
+}
+
+// NewNotificationServiceWithQuietening adds the care quietening check.
+func NewNotificationServiceWithQuietening(preferences PreferencesRepository, counter DeliveryCounter, quietening QuieteningChecker, now func() time.Time) NotificationService {
+	return NotificationService{preferences: preferences, counter: counter, quietening: quietening, now: now}
 }
 
 // Get returns the member's preferences, creating defaults on first read.
@@ -81,6 +93,15 @@ func (service NotificationService) Decide(ctx context.Context, memberID string, 
 	decision := preferences.Allows(category, service.now())
 	if !decision.Allowed || category == domain.CategorySafety {
 		return decision, nil
+	}
+	if service.quietening != nil {
+		quiet, err := service.quietening.QuietUntil(ctx, memberID, service.now())
+		if err != nil {
+			return domain.Decision{}, err
+		}
+		if quiet {
+			return domain.Decision{Allowed: false, Reason: "care_quietening"}, nil
+		}
 	}
 
 	claimed, err := service.counter.ClaimSlot(ctx, memberID, preferences.LocalDate(service.now()), domain.DailyCap)
