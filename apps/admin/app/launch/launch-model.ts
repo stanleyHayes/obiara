@@ -9,9 +9,32 @@ export interface ReadinessGate {
   readonly expires: string;
 }
 
+export type DecisionGateState = "verified" | "awaiting_external" | "blocked";
+export type DecisionGateAuthority =
+  | "repository"
+  | "founder_legal"
+  | "provider_procurement"
+  | "credential_store"
+  | "cohort_operations"
+  | "production_action";
+
+export interface DecisionGate {
+  readonly id: string;
+  readonly label: string;
+  readonly authority: DecisionGateAuthority;
+  readonly owner: string;
+  readonly state: DecisionGateState;
+  readonly evidence: string;
+  readonly freshness: string;
+  readonly dependency: string;
+}
+
 export interface LaunchState {
   readonly readinessRef: string;
   readonly market: "Accra P0";
+  readonly candidateSha: string;
+  readonly generatedAt: string;
+  readonly decisionGates: readonly DecisionGate[];
   readonly gates: readonly ReadinessGate[];
   readonly staffing: readonly {
     readonly desk: string;
@@ -68,6 +91,70 @@ export type LaunchAction =
 export const initialLaunchState: LaunchState = {
   readinessRef: "launch-readiness•••4V6",
   market: "Accra P0",
+  candidateSha: "d072728",
+  generatedAt: "27 July 2026 · 01:20 GMT",
+  decisionGates: [
+    {
+      id: "engineering",
+      label: "Engineering evidence",
+      authority: "repository",
+      owner: "Engineering lead",
+      state: "verified",
+      evidence: "182 stories mapped · 58/58 checks",
+      freshness: "Exact candidate required",
+      dependency: "Synthetic staging qualification",
+    },
+    {
+      id: "residency",
+      label: "Residency and DPIA",
+      authority: "founder_legal",
+      owner: "Founder + DPO/legal",
+      state: "awaiting_external",
+      evidence: "Technical options only",
+      freshness: "No signed decision",
+      dependency: "Ghana-only or Africa-region interpretation",
+    },
+    {
+      id: "providers",
+      label: "Production providers",
+      authority: "provider_procurement",
+      owner: "Procurement + platform",
+      state: "awaiting_external",
+      evidence: "Replaceable adapters only",
+      freshness: "No approved contracts",
+      dependency: "Atlas, storage, LiveKit and communications diligence",
+    },
+    {
+      id: "stores",
+      label: "Store and signing access",
+      authority: "credential_store",
+      owner: "Mobile release owner",
+      state: "blocked",
+      evidence: "No production secret in repository",
+      freshness: "Accounts not bound",
+      dependency: "Controlled accounts and signing ceremony",
+    },
+    {
+      id: "cohort",
+      label: "Cohort and operations",
+      authority: "cohort_operations",
+      owner: "Launch operations lead",
+      state: "blocked",
+      evidence: "Synthetic aggregates only",
+      freshness: "Real UAT not started",
+      dependency: "Consent, training, hosts and staffed desks",
+    },
+    {
+      id: "activation",
+      label: "Production activation",
+      authority: "production_action",
+      owner: "Release manager",
+      state: "blocked",
+      evidence: "Production topology absent",
+      freshness: "Action prohibited",
+      dependency: "Every prerequisite plus founder go/no-go",
+    },
+  ],
   gates: [
     {
       id: "families",
@@ -84,7 +171,8 @@ export const initialLaunchState: LaunchState = {
       label: "Host School",
       numerator: 9,
       denominator: 12,
-      requirement: "All assigned hosts complete required modules and hold current certification",
+      requirement:
+        "All assigned hosts complete required modules and hold current certification",
       evidenceComplete: false,
       passes: false,
       expires: "3 certifications pending",
@@ -94,19 +182,39 @@ export const initialLaunchState: LaunchState = {
       label: "Agyina licensing",
       numerator: 7,
       denominator: 8,
-      requirement: "Current license and jurisdiction evidence for every active matchmaker",
+      requirement:
+        "Current license and jurisdiction evidence for every active matchmaker",
       evidenceComplete: false,
       passes: false,
       expires: "1 jurisdiction review pending",
     },
   ],
   staffing: [
-    { desk: "Verification", staffed: 4, required: 5, window: "Launch day · 08:00–20:00" },
-    { desk: "Member support", staffed: 6, required: 6, window: "Launch day · 06:00–23:00" },
-    { desk: "Tier-A response", staffed: 2, required: 2, window: "24-hour on-call" },
+    {
+      desk: "Verification",
+      staffed: 4,
+      required: 5,
+      window: "Launch day · 08:00–20:00",
+    },
+    {
+      desk: "Member support",
+      staffed: 6,
+      required: 6,
+      window: "Launch day · 06:00–23:00",
+    },
+    {
+      desk: "Tier-A response",
+      staffed: 2,
+      required: 2,
+      window: "24-hour on-call",
+    },
   ],
   milestones: [
-    { date: "28 July", label: "Host certification evidence closes", state: "blocked" },
+    {
+      date: "28 July",
+      label: "Host certification evidence closes",
+      state: "blocked",
+    },
     { date: "30 July", label: "Support rehearsal", state: "ready" },
     { date: "01 August", label: "Founder go/no-go review", state: "blocked" },
   ],
@@ -176,7 +284,20 @@ export const initialLaunchState: LaunchState = {
 };
 
 export function launchBlocked(state: LaunchState) {
-  return state.gates.some((gate) => !gate.evidenceComplete || !gate.passes);
+  return (
+    state.gates.some((gate) => !gate.evidenceComplete || !gate.passes) ||
+    state.decisionGates.some((gate) => gate.state !== "verified")
+  );
+}
+
+export function decisionGateSummary(state: LaunchState) {
+  return state.decisionGates.reduce(
+    (summary, gate) => {
+      summary[gate.state] += 1;
+      return summary;
+    },
+    { verified: 0, awaiting_external: 0, blocked: 0 },
+  );
 }
 
 export function launchReducer(
@@ -221,7 +342,11 @@ export function launchReducer(
     state.reviewState === "none" &&
     state.reviewNote.trim().length >= 12
   ) {
-    return { ...state, reviewState: "recorded", reviewRef: "launch-review•••9L2" };
+    return {
+      ...state,
+      reviewState: "recorded",
+      reviewRef: "launch-review•••9L2",
+    };
   }
   return state;
 }

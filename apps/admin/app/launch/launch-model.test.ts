@@ -1,15 +1,62 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  decisionGateSummary,
   initialLaunchState,
   launchBlocked,
   launchReducer,
 } from "./launch-model";
 
 describe("launch readiness", () => {
+  it("separates repository proof from every external authority", () => {
+    expect(decisionGateSummary(initialLaunchState)).toEqual({
+      verified: 1,
+      awaiting_external: 2,
+      blocked: 3,
+    });
+    expect(
+      initialLaunchState.decisionGates.find(
+        (gate) => gate.id === "engineering",
+      ),
+    ).toMatchObject({ authority: "repository", state: "verified" });
+    expect(
+      new Set(
+        initialLaunchState.decisionGates
+          .filter((gate) => gate.state !== "verified")
+          .map((gate) => gate.authority),
+      ),
+    ).toEqual(
+      new Set([
+        "founder_legal",
+        "provider_procurement",
+        "credential_store",
+        "cohort_operations",
+        "production_action",
+      ]),
+    );
+  });
+
+  it("cannot become launch-ready from repository evidence alone", () => {
+    const peopleReady = {
+      ...initialLaunchState,
+      gates: initialLaunchState.gates.map((gate) => ({
+        ...gate,
+        numerator: gate.denominator,
+        evidenceComplete: true,
+        passes: true,
+      })),
+    };
+    expect(launchBlocked(peopleReady)).toBe(true);
+    expect(
+      peopleReady.decisionGates.some((gate) => gate.state !== "verified"),
+    ).toBe(true);
+  });
+
   it("fails closed when targets or evidence are incomplete", () => {
     expect(launchBlocked(initialLaunchState)).toBe(true);
-    expect(initialLaunchState.gates.filter((gate) => !gate.evidenceComplete)).toHaveLength(2);
+    expect(
+      initialLaunchState.gates.filter((gate) => !gate.evidenceComplete),
+    ).toHaveLength(2);
   });
 
   it("uses exact denominators without member lists", () => {
