@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "obiara.residency-dpia-decision.v1",
+  "decisionId": "decision/synthetic-residency-review",
+  "environment": "production",
+  "market": "GH",
+  "candidateSha": "1111111111111111111111111111111111111111",
+  "interpretation": "ghana-only",
+  "issuerKind": "repository",
+  "issuerRef": "role/repository-review",
+  "authorityRefs": {
+    "founder": { "actorRef": "", "signatureEvidenceRef": "", "signedAt": null },
+    "dpoLegal": { "actorRef": "", "signatureEvidenceRef": "", "signedAt": null },
+    "independentReviewer": { "actorRef": "", "signatureEvidenceRef": "", "signedAt": null }
+  },
+  "processingScopeRefs": [
+    "identity-and-authentication",
+    "biometric-liveness",
+    "profile-and-matching",
+    "private-voice-and-media",
+    "community-and-trust",
+    "safety-care-and-evidence",
+    "ai-counsel-and-language",
+    "analytics-audit-and-operations"
+  ],
+  "scopeLocations": [
+    { "boundary": "compute", "providerRef": "provider/render", "countryCode": "DE", "regionCode": "frankfurt", "dataClasses": ["C2", "C3", "C4"] },
+    { "boundary": "operational-database", "providerRef": "provider/mongodb-atlas", "countryCode": "ZA", "regionCode": "af-south-1", "dataClasses": ["C2", "C3", "C4"] },
+    { "boundary": "database-backups", "providerRef": "provider/mongodb-atlas", "countryCode": "ZA", "regionCode": "af-south-1", "dataClasses": ["C2", "C3", "C4"] },
+    { "boundary": "object-storage", "providerRef": "provider/unselected-storage", "countryCode": "ZA", "regionCode": "af-south-1", "dataClasses": ["C3", "C4"] },
+    { "boundary": "logs-observability", "providerRef": "provider/unselected-observability", "countryCode": "ZZ", "regionCode": "undecided", "dataClasses": ["C2", "C3"] },
+    { "boundary": "live-media-network", "providerRef": "provider/livekit", "countryCode": "ZA", "regionCode": "south-africa", "dataClasses": ["C4"] },
+    { "boundary": "transactional-email", "providerRef": "provider/resend", "countryCode": "US", "regionCode": "us-processing", "dataClasses": ["C3"] },
+    { "boundary": "provider-support-access", "providerRef": "provider/unresolved-support", "countryCode": "ZZ", "regionCode": "undecided", "dataClasses": ["C2", "C3", "C4"] }
+  ],
+  "transferAssessmentRef": "",
+  "dpiaRef": "",
+  "residualRiskOutcome": "pending",
+  "issuedAt": null,
+  "expiresAt": null,
+  "synthetic": true,
+  "outcome": "pending"
+}

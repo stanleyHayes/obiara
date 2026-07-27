@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://obiara.invalid/schemas/residency-dpia-decision.v1.json",
+  "title": "Obiara residency and DPIA external decision metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "decisionId",
+    "environment",
+    "market",
+    "candidateSha",
+    "interpretation",
+    "issuerKind",
+    "issuerRef",
+    "authorityRefs",
+    "processingScopeRefs",
+    "scopeLocations",
+    "transferAssessmentRef",
+    "dpiaRef",
+    "residualRiskOutcome",
+    "issuedAt",
+    "expiresAt",
+    "synthetic",
+    "outcome"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "obiara.residency-dpia-decision.v1" },
+    "decisionId": { "type": "string", "pattern": "^decision/[a-z0-9][a-z0-9-]{7,79}$" },
+    "environment": { "const": "production" },
+    "market": { "const": "GH" },
+    "candidateSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "interpretation": { "enum": ["ghana-only", "africa-region"] },
+    "issuerKind": { "enum": ["external-authority", "repository"] },
+    "issuerRef": { "type": "string", "pattern": "^role/[a-z][a-z0-9-]{2,63}$" },
+    "authorityRefs": { "$ref": "#/$defs/authorityRefs" },
+    "processingScopeRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 9,
+      "items": { "enum": [
+        "identity-and-authentication",
+        "biometric-liveness",
+        "profile-and-matching",
+        "private-voice-and-media",
+        "community-and-trust",
+        "safety-care-and-evidence",
+        "ai-counsel-and-language",
+        "commerce-and-financial-ledger",
+        "analytics-audit-and-operations"
+      ] }
+    },
+    "scopeLocations": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/scopeLocation" }
+    },
+    "transferAssessmentRef": { "type": "string", "pattern": "^$|^[0-9a-f]{64}$" },
+    "dpiaRef": { "type": "string", "pattern": "^$|^[0-9a-f]{64}$" },
+    "residualRiskOutcome": { "enum": ["pending", "accepted", "declined"] },
+    "issuedAt": { "type": ["string", "null"], "format": "date-time" },
+    "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+    "synthetic": { "type": "boolean" },
+    "outcome": { "enum": ["pending", "approved", "blocked"] }
+  },
+  "$defs": {
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actorRef", "signatureEvidenceRef", "signedAt"],
+      "properties": {
+        "actorRef": { "type": "string", "pattern": "^$|^role/[a-z][a-z0-9-]{2,63}$" },
+        "signatureEvidenceRef": { "type": "string", "pattern": "^$|^[0-9a-f]{64}$" },
+        "signedAt": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "authorityRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["founder", "dpoLegal", "independentReviewer"],
+      "properties": {
+        "founder": { "$ref": "#/$defs/authority" },
+        "dpoLegal": { "$ref": "#/$defs/authority" },
+        "independentReviewer": { "$ref": "#/$defs/authority" }
+      }
+    },
+    "scopeLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boundary", "providerRef", "countryCode", "regionCode", "dataClasses"],
+      "properties": {
+        "boundary": { "enum": [
+          "compute",
+          "operational-database",
+          "database-backups",
+          "object-storage",
+          "cdn-cache",
+          "logs-observability",
+          "live-media-network",
+          "live-media-recording-egress",
+          "transactional-email",
+          "ai-vendor-processing",
+          "identity-provider-processing",
+          "provider-support-access"
+        ] },
+        "providerRef": { "type": "string", "pattern": "^provider/[a-z][a-z0-9-]{2,63}$" },
+        "countryCode": { "type": "string", "pattern": "^[A-Z]{2}$" },
+        "regionCode": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$" },
+        "dataClasses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["C2", "C3", "C4"] }
+        }
+      }
+    }
+  }
+}
