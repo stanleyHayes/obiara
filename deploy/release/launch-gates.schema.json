@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://obiara.invalid/schemas/launch-gates.v1.json",
+  "title": "Obiara production launch-gate evidence registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "environment", "market", "candidateSha", "generatedAt", "expiresAt", "evidence"],
+  "properties": {
+    "schemaVersion": { "const": "obiara.launch-gates.v1" },
+    "environment": { "const": "production" },
+    "market": { "const": "GH" },
+    "candidateSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "evidence": {
+      "type": "array",
+      "maxItems": 17,
+      "items": { "$ref": "#/$defs/evidence" }
+    }
+  },
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gateId", "evidenceRef", "kind", "provenance", "environment", "market", "candidateSha", "issuerRef", "reviewerRef", "outcome", "synthetic", "collectedAt", "expiresAt"],
+      "properties": {
+        "gateId": { "enum": ["repository.engineering", "repository.security", "repository.recovery", "repository.release", "external.residency", "external.production-topology", "external.ghana-device-network", "provider.atlas", "provider.storage-cdn", "provider.live-media", "provider.email", "credential.production-runtime", "cohort.uat", "cohort.launch-operations", "store.mobile-release", "external.founder-decision", "production.activation"] },
+        "evidenceRef": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "kind": { "enum": ["repository", "external-decision", "provider", "credential", "cohort", "store", "production-action"] },
+        "provenance": { "enum": ["repository-control", "external-authority", "provider-control-plane", "credential-custodian", "cohort-review", "store-console", "change-authority"] },
+        "environment": { "const": "production" },
+        "market": { "const": "GH" },
+        "candidateSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "issuerRef": { "type": "string", "pattern": "^role/[a-z][a-z0-9-]{2,63}$" },
+        "reviewerRef": { "type": "string", "pattern": "^role/[a-z][a-z0-9-]{2,63}$" },
+        "outcome": { "enum": ["satisfied", "pending", "blocked"] },
+        "synthetic": { "type": "boolean" },
+        "collectedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
