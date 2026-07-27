@@ -19,6 +19,7 @@
     "@obiara/matchmaker-marketplace": "workspace:*",
     "@obiara/membership-settings": "workspace:*",
     "@obiara/okyeame-policy": "workspace:*",
+    "@obiara/suban-explanation": "workspace:*",
     "@obiara/ui-mobile": "workspace:*",
     "expo": "57.0.8",
     "expo-constants": "~57.0.7",
