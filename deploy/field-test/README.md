@@ -32,8 +32,19 @@ cohort, or launch evidence.
 ## Deterministic validation
 
 ```sh
-go run ./internal/quality/fieldtest/cmd \
+go build -o /tmp/obiara-fieldtest ./internal/quality/fieldtest/cmd
+/tmp/obiara-fieldtest \
   -manifest deploy/field-test/examples/staging.synthetic.blocked.json \
   -candidate-sha 68bf7b18d7a2c872640265d5b6f58ba96b29561c \
   -at 2026-07-27T12:00:00Z
 ```
+
+The CLI always emits one JSON decision for a structurally evaluated manifest:
+
+- exit `0`: valid `qualified-field-evidence` only;
+- exit `2`: valid but `blocked`, including every synthetic fixture;
+- exit `1`: invalid manifest or evidence;
+- exit `64`: invalid or incomplete CLI arguments (no decision is emitted).
+
+Automation must inspect both the exit code and `disposition`; validator success
+alone is never a qualification.
