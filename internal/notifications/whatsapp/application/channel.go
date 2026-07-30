@@ -86,8 +86,8 @@ func (service ChannelService) SendPodAlert(ctx context.Context, memberID, phone,
 // SendNnoboaConsent delivers the Nnoboa kin-consent invite (E13-S06). Like
 // OTP it is an account-companionship message, not marketing: no preference
 // gate, every attempt delivery-logged.
-func (service ChannelService) SendNnoboaConsent(ctx context.Context, phone, kinName string) (string, error) {
-	message, err := whatsappdomain.NewNnoboaConsentMessage(phone, kinName)
+func (service ChannelService) SendNnoboaConsent(ctx context.Context, phone, kinName, nominationID, consentToken string) (string, error) {
+	message, err := whatsappdomain.NewNnoboaConsentMessage(phone, kinName, nominationID, consentToken)
 	if err != nil {
 		return "", err
 	}

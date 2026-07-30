@@ -18,12 +18,11 @@ type Verification interface {
 }
 
 // RegisterVerificationRoutes adds the verification baseline routes to mux.
-func RegisterVerificationRoutes(mux *http.ServeMux, verification Verification) {
-	mux.Handle("POST /v1/verifications/ghana-card", submitGhanaCardHandler(verification))
+func RegisterVerificationRoutes(mux *http.ServeMux, verification Verification, sessions SessionAuthenticator) {
+	mux.Handle("POST /v1/verifications/ghana-card", submitGhanaCardHandler(verification, sessions))
 }
 
 type ghanaCardRequest struct {
-	AccountID   string `json:"accountId"`
 	CardNumber  string `json:"cardNumber"`
 	DateOfBirth string `json:"dateOfBirth"`
 }
@@ -33,8 +32,22 @@ type verificationCaseResponse struct {
 	Status string `json:"status"`
 }
 
-func submitGhanaCardHandler(verification Verification) http.Handler {
+func submitGhanaCardHandler(verification Verification, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, ok := bearerToken(r.Header.Get("Authorization"))
+		if !ok || sessions == nil {
+			writeError(w, r, http.StatusUnauthorized, APIError{
+				Code: "authentication_required", Message: "A valid member session is required.",
+			})
+			return
+		}
+		session, err := sessions.Authenticate(r.Context(), token)
+		if err != nil {
+			writeError(w, r, http.StatusUnauthorized, APIError{
+				Code: "authentication_required", Message: "A valid member session is required.",
+			})
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -52,14 +65,10 @@ func submitGhanaCardHandler(verification Verification) http.Handler {
 			return
 		}
 
-		body.AccountID = strings.TrimSpace(body.AccountID)
 		body.CardNumber = strings.TrimSpace(body.CardNumber)
 		dateOfBirth, dobErr := time.Parse("2006-01-02", strings.TrimSpace(body.DateOfBirth))
 
 		var details []FieldError
-		if body.AccountID == "" || len(body.AccountID) > maxIdentifierLength || !identifierPattern.MatchString(body.AccountID) {
-			details = append(details, FieldError{Field: "accountId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
 		if body.CardNumber == "" || len(body.CardNumber) > 32 {
 			details = append(details, FieldError{Field: "cardNumber", Reason: "must be 1-32 characters"})
 		}
@@ -75,7 +84,7 @@ func submitGhanaCardHandler(verification Verification) http.Handler {
 			return
 		}
 
-		verificationCase, err := verification.SubmitGhanaCard(r.Context(), body.AccountID, body.CardNumber, dateOfBirth)
+		verificationCase, err := verification.SubmitGhanaCard(r.Context(), session.MemberID(), body.CardNumber, dateOfBirth)
 		if err != nil {
 			writeVerificationError(w, r, err, verificationCase)
 			return

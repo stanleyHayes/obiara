@@ -14,20 +14,95 @@ import (
 
 // Admin is the inbound port for admin auth (E16-S01).
 type Admin interface {
-	Enroll(ctx context.Context, actorID, email string, roles []domain.Role) (domain.Principal, error)
+	Enroll(ctx context.Context, sessionID, email string, roles []domain.Role) (domain.Principal, error)
+	ListPrincipals(ctx context.Context, sessionID string) ([]domain.Principal, error)
+	ChangeStatus(ctx context.Context, sessionID, targetID string, status domain.Status) (domain.Principal, error)
+	ChangeRoles(ctx context.Context, sessionID, targetID string, roles []domain.Role) (domain.Principal, error)
+	ProposeAdminRoleChange(ctx context.Context, sessionID, targetID string, roles []domain.Role, reason string) (domain.RoleChange, error)
+	ListPendingRoleChanges(ctx context.Context, sessionID string) ([]domain.RoleChange, error)
+	ApproveAdminRoleChange(ctx context.Context, sessionID, changeID string) (domain.Principal, error)
 	StartLogin(ctx context.Context, email string) error
 	CompleteLogin(ctx context.Context, email, code string) (domain.Session, error)
 	StepUpStart(ctx context.Context, sessionID string) error
 	StepUpComplete(ctx context.Context, sessionID, code string) (domain.Session, error)
+	Authenticate(ctx context.Context, sessionID string) (domain.Session, domain.Principal, error)
 }
 
 // RegisterAdminRoutes adds the admin auth baseline routes.
 func RegisterAdminRoutes(mux *http.ServeMux, admin Admin) {
+	mux.Handle("GET /v1/admin/account", adminAccountHandler(admin))
 	mux.Handle("POST /v1/admin/principals", enrollHandler(admin))
+	mux.Handle("GET /v1/admin/principals", listPrincipalsHandler(admin))
+	mux.Handle("PATCH /v1/admin/principals/{id}", updatePrincipalHandler(admin))
+	mux.Handle("POST /v1/admin/principals/{id}/role-changes", proposeRoleChangeHandler(admin))
+	mux.Handle("GET /v1/admin/role-changes", listRoleChangesHandler(admin))
+	mux.Handle("POST /v1/admin/role-changes/{id}/approve", approveRoleChangeHandler(admin))
 	mux.Handle("POST /v1/admin/login/start", loginStartHandler(admin))
 	mux.Handle("POST /v1/admin/login/complete", loginCompleteHandler(admin))
 	mux.Handle("POST /v1/admin/sessions/{id}/step-up/start", stepUpStartHandler(admin))
 	mux.Handle("POST /v1/admin/sessions/{id}/step-up/complete", stepUpCompleteHandler(admin))
+}
+
+type AdminAccountAuthenticator interface {
+	Authenticate(context.Context, string) (domain.Session, domain.Principal, error)
+}
+
+type adminAccountResponse struct {
+	Email          string    `json:"email"`
+	Roles          []string  `json:"roles"`
+	Status         string    `json:"status"`
+	OperatorSince  time.Time `json:"operatorSince"`
+	SessionCreated time.Time `json:"sessionCreated"`
+	SessionExpires time.Time `json:"sessionExpires"`
+	SteppedUp      bool      `json:"steppedUp"`
+}
+
+func adminAccountHandler(admin AdminAccountAuthenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authorization := strings.TrimSpace(r.Header.Get("Authorization"))
+		if !strings.HasPrefix(authorization, "Bearer ") {
+			writeError(w, r, http.StatusUnauthorized, APIError{Code: "admin_authentication_required", Message: "A valid admin session is required."})
+			return
+		}
+		session, principal, err := admin.Authenticate(r.Context(), strings.TrimSpace(strings.TrimPrefix(authorization, "Bearer ")))
+		if err != nil {
+			writeError(w, r, http.StatusUnauthorized, APIError{Code: "admin_authentication_required", Message: "A valid admin session is required."})
+			return
+		}
+		roles := make([]string, 0, len(principal.Roles()))
+		for _, role := range principal.Roles() {
+			roles = append(roles, string(role))
+		}
+		writeSuccess(w, r, http.StatusOK, adminAccountResponse{
+			Email: principal.Email(), Roles: roles, Status: string(principal.Status()),
+			OperatorSince: principal.CreatedAt(), SessionCreated: session.CreatedAt(),
+			SessionExpires: session.ExpiresAt(), SteppedUp: session.SteppedUp(),
+		})
+	})
+}
+
+type roleChangeResponse struct {
+	ChangeID      string     `json:"changeId"`
+	TargetID      string     `json:"targetId"`
+	TargetVersion int64      `json:"targetVersion"`
+	Roles         []string   `json:"roles"`
+	Reason        string     `json:"reason"`
+	ProposerID    string     `json:"proposerId"`
+	Status        string     `json:"status"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	ApprovedAt    *time.Time `json:"approvedAt,omitempty"`
+}
+
+func toRoleChangeResponse(change domain.RoleChange) roleChangeResponse {
+	roles := make([]string, 0, len(change.Roles()))
+	for _, role := range change.Roles() {
+		roles = append(roles, string(role))
+	}
+	return roleChangeResponse{
+		ChangeID: change.ID(), TargetID: change.TargetID(), TargetVersion: change.TargetVersion(),
+		Roles: roles, Reason: change.Reason(), ProposerID: change.ProposerID(),
+		Status: string(change.Status()), CreatedAt: change.CreatedAt(), ApprovedAt: change.ApprovedAt(),
+	}
 }
 
 func adminJSONGuard(w http.ResponseWriter, r *http.Request) bool {
@@ -42,20 +117,36 @@ func adminJSONGuard(w http.ResponseWriter, r *http.Request) bool {
 }
 
 type enrollRequest struct {
-	ActorID string   `json:"actorId"`
-	Email   string   `json:"email"`
-	Roles   []string `json:"roles"`
+	Email string   `json:"email"`
+	Roles []string `json:"roles"`
 }
 
 type principalResponse struct {
 	PrincipalID string    `json:"principalId"`
 	Email       string    `json:"email"`
 	Roles       []string  `json:"roles"`
+	Status      string    `json:"status"`
+	Version     int64     `json:"version"`
 	CreatedAt   time.Time `json:"createdAt"`
+}
+
+func toPrincipalResponse(principal domain.Principal) principalResponse {
+	roleNames := make([]string, 0, len(principal.Roles()))
+	for _, role := range principal.Roles() {
+		roleNames = append(roleNames, string(role))
+	}
+	return principalResponse{
+		PrincipalID: principal.ID(), Email: principal.Email(), Roles: roleNames,
+		Status: string(principal.Status()), Version: principal.Version(), CreatedAt: principal.CreatedAt(),
+	}
 }
 
 func enrollHandler(admin Admin) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _, ok := authenticatedAdmin(w, r, admin)
+		if !ok {
+			return
+		}
 		if !adminJSONGuard(w, r) {
 			return
 		}
@@ -64,13 +155,12 @@ func enrollHandler(admin Admin) http.Handler {
 			writeError(w, r, http.StatusBadRequest, APIError{Code: "invalid_json", Message: "The request body must be one valid JSON object."})
 			return
 		}
-		body.ActorID = strings.TrimSpace(body.ActorID)
 		body.Email = strings.TrimSpace(body.Email)
-		if !validOpaqueID(body.ActorID) || len(body.Roles) == 0 {
+		if len(body.Roles) == 0 {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{
 				Code:    "validation_failed",
 				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "actorId/roles", Reason: "actorId must be an opaque id and at least one role is required"}},
+				Details: []FieldError{{Field: "roles", Reason: "at least one role is required"}},
 			})
 			return
 		}
@@ -78,18 +168,148 @@ func enrollHandler(admin Admin) http.Handler {
 		for _, role := range body.Roles {
 			roles = append(roles, domain.Role(role))
 		}
-		principal, err := admin.Enroll(r.Context(), body.ActorID, body.Email, roles)
+		principal, err := admin.Enroll(r.Context(), session.ID(), body.Email, roles)
 		if err != nil {
 			writeAdminError(w, r, err)
 			return
 		}
-		roleNames := make([]string, 0, len(principal.Roles()))
-		for _, role := range principal.Roles() {
-			roleNames = append(roleNames, string(role))
+		writeSuccess(w, r, http.StatusCreated, toPrincipalResponse(principal))
+	})
+}
+
+func listPrincipalsHandler(admin Admin) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _, ok := authenticatedAdmin(w, r, admin)
+		if !ok {
+			return
 		}
-		writeSuccess(w, r, http.StatusCreated, principalResponse{
-			PrincipalID: principal.ID(), Email: principal.Email(), Roles: roleNames, CreatedAt: principal.CreatedAt(),
-		})
+		principals, err := admin.ListPrincipals(r.Context(), session.ID())
+		if err != nil {
+			writeAdminError(w, r, err)
+			return
+		}
+		items := make([]principalResponse, 0, len(principals))
+		for _, principal := range principals {
+			items = append(items, toPrincipalResponse(principal))
+		}
+		writeSuccess(w, r, http.StatusOK, map[string]any{"items": items})
+	})
+}
+
+type updatePrincipalRequest struct {
+	Action string   `json:"action"`
+	Status string   `json:"status"`
+	Roles  []string `json:"roles"`
+	Reason string   `json:"reason"`
+}
+
+func updatePrincipalHandler(admin Admin) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _, ok := authenticatedAdmin(w, r, admin)
+		if !ok {
+			return
+		}
+		if !adminJSONGuard(w, r) {
+			return
+		}
+		var body updatePrincipalRequest
+		if err := decodeJSON(w, r, &body); err != nil {
+			writeError(w, r, http.StatusBadRequest, APIError{Code: "invalid_json", Message: "The request body must be one valid JSON object."})
+			return
+		}
+		if len(strings.TrimSpace(body.Reason)) < 12 || len(strings.TrimSpace(body.Reason)) > 240 {
+			writeError(w, r, http.StatusUnprocessableEntity, APIError{Code: "validation_failed", Message: "Record a reason between 12 and 240 characters."})
+			return
+		}
+		var principal domain.Principal
+		var err error
+		switch body.Action {
+		case "status":
+			principal, err = admin.ChangeStatus(r.Context(), session.ID(), r.PathValue("id"), domain.Status(body.Status))
+		case "roles":
+			roles := make([]domain.Role, 0, len(body.Roles))
+			for _, role := range body.Roles {
+				roles = append(roles, domain.Role(role))
+			}
+			principal, err = admin.ChangeRoles(r.Context(), session.ID(), r.PathValue("id"), roles)
+		default:
+			writeError(w, r, http.StatusUnprocessableEntity, APIError{Code: "validation_failed", Message: "Choose a supported principal action."})
+			return
+		}
+		if err != nil {
+			writeAdminError(w, r, err)
+			return
+		}
+		writeSuccess(w, r, http.StatusOK, toPrincipalResponse(principal))
+	})
+}
+
+type proposeRoleChangeRequest struct {
+	Roles  []string `json:"roles"`
+	Reason string   `json:"reason"`
+}
+
+func proposeRoleChangeHandler(admin Admin) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _, ok := authenticatedAdmin(w, r, admin)
+		if !ok {
+			return
+		}
+		if !adminJSONGuard(w, r) {
+			return
+		}
+		var body proposeRoleChangeRequest
+		if err := decodeJSON(w, r, &body); err != nil {
+			writeError(w, r, http.StatusBadRequest, APIError{Code: "invalid_json", Message: "The request body must be one valid JSON object."})
+			return
+		}
+		roles := make([]domain.Role, 0, len(body.Roles))
+		for _, role := range body.Roles {
+			roles = append(roles, domain.Role(role))
+		}
+		change, err := admin.ProposeAdminRoleChange(r.Context(), session.ID(), r.PathValue("id"), roles, body.Reason)
+		if err != nil {
+			writeAdminError(w, r, err)
+			return
+		}
+		writeSuccess(w, r, http.StatusCreated, toRoleChangeResponse(change))
+	})
+}
+
+func listRoleChangesHandler(admin Admin) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _, ok := authenticatedAdmin(w, r, admin)
+		if !ok {
+			return
+		}
+		changes, err := admin.ListPendingRoleChanges(r.Context(), session.ID())
+		if err != nil {
+			writeAdminError(w, r, err)
+			return
+		}
+		items := make([]roleChangeResponse, 0, len(changes))
+		for _, change := range changes {
+			items = append(items, toRoleChangeResponse(change))
+		}
+		writeSuccess(w, r, http.StatusOK, map[string]any{"items": items})
+	})
+}
+
+func approveRoleChangeHandler(admin Admin) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _, ok := authenticatedAdmin(w, r, admin)
+		if !ok {
+			return
+		}
+		if !adminJSONGuard(w, r) {
+			return
+		}
+		principal, err := admin.ApproveAdminRoleChange(r.Context(), session.ID(), r.PathValue("id"))
+		if err != nil {
+			writeAdminError(w, r, err)
+			return
+		}
+		writeSuccess(w, r, http.StatusOK, toPrincipalResponse(principal))
 	})
 }
 
@@ -160,6 +380,14 @@ func loginCompleteHandler(admin Admin) http.Handler {
 
 func stepUpStartHandler(admin Admin) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _, ok := authenticatedAdmin(w, r, admin)
+		if !ok {
+			return
+		}
+		if session.ID() != r.PathValue("id") {
+			writeError(w, r, http.StatusForbidden, APIError{Code: "admin_session_mismatch", Message: "You can only step up your current session."})
+			return
+		}
 		if !adminJSONGuard(w, r) {
 			return
 		}
@@ -177,6 +405,14 @@ type stepUpCompleteRequest struct {
 
 func stepUpCompleteHandler(admin Admin) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _, ok := authenticatedAdmin(w, r, admin)
+		if !ok {
+			return
+		}
+		if session.ID() != r.PathValue("id") {
+			writeError(w, r, http.StatusForbidden, APIError{Code: "admin_session_mismatch", Message: "You can only step up your current session."})
+			return
+		}
 		if !adminJSONGuard(w, r) {
 			return
 		}
@@ -194,6 +430,20 @@ func stepUpCompleteHandler(admin Admin) http.Handler {
 	})
 }
 
+func authenticatedAdmin(w http.ResponseWriter, r *http.Request, admin Admin) (domain.Session, domain.Principal, bool) {
+	authorization := strings.TrimSpace(r.Header.Get("Authorization"))
+	if !strings.HasPrefix(authorization, "Bearer ") {
+		writeError(w, r, http.StatusUnauthorized, APIError{Code: "admin_authentication_required", Message: "A valid admin session is required."})
+		return domain.Session{}, domain.Principal{}, false
+	}
+	session, principal, err := admin.Authenticate(r.Context(), strings.TrimSpace(strings.TrimPrefix(authorization, "Bearer ")))
+	if err != nil {
+		writeError(w, r, http.StatusUnauthorized, APIError{Code: "admin_authentication_required", Message: "A valid admin session is required."})
+		return domain.Session{}, domain.Principal{}, false
+	}
+	return session, principal, true
+}
+
 func writeAdminError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, application.ErrNotAdmin):
@@ -201,6 +451,22 @@ func writeAdminError(w http.ResponseWriter, r *http.Request, err error) {
 			Code:    "admin_role_required",
 			Message: "Enrollment requires the admin role.",
 		})
+	case errors.Is(err, application.ErrStepUpRequired):
+		writeError(w, r, http.StatusForbidden, APIError{Code: "admin_step_up_required", Message: "Complete a fresh MFA step-up before changing operator access."})
+	case errors.Is(err, application.ErrSelfSuspension):
+		writeError(w, r, http.StatusConflict, APIError{Code: "self_suspension_forbidden", Message: "You cannot suspend your own admin principal."})
+	case errors.Is(err, application.ErrLastAdmin):
+		writeError(w, r, http.StatusConflict, APIError{Code: "last_admin_required", Message: "The last active admin cannot be suspended."})
+	case errors.Is(err, application.ErrFourEyesRequired):
+		writeError(w, r, http.StatusConflict, APIError{Code: "four_eyes_required", Message: "Admin-role changes require approval by a distinct stepped-up administrator."})
+	case errors.Is(err, application.ErrPrincipalConflict):
+		writeError(w, r, http.StatusConflict, APIError{Code: "principal_conflict", Message: "The operator changed. Refresh and try again."})
+	case errors.Is(err, application.ErrRoleChangeNotFound):
+		writeError(w, r, http.StatusNotFound, APIError{Code: "role_change_not_found", Message: "The role-change proposal was not found."})
+	case errors.Is(err, domain.ErrSameApprover):
+		writeError(w, r, http.StatusConflict, APIError{Code: "distinct_approver_required", Message: "A different stepped-up administrator must approve this change."})
+	case errors.Is(err, domain.ErrRoleChangeClosed):
+		writeError(w, r, http.StatusConflict, APIError{Code: "role_change_closed", Message: "This role-change proposal is already closed."})
 	case errors.Is(err, application.ErrPrincipalExists):
 		writeError(w, r, http.StatusConflict, APIError{
 			Code:    "principal_exists",
@@ -231,7 +497,7 @@ func writeAdminError(w http.ResponseWriter, r *http.Request, err error) {
 			Code:    "principal_not_found",
 			Message: "No admin principal for that account.",
 		})
-	case errors.Is(err, domain.ErrInvalidEmail), errors.Is(err, domain.ErrInvalidRole), errors.Is(err, domain.ErrNoRoles):
+	case errors.Is(err, domain.ErrInvalidEmail), errors.Is(err, domain.ErrInvalidRole), errors.Is(err, domain.ErrNoRoles), errors.Is(err, domain.ErrInvalidStatus), errors.Is(err, domain.ErrRoleChangeReason):
 		writeError(w, r, http.StatusUnprocessableEntity, APIError{
 			Code:    "validation_failed",
 			Message: "One or more fields are invalid.",

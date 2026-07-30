@@ -97,11 +97,13 @@ func (service Service) Upsert(ctx context.Context, command UpsertCommand) (Upser
 }
 
 type View struct {
-	MemberID     string
-	DisplayName  *string
-	Introduction *string
-	Revision     uint64
-	UpdatedAt    time.Time
+	MemberID               string
+	DisplayName            *string
+	Introduction           *string
+	DisplayNameVisibility  domain.Visibility
+	IntroductionVisibility domain.Visibility
+	Revision               uint64
+	UpdatedAt              time.Time
 }
 
 func (service Service) View(ctx context.Context, memberID string, audience domain.Audience) (View, error) {
@@ -112,7 +114,11 @@ func (service Service) View(ctx context.Context, memberID string, audience domai
 	if err != nil {
 		return View{}, err
 	}
-	view := View{MemberID: profile.MemberID(), Revision: profile.Revision(), UpdatedAt: profile.UpdatedAt()}
+	view := View{
+		MemberID: profile.MemberID(), Revision: profile.Revision(), UpdatedAt: profile.UpdatedAt(),
+		DisplayNameVisibility:  profile.DisplayName().Visibility(),
+		IntroductionVisibility: profile.Introduction().Visibility(),
+	}
 	if visible, err := service.fieldVisible(ctx, profile, profile.DisplayName(), audience); err != nil {
 		return View{}, err
 	} else if visible {

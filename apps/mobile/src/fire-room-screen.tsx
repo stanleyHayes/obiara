@@ -1,66 +1,157 @@
-import { type Href, useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { apiRequest } from "./api";
+import { type Href, useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+type Fire = {
+  fireId: string;
+  title: string;
+  startsAt: string;
+  capacity: number;
+  goingCount: number;
+  status: string;
+};
 
 export function FireRoomScreen() {
   const router = useRouter();
+  const { fireId } = useLocalSearchParams<{ fireId: string }>();
+  const [fire, setFire] = useState<Fire | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    void apiRequest<{ fires: Fire[] }>("/v1/fires")
+      .then((result) => {
+        const selected =
+          result.fires.find((item) => item.fireId === fireId) ?? null;
+        setFire(selected);
+        if (!selected) {
+          setNotice(
+            "This fire is not in the retained upcoming schedule. It may have closed or the reference may be invalid.",
+          );
+        }
+      })
+      .catch((error: unknown) =>
+        setNotice(
+          error instanceof Error ? error.message : "The fire could not load.",
+        ),
+      )
+      .finally(() => setLoading(false));
+  }, [fireId]);
+
+  async function reserve() {
+    if (!fire) return;
+    setJoining(true);
+    setNotice("");
+    try {
+      const rsvp = await apiRequest<{ status: string; position?: number }>(
+        `/v1/fires/${encodeURIComponent(fire.fireId)}/rsvps`,
+        { method: "POST", body: "{}" },
+      );
+      setNotice(
+        rsvp.status === "waitlisted"
+          ? `You are waitlisted${rsvp.position ? ` at position ${rsvp.position}` : ""}.`
+          : "Your place is held.",
+      );
+      setFire((current) =>
+        current && rsvp.status !== "waitlisted"
+          ? {
+              ...current,
+              goingCount: Math.min(current.capacity, current.goingCount + 1),
+            }
+          : current,
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Your place could not be held.",
+      );
+    } finally {
+      setJoining(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.top}>
-          <Pressable
-            onPress={() => router.push("/fie/abonten" as Href)}
-            style={styles.control}
-          >
-            <Text style={styles.controlText}>Abɔnten</Text>
-          </Pressable>
-          <Pressable style={styles.control}>
-            <Text style={styles.controlText}>Safety</Text>
-          </Pressable>
-        </View>
-        <Text style={styles.eyebrow}>LIVE · COMMUNITY FIRE</Text>
-        <Text accessibilityRole="header" style={styles.title}>
-          Stories we inherited.
-        </Text>
-        <Text style={styles.copy}>
-          Nana Esi is speaking. No phone numbers, follower counts or public
-          attendance trail.
-        </Text>
-        <View style={styles.host}>
-          <View style={styles.portrait}>
-            <Text style={styles.initials}>NE</Text>
-          </View>
-          <Text style={styles.hostName}>Nana Esi · host</Text>
-        </View>
-        <View style={styles.signal}>
-          <Text style={styles.signalLabel}>CONNECTION MODE</Text>
-          <Text style={styles.signalTitle}>Audio only</Text>
-          <Text style={styles.signalCopy}>
-            Using less data. You are still in the room.
-          </Text>
-          <Pressable style={styles.mode}>
-            <Text style={styles.modeText}>Use captions only</Text>
-          </Pressable>
-        </View>
-        <View style={styles.caption}>
-          <Text style={styles.captionLabel}>LIVE CAPTIONS</Text>
-          <Text style={styles.captionText}>
-            “The name was a map back to the people waiting for you.”
-          </Text>
-        </View>
-        <Pressable style={styles.leave}>
-          <Text style={styles.leaveText}>Leave fire</Text>
+        <Pressable
+          onPress={() => router.push("/fie/abonten" as Href)}
+          style={styles.control}
+        >
+          <Text style={styles.controlText}>Abɔnten</Text>
         </Pressable>
+        <Text style={styles.eyebrow}>COMMUNITY FIRE</Text>
+        {loading ? (
+          <ActivityIndicator color="#FF9D87" style={styles.loader} />
+        ) : fire ? (
+          <>
+            <Text accessibilityRole="header" style={styles.title}>
+              {fire.title}
+            </Text>
+            <Text style={styles.copy}>
+              A bounded community gathering. Attendance is private and contact
+              details are never exchanged.
+            </Text>
+            <View style={styles.panel}>
+              <Text style={styles.panelLabel}>BEGINS</Text>
+              <Text style={styles.panelValue}>
+                {new Date(fire.startsAt).toLocaleString()}
+              </Text>
+              <View style={styles.rule} />
+              <Text style={styles.panelLabel}>PLACES</Text>
+              <Text style={styles.panelValue}>
+                {fire.goingCount} of {fire.capacity} held
+              </Text>
+              <Text style={styles.status}>{fire.status}</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: joining }}
+              disabled={joining}
+              onPress={() => void reserve()}
+              style={[styles.reserve, joining && styles.disabled]}
+            >
+              {joining ? (
+                <ActivityIndicator color="#301522" />
+              ) : (
+                <Text style={styles.reserveText}>Hold my place</Text>
+              )}
+            </Pressable>
+          </>
+        ) : null}
+        {notice ? (
+          <Text accessibilityLiveRegion="polite" style={styles.notice}>
+            {notice}
+          </Text>
+        ) : null}
+        <View style={styles.boundary}>
+          <Text style={styles.boundaryTitle}>Quiet attendance</Text>
+          <Text style={styles.boundaryCopy}>
+            No public attendance trail, follower count or contact exchange. Full
+            verification is required before a place can be held.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   safe: { backgroundColor: "#0C1017", flex: 1 },
   content: { padding: 20, paddingBottom: 56 },
-  top: { flexDirection: "row", justifyContent: "space-between" },
   control: {
     alignItems: "center",
+    alignSelf: "flex-start",
     borderColor: "#596170",
     borderRadius: 999,
     borderWidth: 1,
@@ -76,11 +167,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
     marginTop: 50,
   },
+  loader: { marginVertical: 80 },
   title: {
     color: "#F7EFE2",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 57,
-    letterSpacing: -3.7,
+    fontSize: 55,
+    letterSpacing: -3.5,
     lineHeight: 51,
     marginTop: 14,
   },
@@ -91,85 +183,64 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     marginTop: 20,
   },
-  host: {
-    backgroundColor: "#3C1730",
-    borderRadius: 24,
-    marginTop: 30,
-    padding: 16,
-  },
-  portrait: {
-    alignItems: "center",
-    backgroundColor: "#E9866F",
-    borderRadius: 18,
-    justifyContent: "center",
-    minHeight: 240,
-  },
-  initials: { color: "#301522", fontFamily: "Outfit_900Black", fontSize: 64 },
-  hostName: { color: "#F7EFE2", fontFamily: "Outfit_700Bold", marginTop: 14 },
-  signal: {
+  panel: {
     backgroundColor: "#151B24",
     borderColor: "#303947",
     borderRadius: 22,
     borderWidth: 1,
-    marginTop: 10,
+    marginTop: 30,
     padding: 22,
   },
-  signalLabel: {
+  panelLabel: {
     color: "#9FA9B8",
     fontFamily: "Outfit_700Bold",
     fontSize: 10,
     letterSpacing: 1.2,
   },
-  signalTitle: {
+  panelValue: {
     color: "#F7EFE2",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 34,
-    letterSpacing: -1.5,
-    marginTop: 24,
-  },
-  signalCopy: {
-    color: "#BAC1CC",
-    fontFamily: "Outfit_400Regular",
-    lineHeight: 22,
+    fontSize: 27,
     marginTop: 8,
   },
-  mode: {
-    alignItems: "center",
-    borderColor: "#687182",
-    borderRadius: 999,
-    borderWidth: 1,
-    justifyContent: "center",
-    marginTop: 22,
-    minHeight: 52,
-  },
-  modeText: { color: "#F7EFE2", fontFamily: "Outfit_700Bold" },
-  caption: {
-    backgroundColor: "#F4C06A",
-    borderRadius: 20,
-    marginTop: 10,
-    padding: 20,
-  },
-  captionLabel: {
-    color: "#261622",
+  rule: { backgroundColor: "#303947", height: 1, marginVertical: 20 },
+  status: {
+    color: "#FF9D87",
     fontFamily: "Outfit_700Bold",
-    fontSize: 10,
-    letterSpacing: 1.2,
+    marginTop: 18,
+    textTransform: "uppercase",
   },
-  captionText: {
-    color: "#261622",
-    fontFamily: "Outfit_600SemiBold",
-    fontSize: 17,
-    lineHeight: 26,
-    marginTop: 12,
-  },
-  leave: {
+  reserve: {
     alignItems: "center",
-    borderColor: "#FF927F",
+    backgroundColor: "#F4C06A",
     borderRadius: 999,
-    borderWidth: 1,
     justifyContent: "center",
-    marginTop: 24,
-    minHeight: 52,
+    marginTop: 14,
+    minHeight: 54,
   },
-  leaveText: { color: "#FFB0A2", fontFamily: "Outfit_700Bold" },
+  reserveText: { color: "#301522", fontFamily: "Outfit_800ExtraBold" },
+  disabled: { opacity: 0.5 },
+  notice: {
+    color: "#FFB0A2",
+    fontFamily: "Outfit_600SemiBold",
+    lineHeight: 22,
+    marginTop: 16,
+  },
+  boundary: {
+    backgroundColor: "#3C1730",
+    borderRadius: 22,
+    marginTop: 22,
+    padding: 22,
+  },
+  boundaryTitle: {
+    color: "#F7EFE2",
+    fontFamily: "Outfit_800ExtraBold",
+    fontSize: 26,
+  },
+  boundaryCopy: {
+    color: "#D8C4CE",
+    fontFamily: "Outfit_400Regular",
+    lineHeight: 23,
+    marginTop: 9,
+  },
 });

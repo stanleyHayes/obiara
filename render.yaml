@@ -22,6 +22,16 @@ projects:
                 value: 20s
               - key: OTEL_EXPORTER_OTLP_INSECURE
                 value: "false"
+              - key: FEATURE_SOW_ENABLED
+                value: "true"
+              - key: FEATURE_FIRES_ENABLED
+                value: "true"
+              - key: FEATURE_PAYMENTS_ENABLED
+                value: "true"
+              - key: FEATURE_GATE_ENABLED
+                value: "true"
+              - key: FEATURE_AI_ENABLED
+                value: "false"
         services:
           - name: obiara-api-staging
             type: web
@@ -54,6 +64,30 @@ projects:
               - key: RESEND_WEBHOOK_SECRET
                 sync: false
               - key: RESEND_WEBHOOK_SECRET_ROTATED_AT
+                sync: false
+              - key: LIVENESS_HMAC_SECRET
+                sync: false
+              - key: LIVENESS_HMAC_SECRET_ROTATED_AT
+                sync: false
+              - key: COMMERCE_HMAC_SECRET
+                sync: false
+              - key: COMMERCE_HMAC_SECRET_ROTATED_AT
+                sync: false
+              - key: ADMIN_HMAC_SECRET
+                sync: false
+              - key: ADMIN_HMAC_SECRET_ROTATED_AT
+                sync: false
+              - key: NNOBOA_INVITE_SECRET
+                sync: false
+              - key: NNOBOA_INVITE_SECRET_ROTATED_AT
+                sync: false
+              - key: SEED_HMAC_SECRET
+                sync: false
+              - key: SEED_HMAC_SECRET_ROTATED_AT
+                sync: false
+              - key: CIRCLE_HMAC_SECRET
+                sync: false
+              - key: CIRCLE_HMAC_SECRET_ROTATED_AT
                 sync: false
 
           - name: obiara-worker-staging

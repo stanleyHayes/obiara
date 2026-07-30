@@ -19,8 +19,10 @@ import (
 
 // Module exposes the profile services currently wired at composition.
 type Module struct {
-	Doorway application.DoorwayService
-	Vault   application.VaultService
+	Profile  application.Service
+	Doorway  application.DoorwayService
+	Vault    application.VaultService
+	profiles *mongodb.Repository
 }
 
 // NewModule builds the doorway question and photo vault slice (E03-S09).
@@ -30,10 +32,21 @@ func NewModule(ctx context.Context, database *mongo.Database) (Module, error) {
 	if err := vaultRepository.EnsureIndexes(ctx); err != nil {
 		return Module{}, err
 	}
+	profileRepository := mongodb.NewRepository(database)
+	if err := profileRepository.EnsureIndexes(ctx); err != nil {
+		return Module{}, err
+	}
 	return Module{
-		Doorway: application.NewDoorwayService(mongodb.NewDoorwayRepository(database), time.Now),
-		Vault:   application.NewVaultService(vaultRepository, time.Now, newID),
+		Profile:  application.NewService(profileRepository, nil, time.Now),
+		Doorway:  application.NewDoorwayService(mongodb.NewDoorwayRepository(database), time.Now),
+		Vault:    application.NewVaultService(vaultRepository, time.Now, newID),
+		profiles: profileRepository,
 	}, nil
+}
+
+func (module Module) WithConsent(evaluator application.ConsentEvaluator) Module {
+	module.Profile = application.NewService(module.profiles, evaluator, time.Now)
+	return module
 }
 
 func newID() string {

@@ -40,7 +40,7 @@ func NewModule(ctx context.Context, database *mongo.Database, outboxStore applic
 		Safety:   application.NewSafetyService(repository, repository, outboxStore, time.Now, newID),
 		Cases:    application.NewCaseService(caseRepository, time.Now, newID),
 		Actions:  application.NewActionService(caseRepository, actionLog, identity, sessions, actionLog, time.Now, newID),
-		Evidence: application.NewEvidenceService(repository, mongodb.NewAccessAuditStore(database), time.Now, newID),
+		Evidence: application.NewEvidenceService(repository, caseRepository, mongodb.NewAccessAuditStore(database), time.Now, newID),
 		Care:     application.NewCareService(mongodb.NewCareRepository(database), mongodb.NewCareRepository(database), time.Now, newID),
 	}, nil
 }

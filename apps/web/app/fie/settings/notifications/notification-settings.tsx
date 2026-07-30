@@ -4,10 +4,9 @@ import {
   initialNotificationSettings,
   notificationSettingsReducer,
   type NotificationCategory,
-  type NotificationChannel,
 } from "@obiara/notification-settings";
 import Link from "next/link";
-import { useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 
 import {
   CompoundBottomNavigation,
@@ -30,29 +29,118 @@ const categories: ReadonlyArray<{
     detail: "Circle and fire updates you joined",
   },
   {
-    id: "games",
-    label: "Games",
-    detail: "Private turns and tournament activity",
-  },
-  {
     id: "rituals",
     label: "Rituals",
     detail: "Dawn, Monday and Sunday rhythms",
   },
 ];
 
-const channels: ReadonlyArray<{ id: NotificationChannel; label: string }> = [
-  { id: "push", label: "Push" },
-  { id: "in_app", label: "In-app" },
-  { id: "sms", label: "SMS" },
-  { id: "whatsapp", label: "WhatsApp" },
-];
+function minuteText(minutes: number) {
+  const bounded = Math.max(0, Math.min(1439, minutes));
+  return `${String(Math.floor(bounded / 60)).padStart(2, "0")}:${String(bounded % 60).padStart(2, "0")}`;
+}
+
+function textMinutes(value: string) {
+  const [hour = "0", minute = "0"] = value.split(":");
+  return Number(hour) * 60 + Number(minute);
+}
 
 export function NotificationSettings() {
   const [state, dispatch] = useReducer(
     notificationSettingsReducer,
     initialNotificationSettings,
   );
+  const [status, setStatus] = useState<
+    "loading" | "ready" | "saving" | "saved" | "error"
+  >("loading");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/notification-preferences")
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          muted?: Record<string, boolean>;
+          quietStart?: number;
+          quietEnd?: number;
+          message?: string;
+        };
+        if (!response.ok)
+          throw new Error(
+            payload.message || "Preferences could not be loaded.",
+          );
+        if (active) {
+          const known = [
+            "courtship",
+            "community",
+            "rituals",
+          ] as const satisfies readonly NotificationCategory[];
+          const storageCategory = {
+            courtship: "rooms",
+            community: "pods",
+            rituals: "ritual",
+          } as const;
+          dispatch({
+            type: "hydrate",
+            enabledCategories: known.filter(
+              (category) => !payload.muted?.[storageCategory[category]],
+            ),
+            quietStart: minuteText(payload.quietStart ?? 1260),
+            quietEnd: minuteText(payload.quietEnd ?? 420),
+          });
+          setStatus("ready");
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Preferences could not be loaded.",
+          );
+          setStatus("error");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function savePreferences() {
+    setStatus("saving");
+    setMessage("");
+    try {
+      const muted = {
+        rooms: !state.enabledCategories.includes("courtship"),
+        pods: !state.enabledCategories.includes("community"),
+        ritual: !state.enabledCategories.includes("rituals"),
+      };
+      const response = await fetch("/api/notification-preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          muted,
+          quietStart: textMinutes(state.quietStart),
+          quietEnd: textMinutes(state.quietEnd),
+          timezone:
+            Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Accra",
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(payload?.message || "Preferences could not be saved.");
+      setStatus("saved");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Preferences could not be saved.",
+      );
+      setStatus("error");
+    }
+  }
 
   return (
     <main className="fie-shell notification-shell">
@@ -111,27 +199,25 @@ export function NotificationSettings() {
             <article className="notification-card">
               <header>
                 <div>
-                  <p className="fie-kicker">Channels</p>
-                  <h2>Where may they arrive?</h2>
+                  <p className="fie-kicker">Delivery</p>
+                  <h2>One preference across every available channel.</h2>
                 </div>
               </header>
-              <div className="channel-grid">
-                {channels.map((channel) => (
-                  <button
-                    aria-pressed={state.enabledChannels.includes(channel.id)}
-                    key={channel.id}
-                    onClick={() =>
-                      dispatch({
-                        type: "toggle-channel",
-                        value: channel.id,
-                      })
-                    }
-                    type="button"
-                  >
-                    {channel.label}
-                  </button>
-                ))}
-              </div>
+              <p>
+                Push, in-app, SMS and WhatsApp deliveries all honor the same
+                server-owned category choices, quiet hours and daily cap.
+              </p>
+              <button
+                disabled={status === "loading" || status === "saving"}
+                onClick={savePreferences}
+                type="button"
+              >
+                {status === "saving" ? "Saving" : "Save preferences"}
+              </button>
+              {status === "saved" ? (
+                <p role="status">Preferences saved.</p>
+              ) : null}
+              {status === "error" ? <p role="alert">{message}</p> : null}
             </article>
           </div>
 

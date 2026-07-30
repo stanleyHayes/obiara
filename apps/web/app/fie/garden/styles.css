@@ -54,6 +54,67 @@
   color: #eefbf7;
 }
 
+.garden-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 28px;
+}
+
+.garden-summary-grid article {
+  background: #fff;
+  border: 1px solid rgb(58 14 46 / 10%);
+  border-radius: 24px;
+  min-height: 240px;
+  padding: clamp(24px, 4vw, 42px);
+}
+
+.garden-summary-grid strong {
+  color: #0f7059;
+  display: block;
+  font-size: clamp(4rem, 8vw, 7rem);
+  letter-spacing: -0.08em;
+  line-height: 0.9;
+}
+
+.garden-summary-grid h3 {
+  font-size: clamp(1.6rem, 3vw, 2.7rem);
+  letter-spacing: -0.05em;
+  margin: 18px 0 8px;
+}
+
+.garden-summary-grid p,
+.garden-runtime-boundary > p:last-child {
+  color: #765f70;
+  line-height: 1.6;
+}
+
+.garden-load-error {
+  color: #9a3651;
+  font-weight: 800;
+  margin-top: 24px;
+}
+
+.garden-runtime-boundary {
+  background: #2a1022;
+  border-radius: 28px;
+  color: #fff3e6;
+  margin-top: 18px;
+  padding: clamp(28px, 5vw, 56px);
+}
+
+.garden-runtime-boundary h2 {
+  font-size: clamp(2.4rem, 5vw, 5rem);
+  letter-spacing: -0.07em;
+  line-height: 0.95;
+  margin: 16px 0 20px;
+}
+
+.garden-runtime-boundary > p:last-child {
+  color: rgb(255 243 230 / 64%);
+  max-width: 54rem;
+}
+
 .garden-board {
   margin-top: 42px;
 }
@@ -341,6 +402,9 @@
 }
 
 @media (max-width: 760px) {
+  .garden-summary-grid {
+    grid-template-columns: 1fr;
+  }
   .garden-topbar {
     align-items: flex-start;
     flex-direction: column;

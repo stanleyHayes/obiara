@@ -1,41 +1,27 @@
 import { describe, expect, it } from "vitest";
-import {
-  initialOwareState,
-  legalPits,
-  owareReducer,
-  totalSeeds,
-} from "./oware-model";
+import { selectablePits } from "./oware-model";
 
-describe("client Oware interaction model", () => {
-  it("requires deliberate selection before one confirmed move", () => {
-    expect(owareReducer(initialOwareState, { type: "confirm" })).toEqual(
-      initialOwareState,
-    );
-    const selected = owareReducer(initialOwareState, {
-      type: "select",
-      pit: 2,
-    });
-    expect(selected.selectedPit).toBe(2);
-    const moved = owareReducer(selected, { type: "confirm" });
-    expect(moved.turn).toBe("ama");
-    expect(moved.moveNumber).toBe(19);
+describe("Oware client selection boundary", () => {
+  it("offers only non-empty houses belonging to the current member", () => {
+    expect(
+      selectablePits({
+        houses: [4, 0, 4, 4, 4, 4, 2, 2, 2, 2, 2, 2],
+        yourPlayer: "south",
+        yourTurn: true,
+        status: "active",
+      }),
+    ).toEqual([0, 2, 3, 4, 5]);
   });
 
-  it("never permits a move from the opponent row or outside the board", () => {
-    expect(legalPits(initialOwareState)).toEqual([0, 1, 2, 3, 4, 5]);
-    expect(owareReducer(initialOwareState, { type: "select", pit: 8 })).toEqual(
-      initialOwareState,
-    );
-  });
-
-  it("preserves all 48 seeds and skips the origin on long sowing", () => {
-    const state = {
-      ...initialOwareState,
-      pits: [12, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0, 0],
+  it("never simulates a move while waiting or after closure", () => {
+    const board = {
+      houses: Array.from({ length: 12 }, () => 4),
+      yourPlayer: "north" as const,
+      status: "active" as const,
     };
-    const selected = owareReducer(state, { type: "select", pit: 0 });
-    const moved = owareReducer(selected, { type: "confirm" });
-    expect(moved.pits[0]).toBe(0);
-    expect(totalSeeds(moved)).toBe(48);
+    expect(selectablePits({ ...board, yourTurn: false })).toEqual([]);
+    expect(
+      selectablePits({ ...board, yourTurn: true, status: "completed" }),
+    ).toEqual([]);
   });
 });

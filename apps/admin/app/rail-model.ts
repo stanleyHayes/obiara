@@ -39,9 +39,12 @@ export const railGroups: readonly RailGroup[] = [
     title: "Platform",
     links: [
       { icon: "⚷", label: "Operators & roles", href: "/operators" },
+      { icon: "A", label: "Matchmaker licensing", href: "/matchmakers" },
       { icon: "¤", label: "Finance", href: "/finance" },
       { icon: "▦", label: "Analytics", href: "/analytics" },
       { icon: "Aa", label: "Language governance", href: "/governance" },
+      { icon: "◇", label: "Reviewed game content", href: "/game-content" },
+      { icon: "⌗", label: "Private tournaments", href: "/tournaments" },
       { icon: "⏻", label: "Runtime controls", href: "/controls" },
       { icon: "↗", label: "Launch readiness", href: "/launch" },
     ],

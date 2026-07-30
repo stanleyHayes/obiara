@@ -2,8 +2,12 @@ package application
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	whatsappdomain "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/domain"
@@ -14,6 +18,7 @@ import (
 var (
 	ErrDuplicateNomination = errors.New("a pending nomination already exists for this kin")
 	ErrNominationNotFound  = errors.New("nomination not found")
+	ErrInvalidInviteToken  = errors.New("invalid nomination invitation token")
 )
 
 // Clock supplies the decision time.
@@ -43,11 +48,12 @@ type NominationService struct {
 	repo   NominationRepository
 	sender NotificationSender
 	clock  Clock
+	secret []byte
 }
 
 // NewNominationService constructs the service.
-func NewNominationService(repo NominationRepository, sender NotificationSender, clock Clock) *NominationService {
-	return &NominationService{repo: repo, sender: sender, clock: clock}
+func NewNominationService(repo NominationRepository, sender NotificationSender, clock Clock, secret string) *NominationService {
+	return &NominationService{repo: repo, sender: sender, clock: clock, secret: []byte(secret)}
 }
 
 // NominateInput carries a new nomination.
@@ -76,7 +82,7 @@ func (s *NominationService) Nominate(ctx context.Context, in NominateInput) (dom
 	}
 	// Invite text is deliberately free of any mention of dating, romance, or
 	// the member's journey — the kin consents to be a companion, nothing more.
-	msg, err := whatsappdomain.NewNnoboaConsentMessage(n.KinPhone, n.KinName)
+	msg, err := whatsappdomain.NewNnoboaConsentMessage(n.KinPhone, n.KinName, n.ID, s.inviteToken(n.ID))
 	if err != nil {
 		return domain.Nomination{}, fmt.Errorf("build consent invite: %w", err)
 	}
@@ -114,13 +120,33 @@ func (s *NominationService) ListForMember(ctx context.Context, memberID string) 
 }
 
 // Consent records kin consent (FR-1302 consent gate).
-func (s *NominationService) Consent(ctx context.Context, id string) (domain.Nomination, error) {
+func (s *NominationService) Consent(ctx context.Context, id, token string) (domain.Nomination, error) {
+	if !s.validInviteToken(id, token) {
+		return domain.Nomination{}, ErrInvalidInviteToken
+	}
 	return s.transition(ctx, id, func(n *domain.Nomination, now time.Time) error { return n.Consent(now) })
 }
 
 // Decline records kin decline. Always respected without consequence.
-func (s *NominationService) Decline(ctx context.Context, id string) (domain.Nomination, error) {
+func (s *NominationService) Decline(ctx context.Context, id, token string) (domain.Nomination, error) {
+	if !s.validInviteToken(id, token) {
+		return domain.Nomination{}, ErrInvalidInviteToken
+	}
 	return s.transition(ctx, id, func(n *domain.Nomination, now time.Time) error { return n.Decline(now) })
+}
+
+func (s *NominationService) inviteToken(id string) string {
+	mac := hmac.New(sha256.New, s.secret)
+	_, _ = mac.Write([]byte(strings.TrimSpace(id)))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func (s *NominationService) validInviteToken(id, token string) bool {
+	if len(s.secret) < 32 {
+		return false
+	}
+	expected := s.inviteToken(id)
+	return hmac.Equal([]byte(expected), []byte(strings.TrimSpace(token)))
 }
 
 func (s *NominationService) transition(ctx context.Context, id string, f func(*domain.Nomination, time.Time) error) (domain.Nomination, error) {

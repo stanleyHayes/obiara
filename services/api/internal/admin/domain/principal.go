@@ -27,6 +27,7 @@ var (
 	ErrInvalidRole       = errors.New("unknown admin role")
 	ErrNoRoles           = errors.New("admin principal needs at least one role")
 	ErrPrincipalIDNeeded = errors.New("admin principal id is required")
+	ErrInvalidStatus     = errors.New("unknown admin principal status")
 )
 
 // Principal is one admin user.
@@ -56,20 +57,8 @@ func NewPrincipal(id, email string, roles []Role, now time.Time) (Principal, err
 	if err != nil || address.Address != strings.TrimSpace(email) {
 		return Principal{}, ErrInvalidEmail
 	}
-	if len(roles) == 0 {
-		return Principal{}, ErrNoRoles
-	}
-	seen := map[Role]bool{}
-	for _, role := range roles {
-		switch role {
-		case RoleVerifier, RoleTSAgent, RoleHost, RoleFinance, RoleAdmin:
-		default:
-			return Principal{}, ErrInvalidRole
-		}
-		if seen[role] {
-			return Principal{}, ErrInvalidRole
-		}
-		seen[role] = true
+	if err := validateRoles(roles); err != nil {
+		return Principal{}, err
 	}
 	return Principal{
 		id:        id,
@@ -98,6 +87,41 @@ func (principal Principal) HasRole(role Role) bool {
 func (principal *Principal) Suspend() {
 	principal.status = StatusSuspended
 	principal.version++
+}
+
+// Reactivate restores an operator after a reviewed suspension.
+func (principal *Principal) Reactivate() {
+	principal.status = StatusActive
+	principal.version++
+}
+
+// ReplaceRoles applies a complete, validated least-privilege role set.
+func (principal *Principal) ReplaceRoles(roles []Role) error {
+	if err := validateRoles(roles); err != nil {
+		return err
+	}
+	principal.roles = append([]Role(nil), roles...)
+	principal.version++
+	return nil
+}
+
+func validateRoles(roles []Role) error {
+	if len(roles) == 0 {
+		return ErrNoRoles
+	}
+	seen := map[Role]bool{}
+	for _, role := range roles {
+		switch role {
+		case RoleVerifier, RoleTSAgent, RoleHost, RoleFinance, RoleAdmin:
+		default:
+			return ErrInvalidRole
+		}
+		if seen[role] {
+			return ErrInvalidRole
+		}
+		seen[role] = true
+	}
+	return nil
 }
 
 func (principal Principal) ID() string           { return principal.id }

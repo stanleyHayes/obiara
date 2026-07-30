@@ -11,13 +11,14 @@ import (
 
 	"github.com/stanleyHayes/obiara/services/api/internal/companions/nnoboa/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/companions/nnoboa/domain"
+	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 type fakeNominations struct {
 	nominate func(ctx context.Context, in application.NominateInput) (domain.Nomination, error)
 	list     func(ctx context.Context, memberID string) ([]domain.Nomination, error)
-	consent  func(ctx context.Context, id string) (domain.Nomination, error)
-	decline  func(ctx context.Context, id string) (domain.Nomination, error)
+	consent  func(ctx context.Context, id, token string) (domain.Nomination, error)
+	decline  func(ctx context.Context, id, token string) (domain.Nomination, error)
 }
 
 func (f fakeNominations) Nominate(ctx context.Context, in application.NominateInput) (domain.Nomination, error) {
@@ -28,12 +29,12 @@ func (f fakeNominations) ListForMember(ctx context.Context, memberID string) ([]
 	return f.list(ctx, memberID)
 }
 
-func (f fakeNominations) Consent(ctx context.Context, id string) (domain.Nomination, error) {
-	return f.consent(ctx, id)
+func (f fakeNominations) Consent(ctx context.Context, id, token string) (domain.Nomination, error) {
+	return f.consent(ctx, id, token)
 }
 
-func (f fakeNominations) Decline(ctx context.Context, id string) (domain.Nomination, error) {
-	return f.decline(ctx, id)
+func (f fakeNominations) Decline(ctx context.Context, id, token string) (domain.Nomination, error) {
+	return f.decline(ctx, id, token)
 }
 
 func pendingNomination(t *testing.T) domain.Nomination {
@@ -46,10 +47,19 @@ func pendingNomination(t *testing.T) domain.Nomination {
 	return n
 }
 
-func nominationMux(n Nominations) *http.ServeMux {
+func nominationMux(t *testing.T, n Nominations) *http.ServeMux {
+	t.Helper()
 	mux := http.NewServeMux()
-	RegisterNominationRoutes(mux, n)
+	RegisterNominationRoutes(mux, n, sessionAuthenticatorStub{
+		authenticate: func(context.Context, string) (identitydomain.Session, error) {
+			return trustSession(t, "mem_12345678"), nil
+		},
+	})
 	return mux
+}
+
+func authorizeNomination(request *http.Request) {
+	request.Header.Set("Authorization", "Bearer access-token")
 }
 
 func TestNominateSuccess(t *testing.T) {
@@ -64,10 +74,11 @@ func TestNominateSuccess(t *testing.T) {
 	}
 
 	request := httptest.NewRequest(http.MethodPost, "/v1/nominations",
-		strings.NewReader(`{"memberId":"mem_12345678","kinName":"Auntie Efua","kinPhone":"+233550000101","relationship":"aunt"}`))
+		strings.NewReader(`{"kinName":"Auntie Efua","kinPhone":"+233550000101","relationship":"aunt"}`))
 	request.Header.Set("Content-Type", "application/json")
+	authorizeNomination(request)
 	response := httptest.NewRecorder()
-	nominationMux(fake).ServeHTTP(response, request)
+	nominationMux(t, fake).ServeHTTP(response, request)
 
 	if response.Code != http.StatusCreated {
 		t.Fatalf("status = %d; body=%s", response.Code, response.Body.String())
@@ -92,10 +103,11 @@ func TestNominateValidationFailure(t *testing.T) {
 	}
 
 	request := httptest.NewRequest(http.MethodPost, "/v1/nominations",
-		strings.NewReader(`{"memberId":"mem_12345678","kinName":"Auntie Efua","kinPhone":"0550000101","relationship":"cousin"}`))
+		strings.NewReader(`{"kinName":"Auntie Efua","kinPhone":"0550000101","relationship":"cousin"}`))
 	request.Header.Set("Content-Type", "application/json")
+	authorizeNomination(request)
 	response := httptest.NewRecorder()
-	nominationMux(fake).ServeHTTP(response, request)
+	nominationMux(t, fake).ServeHTTP(response, request)
 
 	if response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d; body=%s", response.Code, response.Body.String())
@@ -110,10 +122,11 @@ func TestNominateDuplicateConflict(t *testing.T) {
 	}
 
 	request := httptest.NewRequest(http.MethodPost, "/v1/nominations",
-		strings.NewReader(`{"memberId":"mem_12345678","kinName":"Auntie Efua","kinPhone":"+233550000101","relationship":"aunt"}`))
+		strings.NewReader(`{"kinName":"Auntie Efua","kinPhone":"+233550000101","relationship":"aunt"}`))
 	request.Header.Set("Content-Type", "application/json")
+	authorizeNomination(request)
 	response := httptest.NewRecorder()
-	nominationMux(fake).ServeHTTP(response, request)
+	nominationMux(t, fake).ServeHTTP(response, request)
 
 	if response.Code != http.StatusConflict {
 		t.Fatalf("status = %d; body=%s", response.Code, response.Body.String())
@@ -132,8 +145,9 @@ func TestListNominations(t *testing.T) {
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "/v1/nominations?memberId=mem_12345678", nil)
+	authorizeNomination(request)
 	response := httptest.NewRecorder()
-	nominationMux(fake).ServeHTTP(response, request)
+	nominationMux(t, fake).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d; body=%s", response.Code, response.Body.String())
@@ -149,26 +163,27 @@ func TestListNominations(t *testing.T) {
 	}
 }
 
-func TestListNominationsRequiresMemberID(t *testing.T) {
+func TestListNominationsRequiresAuthentication(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/v1/nominations", nil)
 	response := httptest.NewRecorder()
-	nominationMux(fakeNominations{}).ServeHTTP(response, request)
+	nominationMux(t, fakeNominations{}).ServeHTTP(response, request)
 
-	if response.Code != http.StatusUnprocessableEntity {
+	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d; body=%s", response.Code, response.Body.String())
 	}
 }
 
 func TestConsentNominationNotFound(t *testing.T) {
 	fake := fakeNominations{
-		consent: func(context.Context, string) (domain.Nomination, error) {
+		consent: func(context.Context, string, string) (domain.Nomination, error) {
 			return domain.Nomination{}, application.ErrNominationNotFound
 		},
 	}
 
-	request := httptest.NewRequest(http.MethodPost, "/v1/nominations/nom_missing/consent", nil)
+	request := httptest.NewRequest(http.MethodPost, "/v1/nominations/nom_missing/consent", strings.NewReader(`{"token":"invite-token"}`))
+	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
-	nominationMux(fake).ServeHTTP(response, request)
+	nominationMux(t, fake).ServeHTTP(response, request)
 
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d; body=%s", response.Code, response.Body.String())
@@ -181,17 +196,21 @@ func TestDeclineNominationSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	fake := fakeNominations{
-		decline: func(_ context.Context, id string) (domain.Nomination, error) {
+		decline: func(_ context.Context, id, token string) (domain.Nomination, error) {
 			if id != n.ID {
 				t.Errorf("id = %q", id)
+			}
+			if token != "invite-token" {
+				t.Errorf("token = %q", token)
 			}
 			return n, nil
 		},
 	}
 
-	request := httptest.NewRequest(http.MethodPost, "/v1/nominations/"+n.ID+"/decline", nil)
+	request := httptest.NewRequest(http.MethodPost, "/v1/nominations/"+n.ID+"/decline", strings.NewReader(`{"token":"invite-token"}`))
+	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
-	nominationMux(fake).ServeHTTP(response, request)
+	nominationMux(t, fake).ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d; body=%s", response.Code, response.Body.String())

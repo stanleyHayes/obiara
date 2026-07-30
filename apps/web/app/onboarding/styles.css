@@ -205,6 +205,14 @@
   padding: 14px 16px;
 }
 
+.onboarding-error {
+  margin: 12px 0 0;
+  color: #9f2d35;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 @media (max-width: 860px) {
   .onboarding-layout {
     grid-template-columns: 1fr;

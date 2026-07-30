@@ -59,6 +59,10 @@ func (repository *PrincipalRepository) principals() *mongo.Collection {
 	return repository.database.Collection("admin_principals")
 }
 
+func (repository *PrincipalRepository) roleChanges() *mongo.Collection {
+	return repository.database.Collection("admin_role_changes")
+}
+
 func (repository *ChallengeRepository) challenges() *mongo.Collection {
 	return repository.database.Collection("admin_mfa_challenges")
 }
@@ -78,6 +82,19 @@ type principalDocument struct {
 	Status    string    `bson:"status"`
 	Version   int64     `bson:"version"`
 	CreatedAt time.Time `bson:"createdAt"`
+}
+
+type roleChangeDocument struct {
+	ID            string     `bson:"_id"`
+	TargetID      string     `bson:"targetId"`
+	TargetVersion int64      `bson:"targetVersion"`
+	Roles         []string   `bson:"roles"`
+	Reason        string     `bson:"reason"`
+	ProposerID    string     `bson:"proposerId"`
+	ApproverID    string     `bson:"approverId,omitempty"`
+	Status        string     `bson:"status"`
+	CreatedAt     time.Time  `bson:"createdAt"`
+	ApprovedAt    *time.Time `bson:"approvedAt,omitempty"`
 }
 
 type challengeDocument struct {
@@ -102,9 +119,15 @@ type sessionDocument struct {
 }
 
 func (repository *PrincipalRepository) EnsureIndexes(ctx context.Context) error {
-	_, err := repository.principals().Indexes().CreateOne(ctx, mongo.IndexModel{
+	if _, err := repository.principals().Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "email", Value: 1}},
 		Options: options.Index().SetName("admin_principals_email_unique").SetUnique(true),
+	}); err != nil {
+		return err
+	}
+	_, err := repository.roleChanges().Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "status", Value: 1}, {Key: "createdAt", Value: 1}}, Options: options.Index().SetName("admin_role_changes_pending")},
+		{Keys: bson.D{{Key: "targetId", Value: 1}, {Key: "status", Value: 1}}, Options: options.Index().SetName("admin_role_changes_target")},
 	})
 	return err
 }
@@ -161,6 +184,129 @@ func (repository *PrincipalRepository) FindByID(ctx context.Context, id string) 
 		return domain.Principal{}, err
 	}
 	return toPrincipalDomain(document), nil
+}
+
+func (repository *PrincipalRepository) List(ctx context.Context) ([]domain.Principal, error) {
+	cursor, err := repository.principals().Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "createdAt", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var documents []principalDocument
+	if err := cursor.All(ctx, &documents); err != nil {
+		return nil, err
+	}
+	principals := make([]domain.Principal, 0, len(documents))
+	for _, document := range documents {
+		principals = append(principals, toPrincipalDomain(document))
+	}
+	return principals, nil
+}
+
+func (repository *PrincipalRepository) Update(ctx context.Context, principal domain.Principal) error {
+	result, err := repository.principals().UpdateOne(
+		ctx,
+		bson.M{"_id": principal.ID(), "version": principal.Version() - 1},
+		bson.M{"$set": bson.M{
+			"roles":   toPrincipalDocument(principal).Roles,
+			"status":  string(principal.Status()),
+			"version": principal.Version(),
+		}},
+	)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return application.ErrPrincipalConflict
+	}
+	return nil
+}
+
+func (repository *PrincipalRepository) CountActiveAdmins(ctx context.Context) (int, error) {
+	count, err := repository.principals().CountDocuments(ctx, bson.M{
+		"status": string(domain.StatusActive),
+		"roles":  string(domain.RoleAdmin),
+	})
+	return int(count), err
+}
+
+func (repository *PrincipalRepository) CreateRoleChange(ctx context.Context, change domain.RoleChange) error {
+	return apimongo.WithTransaction(ctx, repository.database.Client(), func(tx context.Context) error {
+		if _, err := repository.roleChanges().InsertOne(tx, toRoleChangeDocument(change)); err != nil {
+			return err
+		}
+		_, err := repository.database.Collection("admin_access").InsertOne(tx, bson.M{
+			"actorId": change.ProposerID(), "action": "admin.principal.roles.proposed",
+			"target": change.ID(), "at": change.CreatedAt(),
+		})
+		return err
+	})
+}
+
+func (repository *PrincipalRepository) FindRoleChange(ctx context.Context, id string) (domain.RoleChange, error) {
+	var document roleChangeDocument
+	if err := repository.roleChanges().FindOne(ctx, bson.M{"_id": id}).Decode(&document); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return domain.RoleChange{}, application.ErrRoleChangeNotFound
+		}
+		return domain.RoleChange{}, err
+	}
+	return toRoleChangeDomain(document), nil
+}
+
+func (repository *PrincipalRepository) ListPendingRoleChanges(ctx context.Context) ([]domain.RoleChange, error) {
+	cursor, err := repository.roleChanges().Find(
+		ctx,
+		bson.M{"status": string(domain.RoleChangePending)},
+		options.Find().SetSort(bson.D{{Key: "createdAt", Value: 1}}),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var documents []roleChangeDocument
+	if err := cursor.All(ctx, &documents); err != nil {
+		return nil, err
+	}
+	changes := make([]domain.RoleChange, 0, len(documents))
+	for _, document := range documents {
+		changes = append(changes, toRoleChangeDomain(document))
+	}
+	return changes, nil
+}
+
+func (repository *PrincipalRepository) ApproveRoleChange(ctx context.Context, change domain.RoleChange, principal domain.Principal) error {
+	return apimongo.WithTransaction(ctx, repository.database.Client(), func(tx context.Context) error {
+		principalResult, err := repository.principals().UpdateOne(
+			tx,
+			bson.M{"_id": principal.ID(), "version": principal.Version() - 1},
+			bson.M{"$set": bson.M{"roles": toPrincipalDocument(principal).Roles, "version": principal.Version()}},
+		)
+		if err != nil {
+			return err
+		}
+		if principalResult.MatchedCount == 0 {
+			return application.ErrPrincipalConflict
+		}
+		changeResult, err := repository.roleChanges().UpdateOne(
+			tx,
+			bson.M{"_id": change.ID(), "status": string(domain.RoleChangePending)},
+			bson.M{"$set": bson.M{
+				"status": string(change.Status()), "approverId": change.ApproverID(), "approvedAt": change.ApprovedAt(),
+			}},
+		)
+		if err != nil {
+			return err
+		}
+		if changeResult.MatchedCount == 0 {
+			return domain.ErrRoleChangeClosed
+		}
+		_, err = repository.database.Collection("admin_access").InsertOne(tx, bson.M{
+			"actorId": change.ApproverID(), "action": "admin.principal.roles.approved",
+			"target": change.ID(), "at": change.ApprovedAt(),
+		})
+		return err
+	})
 }
 
 func (repository *ChallengeRepository) Create(ctx context.Context, challenge domain.Challenge) error {
@@ -277,4 +423,29 @@ func toSessionDomain(document sessionDocument) domain.Session {
 		roles = append(roles, domain.Role(role))
 	}
 	return domain.ReconstituteSession(document.ID, document.PrincipalID, roles, document.SteppedUp, document.ExpiresAt, document.Revoked, document.Version, document.CreatedAt)
+}
+
+func toRoleChangeDocument(change domain.RoleChange) roleChangeDocument {
+	roles := make([]string, 0, len(change.Roles()))
+	for _, role := range change.Roles() {
+		roles = append(roles, string(role))
+	}
+	return roleChangeDocument{
+		ID: change.ID(), TargetID: change.TargetID(), TargetVersion: change.TargetVersion(),
+		Roles: roles, Reason: change.Reason(), ProposerID: change.ProposerID(),
+		ApproverID: change.ApproverID(), Status: string(change.Status()),
+		CreatedAt: change.CreatedAt(), ApprovedAt: change.ApprovedAt(),
+	}
+}
+
+func toRoleChangeDomain(document roleChangeDocument) domain.RoleChange {
+	roles := make([]domain.Role, 0, len(document.Roles))
+	for _, role := range document.Roles {
+		roles = append(roles, domain.Role(role))
+	}
+	return domain.ReconstituteRoleChange(
+		document.ID, document.TargetID, document.TargetVersion, roles, document.Reason,
+		document.ProposerID, document.ApproverID, domain.RoleChangeStatus(document.Status),
+		document.CreatedAt, document.ApprovedAt,
+	)
 }

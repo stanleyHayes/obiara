@@ -57,6 +57,7 @@ const (
 	SurfacePod     Surface = "pod"
 	SurfaceCircle  Surface = "circle"
 	SurfaceFire    Surface = "fire"
+	SurfaceGame    Surface = "game"
 	SurfaceProfile Surface = "profile"
 )
 
@@ -107,7 +108,7 @@ func NewReport(id, reporterID, subjectID string, category Category, surface Surf
 		return Report{}, ErrInvalidCategory
 	}
 	switch surface {
-	case SurfaceRoom, SurfaceDoorway, SurfacePod, SurfaceCircle, SurfaceFire, SurfaceProfile:
+	case SurfaceRoom, SurfaceDoorway, SurfacePod, SurfaceCircle, SurfaceFire, SurfaceGame, SurfaceProfile:
 	default:
 		return Report{}, ErrInvalidSurface
 	}

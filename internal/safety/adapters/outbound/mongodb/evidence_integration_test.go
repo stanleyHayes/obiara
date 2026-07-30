@@ -66,6 +66,10 @@ func TestEvidenceAccessEndToEnd(t *testing.T) {
 		}
 	}()
 	safetyService := application.NewSafetyService(reportRepository, reportRepository, outboxStore, time.Now, ids)
+	caseRepository := mongodb.NewCaseRepository(database)
+	if err := caseRepository.EnsureCaseIndexes(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	// A report whose reason carries third-party identifiers.
 	reportID, _, err := safetyService.File(ctx, "m-1", "m-2", domain.CategoryHarassment, domain.SurfaceRoom, "room_1",
@@ -74,8 +78,17 @@ func TestEvidenceAccessEndToEnd(t *testing.T) {
 		t.Fatalf("file: %v", err)
 	}
 
-	evidence := application.NewEvidenceService(reportRepository, mongodb.NewAccessAuditStore(database), time.Now, ids)
-	bundle, err := evidence.View(ctx, reportID, "agent-1", domain.PurposeTriage)
+	report, err := reportRepository.FindByID(ctx, reportID)
+	if err != nil {
+		t.Fatalf("find report: %v", err)
+	}
+	caseService := application.NewCaseService(caseRepository, time.Now, ids)
+	safetyCase, err := caseService.Open(ctx, report)
+	if err != nil {
+		t.Fatalf("open case: %v", err)
+	}
+	evidence := application.NewEvidenceService(reportRepository, caseRepository, mongodb.NewAccessAuditStore(database), time.Now, ids)
+	bundle, err := evidence.View(ctx, safetyCase.ID(), "agent-1", domain.PurposeTriage)
 	if err != nil {
 		t.Fatalf("view: %v", err)
 	}
@@ -87,10 +100,10 @@ func TestEvidenceAccessEndToEnd(t *testing.T) {
 	}
 
 	// Every access is audited — twice viewed, two records.
-	if _, err := evidence.View(ctx, reportID, "agent-1", domain.PurposeAppeal); err != nil {
+	if _, err := evidence.View(ctx, safetyCase.ID(), "agent-1", domain.PurposeAppeal); err != nil {
 		t.Fatal(err)
 	}
-	auditCount, err := database.Collection("evidence_access_log").CountDocuments(ctx, bson.M{"caseId": reportID})
+	auditCount, err := database.Collection("evidence_access_log").CountDocuments(ctx, bson.M{"caseId": safetyCase.ID()})
 	if err != nil || auditCount != 2 {
 		t.Fatalf("audit records = %d, want 2", auditCount)
 	}
@@ -98,7 +111,7 @@ func TestEvidenceAccessEndToEnd(t *testing.T) {
 		AgentID string `bson:"agentId"`
 		Purpose string `bson:"purpose"`
 	}
-	if err := database.Collection("evidence_access_log").FindOne(ctx, bson.M{"caseId": reportID, "purpose": "appeal"}).Decode(&record); err != nil {
+	if err := database.Collection("evidence_access_log").FindOne(ctx, bson.M{"caseId": safetyCase.ID(), "purpose": "appeal"}).Decode(&record); err != nil {
 		t.Fatal(err)
 	}
 	if record.AgentID != "agent-1" {
@@ -106,10 +119,10 @@ func TestEvidenceAccessEndToEnd(t *testing.T) {
 	}
 
 	// Curiosity is not a purpose: no view, no audit.
-	if _, err := evidence.View(ctx, reportID, "agent-2", domain.Purpose("curiosity")); err != domain.ErrInvalidPurpose {
+	if _, err := evidence.View(ctx, safetyCase.ID(), "agent-2", domain.Purpose("curiosity")); err != domain.ErrInvalidPurpose {
 		t.Fatalf("curiosity = %v, want rejected", err)
 	}
-	auditCount, _ = database.Collection("evidence_access_log").CountDocuments(ctx, bson.M{"caseId": reportID})
+	auditCount, _ = database.Collection("evidence_access_log").CountDocuments(ctx, bson.M{"caseId": safetyCase.ID()})
 	if auditCount != 2 {
 		t.Fatal("rejected access was audited anyway (or accepted)")
 	}

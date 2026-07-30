@@ -19,14 +19,13 @@ type Embers interface {
 }
 
 // RegisterEmberRoutes adds ember routes.
-func RegisterEmberRoutes(mux *http.ServeMux, embers Embers) {
-	mux.Handle("POST /v1/fires/{id}/embers", issueEmberHandler(embers))
-	mux.Handle("POST /v1/embers/{id}/redeem", redeemEmberHandler(embers))
+func RegisterEmberRoutes(mux *http.ServeMux, embers Embers, sessions SessionAuthenticator) {
+	mux.Handle("POST /v1/fires/{id}/embers", issueEmberHandler(embers, sessions))
+	mux.Handle("POST /v1/embers/{id}/redeem", redeemEmberHandler(embers, sessions))
 }
 
 type issueEmberRequest struct {
-	FromID string `json:"fromId"`
-	ToID   string `json:"toId"`
+	ToID string `json:"toId"`
 }
 
 type emberResponse struct {
@@ -45,8 +44,12 @@ func toEmberResponse(ember domain.Ember) emberResponse {
 	}
 }
 
-func issueEmberHandler(embers Embers) http.Handler {
+func issueEmberHandler(embers Embers, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fromID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -64,16 +67,12 @@ func issueEmberHandler(embers Embers) http.Handler {
 			return
 		}
 
-		body.FromID = strings.TrimSpace(body.FromID)
 		body.ToID = strings.TrimSpace(body.ToID)
 		var details []FieldError
-		if !validOpaqueID(body.FromID) {
-			details = append(details, FieldError{Field: "fromId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
 		if !validOpaqueID(body.ToID) {
 			details = append(details, FieldError{Field: "toId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
 		}
-		if body.FromID != "" && body.FromID == body.ToID {
+		if fromID == body.ToID {
 			details = append(details, FieldError{Field: "toId", Reason: "must differ from fromId"})
 		}
 		if len(details) > 0 {
@@ -85,7 +84,7 @@ func issueEmberHandler(embers Embers) http.Handler {
 			return
 		}
 
-		ember, err := embers.Issue(r.Context(), r.PathValue("id"), body.FromID, body.ToID)
+		ember, err := embers.Issue(r.Context(), r.PathValue("id"), fromID, body.ToID)
 		if err != nil {
 			writeEmberError(w, r, err)
 			return
@@ -94,12 +93,12 @@ func issueEmberHandler(embers Embers) http.Handler {
 	})
 }
 
-type redeemEmberRequest struct {
-	MemberID string `json:"memberId"`
-}
-
-func redeemEmberHandler(embers Embers) http.Handler {
+func redeemEmberHandler(embers Embers, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -108,7 +107,7 @@ func redeemEmberHandler(embers Embers) http.Handler {
 			return
 		}
 
-		var body redeemEmberRequest
+		var body struct{}
 		if err := decodeJSON(w, r, &body); err != nil {
 			writeError(w, r, http.StatusBadRequest, APIError{
 				Code:    "invalid_json",
@@ -117,17 +116,7 @@ func redeemEmberHandler(embers Embers) http.Handler {
 			return
 		}
 
-		body.MemberID = strings.TrimSpace(body.MemberID)
-		if !validOpaqueID(body.MemberID) {
-			writeError(w, r, http.StatusUnprocessableEntity, APIError{
-				Code:    "validation_failed",
-				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "memberId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"}},
-			})
-			return
-		}
-
-		ember, err := embers.Redeem(r.Context(), r.PathValue("id"), body.MemberID)
+		ember, err := embers.Redeem(r.Context(), r.PathValue("id"), memberID)
 		if err != nil {
 			writeEmberError(w, r, err)
 			return

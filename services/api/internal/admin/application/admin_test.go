@@ -28,23 +28,29 @@ func adminPrincipal() domain.Principal {
 	return domain.ReconstitutePrincipal("adm_root", "root@example.test", []domain.Role{domain.RoleAdmin}, domain.StatusActive, 1, adminSvcNow)
 }
 
+func steppedUpSession(id, principalID string, roles []domain.Role) domain.Session {
+	return domain.ReconstituteSession(id, principalID, roles, true, adminSvcNow.Add(time.Hour), false, 2, adminSvcNow)
+}
+
 func TestEnrollRequiresAdminRole(t *testing.T) {
-	service, principals, _, _, _, _ := newService(t)
+	service, principals, _, sessions, _, _ := newService(t)
 	verifier := domain.ReconstitutePrincipal("adm_v", "v@example.test", []domain.Role{domain.RoleVerifier}, domain.StatusActive, 1, adminSvcNow)
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_v").Return(steppedUpSession("sess_v", "adm_v", []domain.Role{domain.RoleVerifier}), nil)
 	principals.EXPECT().FindByID(gomock.Any(), "adm_v").Return(verifier, nil)
 
-	if _, err := service.Enroll(context.Background(), "adm_v", "new@example.test", []domain.Role{domain.RoleTSAgent}); err != ErrNotAdmin {
+	if _, err := service.Enroll(context.Background(), "sess_v", "new@example.test", []domain.Role{domain.RoleTSAgent}); err != ErrNotAdmin {
 		t.Fatalf("Enroll = %v, want ErrNotAdmin (FR-801 least privilege)", err)
 	}
 }
 
 func TestEnrollCreatesAndAudits(t *testing.T) {
-	service, principals, _, _, audit, _ := newService(t)
+	service, principals, _, sessions, audit, _ := newService(t)
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_root").Return(steppedUpSession("sess_root", "adm_root", []domain.Role{domain.RoleAdmin}), nil)
 	principals.EXPECT().FindByID(gomock.Any(), "adm_root").Return(adminPrincipal(), nil)
 	principals.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
 	audit.EXPECT().Append(gomock.Any(), "adm_root", "admin.enroll", "adm_test", gomock.Any()).Return(nil)
 
-	principal, err := service.Enroll(context.Background(), "adm_root", "new@example.test", []domain.Role{domain.RoleTSAgent})
+	principal, err := service.Enroll(context.Background(), "sess_root", "new@example.test", []domain.Role{domain.RoleTSAgent})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,5 +137,50 @@ func TestStepUpMarksSessionAndAudits(t *testing.T) {
 
 	if _, err := service.StepUpComplete(context.Background(), "sess_1", "111111"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAdminRoleChangeNeedsDistinctSteppedUpApprover(t *testing.T) {
+	service, principals, _, sessions, _, _ := newService(t)
+	target := domain.ReconstitutePrincipal("adm_target", "target@example.test", []domain.Role{domain.RoleVerifier}, domain.StatusActive, 4, adminSvcNow)
+	first := steppedUpSession("sess_first", "adm_root", []domain.Role{domain.RoleAdmin})
+	sessions.EXPECT().FindByID(gomock.Any(), first.ID()).Return(first, nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_root").Return(adminPrincipal(), nil)
+	principals.EXPECT().FindByID(gomock.Any(), target.ID()).Return(target, nil)
+	principals.EXPECT().CreateRoleChange(gomock.Any(), gomock.Any()).Return(nil)
+
+	change, err := service.ProposeAdminRoleChange(
+		context.Background(), first.ID(), target.ID(),
+		[]domain.Role{domain.RoleVerifier, domain.RoleAdmin},
+		"Grant command-centre coverage",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The proposing principal cannot approve its own change, even with a
+	// stepped-up session.
+	sessions.EXPECT().FindByID(gomock.Any(), first.ID()).Return(first, nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_root").Return(adminPrincipal(), nil)
+	principals.EXPECT().FindRoleChange(gomock.Any(), change.ID()).Return(change, nil)
+	principals.EXPECT().FindByID(gomock.Any(), target.ID()).Return(target, nil)
+	if _, err := service.ApproveAdminRoleChange(context.Background(), first.ID(), change.ID()); err != domain.ErrSameApprover {
+		t.Fatalf("self approval = %v, want ErrSameApprover", err)
+	}
+
+	secondPrincipal := domain.ReconstitutePrincipal("adm_second", "second@example.test", []domain.Role{domain.RoleAdmin}, domain.StatusActive, 1, adminSvcNow)
+	second := steppedUpSession("sess_second", secondPrincipal.ID(), []domain.Role{domain.RoleAdmin})
+	sessions.EXPECT().FindByID(gomock.Any(), second.ID()).Return(second, nil)
+	principals.EXPECT().FindByID(gomock.Any(), secondPrincipal.ID()).Return(secondPrincipal, nil)
+	principals.EXPECT().FindRoleChange(gomock.Any(), change.ID()).Return(change, nil)
+	principals.EXPECT().FindByID(gomock.Any(), target.ID()).Return(target, nil)
+	principals.EXPECT().ApproveRoleChange(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	updated, err := service.ApproveAdminRoleChange(context.Background(), second.ID(), change.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated.HasRole(domain.RoleAdmin) {
+		t.Fatal("approved target must hold admin role")
 	}
 }

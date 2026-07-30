@@ -1,139 +1,267 @@
 import { type Href, useRouter } from "expo-router";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { apiRequest } from "./api";
 
-function sow(pits: readonly number[], origin: number) {
-  const next = [...pits];
-  let seeds = next[origin];
-  let cursor = origin;
-  next[origin] = 0;
-  while (seeds > 0) {
-    cursor = (cursor + 1) % next.length;
-    if (cursor === origin) continue;
-    next[cursor] += 1;
-    seeds -= 1;
-  }
-  return next;
-}
+type Player = "south" | "north";
+type OwareGame = {
+  id: string;
+  houses: number[];
+  captured: number[];
+  turn: Player;
+  yourPlayer: Player;
+  yourTurn: boolean;
+  status: "active" | "completed" | "expired";
+  winner: number;
+  revision: number;
+  moveDeadline: string;
+  serverTime: string;
+};
 
-export function OwareScreen() {
+export function OwareScreen({
+  gameId,
+  circleId,
+}: Readonly<{ gameId: string; circleId: string }>) {
   const router = useRouter();
-  const [pits, setPits] = useState(() => Array.from({ length: 12 }, () => 4));
+  const [game, setGame] = useState<OwareGame | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
-  const [sent, setSent] = useState(false);
-  const confirm = () => {
-    if (selected === null || sent) return;
-    setPits((current) => sow(current, selected));
-    setSelected(null);
-    setSent(true);
-  };
+  const [loading, setLoading] = useState(true);
+  const [moving, setMoving] = useState(false);
+  const [error, setError] = useState("");
+  const command = useRef<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!circleId || !gameId) {
+      setError("This game needs its private circle reference.");
+      setLoading(false);
+      return;
+    }
+    try {
+      const result = await apiRequest<OwareGame>(
+        `/v1/circles/${encodeURIComponent(circleId)}/oware/${encodeURIComponent(gameId)}`,
+      );
+      setGame(result);
+      setError("");
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "The private game could not be opened.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [circleId, gameId]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) void load();
+    });
+    return () => {
+      active = false;
+    };
+  }, [load]);
+
+  const yourIndex = game?.yourPlayer === "north" ? 1 : 0;
+  const opponentIndex = yourIndex === 0 ? 1 : 0;
+  const yourPits = useMemo(
+    () =>
+      game?.yourPlayer === "north" ? [11, 10, 9, 8, 7, 6] : [0, 1, 2, 3, 4, 5],
+    [game?.yourPlayer],
+  );
+  const opponentPits = useMemo(
+    () =>
+      game?.yourPlayer === "north" ? [0, 1, 2, 3, 4, 5] : [11, 10, 9, 8, 7, 6],
+    [game?.yourPlayer],
+  );
+
+  async function confirm() {
+    if (!game || selected === null) return;
+    command.current ??= `oware-move-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setMoving(true);
+    setError("");
+    try {
+      const result = await apiRequest<OwareGame>(
+        `/v1/circles/${encodeURIComponent(circleId)}/oware/${encodeURIComponent(gameId)}/moves`,
+        {
+          method: "POST",
+          headers: { "Idempotency-Key": command.current },
+          body: JSON.stringify({
+            pit: selected,
+            expectedRevision: game.revision,
+          }),
+        },
+      );
+      setGame(result);
+      setSelected(null);
+      command.current = null;
+    } catch (moveError) {
+      setError(
+        moveError instanceof Error
+          ? moveError.message
+          : "The move could not be accepted.",
+      );
+      await load();
+    } finally {
+      setMoving(false);
+    }
+  }
+
+  const roomHref = circleId
+    ? (`/fie/dan-mu/rooms/${circleId}` as Href)
+    : ("/fie/adiwo" as Href);
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.topbar}>
           <Pressable
-            onPress={() =>
-              router.push("/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa" as Href)
-            }
+            onPress={() => router.push(roomHref)}
             style={styles.control}
           >
             <Text style={styles.controlText}>Private room</Text>
           </Pressable>
-          <Pressable style={styles.control}>
-            <Text style={styles.controlText}>Safety</Text>
-          </Pressable>
+          <Text style={styles.reference}>{gameId.slice(0, 8)}</Text>
         </View>
-        <Text style={styles.eyebrow}>OWARE · ASYNC PLAY</Text>
+        <Text style={styles.eyebrow}>OWARE · RETAINED ASYNC PLAY</Text>
         <Text accessibilityRole="header" style={styles.title}>
-          Take your time. Read the board.
+          Take your time. Read the real board.
         </Text>
         <Text style={styles.body}>
-          A thoughtful game for two. Skill stays here—it never changes who sees
-          you or how you are matched.
+          Every move is revision-checked and persisted. Player identities stay
+          privacy-keyed, and skill never changes matching or visibility.
         </Text>
-        <View style={styles.status}>
-          <Text style={styles.statusLabel}>
-            {sent ? "AMA’S TURN" : "YOUR TURN"}
-          </Text>
-          <Text style={styles.statusCopy}>
-            18h 42m remains · no streak pressure
-          </Text>
-        </View>
 
-        <View style={styles.table}>
-          <View style={styles.scoreRow}>
-            <View style={styles.score}>
-              <Text style={styles.scoreLabel}>AMA CAPTURED</Text>
-              <Text style={styles.scoreValue}>0</Text>
+        {loading ? (
+          <ActivityIndicator color="#9B315D" style={styles.loader} />
+        ) : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {game ? (
+          <>
+            <View style={styles.status}>
+              <Text style={styles.statusLabel}>
+                {game.status !== "active"
+                  ? game.status.toUpperCase()
+                  : game.yourTurn
+                    ? "YOUR MOVE"
+                    : "OTHER PLAYER’S MOVE"}
+              </Text>
+              <Text style={styles.statusCopy}>
+                Revision {game.revision} · window ends{" "}
+                {new Date(game.moveDeadline).toLocaleString()}
+              </Text>
             </View>
-            <View style={styles.score}>
-              <Text style={styles.scoreLabel}>YOU CAPTURED</Text>
-              <Text style={styles.scoreValue}>0</Text>
-            </View>
-          </View>
-          <Text style={styles.tableEyebrow}>ABAPA RULES · 48 SEEDS</Text>
-          <Text accessibilityRole="header" style={styles.tableTitle}>
-            Choose one house, then confirm.
-          </Text>
-          <Text style={styles.tableCopy}>
-            Your six houses are nearest you. The server verifies feeding,
-            capture and grand-slam rules.
-          </Text>
-          <View accessibilityLabel="Oware board" style={styles.board}>
-            <View accessibilityLabel="Ama's houses" style={styles.pitRow}>
-              {pits
-                .slice(6)
-                .reverse()
-                .map((seeds, index) => (
-                  <View
-                    key={`ama-${index}`}
-                    style={[styles.pit, styles.amaPit]}
-                  >
-                    <Text style={styles.pitSeeds}>{seeds}</Text>
-                  </View>
-                ))}
-            </View>
-            <View accessibilityLabel="Your houses" style={styles.pitRow}>
-              {pits.slice(0, 6).map((seeds, pit) => (
-                <Pressable
-                  accessibilityLabel={`House ${pit + 1}, ${seeds} seeds`}
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    disabled: sent,
-                    selected: selected === pit,
-                  }}
-                  disabled={sent}
-                  key={`you-${pit}`}
-                  onPress={() => setSelected(pit)}
-                  style={[styles.pit, selected === pit && styles.selectedPit]}
+
+            <View style={styles.table}>
+              <View style={styles.scoreRow}>
+                <View style={styles.score}>
+                  <Text style={styles.scoreLabel}>OTHER PLAYER</Text>
+                  <Text style={styles.scoreValue}>
+                    {game.captured[opponentIndex]}
+                  </Text>
+                </View>
+                <View style={styles.score}>
+                  <Text style={styles.scoreLabel}>YOU CAPTURED</Text>
+                  <Text style={styles.scoreValue}>
+                    {game.captured[yourIndex]}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.tableEyebrow}>
+                ABAPA RULES · SERVER VERIFIED
+              </Text>
+              <Text accessibilityRole="header" style={styles.tableTitle}>
+                {game.yourTurn && game.status === "active"
+                  ? "Choose one house, then confirm."
+                  : game.status === "active"
+                    ? "The board is waiting quietly."
+                    : "This board is closed."}
+              </Text>
+              <Text style={styles.tableCopy}>
+                The API verifies turn, feeding, capture, grand-slam, deadline
+                and revision rules. This client never sows locally.
+              </Text>
+              <View accessibilityLabel="Oware board" style={styles.board}>
+                <View
+                  accessibilityLabel="Other player's houses"
+                  style={styles.pitRow}
                 >
-                  <Text style={styles.pitSeeds}>{seeds}</Text>
-                </Pressable>
-              ))}
+                  {opponentPits.map((pit) => (
+                    <View
+                      key={`opponent-${pit}`}
+                      style={[styles.pit, styles.opponentPit]}
+                    >
+                      <Text style={styles.pitSeeds}>{game.houses[pit]}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View accessibilityLabel="Your houses" style={styles.pitRow}>
+                  {yourPits.map((pit, index) => {
+                    const disabled =
+                      moving ||
+                      !game.yourTurn ||
+                      game.status !== "active" ||
+                      game.houses[pit] === 0;
+                    return (
+                      <Pressable
+                        accessibilityLabel={`House ${index + 1}, ${game.houses[pit]} seeds`}
+                        accessibilityRole="button"
+                        accessibilityState={{
+                          disabled,
+                          selected: selected === pit,
+                        }}
+                        disabled={disabled}
+                        key={`you-${pit}`}
+                        onPress={() => setSelected(pit)}
+                        style={[
+                          styles.pit,
+                          selected === pit && styles.selectedPit,
+                          disabled && styles.pitDisabled,
+                        ]}
+                      >
+                        <Text style={styles.pitSeeds}>{game.houses[pit]}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+              <Text accessibilityLiveRegion="polite" style={styles.selection}>
+                {game.status !== "active"
+                  ? "No more moves can be submitted."
+                  : !game.yourTurn
+                    ? "Your move has been retained."
+                    : selected === null
+                      ? "No house selected."
+                      : `House ${yourPits.indexOf(selected) + 1} selected.`}
+              </Text>
+              <Text style={styles.notation}>
+                Current revision: {game.revision}
+              </Text>
+              <Pressable
+                disabled={selected === null || moving || !game.yourTurn}
+                onPress={() => void confirm()}
+                style={[
+                  styles.confirm,
+                  (selected === null || moving || !game.yourTurn) &&
+                    styles.confirmDisabled,
+                ]}
+              >
+                <Text style={styles.confirmText}>
+                  {moving ? "Verifying move…" : "Confirm one move"}
+                </Text>
+              </Pressable>
             </View>
-          </View>
-          <Text accessibilityLiveRegion="polite" style={styles.selection}>
-            {sent
-              ? "Move sent. The board is with Ama."
-              : selected === null
-                ? "No house selected."
-                : `House ${selected + 1} selected.`}
-          </Text>
-          <Text style={styles.notation}>
-            Notation: 18. 3C · awaiting next move
-          </Text>
-          <Pressable
-            disabled={selected === null}
-            onPress={confirm}
-            style={[
-              styles.confirm,
-              selected === null && styles.confirmDisabled,
-            ]}
-          >
-            <Text style={styles.confirmText}>Confirm one move</Text>
-          </Pressable>
-        </View>
+          </>
+        ) : null}
         <Text style={styles.privacy}>
           Game outcome never influences matching visibility or trust paths.
         </Text>
@@ -145,7 +273,11 @@ export function OwareScreen() {
 const styles = StyleSheet.create({
   safe: { backgroundColor: "#F7EFE2", flex: 1 },
   content: { padding: 20, paddingBottom: 56 },
-  topbar: { flexDirection: "row", justifyContent: "space-between" },
+  topbar: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   control: {
     alignItems: "center",
     borderColor: "#8F7885",
@@ -156,6 +288,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 17,
   },
   controlText: { color: "#28161F", fontFamily: "Outfit_700Bold" },
+  reference: {
+    color: "#705C67",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 11,
+    letterSpacing: 1,
+  },
   eyebrow: {
     color: "#9B315D",
     fontFamily: "Outfit_700Bold",
@@ -166,9 +304,9 @@ const styles = StyleSheet.create({
   title: {
     color: "#28161F",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 56,
-    letterSpacing: -3.5,
-    lineHeight: 51,
+    fontSize: 52,
+    letterSpacing: -3.3,
+    lineHeight: 49,
     marginTop: 14,
   },
   body: {
@@ -176,6 +314,13 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit_400Regular",
     fontSize: 16,
     lineHeight: 25,
+    marginTop: 22,
+  },
+  loader: { marginTop: 30 },
+  error: {
+    color: "#8E1F3C",
+    fontFamily: "Outfit_600SemiBold",
+    lineHeight: 21,
     marginTop: 22,
   },
   status: {
@@ -255,18 +400,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
-  amaPit: { backgroundColor: "#DBA45C" },
+  opponentPit: { backgroundColor: "#DBA45C" },
   selectedPit: { borderColor: "#FFF3E6", borderWidth: 4 },
+  pitDisabled: { opacity: 0.55 },
   pitSeeds: {
     color: "#28161F",
     fontFamily: "Outfit_800ExtraBold",
     fontSize: 17,
   },
-  selection: {
-    color: "#FFF3E6",
-    fontFamily: "Outfit_700Bold",
-    marginTop: 24,
-  },
+  selection: { color: "#FFF3E6", fontFamily: "Outfit_700Bold", marginTop: 24 },
   notation: {
     color: "rgba(255,243,230,.6)",
     fontFamily: "Outfit_400Regular",

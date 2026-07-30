@@ -24,7 +24,7 @@ func NewModule(ctx context.Context, database *mongo.Database) (Module, error) {
 		return Module{}, err
 	}
 	return Module{
-		Packs: application.NewMarketPackService(repository, repository, time.Now, newID),
+		Packs: application.NewMarketPackService(repository, time.Now, newID),
 	}, nil
 }
 

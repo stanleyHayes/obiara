@@ -18,13 +18,12 @@ type Listening interface {
 }
 
 // RegisterListeningRoutes adds playback telemetry and eligibility routes.
-func RegisterListeningRoutes(mux *http.ServeMux, listening Listening) {
-	mux.Handle("POST /v1/listening/heartbeats", recordHeartbeatsHandler(listening))
-	mux.Handle("GET /v1/listening/eligibility/{assetId}", eligibilityHandler(listening))
+func RegisterListeningRoutes(mux *http.ServeMux, listening Listening, sessions SessionAuthenticator) {
+	mux.Handle("POST /v1/listening/heartbeats", recordHeartbeatsHandler(listening, sessions))
+	mux.Handle("GET /v1/listening/eligibility/{assetId}", eligibilityHandler(listening, sessions))
 }
 
 type heartbeatsRequest struct {
-	ListenerID    string                       `json:"listenerId"`
 	VoiceAssetID  string                       `json:"voiceAssetId"`
 	AssetDuration float64                      `json:"assetDuration"`
 	Ranges        []application.HeartbeatRange `json:"ranges"`
@@ -36,8 +35,12 @@ type eligibilityResponse struct {
 	RequiredSeconds float64 `json:"requiredSeconds"`
 }
 
-func recordHeartbeatsHandler(listening Listening) http.Handler {
+func recordHeartbeatsHandler(listening Listening, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		listenerID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -55,12 +58,8 @@ func recordHeartbeatsHandler(listening Listening) http.Handler {
 			return
 		}
 
-		body.ListenerID = strings.TrimSpace(body.ListenerID)
 		body.VoiceAssetID = strings.TrimSpace(body.VoiceAssetID)
 		var details []FieldError
-		if !validOpaqueID(body.ListenerID) {
-			details = append(details, FieldError{Field: "listenerId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
 		if !validOpaqueID(body.VoiceAssetID) {
 			details = append(details, FieldError{Field: "voiceAssetId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
 		}
@@ -85,7 +84,7 @@ func recordHeartbeatsHandler(listening Listening) http.Handler {
 			return
 		}
 
-		record, err := listening.RecordHeartbeats(r.Context(), body.ListenerID, body.VoiceAssetID, body.AssetDuration, body.Ranges)
+		record, err := listening.RecordHeartbeats(r.Context(), listenerID, body.VoiceAssetID, body.AssetDuration, body.Ranges)
 		if err != nil {
 			writeListeningError(w, r, err)
 			return
@@ -98,16 +97,16 @@ func recordHeartbeatsHandler(listening Listening) http.Handler {
 	})
 }
 
-func eligibilityHandler(listening Listening) http.Handler {
+func eligibilityHandler(listening Listening, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		listenerID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		assetID := r.PathValue("assetId")
-		listenerID := strings.TrimSpace(r.URL.Query().Get("listenerId"))
 		var details []FieldError
 		if !validOpaqueID(assetID) {
 			details = append(details, FieldError{Field: "assetId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
-		if !validOpaqueID(listenerID) {
-			details = append(details, FieldError{Field: "listenerId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
 		}
 		if len(details) > 0 {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{

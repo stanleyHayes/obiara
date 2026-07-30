@@ -18,8 +18,8 @@ type ScamArc interface {
 
 // RegisterScamArcRoutes adds the scam-arc signal route. Producers are
 // server-side classifiers; the route exists for pipeline wiring and tests.
-func RegisterScamArcRoutes(mux *http.ServeMux, scamArc ScamArc) {
-	mux.Handle("POST /v1/scam-arc/signals", observeSignalHandler(scamArc))
+func RegisterScamArcRoutes(mux *http.ServeMux, scamArc ScamArc, resolve AdminPrincipalResolver) {
+	mux.Handle("POST /v1/scam-arc/signals", observeSignalHandler(scamArc, resolve))
 }
 
 type observeSignalRequest struct {
@@ -33,8 +33,11 @@ type scamArcStateResponse struct {
 	Educate bool   `json:"educate"`
 }
 
-func observeSignalHandler(scamArc ScamArc) http.Handler {
+func observeSignalHandler(scamArc ScamArc, resolve AdminPrincipalResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := operationsPrincipal(w, r, resolve); !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",

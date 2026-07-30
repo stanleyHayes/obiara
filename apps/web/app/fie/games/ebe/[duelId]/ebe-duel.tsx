@@ -1,105 +1,217 @@
 "use client";
 
 import Link from "next/link";
-import { useReducer } from "react";
-import { answers, ebeReducer, initialEbeState } from "./ebe-model";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SafetySheet } from "../../../safety-sheet";
 
+type Prompt = {
+  id: string;
+  version: number;
+  language: string;
+  cue: string;
+  sourceKind: string;
+  sourceCitation: string;
+  sourceLocator?: string;
+};
+type Duel = {
+  id: string;
+  revision: number;
+  complete: boolean;
+  yourTurn: boolean;
+  currentPrompt?: Prompt;
+  turns: {
+    number: number;
+    prompt: Prompt;
+    yours: boolean;
+    yourAnswer?: string;
+    yourAnswerCorrect?: boolean;
+  }[];
+};
+
 export function EbeDuel({ duelId }: Readonly<{ duelId: string }>) {
-  const [state, dispatch] = useReducer(ebeReducer, initialEbeState);
+  const circleId = useSearchParams().get("circleId")?.trim() ?? "";
+  const [duel, setDuel] = useState<Duel | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const command = useRef<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!circleId)
+      return setMessage("This duel needs its private circle reference.");
+    try {
+      const response = await fetch(
+        `/api/ebe?circleId=${encodeURIComponent(circleId)}&duelId=${encodeURIComponent(duelId)}`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json().catch(() => null)) as
+        (Duel & { message?: string }) | null;
+      if (!response.ok || !payload?.id)
+        throw new Error(payload?.message || "The duel could not be opened.");
+      setDuel(payload);
+      setMessage("");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The duel could not be opened.",
+      );
+    }
+  }, [circleId, duelId]);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => void load(), 0);
+    const timer = window.setInterval(() => void load(), 5000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [load]);
+
+  async function submit() {
+    if (!duel || !answer.trim()) return;
+    command.current ??= `ebe-answer-${crypto.randomUUID()}`;
+    setBusy(true);
+    try {
+      const response = await fetch("/api/ebe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": command.current,
+        },
+        body: JSON.stringify({
+          action: "answer",
+          circleId,
+          duelId,
+          answer: answer.trim(),
+          expectedRevision: duel.revision,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        (Duel & { message?: string }) | null;
+      if (!response.ok || !payload?.id)
+        throw new Error(
+          payload?.message || "The answer could not be retained.",
+        );
+      setDuel(payload);
+      setAnswer("");
+      setMessage("");
+      command.current = null;
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The answer could not be retained.",
+      );
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="ebe-duel">
       <header>
-        <Link href="/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa">
+        <Link
+          href={
+            circleId
+              ? `/fie/dan-mu/rooms/${encodeURIComponent(circleId)}`
+              : "/fie/games"
+          }
+        >
           ← Private room
         </Link>
-        <strong>Private duel · Ama and you</strong>
-        <SafetySheet context="this duel" />
+        <strong>Private reviewed duel</strong>
+        <SafetySheet context="this duel" contextRef={duelId} surface="game" />
       </header>
       <section className="ebe-hero">
-        <p className="fie-kicker">Ɛbɛ · reviewed proverb pack</p>
-        <h1>Listen for the wisdom between the words.</h1>
+        <p className="fie-kicker">Ɛbɛ · sourced proverb catalog</p>
+        <h1>Reflect without being ranked.</h1>
         <p>
-          No timer, public score or matching advantage. Choose thoughtfully;
-          both answers unfold together.
+          Turns alternate quietly. Your answer stays private from the other
+          player, and accepted forms never leave the server.
         </p>
       </section>
-      <section className="ebe-card" aria-labelledby="proverb-title">
-        <div className="ebe-provenance">
-          <span>Twi · Greater Accra pack</span>
-          <span>Reviewer-approved · revision 04</span>
-          <span>{duelId.slice(0, 9)}</span>
-        </div>
-        <p className="fie-kicker">Round one of three</p>
-        <h2 id="proverb-title">“Tikoro nko agyina.”</h2>
-        <p className="ebe-prompt">
-          Which reflection sits closest to this proverb?
-        </p>
-        <fieldset disabled={state.stage !== "answering"}>
-          <legend>Choose one reviewed interpretation</legend>
-          {answers.map((answer) => (
-            <label key={answer}>
-              <input
-                checked={state.selected === answer}
-                name="proverb-answer"
-                onChange={() => dispatch({ type: "select", answer })}
-                type="radio"
-              />
-              <span>{answer}</span>
-            </label>
-          ))}
-        </fieldset>
-        <div className="ebe-action">
-          <div aria-live="polite">
-            <strong>
-              {state.stage === "answering"
-                ? state.selected
-                  ? "Your reflection is ready."
-                  : "Nothing selected yet."
-                : state.stage === "waiting"
-                  ? "Your answer is folded. Ama’s is ready."
-                  : "Both reflections are open."}
-            </strong>
-            <small>No answer changes your visibility, rating or trust.</small>
+      {message ? <p role="alert">{message}</p> : null}
+      {duel?.currentPrompt ? (
+        <section className="ebe-card" aria-labelledby="proverb-title">
+          <div className="ebe-provenance">
+            <span>{duel.currentPrompt.language}</span>
+            <span>Reviewed revision {duel.currentPrompt.version}</span>
+            <span>{duel.currentPrompt.sourceKind.replaceAll("_", " ")}</span>
           </div>
-          {state.stage === "answering" ? (
-            <button
-              disabled={!state.selected}
-              onClick={() => dispatch({ type: "lock" })}
-              type="button"
+          <p className="fie-kicker">Turn {duel.revision + 1}</p>
+          <h2 id="proverb-title">{duel.currentPrompt.cue}</h2>
+          <p className="ebe-prompt">
+            Source: {duel.currentPrompt.sourceCitation}
+          </p>
+          {duel.currentPrompt.sourceLocator ? (
+            <a
+              href={duel.currentPrompt.sourceLocator}
+              rel="noreferrer"
+              target="_blank"
             >
-              Fold my answer
-            </button>
+              Open source record
+            </a>
           ) : null}
-          {state.stage === "waiting" ? (
-            <button onClick={() => dispatch({ type: "reveal" })} type="button">
-              Reveal together
-            </button>
-          ) : null}
-        </div>
-        {state.stage === "revealed" ? (
-          <div className="ebe-reveal" role="status">
-            <div>
-              <span>You chose</span>
-              <strong>{state.selected}</strong>
+          {duel.yourTurn ? (
+            <div className="ebe-action">
+              <label>
+                <strong>Your private answer</strong>
+                <textarea
+                  maxLength={280}
+                  onChange={(event) => setAnswer(event.target.value)}
+                  rows={4}
+                  value={answer}
+                />
+              </label>
+              <button
+                disabled={busy || !answer.trim()}
+                onClick={() => void submit()}
+                type="button"
+              >
+                {busy ? "Retaining…" : "Submit answer"}
+              </button>
             </div>
-            <div>
-              <span>Ama chose</span>
-              <strong>{answers[0]}</strong>
+          ) : (
+            <div className="ebe-action">
+              <div>
+                <strong>Waiting for the other player.</strong>
+                <small>
+                  The page checks for the next retained turn every five seconds.
+                </small>
+              </div>
             </div>
-            <p>
-              Reviewed context: shared counsel can see beyond one person’s view.
-              This is a learning note, not a measure of character.
-            </p>
-          </div>
-        ) : null}
-      </section>
-      <footer>
-        <p>Reviewed cultural context stays versioned and attributable.</p>
-        <Link href="/fie/games/oware/game_4Nq8mK2xP7vR5tZa">
-          Return to Oware
-        </Link>
-      </footer>
+          )}
+        </section>
+      ) : null}
+      {duel ? (
+        <section className="ebe-card" aria-label="Retained duel turns">
+          <p className="fie-kicker">
+            {duel.complete ? "Duel complete" : "Private history"}
+          </p>
+          {duel.turns.map((turn) => (
+            <article key={turn.number}>
+              <strong>
+                Turn {turn.number} ·{" "}
+                {turn.yours ? "You answered" : "Other player answered"}
+              </strong>
+              <p>{turn.prompt.cue}</p>
+              {turn.yours ? (
+                <small>
+                  Your answer: {turn.yourAnswer} ·{" "}
+                  {turn.yourAnswerCorrect
+                    ? "accepted form"
+                    : "another reflection"}
+                </small>
+              ) : (
+                <small>The other answer remains private.</small>
+              )}
+            </article>
+          ))}
+        </section>
+      ) : null}
     </main>
   );
 }

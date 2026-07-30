@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	oware "github.com/stanleyHayes/obiara/services/api/internal/games/oware/domain"
 	session "github.com/stanleyHayes/obiara/services/api/internal/games/oware/session/domain"
 	"strings"
 	"time"
@@ -55,7 +56,7 @@ func (s Service) Create(ctx context.Context, c Command, secondPlayerID string, w
 	if e != nil || s.r.Create(ctx, game) != nil {
 		return session.Projection{}, ErrNotAvailable
 	}
-	return game.Project(now), nil
+	return projectFor(game, first, now), nil
 }
 func (s Service) Move(ctx context.Context, c Command, pit int) (session.Projection, error) {
 	game, actor, e := s.current(ctx, c)
@@ -66,7 +67,7 @@ func (s Service) Move(ctx context.Context, c Command, pit int) (session.Projecti
 	if e != nil {
 		return session.Projection{}, ErrNotAvailable
 	}
-	return s.append(ctx, game, next, c.ID)
+	return s.append(ctx, game, next, c.ID, actor)
 }
 func (s Service) Expire(ctx context.Context, c Command) (session.Projection, error) {
 	game, _, e := s.current(ctx, c)
@@ -77,14 +78,14 @@ func (s Service) Expire(ctx context.Context, c Command) (session.Projection, err
 	if e != nil {
 		return session.Projection{}, ErrNotAvailable
 	}
-	return s.append(ctx, game, next, c.ID)
+	return s.append(ctx, game, next, c.ID, "")
 }
 func (s Service) View(ctx context.Context, c Command) (session.Projection, error) {
-	game, _, e := s.current(ctx, c)
+	game, actor, e := s.current(ctx, c)
 	if e != nil {
 		return session.Projection{}, e
 	}
-	return game.Project(s.now().UTC()), nil
+	return projectFor(game, actor, s.now().UTC()), nil
 }
 func (s Service) current(ctx context.Context, c Command) (session.Session, string, error) {
 	if !s.ready() || s.a.RequireParticipant(ctx, c.RoomID, c.ActorID) != nil {
@@ -113,18 +114,33 @@ func (s Service) current(ctx context.Context, c Command) (session.Session, strin
 	}
 	return game, actor, nil
 }
-func (s Service) append(ctx context.Context, current, next session.Session, id string) (session.Projection, error) {
+func (s Service) append(ctx context.Context, current, next session.Session, id, actor string) (session.Projection, error) {
 	e := s.r.Append(ctx, next, current.Revision(), id)
 	if e == nil {
-		return next.Project(s.now().UTC()), nil
+		return projectFor(next, actor, s.now().UTC()), nil
 	}
 	if errors.Is(e, ErrApplied) {
 		old, x := s.r.FindByCommand(ctx, id)
 		if x == nil {
-			return old.Project(s.now().UTC()), nil
+			return projectFor(old, actor, s.now().UTC()), nil
 		}
 	}
 	return session.Projection{}, ErrNotAvailable
+}
+
+func projectFor(game session.Session, actor string, now time.Time) session.Projection {
+	projection := game.Project(now)
+	for index, player := range game.Players() {
+		if player == actor {
+			projection.YourPlayer = sessionPlayer(index)
+			break
+		}
+	}
+	return projection
+}
+
+func sessionPlayer(index int) oware.Player {
+	return oware.Player(index)
 }
 func (s Service) command(c Command) session.Command {
 	return session.Command{ID: strings.TrimSpace(c.ID), ExpectedRevision: c.ExpectedRevision, At: s.now().UTC()}

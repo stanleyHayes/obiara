@@ -44,6 +44,22 @@ func (repository *Repository) Find(ctx context.Context, id string) (domain.Pass,
 	return domain.Rehydrate(state)
 }
 
+func (repository *Repository) FindForMember(ctx context.Context, memberKey string) (domain.Pass, error) {
+	var state domain.State
+	err := repository.collection.FindOne(
+		ctx,
+		bson.M{"memberkey": memberKey},
+		options.FindOne().SetSort(bson.D{{Key: "grantedat", Value: -1}}),
+	).Decode(&state)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return domain.Pass{}, application.ErrNotFound
+	}
+	if err != nil {
+		return domain.Pass{}, err
+	}
+	return domain.Rehydrate(state)
+}
+
 func (repository *Repository) Save(ctx context.Context, pass domain.Pass, expected uint64, commandID string) error {
 	state := pass.State()
 	if len(state.Events) != int(expected+1) || len(state.AppliedIDs) != int(expected+1) {

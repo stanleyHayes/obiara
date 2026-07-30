@@ -95,6 +95,18 @@ func TestAppendOnlyConcurrencyCheckpointValidationAndPrivacy(t *testing.T) {
 	if err != nil || read.Fingerprint() != cp.Fingerprint() {
 		t.Fatalf("checkpoint=%+v err=%v", read, err)
 	}
+	recentAudits, err := repo.ListRecentAudits(ctx, 10)
+	if err != nil || len(recentAudits) != 1 || recentAudits[0].FactID() != stored.ID() {
+		t.Fatalf("recent audits=%+v err=%v", recentAudits, err)
+	}
+	factByID, err := repo.FindFactByID(ctx, stored.ID())
+	if err != nil || factByID.Fingerprint() != stored.Fingerprint() {
+		t.Fatalf("fact by id=%+v err=%v", factByID, err)
+	}
+	recentCheckpoints, err := repo.ListRecentCheckpoints(ctx, 10)
+	if err != nil || len(recentCheckpoints) != 1 || recentCheckpoints[0].Day() != "2026-07-27" {
+		t.Fatalf("recent checkpoints=%+v err=%v", recentCheckpoints, err)
+	}
 
 	badEvent := strings.Repeat("d", 64)
 	_, err = db.Collection("commerce_reconciliation_facts").InsertOne(ctx, bson.M{"_id": "bad", "providerKey": providerKey, "eventKey": badEvent, "referenceKey": referenceKey, "ledgerCommand": "ledger:bad", "fingerprint": referenceKey, "currency": "GHS", "status": "settled", "minor": -1, "occurredAt": now, "receivedAt": now, "occurredDay": "2026-07-27"})

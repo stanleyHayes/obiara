@@ -6,35 +6,96 @@ import {
   Button,
   Card,
   Chip,
+  CircularProgress,
   Container,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useReducer } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { EmptyState } from "../../empty-state";
-import {
-  initialMembersState,
-  memberPermissionMatrix,
-  membersReducer,
-  tierCatalog,
-  type MemberTier,
-} from "./members-model";
+type MemberStatus = "active" | "suspended" | "blocked" | "deleted";
+type MemberRow = {
+  ref: string;
+  tier: number;
+  status: MemberStatus;
+  suspendedUntil?: string;
+  joinedAt: string;
+};
 
-const tierOrder: readonly MemberTier[] = [0, 1, 2];
-const operators = ["kweku@obiara.com", "efua@obiara.com"];
+const tierCopy = [
+  [
+    "Tier 0 · registered",
+    "Phone verified; identity confirmation remains incomplete.",
+  ],
+  [
+    "Tier 1 · verified",
+    "Identity verified; introductions, rooms and fires may open.",
+  ],
+  [
+    "Tier 2 · sowing",
+    "Trusted to sow seeds and invite others; earned outside this desk.",
+  ],
+] as const;
+
+function compactRef(ref: string) {
+  return `member···${ref.slice(-8).toUpperCase()}`;
+}
+
+function dateLabel(value: string) {
+  return new Intl.DateTimeFormat("en-GH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
 
 export function MembersDesk() {
-  const [state, dispatch] = useReducer(membersReducer, initialMembersState);
-  const selected = state.members.find(
-    (member) => member.ref === state.selectedRef,
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [selectedRef, setSelectedRef] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/members", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as {
+        members?: MemberRow[];
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          body?.message ?? "The member directory could not be loaded.",
+        );
+      setMembers(body?.members ?? []);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The member directory could not be loaded.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(initialLoad);
+  }, [load]);
+  const selected = members.find((member) => member.ref === selectedRef);
+  const counts = useMemo(
+    () =>
+      members.reduce<Record<MemberStatus, number>>(
+        (total, member) => ({
+          ...total,
+          [member.status]: total[member.status] + 1,
+        }),
+        { active: 0, suspended: 0, blocked: 0, deleted: 0 },
+      ),
+    [members],
   );
-  const activeCount = state.members.filter(
-    (member) => member.status === "active",
-  ).length;
 
   return (
     <Box
@@ -50,12 +111,12 @@ export function MembersDesk() {
           direction={{ xs: "column", md: "row" }}
           spacing={2}
           sx={{
-            alignItems: { md: "center" },
+            alignItems: { md: "end" },
             justifyContent: "space-between",
             mb: 5,
           }}
         >
-          <Box>
+          <Box sx={{ maxWidth: 760 }}>
             <Typography
               sx={{
                 color: "#8e3159",
@@ -64,7 +125,7 @@ export function MembersDesk() {
                 letterSpacing: 1.4,
               }}
             >
-              MEMBER MANAGEMENT
+              MEMBER DIRECTORY · LIVE
             </Typography>
             <Typography
               component="h1"
@@ -76,36 +137,55 @@ export function MembersDesk() {
                 mt: 1,
               }}
             >
-              Redacted by default.
+              Account facts, without identity exposure.
             </Typography>
-            <Typography sx={{ color: "#69535d", mt: 2 }}>
-              Opaque references only. No names, no phones, no romantic content —
-              enforcement acts on the account, never on the person.
+            <Typography sx={{ color: "#69535d", mt: 2, maxWidth: "68ch" }}>
+              This view is projected from the account store using
+              environment-scoped references. Phone numbers, names, profiles and
+              relationship content never enter the desk.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-            <Chip
-              label={`${activeCount} active`}
-              color="success"
-              variant="outlined"
-            />
-            <Chip label="Refs only" color="primary" variant="outlined" />
-            <Link href="/">
-              <Button variant="outlined">Back to command centre</Button>
-            </Link>
+          <Stack direction="row" spacing={1}>
+            <Button onClick={() => void load()} variant="outlined">
+              Refresh
+            </Button>
+            <Button component={Link} href="/safety" variant="contained">
+              Open safety queue
+            </Button>
           </Stack>
         </Stack>
 
-        {state.notice ? (
-          <Alert severity="success" sx={{ borderRadius: 1, mb: 3 }}>
-            {state.notice}
+        {error ? (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
           </Alert>
         ) : null}
-        {state.error ? (
-          <Alert severity="warning" sx={{ borderRadius: 1, mb: 3 }}>
-            {state.error}
-          </Alert>
-        ) : null}
+        <Box
+          sx={{
+            display: "grid",
+            gap: 1.5,
+            gridTemplateColumns: { xs: "repeat(2,1fr)", md: "repeat(4,1fr)" },
+            mb: 2,
+          }}
+        >
+          {(Object.keys(counts) as MemberStatus[]).map((status) => (
+            <Card key={status} variant="outlined" sx={{ p: 2.25 }}>
+              <Typography
+                sx={{
+                  color: "text.secondary",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                }}
+              >
+                {status}
+              </Typography>
+              <Typography sx={{ fontSize: 30, fontWeight: 800 }}>
+                {counts[status]}
+              </Typography>
+            </Card>
+          ))}
+        </Box>
 
         <Box
           sx={{
@@ -113,87 +193,92 @@ export function MembersDesk() {
             gap: 2,
             gridTemplateColumns: {
               xs: "1fr",
-              md: "minmax(0,1.2fr) minmax(0,0.8fr)",
+              md: "minmax(0,1.25fr) minmax(300px,.75fr)",
             },
           }}
         >
-          <Card sx={{ borderRadius: 1, p: 3 }}>
-            <Typography
+          <Card sx={{ p: 3 }}>
+            <Stack
+              direction="row"
               sx={{
-                color: "#8e3159",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 1.2,
+                alignItems: "center",
+                justifyContent: "space-between",
+                mb: 2,
               }}
             >
-              USER MANAGEMENT
-            </Typography>
-            <Typography
-              component="h2"
-              sx={{ fontSize: 24, fontWeight: 800, mb: 2 }}
-            >
-              Member accounts
-            </Typography>
-            <Stack spacing={1}>
-              {state.members.map((member) => (
-                <Button
-                  key={member.ref}
-                  aria-pressed={member.ref === state.selectedRef}
-                  onClick={() => dispatch({ type: "select", ref: member.ref })}
-                  sx={{
-                    alignItems: "center",
-                    border: "1px solid rgba(43,21,31,0.12)",
-                    borderRadius: 1,
-                    color: "inherit",
-                    display: "grid",
-                    gap: 1,
-                    gridTemplateColumns: "minmax(0,1.2fr) auto auto auto",
-                    justifyContent: "stretch",
-                    p: 1.5,
-                    textAlign: "left",
-                    textTransform: "none",
-                  }}
-                >
-                  <Box>
-                    <Typography
-                      sx={{ fontFamily: "monospace", fontWeight: 800 }}
-                    >
-                      {member.ref}
-                    </Typography>
-                    <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                      {member.verification} · joined {member.joined}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    label={`T${member.tier}`}
-                    size="small"
-                    variant="outlined"
-                  />
-                  {member.host ? (
+              <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
+                Newest accounts
+              </Typography>
+              <Chip
+                label={`${members.length} loaded`}
+                size="small"
+                variant="outlined"
+              />
+            </Stack>
+            {loading ? (
+              <Stack sx={{ alignItems: "center", py: 8 }}>
+                <CircularProgress size={28} />
+              </Stack>
+            ) : members.length === 0 ? (
+              <Alert severity="info">
+                No member accounts have been registered in this environment.
+              </Alert>
+            ) : (
+              <Stack spacing={1}>
+                {members.map((member) => (
+                  <Button
+                    key={member.ref}
+                    aria-pressed={selectedRef === member.ref}
+                    onClick={() => setSelectedRef(member.ref)}
+                    sx={{
+                      border: "1px solid",
+                      borderColor:
+                        selectedRef === member.ref ? "primary.main" : "divider",
+                      color: "inherit",
+                      display: "grid",
+                      gap: 1,
+                      gridTemplateColumns: "minmax(0,1fr) auto auto",
+                      justifyContent: "stretch",
+                      p: 1.5,
+                      textAlign: "left",
+                      textTransform: "none",
+                    }}
+                  >
+                    <Box>
+                      <Typography
+                        sx={{ fontFamily: "monospace", fontWeight: 800 }}
+                      >
+                        {compactRef(member.ref)}
+                      </Typography>
+                      <Typography
+                        sx={{ color: "text.secondary", fontSize: 12 }}
+                      >
+                        Joined {dateLabel(member.joinedAt)}
+                      </Typography>
+                    </Box>
                     <Chip
-                      color="primary"
-                      label="host"
+                      label={`T${member.tier}`}
                       size="small"
                       variant="outlined"
                     />
-                  ) : null}
-                  <Chip
-                    color={
-                      member.status === "active"
-                        ? "success"
-                        : member.status === "suspended"
-                          ? "warning"
-                          : "error"
-                    }
-                    label={member.status}
-                    size="small"
-                  />
-                </Button>
-              ))}
-            </Stack>
+                    <Chip
+                      label={member.status}
+                      size="small"
+                      color={
+                        member.status === "active"
+                          ? "success"
+                          : member.status === "suspended"
+                            ? "warning"
+                            : "error"
+                      }
+                    />
+                  </Button>
+                ))}
+              </Stack>
+            )}
           </Card>
 
-          <Card sx={{ borderRadius: 1, p: 3 }}>
+          <Card sx={{ p: 3 }}>
             <Typography
               sx={{
                 color: "#8e3159",
@@ -202,310 +287,58 @@ export function MembersDesk() {
                 letterSpacing: 1.2,
               }}
             >
-              SELECTED MEMBER
+              ACCOUNT DETAIL
             </Typography>
             {selected ? (
               <Stack spacing={2} sx={{ mt: 1.5 }}>
+                <Typography
+                  component="h2"
+                  sx={{
+                    fontFamily: "monospace",
+                    fontSize: 22,
+                    fontWeight: 800,
+                  }}
+                >
+                  {compactRef(selected.ref)}
+                </Typography>
                 <Box>
-                  <Typography
-                    component="h2"
-                    sx={{
-                      fontFamily: "monospace",
-                      fontSize: 22,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {selected.ref}
+                  <Typography sx={{ fontWeight: 800 }}>
+                    {tierCopy[selected.tier]?.[0] ?? `Tier ${selected.tier}`}
                   </Typography>
-                  <Typography sx={{ color: "text.secondary" }}>
-                    {tierCatalog[selected.tier].label} · {selected.verification}
+                  <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                    {tierCopy[selected.tier]?.[1]}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ fontSize: 12, fontWeight: 800 }}>
+                    LIFECYCLE
+                  </Typography>
+                  <Typography sx={{ textTransform: "capitalize" }}>
+                    {selected.status}
                   </Typography>
                   {selected.suspendedUntil ? (
-                    <Typography
-                      sx={{ color: "warning.dark", fontSize: 13, mt: 0.5 }}
-                    >
-                      Suspension {selected.suspendedUntil}
+                    <Typography sx={{ color: "warning.dark", fontSize: 13 }}>
+                      Scheduled lift: {dateLabel(selected.suspendedUntil)}
                     </Typography>
                   ) : null}
-                  {selected.privacyRequest !== "none" ? (
-                    <Chip
-                      color="info"
-                      label={`privacy ${selected.privacyRequest} in progress`}
-                      size="small"
-                      sx={{ mt: 1 }}
-                      variant="outlined"
-                    />
-                  ) : null}
                 </Box>
-                <TextField
-                  fullWidth
-                  select
-                  label="Suspension window (Tier-B ladder)"
-                  onChange={(event) =>
-                    dispatch({
-                      type: "window",
-                      value: event.target.value as "24h" | "7d" | "30d",
-                    })
-                  }
-                  value={state.suspensionWindow}
-                >
-                  <MenuItem value="24h">24 hours</MenuItem>
-                  <MenuItem value="7d">7 days</MenuItem>
-                  <MenuItem value="30d">30 days</MenuItem>
-                </TextField>
-                <TextField
-                  fullWidth
-                  select
-                  label="Second approver (Tier-A block only)"
-                  onChange={(event) =>
-                    dispatch({ type: "approver", value: event.target.value })
-                  }
-                  value={state.secondApprover}
-                >
-                  <MenuItem value="">Not selected</MenuItem>
-                  {operators.map((operator) => (
-                    <MenuItem key={operator} value={operator}>
-                      {operator}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  fullWidth
-                  helperText="At least 12 characters. Reference the case, never member content."
-                  label="Reason"
-                  onChange={(event) =>
-                    dispatch({ type: "reason", value: event.target.value })
-                  }
-                  value={state.actionReason}
-                />
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                  <Button
-                    color="warning"
-                    disabled={selected.status !== "active"}
-                    onClick={() => dispatch({ type: "suspend" })}
-                    variant="outlined"
-                  >
-                    Suspend
-                  </Button>
-                  <Button
-                    color="success"
-                    disabled={selected.status !== "suspended"}
-                    onClick={() => dispatch({ type: "reactivate" })}
-                    variant="outlined"
-                  >
-                    Reactivate
-                  </Button>
-                  <Button
-                    color="error"
-                    disabled={
-                      selected.status === "blocked" ||
-                      selected.status === "deleted"
-                    }
-                    onClick={() => dispatch({ type: "block" })}
-                    variant="outlined"
-                  >
-                    Block (Tier A)
-                  </Button>
-                </Stack>
+                <Alert severity="info">
+                  Enforcement cannot be issued from this directory. Warnings,
+                  suspensions and bans must originate from an assigned safety
+                  case so ladder rules, evidence purpose, session revocation and
+                  device controls remain intact.
+                </Alert>
+                <Button component={Link} href="/safety" variant="outlined">
+                  Continue in safety
+                </Button>
               </Stack>
             ) : (
-              <EmptyState
-                icon="◈"
-                title="No member selected"
-                description="Choose a redacted reference to review account status or record an audited enforcement action."
-              />
+              <Typography sx={{ color: "text.secondary", mt: 2 }}>
+                Select a pseudonymous account to inspect its lifecycle state.
+              </Typography>
             )}
           </Card>
         </Box>
-
-        <Card sx={{ borderRadius: 1, mt: 2, p: 3 }}>
-          <Typography
-            sx={{
-              color: "#8e3159",
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: 1.2,
-            }}
-          >
-            ROLE MANAGEMENT
-          </Typography>
-          <Typography
-            component="h2"
-            sx={{ fontSize: 24, fontWeight: 800, mb: 2 }}
-          >
-            Member capabilities are earned, never assigned.
-          </Typography>
-          <Box
-            sx={{
-              display: "grid",
-              gap: 1.5,
-              gridTemplateColumns: {
-                xs: "1fr",
-                sm: "repeat(2,minmax(0,1fr))",
-                lg: "repeat(4,minmax(0,1fr))",
-              },
-            }}
-          >
-            {tierOrder.map((tier) => {
-              const holders = state.members.filter(
-                (member) => member.tier === tier && member.status === "active",
-              ).length;
-              return (
-                <Card
-                  key={tier}
-                  sx={{ borderRadius: 1, p: 2 }}
-                  variant="outlined"
-                >
-                  <Typography sx={{ fontWeight: 800 }}>
-                    {tierCatalog[tier].label}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      color: "#8e3159",
-                      fontSize: 22,
-                      fontWeight: 800,
-                      my: 0.5,
-                    }}
-                  >
-                    {holders}
-                  </Typography>
-                  <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                    {tierCatalog[tier].description}
-                  </Typography>
-                </Card>
-              );
-            })}
-            <Card sx={{ borderRadius: 1, p: 2 }} variant="outlined">
-              <Typography sx={{ fontWeight: 800 }}>Host</Typography>
-              <Typography
-                sx={{
-                  color: "#8e3159",
-                  fontSize: 22,
-                  fontWeight: 800,
-                  my: 0.5,
-                }}
-              >
-                {
-                  state.members.filter(
-                    (member) => member.host && member.status === "active",
-                  ).length
-                }
-              </Typography>
-              <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                Community capability from vouching and training. Hosts run only
-                their own circle.
-              </Typography>
-            </Card>
-          </Box>
-        </Card>
-
-        <Card sx={{ borderRadius: 1, mt: 2, overflow: "hidden", p: 3 }}>
-          <Typography
-            sx={{
-              color: "#8e3159",
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: 1.2,
-            }}
-          >
-            PERMISSION MANAGEMENT
-          </Typography>
-          <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
-            Tier gates, not toggles.
-          </Typography>
-          <Typography sx={{ color: "text.secondary", mb: 2, maxWidth: "72ch" }}>
-            Member permissions come from verification tier and ownership, never
-            from a desk assignment. The authz kernel grants only where an
-            explicit rule exists; anything unmatched is denied.
-          </Typography>
-          <Box sx={{ overflowX: "auto" }}>
-            <Box
-              role="table"
-              aria-label="Member permission matrix"
-              sx={{ minWidth: 680 }}
-            >
-              <Box
-                role="row"
-                sx={{
-                  borderBottom: "1px solid rgba(43,21,31,0.16)",
-                  display: "grid",
-                  gap: 1,
-                  gridTemplateColumns:
-                    "minmax(0,1.8fr) repeat(3, minmax(0,1fr))",
-                  pb: 1,
-                }}
-              >
-                <Typography
-                  role="columnheader"
-                  sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
-                >
-                  CAPABILITY
-                </Typography>
-                <Typography
-                  role="columnheader"
-                  sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
-                >
-                  TIER 0
-                </Typography>
-                <Typography
-                  role="columnheader"
-                  sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
-                >
-                  TIER 1
-                </Typography>
-                <Typography
-                  role="columnheader"
-                  sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1 }}
-                >
-                  TIER 2
-                </Typography>
-              </Box>
-              {memberPermissionMatrix.map((row) => (
-                <Box
-                  role="row"
-                  key={row.capability}
-                  sx={{
-                    alignItems: "center",
-                    borderBottom: "1px solid rgba(43,21,31,0.08)",
-                    display: "grid",
-                    gap: 1,
-                    gridTemplateColumns:
-                      "minmax(0,1.8fr) repeat(3, minmax(0,1fr))",
-                    py: 1.25,
-                  }}
-                >
-                  <Box role="rowheader">
-                    <Typography
-                      sx={{
-                        fontFamily: "monospace",
-                        fontSize: 13,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {row.capability}
-                    </Typography>
-                    <Typography sx={{ color: "text.secondary", fontSize: 12 }}>
-                      {row.surface}
-                    </Typography>
-                  </Box>
-                  {[row.tier0, row.tier1, row.tier2].map((grant, index) => (
-                    <Typography
-                      key={index}
-                      role="cell"
-                      sx={{
-                        color: grant === "—" ? "text.disabled" : "#173d32",
-                        fontSize: 13,
-                        fontWeight: grant === "—" ? 400 : 800,
-                      }}
-                    >
-                      {grant}
-                    </Typography>
-                  ))}
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        </Card>
       </Container>
     </Box>
   );

@@ -5,28 +5,146 @@ import {
   Box,
   Button,
   Card,
-  Checkbox,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  MenuItem,
+  CircularProgress,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useReducer } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { financeReducer, initialFinanceState } from "./finance-model";
+type ReconciliationException = {
+  factRef: string;
+  providerRef: string;
+  statementRef: string;
+  currency: "GHS" | "USD";
+  minor: number;
+  exception: string;
+  occurredAt: string;
+  recordedAt: string;
+};
+type Checkpoint = {
+  day: string;
+  total: number;
+  reconciled: number;
+  excepted: number;
+  completedAt: string;
+};
+
+const exceptionLabels: Record<string, string> = {
+  ledger_missing: "Ledger entry missing",
+  reference_mismatch: "Reference mismatch",
+  currency_mismatch: "Currency mismatch",
+  amount_mismatch: "Amount mismatch",
+  ledger_unbalanced: "Ledger is unbalanced",
+};
 
 export function FinanceDesk() {
-  const [state, dispatch] = useReducer(financeReducer, initialFinanceState);
-  const selected = state.exceptions.find(
-    (item) => item.id === state.selectedId,
+  const [exceptions, setExceptions] = useState<ReconciliationException[]>([]);
+  const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [settlementEscrow, setSettlementEscrow] = useState("");
+  const [settlementMilestone, setSettlementMilestone] = useState("");
+  const [settlementBusy, setSettlementBusy] = useState(false);
+  const [settlementError, setSettlementError] = useState<string | null>(null);
+  const [statement, setStatement] = useState<{
+    statementRef: string;
+    grossPesewas: number;
+    feePesewas: number;
+    netPesewas: number;
+  } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/finance", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as {
+        exceptions?: ReconciliationException[];
+        checkpoints?: Checkpoint[];
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          body?.message ?? "Reconciliation evidence could not be loaded.",
+        );
+      setExceptions(body?.exceptions ?? []);
+      setCheckpoints(body?.checkpoints ?? []);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Reconciliation evidence could not be loaded.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(initialLoad);
+  }, [load]);
+
+  const totals = useMemo(
+    () =>
+      checkpoints.reduce(
+        (sum, item) => ({
+          total: sum.total + item.total,
+          reconciled: sum.reconciled + item.reconciled,
+          excepted: sum.excepted + item.excepted,
+        }),
+        { total: 0, reconciled: 0, excepted: 0 },
+      ),
+    [checkpoints],
   );
+
+  async function settleMilestone() {
+    setSettlementBusy(true);
+    setSettlementError(null);
+    setStatement(null);
+    try {
+      const response = await fetch("/api/escrows", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `settle.${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({
+          action: "settle",
+          escrowId: settlementEscrow.trim(),
+          milestoneId: settlementMilestone.trim(),
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        statementRef?: string;
+        grossPesewas?: number;
+        feePesewas?: number;
+        netPesewas?: number;
+        message?: string;
+      } | null;
+      if (!response.ok || !payload?.statementRef)
+        throw new Error(
+          payload?.message ?? "The milestone could not be settled.",
+        );
+      setStatement({
+        statementRef: payload.statementRef,
+        grossPesewas: payload.grossPesewas ?? 0,
+        feePesewas: payload.feePesewas ?? 0,
+        netPesewas: payload.netPesewas ?? 0,
+      });
+    } catch (cause) {
+      setSettlementError(
+        cause instanceof Error
+          ? cause.message
+          : "The milestone could not be settled.",
+      );
+    } finally {
+      setSettlementBusy(false);
+    }
+  }
 
   return (
     <main className="verification-shell finance-shell">
@@ -35,36 +153,113 @@ export function FinanceDesk() {
           <Link href="/" className="verification-back">
             Return to command centre
           </Link>
-          <Typography className="section-kicker">Finance operations</Typography>
+          <Typography className="section-kicker">
+            Finance operations · live
+          </Typography>
           <Typography component="h1">
-            Reconcile records. Never rewrite history.
+            Compare evidence. Preserve the books.
           </Typography>
           <Typography>
-            Provider and ledger references stay redacted. Every resolution,
-            export and price change needs a named human reason.
+            Provider facts and ledger proofs are append-only. This desk exposes
+            bounded reconciliation outcomes and separately authorizes
+            evidence-complete escrow settlement.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <Chip
-            color="warning"
-            label={`${state.exceptions.filter((item) => item.state !== "resolved").length} open`}
+            color={exceptions.length ? "warning" : "success"}
+            label={`${exceptions.length} exceptions`}
           />
-          <Chip label="Balances read-only" color="success" />
+          <Chip label="No balance editing" variant="outlined" />
         </Stack>
       </header>
 
-      {state.lastExport ? (
-        <Alert severity="success" className="verification-alert">
-          {state.lastExport} prepared with redacted references. Delivery remains
-          a separate authorized human action.
+      {error ? (
+        <Alert severity="error" className="verification-alert">
+          {error}
         </Alert>
       ) : null}
-      {state.pricingPublished ? (
-        <Alert severity="success" className="verification-alert">
-          Consultation price proposal approved by two distinct operators. This
-          preview does not publish to the catalog.
-        </Alert>
-      ) : null}
+      <Box
+        sx={{
+          display: "grid",
+          gap: 1.5,
+          gridTemplateColumns: "repeat(3,minmax(0,1fr))",
+          mb: 3,
+        }}
+      >
+        {[
+          ["Facts checked", totals.total],
+          ["Reconciled", totals.reconciled],
+          ["Exceptions", totals.excepted],
+        ].map(([label, value]) => (
+          <Card key={label} variant="outlined" sx={{ p: 2.25 }}>
+            <Typography
+              sx={{ color: "text.secondary", fontSize: 12, fontWeight: 800 }}
+            >
+              {label}
+            </Typography>
+            <Typography sx={{ fontSize: 30, fontWeight: 800 }}>
+              {value}
+            </Typography>
+          </Card>
+        ))}
+      </Box>
+
+      <Card sx={{ mb: 3, p: 3 }}>
+        <Typography className="section-kicker">
+          Evidence-gated escrow settlement
+        </Typography>
+        <Typography component="h2" sx={{ fontSize: 28, fontWeight: 800 }}>
+          Commit release and journal together.
+        </Typography>
+        <Typography sx={{ color: "text.secondary", mt: 1, maxWidth: 780 }}>
+          Finance scope and fresh MFA are required. Settlement fails closed
+          unless distinct delivery and member-acceptance evidence exist and no
+          dispute is open.
+        </Typography>
+        {settlementError ? (
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            {settlementError}
+          </Alert>
+        ) : null}
+        {statement ? (
+          <Alert severity="success" sx={{ mt: 2 }}>
+            Statement {statement.statementRef} · gross GHS{" "}
+            {(statement.grossPesewas / 100).toFixed(2)}
+            {" · "}fee GHS {(statement.feePesewas / 100).toFixed(2)}
+            {" · "}net GHS {(statement.netPesewas / 100).toFixed(2)}
+          </Alert>
+        ) : null}
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          sx={{ mt: 3 }}
+        >
+          <TextField
+            fullWidth
+            label="Escrow ID"
+            value={settlementEscrow}
+            onChange={(event) => setSettlementEscrow(event.target.value)}
+          />
+          <TextField
+            fullWidth
+            label="Evidence-complete milestone ID"
+            value={settlementMilestone}
+            onChange={(event) => setSettlementMilestone(event.target.value)}
+          />
+          <Button
+            disabled={
+              settlementBusy ||
+              !settlementEscrow.trim() ||
+              !settlementMilestone.trim()
+            }
+            onClick={() => void settleMilestone()}
+            variant="contained"
+          >
+            {settlementBusy ? "Settling…" : "Settle atomically"}
+          </Button>
+        </Stack>
+      </Card>
 
       <Box className="finance-grid">
         <Card className="finance-exceptions">
@@ -73,215 +268,99 @@ export function FinanceDesk() {
               <Typography className="section-kicker">
                 Reconciliation exceptions
               </Typography>
-              <Typography component="h2">Provider vs ledger</Typography>
+              <Typography component="h2">
+                Provider fact vs ledger proof
+              </Typography>
             </Box>
-            <Button
-              onClick={() => dispatch({ type: "request-export" })}
-              variant="outlined"
-            >
-              Prepare redacted export
+            <Button onClick={() => void load()} variant="outlined">
+              Refresh
             </Button>
           </Box>
-          <Box role="table" aria-label="Finance reconciliation exceptions">
-            {state.exceptions.map((item) => (
-              <Button
-                aria-pressed={item.id === state.selectedId}
-                className="finance-exception-row"
-                key={item.id}
-                onClick={() => dispatch({ type: "select", id: item.id })}
-              >
-                <Box>
-                  <Typography component="strong">{item.id}</Typography>
-                  <Typography>
-                    {item.providerRef} ↔ {item.ledgerRef}
-                  </Typography>
-                </Box>
-                <Typography component="strong">
-                  GHS {item.differenceGhs}
-                </Typography>
-                <Chip
-                  color={item.state === "resolved" ? "success" : "warning"}
-                  label={item.state}
-                  size="small"
-                />
-              </Button>
-            ))}
-          </Box>
+          {loading ? (
+            <Stack sx={{ alignItems: "center", py: 8 }}>
+              <CircularProgress size={28} />
+            </Stack>
+          ) : exceptions.length === 0 ? (
+            <Alert severity="success">
+              No retained reconciliation exceptions are present.
+            </Alert>
+          ) : (
+            <Stack spacing={1}>
+              {exceptions.map((item) => (
+                <Card
+                  key={`${item.factRef}-${item.recordedAt}`}
+                  variant="outlined"
+                  sx={{ p: 2 }}
+                >
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={1}
+                    sx={{ justifyContent: "space-between" }}
+                  >
+                    <Box>
+                      <Typography
+                        sx={{ fontFamily: "monospace", fontWeight: 800 }}
+                      >
+                        {item.factRef}
+                      </Typography>
+                      <Typography
+                        sx={{ color: "text.secondary", fontSize: 12 }}
+                      >
+                        {item.providerRef} · {item.statementRef}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: { sm: "right" } }}>
+                      <Typography sx={{ fontWeight: 800 }}>
+                        {item.currency} {(item.minor / 100).toFixed(2)}
+                      </Typography>
+                      <Chip
+                        color="warning"
+                        label={
+                          exceptionLabels[item.exception] ?? item.exception
+                        }
+                        size="small"
+                      />
+                    </Box>
+                  </Stack>
+                </Card>
+              ))}
+            </Stack>
+          )}
         </Card>
 
         <Card className="finance-resolution">
-          <Box className="verification-panel-heading">
-            <Box>
-              <Typography className="section-kicker">
-                Human determination
-              </Typography>
-              <Typography component="h2">{selected?.id}</Typography>
-            </Box>
-            <Chip label="No balance edit" />
-          </Box>
-          <Alert severity="info">
-            Selecting a resolution records a determination only. It never edits
-            provider data, journal entries or balances.
-          </Alert>
-          <TextField
-            fullWidth
-            helperText="At least 12 characters. Reference evidence, not member details."
-            label="Resolution reason"
-            multiline
-            onChange={(event) =>
-              dispatch({
-                type: "resolution-reason",
-                value: event.target.value,
-              })
-            }
-            rows={4}
-            value={state.resolutionReason}
-          />
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-            <Button
-              disabled={state.resolutionReason.trim().length < 12}
-              onClick={() => dispatch({ type: "investigate" })}
-              variant="outlined"
-            >
-              Keep investigating
-            </Button>
-            <Button
-              disabled={state.resolutionReason.trim().length < 12}
-              onClick={() => dispatch({ type: "resolve" })}
-              variant="contained"
-            >
-              Record resolved
-            </Button>
+          <Typography className="section-kicker">Daily checkpoints</Typography>
+          <Typography component="h2">Immutable run evidence</Typography>
+          <Typography sx={{ color: "text.secondary", mb: 2 }}>
+            Checkpoints summarize completed comparisons. They cannot resolve
+            exceptions or modify either source.
+          </Typography>
+          <Stack spacing={1}>
+            {checkpoints.length === 0 ? (
+              <Alert severity="info">
+                No daily reconciliation run has completed yet.
+              </Alert>
+            ) : (
+              checkpoints.map((item) => (
+                <Card key={item.day} variant="outlined" sx={{ p: 1.75 }}>
+                  <Typography sx={{ fontWeight: 800 }}>{item.day}</Typography>
+                  <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                    {item.reconciled} reconciled · {item.excepted} exceptions ·{" "}
+                    {item.total} total
+                  </Typography>
+                </Card>
+              ))
+            )}
           </Stack>
         </Card>
       </Box>
 
-      <Card className="finance-pricing">
-        <Box>
-          <Typography className="section-kicker">
-            Four-eyes pricing control
-          </Typography>
-          <Typography component="h2">
-            Consultation · licensed matchmakers
-          </Typography>
-          <Typography>
-            Price band GHS 80–250. Seeds, visibility, rank and romantic access
-            are not valid products.
-          </Typography>
-        </Box>
-        <Box className="finance-pricing-form">
-          <TextField
-            label="Proposed price (GHS)"
-            onChange={(event) =>
-              dispatch({ type: "price", value: Number(event.target.value) })
-            }
-            slotProps={{ htmlInput: { min: 80, max: 250, step: 1 } }}
-            type="number"
-            value={state.proposedPriceGhs}
-          />
-          <TextField
-            helperText="At least 12 characters."
-            label="Proposal reason"
-            onChange={(event) =>
-              dispatch({ type: "proposal-reason", value: event.target.value })
-            }
-            value={state.proposalReason}
-          />
-          <Button
-            disabled={state.proposalReason.trim().length < 12}
-            onClick={() => dispatch({ type: "propose-price" })}
-            variant="outlined"
-          >
-            Record first approval
-          </Button>
-          <TextField
-            disabled={!state.pricingProposed}
-            label="Distinct second approver"
-            onChange={(event) =>
-              dispatch({
-                type: "second-approver",
-                value: event.target.value,
-              })
-            }
-            select
-            value={state.secondApprover}
-          >
-            <MenuItem value="">Not selected</MenuItem>
-            <MenuItem value="finance-a" disabled>
-              Adwoa E. · proposer
-            </MenuItem>
-            <MenuItem value="finance-b">Kweku B. · finance reviewer</MenuItem>
-          </TextField>
-          <Button
-            disabled={!state.pricingProposed || !state.secondApprover}
-            onClick={() => dispatch({ type: "publish-price" })}
-            variant="contained"
-          >
-            Confirm two-person approval
-          </Button>
-        </Box>
-      </Card>
-
-      <Dialog
-        aria-labelledby="finance-export-title"
-        fullWidth
-        maxWidth="sm"
-        onClose={() => dispatch({ type: "cancel-export" })}
-        open={state.exportPending}
-      >
-        <DialogTitle id="finance-export-title">
-          Prepare redacted finance export
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <Alert severity="warning">
-              Includes opaque provider and journal references, differences and
-              statuses only. Phone, member identity, account number, raw
-              provider payload and payment credentials are excluded.
-            </Alert>
-            <TextField
-              helperText="At least 12 characters."
-              label="Export purpose"
-              onChange={(event) =>
-                dispatch({
-                  type: "export-purpose",
-                  value: event.target.value,
-                })
-              }
-              value={state.exportPurpose}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={state.exportRedactionConfirmed}
-                  onChange={(event) =>
-                    dispatch({
-                      type: "export-redaction",
-                      value: event.target.checked,
-                    })
-                  }
-                />
-              }
-              label="I confirmed the export contains redacted references only."
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => dispatch({ type: "cancel-export" })}>
-            Go back
-          </Button>
-          <Button
-            disabled={
-              state.exportPurpose.trim().length < 12 ||
-              !state.exportRedactionConfirmed
-            }
-            onClick={() => dispatch({ type: "confirm-export" })}
-            variant="contained"
-          >
-            Prepare bounded export
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <Alert severity="info" sx={{ mt: 3 }}>
+        Pricing publication and redacted export preparation are unavailable here
+        because no server-authoritative approval or export service is composed.
+        The previous local controls were removed; this desk will not claim a
+        financial action that was never persisted.
+      </Alert>
     </main>
   );
 }

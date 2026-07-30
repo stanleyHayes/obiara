@@ -27,6 +27,14 @@ func New(repository Repository, confirmations RefundConfirmationSource, ids IDSo
 	return Service{repository: repository, confirmations: confirmations, ids: ids, clock: clock}
 }
 
+func (service Service) Current(ctx context.Context, memberKey string) (domain.Pass, error) {
+	repository, ok := service.repository.(MemberRepository)
+	if !ok || memberKey == "" {
+		return domain.Pass{}, ErrUnavailable
+	}
+	return repository.FindForMember(ctx, memberKey)
+}
+
 func (service Service) Grant(ctx context.Context, memberKey, passID, receiptRef string, passVersion uint64, paidThrough time.Time, grace time.Duration, commandID string) (domain.Pass, error) {
 	if service.repository == nil || service.ids == nil || service.clock == nil {
 		return domain.Pass{}, ErrInvalid

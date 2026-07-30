@@ -36,6 +36,12 @@ func Inventory() []Definition {
 	return []Definition{
 		{Name: "MONGODB_URI", RotatedAtVariable: "MONGODB_URI_ROTATED_AT", Services: []Service{API, Worker}, MaxAge: 90 * 24 * time.Hour},
 		{Name: "RESEND_WEBHOOK_SECRET", RotatedAtVariable: "RESEND_WEBHOOK_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
+		{Name: "LIVENESS_HMAC_SECRET", RotatedAtVariable: "LIVENESS_HMAC_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
+		{Name: "COMMERCE_HMAC_SECRET", RotatedAtVariable: "COMMERCE_HMAC_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
+		{Name: "ADMIN_HMAC_SECRET", RotatedAtVariable: "ADMIN_HMAC_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
+		{Name: "NNOBOA_INVITE_SECRET", RotatedAtVariable: "NNOBOA_INVITE_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
+		{Name: "SEED_HMAC_SECRET", RotatedAtVariable: "SEED_HMAC_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
+		{Name: "CIRCLE_HMAC_SECRET", RotatedAtVariable: "CIRCLE_HMAC_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
 	}
 }
 

@@ -9,6 +9,7 @@ import {
 import { Stack } from "expo-router";
 import { Platform, View } from "react-native";
 import { MobileThemeProvider } from "@obiara/ui-mobile";
+import { SessionGate } from "../src/session-gate";
 
 // On web the app presents as a phone-width frame centered on a soft
 // canvas; on device it fills the screen.
@@ -39,7 +40,9 @@ export default function RootLayout() {
     <MobileThemeProvider>
       <View style={canvasStyle}>
         <View style={frameStyle}>
-          <Stack screenOptions={{ headerShown: false }} />
+          <SessionGate>
+            <Stack screenOptions={{ headerShown: false }} />
+          </SessionGate>
         </View>
       </View>
     </MobileThemeProvider>

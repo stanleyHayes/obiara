@@ -1,28 +1,89 @@
-import {
-  canPreviewSettlement,
-  escrowReducer,
-  formatGhs,
-  initialEscrowState,
-} from "@obiara/escrow-engagement";
 import { type Href, useRouter } from "expo-router";
-import { useReducer } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { apiRequest } from "./api";
+
+type Milestone = {
+  id: string;
+  grossPesewas: number;
+  feePesewas: number;
+  deliveryConfirmed: boolean;
+  acceptanceConfirmed: boolean;
+  settled: boolean;
+  statementRef?: string;
+};
+type Escrow = {
+  escrowId: string;
+  engagementId: string;
+  fundedPesewas: number;
+  settledPesewas: number;
+  milestones: Milestone[];
+  disputed: boolean;
+  escalationRef?: string;
+};
+type EscrowList = { items: Escrow[] };
+
+const money = (value: number) => `GHS ${(value / 100).toFixed(2)}`;
+
 export function EscrowEngagementScreen() {
   const router = useRouter();
-  const [state, dispatch] = useReducer(escrowReducer, initialEscrowState);
-  const selected = state.milestones.find(
-    (item) => item.id === state.selectedMilestone,
-  )!;
-  const frozen = state.disputeState !== "none";
+  const [items, setItems] = useState<Escrow[] | null>(null);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      setItems((await apiRequest<EscrowList>("/v1/escrows")).items);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Protected engagements could not load.",
+      );
+    }
+  }, []);
+
+  useEffect(() => void load(), [load]);
+
+  async function mutate(
+    escrowId: string,
+    action: "accept" | "dispute",
+    milestoneId?: string,
+  ) {
+    const key = `${action}:${escrowId}:${milestoneId ?? ""}`;
+    setBusy(key);
+    setError("");
+    const path =
+      action === "accept"
+        ? `/v1/escrows/${escrowId}/milestones/${milestoneId}/acceptance`
+        : `/v1/escrows/${escrowId}/disputes`;
+    try {
+      await apiRequest<Escrow>(path, {
+        method: "POST",
+        headers: { "Idempotency-Key": `${action}.${crypto.randomUUID()}` },
+        body: "{}",
+      });
+      await load();
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "The escrow action could not be completed.",
+      );
+    } finally {
+      setBusy("");
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -33,147 +94,115 @@ export function EscrowEngagementScreen() {
         >
           <Text style={styles.backText}>Matchmakers</Text>
         </Pressable>
-        <Text style={styles.eyebrow}>PROTECTED ENGAGEMENT</Text>
+        <Text style={styles.eyebrow}>PROTECTED ENGAGEMENTS</Text>
         <Text accessibilityRole="header" style={styles.title}>
-          Money moves only after shared evidence.
+          Evidence before release.
         </Text>
         <Text style={styles.copy}>
-          Terms are locked. This preview never releases money or contacts a
-          provider.
+          You can confirm acceptance or freeze an engagement. Delivery evidence
+          and settlement stay with separate, audited authorities.
         </Text>
-
-        <View style={styles.totals}>
-          {[
-            ["Funded", formatGhs(state.fundedPesewas)],
-            ["Platform fee", formatGhs(state.platformFeePesewas)],
-            ["Payout", formatGhs(state.payoutPesewas)],
-            ["Statement", state.payoutStatementRef],
-          ].map(([label, value]) => (
-            <View key={label} style={styles.total}>
-              <Text style={styles.totalLabel}>{label}</Text>
-              <Text style={styles.totalValue}>{value}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.eyebrowCard}>NAMED MILESTONES</Text>
-          <Text style={styles.cardTitle}>Confirm what was delivered.</Text>
-          {state.milestones.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => dispatch({ type: "select", id: item.id })}
-              style={[
-                styles.choice,
-                item.id === state.selectedMilestone && styles.choiceActive,
-              ]}
-            >
-              <Text style={styles.choiceTitle}>{item.name}</Text>
-              <Text style={styles.choiceAmount}>
-                {formatGhs(item.amountPesewas)}
-              </Text>
-            </Pressable>
-          ))}
-          <Text style={styles.sectionTitle}>{selected.name}</Text>
-          <Pressable
-            disabled={selected.memberConfirmed || frozen}
-            onPress={() => dispatch({ type: "confirm-member" })}
-            style={[
-              styles.primary,
-              (selected.memberConfirmed || frozen) && styles.disabled,
-            ]}
-          >
-            <Text style={styles.primaryText}>
-              {selected.memberConfirmed
-                ? "Member confirmed"
-                : "Confirm as member"}
-            </Text>
-          </Pressable>
-          <Pressable
-            disabled={selected.matchmakerConfirmed || frozen}
-            onPress={() => dispatch({ type: "confirm-matchmaker" })}
-            style={[
-              styles.secondary,
-              (selected.matchmakerConfirmed || frozen) && styles.disabled,
-            ]}
-          >
-            <Text style={styles.secondaryText}>
-              {selected.matchmakerConfirmed
-                ? "Matchmaker confirmed"
-                : "Preview matchmaker confirmation"}
-            </Text>
-          </Pressable>
-          <Pressable
-            disabled={!canPreviewSettlement(state)}
-            onPress={() => dispatch({ type: "preview-settlement" })}
-            style={[
-              styles.primary,
-              !canPreviewSettlement(state) && styles.disabled,
-            ]}
-          >
-            <Text style={styles.primaryText}>Preview settlement</Text>
-          </Pressable>
-          {state.settlementPreview ? (
-            <Text style={styles.notice}>
-              Eligible for backend review. No money has moved.
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.eyebrowCard}>DISPUTE PROTECTION</Text>
-          <Text style={styles.cardTitle}>
-            {frozen ? "Settlement is frozen." : "Something does not match?"}
+        {!items && !error ? <ActivityIndicator color="#8E3159" /> : null}
+        {error ? (
+          <Text accessibilityLiveRegion="polite" style={styles.error}>
+            {error}
           </Text>
-          {state.disputeState === "none" ? (
-            <>
-              <TextInput
-                accessibilityLabel="Dispute reason"
-                multiline
-                onChangeText={(value) =>
-                  dispatch({ type: "dispute-reason", value })
-                }
-                placeholder="Describe what differs from the agreed milestone"
-                placeholderTextColor="#8A747D"
-                style={styles.input}
-                value={state.disputeReason}
-              />
-              <Pressable
-                disabled={state.disputeReason.trim().length < 12}
-                onPress={() => dispatch({ type: "open-dispute" })}
-                style={[
-                  styles.primary,
-                  state.disputeReason.trim().length < 12 && styles.disabled,
-                ]}
-              >
-                <Text style={styles.primaryText}>
-                  Open dispute and freeze settlement
+        ) : null}
+        {items?.length === 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>No funded engagement yet.</Text>
+            <Text style={styles.meta}>
+              A booked consultation appears here only after provider-confirmed
+              funding.
+            </Text>
+          </View>
+        ) : null}
+        {items?.map((escrow) => (
+          <View key={escrow.escrowId} style={styles.card}>
+            <View style={styles.row}>
+              <View>
+                <Text style={styles.label}>FUNDED</Text>
+                <Text style={styles.amount}>{money(escrow.fundedPesewas)}</Text>
+              </View>
+              <View>
+                <Text style={styles.label}>SETTLED</Text>
+                <Text style={styles.amount}>
+                  {money(escrow.settledPesewas)}
                 </Text>
-              </Pressable>
-            </>
-          ) : state.disputeState === "open" ? (
+              </View>
+            </View>
+            {escrow.disputed ? (
+              <Text style={styles.frozen}>
+                Settlement frozen · Mpanyimfo review opened
+              </Text>
+            ) : null}
+            {escrow.milestones.map((milestone) => {
+              const command = `accept:${escrow.escrowId}:${milestone.id}`;
+              return (
+                <View key={milestone.id} style={styles.milestone}>
+                  <Text style={styles.milestoneTitle}>
+                    {milestone.id.replaceAll("-", " ")}
+                  </Text>
+                  <Text style={styles.meta}>
+                    {money(milestone.grossPesewas)} · fee{" "}
+                    {money(milestone.feePesewas)}
+                  </Text>
+                  <Text style={styles.status}>
+                    Delivery{" "}
+                    {milestone.deliveryConfirmed ? "confirmed" : "pending"} ·
+                    Your acceptance{" "}
+                    {milestone.acceptanceConfirmed ? "confirmed" : "pending"}
+                  </Text>
+                  <Pressable
+                    disabled={
+                      escrow.disputed ||
+                      milestone.acceptanceConfirmed ||
+                      milestone.settled ||
+                      busy !== ""
+                    }
+                    onPress={() =>
+                      void mutate(escrow.escrowId, "accept", milestone.id)
+                    }
+                    style={[
+                      styles.primary,
+                      (escrow.disputed ||
+                        milestone.acceptanceConfirmed ||
+                        milestone.settled) &&
+                        styles.disabled,
+                    ]}
+                  >
+                    <Text style={styles.primaryText}>
+                      {busy === command
+                        ? "Confirming…"
+                        : milestone.acceptanceConfirmed
+                          ? "Acceptance confirmed"
+                          : "Confirm my acceptance"}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            })}
             <Pressable
-              onPress={() => dispatch({ type: "escalate-dispute" })}
-              style={styles.primary}
+              disabled={escrow.disputed || busy !== ""}
+              onPress={() => void mutate(escrow.escrowId, "dispute")}
+              style={[styles.dispute, escrow.disputed && styles.disabled]}
             >
-              <Text style={styles.primaryText}>
-                Escalate to Mpanyimfo review
+              <Text style={styles.disputeText}>
+                {escrow.disputed
+                  ? "Settlement is frozen"
+                  : "Open dispute and freeze settlement"}
               </Text>
             </Pressable>
-          ) : (
-            <Text style={styles.notice}>
-              {state.escalationRef} · awaiting a separate panel
-            </Text>
-          )}
-        </View>
+          </View>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { backgroundColor: "#F7EFE3", flex: 1 },
-  content: { padding: 20, paddingBottom: 60 },
+  safe: { backgroundColor: "#F5EEE4", flex: 1 },
+  content: { padding: 20, paddingBottom: 64 },
   back: {
     alignSelf: "flex-start",
     borderColor: "#9F8793",
@@ -191,18 +220,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
     marginTop: 38,
   },
-  eyebrowCard: {
-    color: "#8E3159",
-    fontFamily: "Outfit_700Bold",
-    fontSize: 11,
-    letterSpacing: 1.3,
-  },
   title: {
     color: "#2B151F",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 50,
+    fontSize: 52,
     letterSpacing: -3.2,
-    lineHeight: 47,
+    lineHeight: 48,
     marginTop: 14,
   },
   copy: {
@@ -210,107 +233,90 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit_400Regular",
     fontSize: 17,
     lineHeight: 27,
-    marginBottom: 24,
-    marginTop: 20,
+    marginBottom: 20,
+    marginTop: 18,
   },
-  totals: { backgroundColor: "#38172C", borderRadius: 24, overflow: "hidden" },
-  total: { borderBottomColor: "#68415A", borderBottomWidth: 1, padding: 18 },
-  totalLabel: {
-    color: "#D9BECB",
-    fontFamily: "Outfit_400Regular",
-    fontSize: 12,
-  },
-  totalValue: {
-    color: "#FFF5E9",
-    fontFamily: "Outfit_700Bold",
-    fontSize: 22,
-    marginTop: 5,
+  error: {
+    color: "#A33A4B",
+    fontFamily: "Outfit_600SemiBold",
+    marginVertical: 12,
   },
   card: {
     backgroundColor: "#FFFAF2",
     borderColor: "#D8C7BD",
-    borderRadius: 24,
+    borderRadius: 26,
     borderWidth: 1,
-    marginTop: 12,
+    marginTop: 14,
     padding: 20,
   },
-  cardTitle: {
+  cardTitle: { color: "#2B151F", fontFamily: "Outfit_700Bold", fontSize: 23 },
+  row: { flexDirection: "row", gap: 38, justifyContent: "space-between" },
+  label: {
+    color: "#8E3159",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 10,
+    letterSpacing: 1.2,
+  },
+  amount: {
     color: "#2B151F",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 30,
-    letterSpacing: -1.5,
-    lineHeight: 32,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  choice: {
-    backgroundColor: "#F3E8DD",
-    borderColor: "transparent",
-    borderRadius: 16,
-    borderWidth: 2,
-    marginBottom: 8,
-    padding: 14,
-  },
-  choiceActive: { borderColor: "#8E3159" },
-  choiceTitle: { color: "#2B151F", fontFamily: "Outfit_700Bold" },
-  choiceAmount: {
-    color: "#745F68",
-    fontFamily: "Outfit_400Regular",
+    fontSize: 23,
     marginTop: 4,
   },
-  sectionTitle: {
+  frozen: {
+    backgroundColor: "#F3D9DC",
+    borderRadius: 12,
+    color: "#7A2535",
+    fontFamily: "Outfit_700Bold",
+    marginTop: 18,
+    padding: 12,
+  },
+  milestone: {
+    borderTopColor: "#E5D8CF",
+    borderTopWidth: 1,
+    marginTop: 20,
+    paddingTop: 18,
+  },
+  milestoneTitle: {
     color: "#2B151F",
     fontFamily: "Outfit_700Bold",
-    fontSize: 19,
-    marginTop: 15,
+    fontSize: 20,
+    textTransform: "capitalize",
+  },
+  meta: {
+    color: "#69535D",
+    fontFamily: "Outfit_400Regular",
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 5,
+  },
+  status: {
+    color: "#69535D",
+    fontFamily: "Outfit_600SemiBold",
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 12,
   },
   primary: {
     alignItems: "center",
-    backgroundColor: "#38172C",
+    backgroundColor: "#2B151F",
     borderRadius: 999,
     justifyContent: "center",
-    marginTop: 12,
-    minHeight: 52,
-    paddingHorizontal: 12,
-  },
-  primaryText: {
-    color: "#FFF5E9",
-    fontFamily: "Outfit_700Bold",
-    textAlign: "center",
-  },
-  secondary: {
-    alignItems: "center",
-    borderColor: "#8E3159",
-    borderRadius: 999,
-    borderWidth: 1,
-    justifyContent: "center",
-    marginTop: 12,
-    minHeight: 52,
-    paddingHorizontal: 12,
-  },
-  secondaryText: {
-    color: "#8E3159",
-    fontFamily: "Outfit_700Bold",
-    textAlign: "center",
-  },
-  disabled: { opacity: 0.38 },
-  notice: {
-    backgroundColor: "#DCEFE6",
-    borderRadius: 16,
-    color: "#1C654F",
-    fontFamily: "Outfit_700Bold",
-    lineHeight: 22,
     marginTop: 14,
-    padding: 16,
+    minHeight: 50,
+    paddingHorizontal: 18,
   },
-  input: {
-    borderColor: "#BDA9B1",
-    borderRadius: 14,
+  primaryText: { color: "#FFF7ED", fontFamily: "Outfit_700Bold" },
+  dispute: {
+    alignItems: "center",
+    borderColor: "#9A3D51",
+    borderRadius: 999,
     borderWidth: 1,
-    color: "#2B151F",
-    fontFamily: "Outfit_400Regular",
-    minHeight: 110,
-    padding: 14,
-    textAlignVertical: "top",
+    justifyContent: "center",
+    marginTop: 20,
+    minHeight: 50,
+    paddingHorizontal: 18,
   },
+  disputeText: { color: "#8B2E43", fontFamily: "Outfit_700Bold" },
+  disabled: { opacity: 0.45 },
 });

@@ -16,7 +16,15 @@ type Repository struct{ c *mongo.Collection }
 
 func NewRepository(d *mongo.Database) *Repository { return &Repository{d.Collection("oware_sessions")} }
 func (r *Repository) EnsureIndexes(ctx context.Context) error {
-	_, e := r.c.Indexes().CreateMany(ctx, []mongo.IndexModel{{Keys: bson.D{{Key: "commands.id", Value: 1}}, Options: options.Index().SetUnique(true).SetName("oware_session_command_unique")}, {Keys: bson.D{{Key: "roomRef", Value: 1}, {Key: "status", Value: 1}}, Options: options.Index().SetName("oware_session_room_status")}})
+	_, e := r.c.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "commands.id", Value: 1}}, Options: options.Index().SetUnique(true).SetName("oware_session_command_unique")},
+		{Keys: bson.D{{Key: "roomRef", Value: 1}, {Key: "status", Value: 1}}, Options: options.Index().SetName("oware_session_room_status")},
+		{
+			Keys: bson.D{{Key: "roomRef", Value: 1}},
+			Options: options.Index().SetUnique(true).SetName("oware_session_one_active_per_room").
+				SetPartialFilterExpression(bson.M{"status": session.StatusActive}),
+		},
+	})
 	return e
 }
 
@@ -46,6 +54,21 @@ func (r *Repository) Find(ctx context.Context, id string) (session.Session, erro
 }
 func (r *Repository) FindByCommand(ctx context.Context, id string) (session.Session, error) {
 	return r.find(ctx, bson.M{"commands.id": id})
+}
+func (r *Repository) FindCurrentByRoom(ctx context.Context, roomRef string) (session.Session, error) {
+	var d doc
+	err := r.c.FindOne(
+		ctx,
+		bson.M{"roomRef": roomRef, "status": bson.M{"$in": []session.Status{session.StatusActive, session.StatusCompleted}}},
+		options.FindOne().SetSort(bson.D{{Key: "deadline", Value: -1}}),
+	).Decode(&d)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return session.Session{}, application.ErrNotFound
+		}
+		return session.Session{}, err
+	}
+	return session.Rehydrate(session.State{ID: d.ID, RoomRef: d.RoomRef, Players: d.Players, Houses: d.Houses, Captured: d.Captured, GameOver: d.GameOver, Winner: d.Winner, Turn: owarePlayer(d.Turn), MoveWindow: d.MoveWindow, Deadline: d.Deadline, Status: d.Status, Revision: d.Revision, Events: d.Events, Commands: d.Commands})
 }
 func (r *Repository) find(ctx context.Context, f bson.M) (session.Session, error) {
 	var d doc

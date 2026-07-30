@@ -1,43 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { canPublish, initialStoryState, storyReducer } from "./story-model";
+import { storyPermissions } from "./story-model";
 
-describe("private Anansesɛm relay", () => {
-  it("requires a bounded contribution and hands over the turn", () => {
-    expect(storyReducer(initialStoryState, { type: "contribute" })).toEqual(
-      initialStoryState,
-    );
-    const drafted = storyReducer(initialStoryState, {
-      type: "draft",
-      value: "The path answered with a drumbeat.",
-    });
-    const sent = storyReducer(drafted, { type: "contribute" });
-    expect(sent.turn).toBe("ama");
-    expect(sent.contributions).toBe(5);
+describe("Anansesɛm client permission boundary", () => {
+  it("never grants a transition from fabricated local state", () => {
+    expect(
+      storyPermissions({
+        passageCount: 0,
+        yourTurn: true,
+        yourGrant: false,
+        bothGranted: false,
+      }),
+    ).toEqual({ canAdd: true, canGrant: false, canPublish: false });
   });
 
-  it("keeps publish consent separate and invalidates it after new writing", () => {
-    const consented = storyReducer(initialStoryState, {
-      type: "toggle-publish-consent",
-    });
-    expect(canPublish(consented)).toBe(true);
-    const drafted = storyReducer(consented, {
-      type: "draft",
-      value: "A new ending changes the shared work.",
-    });
+  it("respects retained turn, capacity, and current-draft grants", () => {
     expect(
-      storyReducer(drafted, { type: "contribute" }).yourPublishConsent,
-    ).toBe(false);
-  });
-
-  it("bounds drafts and blocks consecutive turns", () => {
-    const drafted = storyReducer(initialStoryState, {
-      type: "draft",
-      value: "a".repeat(400),
-    });
-    expect(drafted.draft).toHaveLength(280);
-    const sent = storyReducer(drafted, { type: "contribute" });
-    expect(
-      storyReducer(sent, { type: "draft", value: "another turn" }),
-    ).toEqual(sent);
+      storyPermissions({
+        passageCount: 40,
+        yourTurn: true,
+        yourGrant: true,
+        bothGranted: true,
+      }),
+    ).toEqual({ canAdd: false, canGrant: false, canPublish: true });
   });
 });

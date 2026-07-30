@@ -1,20 +1,96 @@
-import {
-  canExposeCuratedProposal,
-  initialMarketplaceState,
-  marketplaceReducer,
-} from "@obiara/matchmaker-marketplace";
 import { type Href, useRouter } from "expo-router";
-import { useReducer } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { apiRequest } from "./api";
+
+type Profile = {
+  matchmakerId: string;
+  displayName: string;
+  licenseId: string;
+  licenseValidUntil: string;
+  minimumFeePesewas: number;
+  maximumFeePesewas: number;
+  languages: string[];
+  specialties: string[];
+  completedEngagements: number;
+  ratingBasisPoints: number;
+};
+
+type ProfileList = { items: Profile[] };
+type Engagement = { engagementId: string };
+
+function formatGhs(pesewas: number) {
+  return `GHS ${(pesewas / 100).toFixed(2)}`;
+}
 
 export function MatchmakerMarketplaceScreen() {
   const router = useRouter();
-  const [state, dispatch] = useReducer(
-    marketplaceReducer,
-    initialMarketplaceState,
-  );
-  const selected = state.profiles.find((item) => item.id === state.selectedId);
+  const [profiles, setProfiles] = useState<Profile[] | null>(null);
+  const [selected, setSelected] = useState<Profile | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    void apiRequest<ProfileList>("/v1/matchmakers")
+      .then((result) => {
+        setProfiles(result.items);
+        setSelected(result.items[0] ?? null);
+      })
+      .catch((reason: unknown) =>
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Licensed matchmakers could not load.",
+        ),
+      );
+  }, []);
+
+  async function book() {
+    if (!selected) return;
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest<Engagement>("/v1/matchmaker-engagements", {
+        method: "POST",
+        headers: {
+          "Idempotency-Key": `book.${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        },
+        body: JSON.stringify({
+          matchmakerId: selected.matchmakerId,
+          termsId: "consultation.v1",
+          termsVersion: 1,
+          milestones: [
+            {
+              id: "consultation",
+              feePesewas: selected.minimumFeePesewas,
+              dueAfterDays: 0,
+            },
+          ],
+        }),
+      });
+      setMessage(
+        "Consultation booked with immutable terms. No candidate was exposed and no payment moved.",
+      );
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "The consultation could not be booked.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -25,137 +101,90 @@ export function MatchmakerMarketplaceScreen() {
         >
           <Text style={styles.backText}>Fie</Text>
         </Pressable>
-        <Text style={styles.eyebrow}>AGYINA · LICENSED GUIDANCE</Text>
+        <Text style={styles.eyebrow}>AGYINA · CURRENT LICENCES</Text>
         <Text accessibilityRole="header" style={styles.title}>
           Find a guide, not a shortcut.
         </Text>
         <Text style={styles.copy}>
-          Matchmakers cannot sell seeds, visibility, rank or access to another
-          member.
+          Every profile comes from the licensing register. Matchmakers cannot
+          sell seeds, rank, visibility or access to another member.
         </Text>
-
-        {state.profiles.map((profile) => (
-          <View key={profile.id} style={styles.profile}>
-            <Text style={styles.license}>LICENSED · {profile.licenseRef}</Text>
-            <Text style={styles.profileName}>{profile.name}</Text>
+        {!profiles && !error ? <ActivityIndicator color="#8E3159" /> : null}
+        {error ? (
+          <Text accessibilityLiveRegion="polite" style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
+        {message ? (
+          <Text accessibilityLiveRegion="polite" style={styles.success}>
+            {message}
+          </Text>
+        ) : null}
+        {profiles?.length === 0 ? (
+          <View style={styles.profile}>
+            <Text style={styles.profileName}>
+              No current matchmaker is available.
+            </Text>
+            <Text style={styles.meta}>
+              Expired, future and incomplete licences fail closed.
+            </Text>
+          </View>
+        ) : null}
+        {profiles?.map((profile) => (
+          <View key={profile.matchmakerId} style={styles.profile}>
+            <Text style={styles.license}>LICENSED · {profile.licenseId}</Text>
+            <Text style={styles.profileName}>{profile.displayName}</Text>
             <Text style={styles.meta}>{profile.specialties.join(" · ")}</Text>
             <Text style={styles.meta}>{profile.languages.join(" / ")}</Text>
             <View style={styles.feeRow}>
-              <Text style={styles.fee}>GHS {profile.consultationFeeGhs}</Text>
+              <Text style={styles.fee}>
+                {formatGhs(profile.minimumFeePesewas)}–
+                {formatGhs(profile.maximumFeePesewas)}
+              </Text>
               <Text style={styles.rating}>
-                {profile.rating} · {profile.completedEngagements} completed
+                {(profile.ratingBasisPoints / 100).toFixed(2)} ·{" "}
+                {profile.completedEngagements} completed
               </Text>
             </View>
             <Pressable
-              onPress={() => dispatch({ type: "select", id: profile.id })}
+              onPress={() => setSelected(profile)}
               style={styles.primary}
             >
-              <Text style={styles.primaryText}>Review services</Text>
+              <Text style={styles.primaryText}>Review consultation</Text>
             </Pressable>
           </View>
         ))}
-
         <View style={styles.booking}>
-          <Text style={styles.bookingEyebrow}>ENGAGEMENT PREVIEW</Text>
+          <Text style={styles.bookingEyebrow}>
+            IMMUTABLE CONSULTATION TERMS
+          </Text>
           <Text style={styles.bookingTitle}>
-            {selected?.name ?? "Choose a licensed matchmaker"}
+            {selected?.displayName ?? "Choose a licensed matchmaker"}
           </Text>
           {selected ? (
             <>
-              <Pressable
-                accessibilityState={{
-                  selected: state.service === "consultation",
-                }}
-                onPress={() =>
-                  dispatch({ type: "service", value: "consultation" })
-                }
-                style={styles.service}
-              >
-                <Text style={styles.serviceText}>Consultation</Text>
-                <Text style={styles.serviceText}>GHS 80–250</Text>
-              </Pressable>
-              <Pressable
-                accessibilityState={{ selected: state.service === "curated" }}
-                onPress={() => dispatch({ type: "service", value: "curated" })}
-                style={styles.service}
-              >
-                <Text style={styles.serviceText}>Three curated proposals</Text>
-                <Text style={styles.serviceText}>GHS 250–600</Text>
-              </Pressable>
-              {state.service === "consultation" ? (
-                <Pressable
-                  onPress={() => dispatch({ type: "confirm-booking" })}
-                  style={styles.action}
-                >
-                  <Text style={styles.actionText}>
-                    {state.bookingConfirmed
-                      ? "Consultation intent recorded"
-                      : "Confirm consultation intent"}
-                  </Text>
-                </Pressable>
-              ) : (
-                <>
-                  <Text style={styles.consentCopy}>
-                    Candidate exposure needs two current consents.
-                  </Text>
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: state.yourProposalConsent }}
-                    onPress={() =>
-                      dispatch({
-                        type: "your-consent",
-                        value: !state.yourProposalConsent,
-                      })
-                    }
-                    style={styles.consent}
-                  >
-                    <Text style={styles.consentText}>
-                      {state.yourProposalConsent ? "✓" : "○"} I consent to a
-                      bounded proposal
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityState={{
-                      checked: state.candidateProposalConsent,
-                    }}
-                    onPress={() =>
-                      dispatch({
-                        type: "candidate-consent",
-                        value: !state.candidateProposalConsent,
-                      })
-                    }
-                    style={styles.consent}
-                  >
-                    <Text style={styles.consentText}>
-                      {state.candidateProposalConsent ? "✓" : "○"} Preview
-                      candidate consent
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    accessibilityState={{
-                      disabled: !canExposeCuratedProposal(state),
-                    }}
-                    disabled={!canExposeCuratedProposal(state)}
-                    style={[
-                      styles.action,
-                      !canExposeCuratedProposal(state) && styles.disabled,
-                    ]}
-                  >
-                    <Text style={styles.actionText}>
-                      Review consented proposal
-                    </Text>
-                  </Pressable>
-                </>
-              )}
               <Text style={styles.disclosure}>
-                No charge or booking is created here. Fees, milestones and
-                dispute terms appear before payment.
+                One consultation at {formatGhs(selected.minimumFeePesewas)}.
+                Licence current through{" "}
+                {new Date(selected.licenseValidUntil).toLocaleDateString()}.
+              </Text>
+              <Pressable
+                disabled={busy}
+                onPress={() => void book()}
+                style={[styles.action, busy && styles.disabled]}
+              >
+                <Text style={styles.actionText}>
+                  {busy ? "Booking…" : "Book consultation"}
+                </Text>
+              </Pressable>
+              <Text style={styles.disclosure}>
+                Booking does not contact a payment provider or expose a
+                candidate. Candidate consent remains a separate private action.
               </Text>
             </>
           ) : (
             <Text style={styles.disclosure}>
-              Ratings appear only after completed engagements.
+              The marketplace stays closed without a current licence.
             </Text>
           )}
         </View>
@@ -201,6 +230,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     marginTop: 20,
   },
+  error: {
+    color: "#A33A4B",
+    fontFamily: "Outfit_600SemiBold",
+    marginVertical: 12,
+  },
+  success: {
+    color: "#27755F",
+    fontFamily: "Outfit_600SemiBold",
+    marginVertical: 12,
+  },
   profile: {
     backgroundColor: "#FFFAF2",
     borderColor: "#D8C7BD",
@@ -222,16 +261,11 @@ const styles = StyleSheet.create({
     letterSpacing: -1.5,
     marginTop: 8,
   },
-  meta: {
-    color: "#69535D",
-    fontFamily: "Outfit_400Regular",
-    marginTop: 5,
-  },
+  meta: { color: "#69535D", fontFamily: "Outfit_400Regular", marginTop: 5 },
   feeRow: {
     borderTopColor: "#E4D6CC",
     borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 10,
     marginTop: 16,
     paddingTop: 14,
   },
@@ -267,16 +301,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 10,
   },
-  service: {
-    borderColor: "rgba(255,245,233,0.35)",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 8,
-    padding: 14,
-  },
-  serviceText: { color: "#FFF5E9", fontFamily: "Outfit_700Bold" },
   action: {
     alignItems: "center",
     backgroundColor: "#FFB34F",
@@ -287,13 +311,6 @@ const styles = StyleSheet.create({
   },
   actionText: { color: "#2B151F", fontFamily: "Outfit_700Bold" },
   disabled: { opacity: 0.42 },
-  consentCopy: {
-    color: "#FFF5E9",
-    fontFamily: "Outfit_700Bold",
-    marginTop: 16,
-  },
-  consent: { paddingVertical: 12 },
-  consentText: { color: "#FFF5E9", fontFamily: "Outfit_600SemiBold" },
   disclosure: {
     color: "#D8C4CE",
     fontFamily: "Outfit_400Regular",

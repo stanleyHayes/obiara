@@ -108,6 +108,9 @@ export interface OperatorsState {
 }
 
 export type OperatorsAction =
+  | { type: "hydrate"; operators: Operator[] }
+  | { type: "server-error"; message: string }
+  | { type: "server-success"; message: string }
   | { type: "select"; id: string }
   | { type: "open-enroll" }
   | { type: "close-enroll" }
@@ -124,46 +127,9 @@ export type OperatorsAction =
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const initialOperatorsState: OperatorsState = {
-  actorId: "op-adwoa",
-  actorEmail: "adwoa@obiara.com",
-  operators: [
-    {
-      id: "op-adwoa",
-      name: "Adwoa E.",
-      email: "adwoa@obiara.com",
-      roles: ["ts_agent", "admin"],
-      status: "active",
-      mfa: "enrolled",
-      lastActive: "now",
-    },
-    {
-      id: "op-kweku",
-      name: "Kweku B.",
-      email: "kweku@obiara.com",
-      roles: ["finance"],
-      status: "active",
-      mfa: "enrolled",
-      lastActive: "12 min ago",
-    },
-    {
-      id: "op-efua",
-      name: "Efua M.",
-      email: "efua@obiara.com",
-      roles: ["verifier"],
-      status: "active",
-      mfa: "enrolled",
-      lastActive: "4 min ago",
-    },
-    {
-      id: "op-kofi",
-      name: "Kofi A.",
-      email: "kofi@obiara.com",
-      roles: ["verifier", "host"],
-      status: "suspended",
-      mfa: "enrolled",
-      lastActive: "3 days ago",
-    },
-  ],
+  actorId: "",
+  actorEmail: "",
+  operators: [],
   selectedId: null,
   enrollOpen: false,
   enrollEmail: "",
@@ -194,6 +160,29 @@ export function operatorsReducer(
   action: OperatorsAction,
 ): OperatorsState {
   switch (action.type) {
+    case "hydrate":
+      return {
+        ...state,
+        operators: action.operators,
+        selectedId:
+          state.selectedId &&
+          action.operators.some((item) => item.id === state.selectedId)
+            ? state.selectedId
+            : (action.operators[0]?.id ?? null),
+        error: null,
+      };
+    case "server-error":
+      return { ...state, error: action.message, notice: null };
+    case "server-success":
+      return {
+        ...state,
+        notice: action.message,
+        error: null,
+        enrollOpen: false,
+        enrollEmail: "",
+        enrollRoles: [],
+        actionReason: "",
+      };
     case "select":
       return { ...state, selectedId: action.id, notice: null, error: null };
     case "open-enroll":

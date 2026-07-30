@@ -43,6 +43,7 @@ describe("profile settings model", () => {
     expect(validateProfileForm(long)).toMatch(/80 characters/);
     const longIntro = {
       ...initialProfileSettingsState,
+      displayName: "Valid member",
       introduction: "b".repeat(introductionLimit + 1),
     };
     expect(validateProfileForm(longIntro)).toMatch(/280 characters/);
@@ -54,13 +55,21 @@ describe("profile settings model", () => {
       "ama@example.com",
       "see www.example.com",
     ]) {
-      const state = { ...initialProfileSettingsState, introduction: bad };
+      const state = {
+        ...initialProfileSettingsState,
+        displayName: "Valid member",
+        introduction: bad,
+      };
       expect(validateProfileForm(state)).toMatch(/contact details or links/);
     }
   });
 
   it("edits reset the saved flag", () => {
     let state = profileSettingsReducer(initialProfileSettingsState, {
+      type: "display-name",
+      value: "Valid member",
+    });
+    state = profileSettingsReducer(state, {
       type: "save",
     });
     expect(state.saved).toBe(true);

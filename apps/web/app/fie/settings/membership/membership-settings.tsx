@@ -1,22 +1,96 @@
 "use client";
 
-import {
-  initialMembershipState,
-  membershipReducer,
-} from "@obiara/membership-settings";
 import Link from "next/link";
-import { useReducer } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   CompoundBottomNavigation,
   CompoundRail,
 } from "../../compound-navigation";
 
+interface Membership {
+  passId: string;
+  passName: string;
+  status: "active" | "grace" | "expired" | "refund_pending" | "refunded";
+  paidThrough: string;
+  graceUntil: string;
+  renewsAutomatically: boolean;
+  receiptRef: string;
+  refundRequestRef?: string;
+  revision: number;
+}
+
 export function MembershipSettings() {
-  const [state, dispatch] = useReducer(
-    membershipReducer,
-    initialMembershipState,
-  );
+  const [membership, setMembership] = useState<Membership | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [action, setAction] = useState<"cancel" | "refund" | null>(null);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [message, setMessage] = useState("");
+  const command = useRef<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/membership")
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          membership?: Membership | null;
+          message?: string;
+        };
+        if (!response.ok)
+          throw new Error(payload.message || "Membership could not be loaded.");
+        if (active) {
+          setMembership(payload.membership ?? null);
+          setLoaded(true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Membership could not be loaded.",
+          );
+          setLoaded(true);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function mutate(nextAction: "cancel" | "refund") {
+    command.current ??= `membership-${nextAction}-${crypto.randomUUID()}`;
+    setAction(nextAction);
+    setMessage("");
+    try {
+      const response = await fetch("/api/membership", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": command.current,
+        },
+        body: JSON.stringify({ action: nextAction }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        (Membership & { message?: string }) | null;
+      if (!response.ok || !payload?.passId) {
+        throw new Error(
+          payload?.message || "The membership action could not be completed.",
+        );
+      }
+      setMembership(payload);
+      setConfirmingCancel(false);
+      command.current = null;
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The membership action could not be completed.",
+      );
+    } finally {
+      setAction(null);
+    }
+  }
 
   return (
     <main className="fie-shell membership-shell">
@@ -36,129 +110,136 @@ export function MembershipSettings() {
           </p>
         </section>
 
-        <section className="membership-grid">
-          <article className="membership-pass">
-            <header>
-              <div>
-                <p className="fie-kicker">Current pass</p>
-                <h2>{state.passName}</h2>
-              </div>
-              <span className={`is-${state.status}`}>{state.status}</span>
-            </header>
-            <dl>
-              <div>
-                <dt>Paid through</dt>
-                <dd>{state.paidThrough}</dd>
-              </div>
-              <div>
-                <dt>Automatic renewal</dt>
-                <dd>{state.renewsAutomatically ? "On" : "Off"}</dd>
-              </div>
-              <div>
-                <dt>Receipt</dt>
-                <dd>{state.receiptRef}</dd>
-              </div>
-              <div>
-                <dt>Grace period</dt>
-                <dd>
-                  {state.graceEnds
-                    ? `Until ${state.graceEnds}`
-                    : "Not currently in grace"}
-                </dd>
-              </div>
-            </dl>
-            {state.status === "cancelled" ? (
-              <div className="membership-confirmation">
-                <strong>Cancellation recorded without penalty.</strong>
-                <p>
-                  Your purchased access remains available through{" "}
-                  {state.paidThrough}. No standing, safety or matching signal
-                  changes.
-                </p>
-              </div>
-            ) : (
-              <button
-                className="membership-secondary"
-                onClick={() => dispatch({ type: "request-cancellation" })}
-                type="button"
-              >
-                Review cancellation
-              </button>
-            )}
-          </article>
+        {!loaded ? <p role="status">Loading membership…</p> : null}
+        {message ? (
+          <p className="profile-error" role="alert">
+            {message}
+          </p>
+        ) : null}
 
-          <article className="membership-refund">
-            <p className="fie-kicker">Receipt and refund</p>
-            <h2>
-              {state.refundState === "provider_confirmed"
-                ? "Provider confirmed the refund."
-                : state.refundState === "pending"
-                  ? "Refund review is pending."
-                  : "Need a payment reviewed?"}
-            </h2>
-            <p>
-              A request is not a refund promise. Obiara marks it complete only
-              after the payment provider confirms the return.
-            </p>
-            {state.refundState === "none" ? (
-              <>
-                <label>
-                  <span>Reason for review</span>
-                  <textarea
-                    onChange={(event) =>
-                      dispatch({
-                        type: "refund-reason",
-                        value: event.target.value,
-                      })
-                    }
-                    placeholder="Describe the payment issue without card or phone details"
-                    rows={4}
-                    value={state.refundReason}
-                  />
-                </label>
+        {loaded && !membership ? (
+          <section className="membership-grid">
+            <article className="membership-pass">
+              <p className="fie-kicker">No current pass</p>
+              <h2>You do not have an active paid membership.</h2>
+              <p>
+                Nothing will renew or be charged from this account. Purchase
+                options appear only after the approved payment provider is
+                available.
+              </p>
+            </article>
+          </section>
+        ) : null}
+
+        {membership ? (
+          <section className="membership-grid">
+            <article className="membership-pass">
+              <header>
+                <div>
+                  <p className="fie-kicker">Current pass</p>
+                  <h2>{membership.passName.replaceAll("_", " ")}</h2>
+                </div>
+                <span className={`is-${membership.status}`}>
+                  {membership.status.replaceAll("_", " ")}
+                </span>
+              </header>
+              <dl>
+                <div>
+                  <dt>Paid through</dt>
+                  <dd>
+                    {new Date(membership.paidThrough).toLocaleDateString(
+                      "en-GH",
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Automatic renewal</dt>
+                  <dd>{membership.renewsAutomatically ? "On" : "Off"}</dd>
+                </div>
+                <div>
+                  <dt>Receipt</dt>
+                  <dd>{membership.receiptRef.slice(0, 12)}…</dd>
+                </div>
+                <div>
+                  <dt>Grace period</dt>
+                  <dd>
+                    Until{" "}
+                    {new Date(membership.graceUntil).toLocaleDateString(
+                      "en-GH",
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              {membership.renewsAutomatically ? (
                 <button
-                  disabled={state.refundReason.trim().length < 12}
-                  onClick={() => dispatch({ type: "request-refund" })}
+                  className="membership-secondary"
+                  onClick={() => setConfirmingCancel(true)}
                   type="button"
                 >
-                  Request refund review
+                  Review cancellation
                 </button>
-              </>
-            ) : (
-              <div className="refund-status">
-                <span>{state.refundRef}</span>
-                <strong>
-                  {state.refundState === "pending"
-                    ? "Awaiting provider confirmation"
-                    : "Provider confirmation recorded"}
-                </strong>
-                {state.refundState === "pending" ? (
-                  <button
-                    onClick={() =>
-                      dispatch({ type: "provider-confirm-refund" })
-                    }
-                    type="button"
-                  >
-                    Preview provider confirmation
-                  </button>
-                ) : null}
-              </div>
-            )}
-          </article>
-        </section>
+              ) : (
+                <div className="membership-confirmation">
+                  <strong>Renewal is cancelled without penalty.</strong>
+                  <p>
+                    Your purchased access remains available through the
+                    paid-through date.
+                  </p>
+                </div>
+              )}
+            </article>
+
+            <article className="membership-refund">
+              <p className="fie-kicker">Receipt and refund</p>
+              <h2>
+                {membership.status === "refunded"
+                  ? "Provider confirmed the refund."
+                  : membership.status === "refund_pending"
+                    ? "Refund review is pending."
+                    : "Need the cancelled payment reviewed?"}
+              </h2>
+              <p>
+                A request is not a refund promise. Obiara marks it complete only
+                after the payment provider confirms the return.
+              </p>
+              {!membership.renewsAutomatically &&
+              membership.status !== "refund_pending" &&
+              membership.status !== "refunded" ? (
+                <button
+                  disabled={action === "refund"}
+                  onClick={() => void mutate("refund")}
+                  type="button"
+                >
+                  {action === "refund"
+                    ? "Requesting review"
+                    : "Request refund review"}
+                </button>
+              ) : null}
+              {membership.refundRequestRef ? (
+                <div className="refund-status">
+                  <span>{membership.refundRequestRef.slice(0, 12)}…</span>
+                  <strong>
+                    {membership.status === "refunded"
+                      ? "Provider confirmation recorded"
+                      : "Awaiting provider confirmation"}
+                  </strong>
+                </div>
+              ) : null}
+            </article>
+          </section>
+        ) : null}
 
         <aside className="membership-law">
           <p className="fie-kicker">What never changes</p>
           <h2>No purchase can improve your romantic standing.</h2>
           <p>
             Cancelling does not punish you. Grace never hides an expiry.
-            Receipts and refund references stay opaque, and no raw payment data
-            appears here.
+            Receipts and refund references stay opaque.
           </p>
         </aside>
       </section>
 
-      {state.cancellationPending ? (
+      {confirmingCancel && membership ? (
         <div
           className="membership-modal"
           role="dialog"
@@ -170,21 +251,24 @@ export function MembershipSettings() {
             <h2 id="cancel-title">Your paid time remains yours.</h2>
             <p>
               Cancellation stops future renewal only. Access continues through{" "}
-              {state.paidThrough}, with no standing or safety penalty.
+              {new Date(membership.paidThrough).toLocaleDateString("en-GH")}.
             </p>
             <div>
               <button
                 className="membership-secondary"
-                onClick={() => dispatch({ type: "keep-membership" })}
+                onClick={() => setConfirmingCancel(false)}
                 type="button"
               >
                 Keep membership
               </button>
               <button
-                onClick={() => dispatch({ type: "confirm-cancellation" })}
+                disabled={action === "cancel"}
+                onClick={() => void mutate("cancel")}
                 type="button"
               >
-                Confirm cancellation
+                {action === "cancel"
+                  ? "Cancelling renewal"
+                  : "Confirm cancellation"}
               </button>
             </div>
           </div>

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"mime"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/stanleyHayes/obiara/internal/privacy/application"
@@ -20,14 +19,10 @@ type Privacy interface {
 }
 
 // RegisterPrivacyRoutes adds the privacy baseline routes to mux.
-func RegisterPrivacyRoutes(mux *http.ServeMux, privacy Privacy) {
-	mux.Handle("POST /v1/privacy/exports", openPrivacyRequestHandler(privacy, domain.KindExport))
-	mux.Handle("POST /v1/privacy/deletions", openPrivacyRequestHandler(privacy, domain.KindDeletion))
-	mux.Handle("GET /v1/privacy/requests/{id}", privacyStatusHandler(privacy))
-}
-
-type privacyRequestBody struct {
-	AccountID string `json:"accountId"`
+func RegisterPrivacyRoutes(mux *http.ServeMux, privacy Privacy, sessions SessionAuthenticator) {
+	mux.Handle("POST /v1/privacy/exports", openPrivacyRequestHandler(privacy, sessions, domain.KindExport))
+	mux.Handle("POST /v1/privacy/deletions", openPrivacyRequestHandler(privacy, sessions, domain.KindDeletion))
+	mux.Handle("GET /v1/privacy/requests/{id}", privacyStatusHandler(privacy, sessions))
 }
 
 type privacyRequestResponse struct {
@@ -38,8 +33,12 @@ type privacyRequestResponse struct {
 	CompletedAt *time.Time `json:"completedAt,omitempty"`
 }
 
-func openPrivacyRequestHandler(privacy Privacy, kind domain.Kind) http.Handler {
+func openPrivacyRequestHandler(privacy Privacy, sessions SessionAuthenticator, kind domain.Kind) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		accountID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -48,7 +47,7 @@ func openPrivacyRequestHandler(privacy Privacy, kind domain.Kind) http.Handler {
 			return
 		}
 
-		var body privacyRequestBody
+		var body struct{}
 		if err := decodeJSON(w, r, &body); err != nil {
 			writeError(w, r, http.StatusBadRequest, APIError{
 				Code:    "invalid_json",
@@ -57,22 +56,12 @@ func openPrivacyRequestHandler(privacy Privacy, kind domain.Kind) http.Handler {
 			return
 		}
 
-		body.AccountID = strings.TrimSpace(body.AccountID)
-		if body.AccountID == "" || len(body.AccountID) > maxIdentifierLength || !identifierPattern.MatchString(body.AccountID) {
-			writeError(w, r, http.StatusUnprocessableEntity, APIError{
-				Code:    "validation_failed",
-				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "accountId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"}},
-			})
-			return
-		}
-
 		var request domain.PrivacyRequest
 		var err error
 		if kind == domain.KindExport {
-			request, err = privacy.RequestExport(r.Context(), body.AccountID)
+			request, err = privacy.RequestExport(r.Context(), accountID)
 		} else {
-			request, err = privacy.RequestDeletion(r.Context(), body.AccountID)
+			request, err = privacy.RequestDeletion(r.Context(), accountID)
 		}
 		if err != nil {
 			writePrivacyError(w, r, err)
@@ -82,11 +71,19 @@ func openPrivacyRequestHandler(privacy Privacy, kind domain.Kind) http.Handler {
 	})
 }
 
-func privacyStatusHandler(privacy Privacy) http.Handler {
+func privacyStatusHandler(privacy Privacy, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		accountID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		request, err := privacy.Status(r.Context(), r.PathValue("id"))
 		if err != nil {
 			writePrivacyError(w, r, err)
+			return
+		}
+		if request.AccountID() != accountID {
+			writeError(w, r, http.StatusNotFound, APIError{Code: "privacy_request_not_found", Message: "No such privacy request."})
 			return
 		}
 		writeSuccess(w, r, http.StatusOK, toPrivacyResponse(request))

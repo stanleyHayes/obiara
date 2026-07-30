@@ -33,6 +33,37 @@ func (r *Repository) Find(ctx context.Context, id string) (domain.Engagement, er
 	}
 	return domain.Rehydrate(s)
 }
+func (r *Repository) FindByCommand(ctx context.Context, command string) (domain.Engagement, error) {
+	var state domain.State
+	err := r.c.FindOne(ctx, bson.M{"appliedids": command}).Decode(&state)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return domain.Engagement{}, application.ErrNotFound
+	}
+	if err != nil {
+		return domain.Engagement{}, err
+	}
+	return domain.Rehydrate(state)
+}
+func (r *Repository) ListForMember(ctx context.Context, memberKey string) ([]domain.Engagement, error) {
+	cursor, e := r.c.Find(ctx, bson.M{"memberkey": memberKey}, options.Find().SetSort(bson.D{{Key: "bookedat", Value: -1}}))
+	if e != nil {
+		return nil, e
+	}
+	defer cursor.Close(ctx)
+	var states []domain.State
+	if e = cursor.All(ctx, &states); e != nil {
+		return nil, e
+	}
+	out := make([]domain.Engagement, 0, len(states))
+	for _, state := range states {
+		engagement, err := domain.Rehydrate(state)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, engagement)
+	}
+	return out, nil
+}
 func (r *Repository) Save(ctx context.Context, x domain.Engagement, expected uint64, command string) error {
 	s := x.State()
 	if len(s.Events) != int(expected+1) {

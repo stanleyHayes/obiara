@@ -12,7 +12,7 @@ var now = time.Date(2026, 7, 27, 0, 0, 0, 0, time.UTC)
 
 func fixture(t *testing.T) Escrow {
 	t.Helper()
-	x, e := Fund(key(1), key(2), 3000, Terms{ID: "terms.1", Version: 2, Milestones: []MilestoneTerm{{ID: "first", GrossPesewas: 1000, FeePesewas: 100}, {ID: "second", GrossPesewas: 2000, FeePesewas: 200}}}, "fund-1", now)
+	x, e := Fund(key(1), key(2), key(3), key(4), 3000, Terms{ID: "terms.1", Version: 2, Milestones: []MilestoneTerm{{ID: "first", GrossPesewas: 1000, FeePesewas: 100}, {ID: "second", GrossPesewas: 2000, FeePesewas: 200}}}, "fund-1", now)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -55,7 +55,7 @@ func FuzzTermsMustExactlyEqualFunding(f *testing.F) {
 		if a > 1000000 || b > 1000000 {
 			t.Skip()
 		}
-		_, e := Fund(key(1), key(2), a+b, Terms{ID: "terms.1", Version: 1, Milestones: []MilestoneTerm{{ID: "one", GrossPesewas: a}, {ID: "two", GrossPesewas: b}}}, "fund-1", now)
+		_, e := Fund(key(1), key(2), key(3), key(4), a+b, Terms{ID: "terms.1", Version: 1, Milestones: []MilestoneTerm{{ID: "one", GrossPesewas: a}, {ID: "two", GrossPesewas: b}}}, "fund-1", now)
 		valid := a > 0 && b > 0 && a+b >= a
 		if valid != (e == nil) {
 			t.Fatalf("%d %d %v", a, b, e)

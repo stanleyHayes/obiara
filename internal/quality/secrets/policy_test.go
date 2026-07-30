@@ -2,6 +2,7 @@ package secrets_test
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -148,6 +149,12 @@ func TestTrackedFilesContainNoHighConfidenceSecretValues(t *testing.T) {
 			continue
 		}
 		raw, e := os.ReadFile(filepath.Join(repo, path))
+		if errors.Is(e, os.ErrNotExist) {
+			// A tracked file may be intentionally deleted in the current
+			// worktree before the index is updated. There is no content left
+			// to scan in that state.
+			continue
+		}
 		if e != nil {
 			t.Fatal(e)
 		}

@@ -17,6 +17,12 @@ export type NotificationSettingsAction =
   | { readonly type: "toggle-channel"; readonly value: NotificationChannel }
   | { readonly type: "quiet-start"; readonly value: string }
   | { readonly type: "quiet-end"; readonly value: string }
+  | {
+      readonly type: "hydrate";
+      readonly enabledCategories: readonly NotificationCategory[];
+      readonly quietStart: string;
+      readonly quietEnd: string;
+    }
   | { readonly type: "disable-critical"; readonly value: "safety" | "otp" };
 
 export const initialNotificationSettings: NotificationSettingsState = {
@@ -33,6 +39,16 @@ export function notificationSettingsReducer(
   state: NotificationSettingsState,
   action: NotificationSettingsAction,
 ): NotificationSettingsState {
+  if (action.type === "hydrate") {
+    if (!validTime(action.quietStart) || !validTime(action.quietEnd))
+      return state;
+    return {
+      ...state,
+      enabledCategories: [...action.enabledCategories],
+      quietStart: action.quietStart,
+      quietEnd: action.quietEnd,
+    };
+  }
   if (action.type === "toggle-category") {
     return {
       ...state,

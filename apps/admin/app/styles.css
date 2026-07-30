@@ -1333,3 +1333,51 @@ body {
   background: #ffc66e !important;
   color: #26101f !important;
 }
+/* Authentication is intentionally visually distinct from the member app:
+   a quiet, bounded entry point before any operational data is mounted. */
+.admin-login-page {
+  align-items: center;
+  background:
+    radial-gradient(
+      circle at 15% 10%,
+      rgba(142, 49, 89, 0.12),
+      transparent 32rem
+    ),
+    #f4f0ec;
+  display: flex;
+  min-height: 100vh;
+  padding: 2rem 0;
+}
+
+.admin-login-card {
+  border: 1px solid rgba(58, 14, 46, 0.14);
+  border-radius: 12px !important;
+  padding: clamp(2rem, 6vw, 3rem);
+}
+
+.admin-login-card h1 {
+  font-size: clamp(2rem, 7vw, 3.25rem);
+  font-weight: 850;
+  letter-spacing: -0.05em;
+  line-height: 0.98;
+  margin-top: 0.65rem;
+}
+
+.admin-login-kicker {
+  color: #8e3159;
+  font-size: 0.72rem !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase;
+}
+
+.admin-login-copy {
+  color: #665b61;
+  line-height: 1.6 !important;
+  margin: 1.25rem 0 2rem !important;
+}
+
+.admin-login-form {
+  display: grid;
+  gap: 1rem;
+}

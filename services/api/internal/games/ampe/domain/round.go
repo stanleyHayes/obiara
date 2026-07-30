@@ -244,6 +244,10 @@ func (round Round) View(viewerKey string) (View, error) {
 
 func (round Round) Sequence() uint64 { return round.sequence }
 
+// Specification returns server-private replay material. It must never be
+// projected to clients because it contains privacy-keyed room and player refs.
+func (round Round) Specification() Spec { return round.spec }
+
 func (round Round) Events() []Event {
 	return append([]Event(nil), round.events...)
 }

@@ -20,6 +20,27 @@ type Command struct {
 	ID, StoryID, RoomID, ActorID, FirstAuthorID, SecondAuthorID string
 	ExpectedRevision                                            uint64
 }
+
+type PassageView struct {
+	ID        string
+	Ordinal   int
+	Content   string
+	Yours     bool
+	CreatedAt time.Time
+	EditedAt  time.Time
+}
+
+type Projection struct {
+	ID          string
+	TitleCode   string
+	Passages    []PassageView
+	YourTurn    bool
+	YourGrant   bool
+	OtherGrant  bool
+	BothGranted bool
+	Editions    []domain.Edition
+	Revision    uint64
+}
 type Service struct {
 	r                    Repository
 	a                    Authority
@@ -100,6 +121,39 @@ func (s Service) Publish(ctx context.Context, c Command) (domain.Edition, error)
 	}
 	editions := saved.Editions()
 	return editions[len(editions)-1], nil
+}
+
+func (s Service) View(ctx context.Context, c Command) (Projection, error) {
+	story, actor, e := s.current(ctx, c)
+	if e != nil {
+		return Projection{}, e
+	}
+	passages := story.Passages()
+	result := Projection{
+		ID: story.ID(), TitleCode: story.TitleCode(),
+		Passages: make([]PassageView, 0, len(passages)),
+		Editions: story.Editions(), Revision: story.Revision(),
+	}
+	authors := story.Authors()
+	result.YourTurn = authors[len(passages)%2] == actor
+	for _, grant := range story.Grants() {
+		if grant.AuthorKey == actor {
+			result.YourGrant = true
+		} else {
+			result.OtherGrant = true
+		}
+	}
+	result.BothGranted = len(story.Grants()) == 2
+	for _, passage := range passages {
+		revisions := passage.Revisions
+		latest := revisions[len(revisions)-1]
+		result.Passages = append(result.Passages, PassageView{
+			ID: passage.ID, Ordinal: passage.Ordinal, Content: latest.Content,
+			Yours: passage.AuthorKey == actor, CreatedAt: passage.CreatedAt,
+			EditedAt: latest.EditedAt,
+		})
+	}
+	return result, nil
 }
 func (s Service) current(ctx context.Context, c Command) (domain.Story, string, error) {
 	if !s.ready() || s.a.RevalidateAuthors(ctx, c.RoomID, c.FirstAuthorID, c.SecondAuthorID) != nil {

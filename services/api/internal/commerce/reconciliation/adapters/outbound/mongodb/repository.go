@@ -76,9 +76,42 @@ func (r *Repository) FindFactByEvent(ctx context.Context, event string) (domain.
 	}
 	return factFromDoc(d)
 }
+func (r *Repository) FindFactByID(ctx context.Context, id string) (domain.StatementFact, error) {
+	var d factDoc
+	if err := r.facts.FindOne(ctx, bson.M{"_id": id}).Decode(&d); err != nil {
+		return domain.StatementFact{}, mapped(err)
+	}
+	return factFromDoc(d)
+}
 func (r *Repository) AppendAudit(ctx context.Context, a domain.Audit) error {
 	_, err := r.audits.InsertOne(ctx, auditDoc{a.ID(), a.FactID(), a.Fingerprint(), a.Outcome(), a.Exception(), a.RecordedAt()})
 	return duplicate(err)
+}
+func (r *Repository) ListRecentAudits(ctx context.Context, limit int) ([]domain.Audit, error) {
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	cur, err := r.audits.Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "recordedAt", Value: -1}, {Key: "_id", Value: 1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+	var docs []auditDoc
+	if err = cur.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+	out := make([]domain.Audit, 0, len(docs))
+	for _, d := range docs {
+		audit, hydrateErr := domain.RehydrateAudit(domain.AuditState{
+			ID: d.ID, FactID: d.FactID, Fingerprint: d.Fingerprint,
+			Outcome: d.Outcome, Exception: d.Exception, RecordedAt: d.RecordedAt,
+		})
+		if hydrateErr != nil {
+			return nil, hydrateErr
+		}
+		out = append(out, audit)
+	}
+	return out, nil
 }
 func (r *Repository) ListFactsForDay(ctx context.Context, day string) ([]domain.StatementFact, error) {
 	cur, err := r.facts.Find(ctx, bson.M{"occurredDay": day}, options.Find().SetSort(bson.D{{Key: "occurredAt", Value: 1}, {Key: "_id", Value: 1}}))
@@ -110,6 +143,32 @@ func (r *Repository) FindCheckpoint(ctx context.Context, day string) (domain.Che
 		return domain.Checkpoint{}, mapped(err)
 	}
 	return domain.RehydrateCheckpoint(domain.CheckpointState{ID: d.ID, Day: d.Day, Fingerprint: d.Fingerprint, Total: d.Total, Reconciled: d.Reconciled, Excepted: d.Excepted, CompletedAt: d.CompletedAt})
+}
+func (r *Repository) ListRecentCheckpoints(ctx context.Context, limit int) ([]domain.Checkpoint, error) {
+	if limit < 1 || limit > 31 {
+		limit = 14
+	}
+	cur, err := r.checkpoints.Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "day", Value: -1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+	var docs []checkpointDoc
+	if err = cur.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+	out := make([]domain.Checkpoint, 0, len(docs))
+	for _, d := range docs {
+		checkpoint, hydrateErr := domain.RehydrateCheckpoint(domain.CheckpointState{
+			ID: d.ID, Day: d.Day, Fingerprint: d.Fingerprint, Total: d.Total,
+			Reconciled: d.Reconciled, Excepted: d.Excepted, CompletedAt: d.CompletedAt,
+		})
+		if hydrateErr != nil {
+			return nil, hydrateErr
+		}
+		out = append(out, checkpoint)
+	}
+	return out, nil
 }
 func factFromDoc(d factDoc) (domain.StatementFact, error) {
 	return domain.RehydrateFact(domain.FactState{ID: d.ID, ProviderKey: d.ProviderKey, EventKey: d.EventKey, ReferenceKey: d.ReferenceKey, LedgerCommand: d.LedgerCommand, Fingerprint: d.Fingerprint, Currency: d.Currency, Status: d.Status, Minor: d.Minor, OccurredAt: d.OccurredAt, ReceivedAt: d.ReceivedAt})

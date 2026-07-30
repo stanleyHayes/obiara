@@ -42,6 +42,35 @@ func (m *MockPrincipalRepository) EXPECT() *MockPrincipalRepositoryMockRecorder 
 	return m.recorder
 }
 
+// ApproveRoleChange mocks base method.
+func (m *MockPrincipalRepository) ApproveRoleChange(arg0 context.Context, arg1 domain.RoleChange, arg2 domain.Principal) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApproveRoleChange", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ApproveRoleChange indicates an expected call of ApproveRoleChange.
+func (mr *MockPrincipalRepositoryMockRecorder) ApproveRoleChange(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApproveRoleChange", reflect.TypeOf((*MockPrincipalRepository)(nil).ApproveRoleChange), arg0, arg1, arg2)
+}
+
+// CountActiveAdmins mocks base method.
+func (m *MockPrincipalRepository) CountActiveAdmins(arg0 context.Context) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CountActiveAdmins", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CountActiveAdmins indicates an expected call of CountActiveAdmins.
+func (mr *MockPrincipalRepositoryMockRecorder) CountActiveAdmins(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountActiveAdmins", reflect.TypeOf((*MockPrincipalRepository)(nil).CountActiveAdmins), arg0)
+}
+
 // Create mocks base method.
 func (m *MockPrincipalRepository) Create(arg0 context.Context, arg1 domain.Principal) error {
 	m.ctrl.T.Helper()
@@ -54,6 +83,20 @@ func (m *MockPrincipalRepository) Create(arg0 context.Context, arg1 domain.Princ
 func (mr *MockPrincipalRepositoryMockRecorder) Create(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockPrincipalRepository)(nil).Create), arg0, arg1)
+}
+
+// CreateRoleChange mocks base method.
+func (m *MockPrincipalRepository) CreateRoleChange(arg0 context.Context, arg1 domain.RoleChange) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateRoleChange", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateRoleChange indicates an expected call of CreateRoleChange.
+func (mr *MockPrincipalRepositoryMockRecorder) CreateRoleChange(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoleChange", reflect.TypeOf((*MockPrincipalRepository)(nil).CreateRoleChange), arg0, arg1)
 }
 
 // FindByEmail mocks base method.
@@ -84,6 +127,65 @@ func (m *MockPrincipalRepository) FindByID(arg0 context.Context, arg1 string) (d
 func (mr *MockPrincipalRepositoryMockRecorder) FindByID(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByID", reflect.TypeOf((*MockPrincipalRepository)(nil).FindByID), arg0, arg1)
+}
+
+// FindRoleChange mocks base method.
+func (m *MockPrincipalRepository) FindRoleChange(arg0 context.Context, arg1 string) (domain.RoleChange, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindRoleChange", arg0, arg1)
+	ret0, _ := ret[0].(domain.RoleChange)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindRoleChange indicates an expected call of FindRoleChange.
+func (mr *MockPrincipalRepositoryMockRecorder) FindRoleChange(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindRoleChange", reflect.TypeOf((*MockPrincipalRepository)(nil).FindRoleChange), arg0, arg1)
+}
+
+// List mocks base method.
+func (m *MockPrincipalRepository) List(arg0 context.Context) ([]domain.Principal, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", arg0)
+	ret0, _ := ret[0].([]domain.Principal)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockPrincipalRepositoryMockRecorder) List(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockPrincipalRepository)(nil).List), arg0)
+}
+
+// ListPendingRoleChanges mocks base method.
+func (m *MockPrincipalRepository) ListPendingRoleChanges(arg0 context.Context) ([]domain.RoleChange, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListPendingRoleChanges", arg0)
+	ret0, _ := ret[0].([]domain.RoleChange)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListPendingRoleChanges indicates an expected call of ListPendingRoleChanges.
+func (mr *MockPrincipalRepositoryMockRecorder) ListPendingRoleChanges(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPendingRoleChanges", reflect.TypeOf((*MockPrincipalRepository)(nil).ListPendingRoleChanges), arg0)
+}
+
+// Update mocks base method.
+func (m *MockPrincipalRepository) Update(arg0 context.Context, arg1 domain.Principal) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Update indicates an expected call of Update.
+func (mr *MockPrincipalRepositoryMockRecorder) Update(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockPrincipalRepository)(nil).Update), arg0, arg1)
 }
 
 // MockChallengeRepository is a mock of ChallengeRepository interface.

@@ -15,12 +15,19 @@ type DeliveryStats interface {
 }
 
 // RegisterDeliveryStatsRoutes adds the delivery statistics route.
-func RegisterDeliveryStatsRoutes(mux *http.ServeMux, stats DeliveryStats) {
-	mux.Handle("GET /v1/metrics/deliveries", deliveryStatsHandler(stats))
+func RegisterDeliveryStatsRoutes(mux *http.ServeMux, stats DeliveryStats, resolve AdminPrincipalResolver) {
+	mux.Handle("GET /v1/metrics/deliveries", deliveryStatsHandler(stats, resolve))
 }
 
-func deliveryStatsHandler(stats DeliveryStats) http.Handler {
+func deliveryStatsHandler(stats DeliveryStats, resolve AdminPrincipalResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := resolveAdminPrincipal(w, r, resolve)
+		if !ok || !principal.Has(adminOperationsScope) {
+			if ok {
+				writeAdminVerificationError(w, r, errAdminOperationsForbidden)
+			}
+			return
+		}
 		days := 30
 		if raw := strings.TrimSpace(r.URL.Query().Get("days")); raw != "" {
 			parsed, err := strconv.Atoi(raw)

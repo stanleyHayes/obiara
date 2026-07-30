@@ -14,6 +14,8 @@ import (
 
 var testClock = func() time.Time { return time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC) }
 
+const testInviteSecret = "synthetic-nnoboa-invite-secret-at-least-32-bytes"
+
 func validInput() NominateInput {
 	return NominateInput{
 		MemberID:     "mem_12345678",
@@ -27,7 +29,7 @@ func TestNominatePersistsAndInvites(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockNominationRepository(ctrl)
 	sender := NewMockNotificationSender(ctrl)
-	svc := NewNominationService(repo, sender, testClock)
+	svc := NewNominationService(repo, sender, testClock, testInviteSecret)
 
 	repo.EXPECT().HasPendingForKin(gomock.Any(), "mem_12345678", "+233550000101").Return(false, nil)
 	repo.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -45,6 +47,9 @@ func TestNominatePersistsAndInvites(t *testing.T) {
 			if msg.To() != "+233550000101" || msg.Params()["kin_name"] != "Auntie Efua" {
 				t.Errorf("unexpected message: %s %+v", msg.To(), msg.Params())
 			}
+			if len(msg.Params()["consent_token"]) < 32 {
+				t.Errorf("consent token missing: %+v", msg.Params())
+			}
 			return nil
 		})
 
@@ -61,7 +66,7 @@ func TestNominateRejectsDuplicatePending(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockNominationRepository(ctrl)
 	sender := NewMockNotificationSender(ctrl)
-	svc := NewNominationService(repo, sender, testClock)
+	svc := NewNominationService(repo, sender, testClock, testInviteSecret)
 
 	repo.EXPECT().HasPendingForKin(gomock.Any(), "mem_12345678", "+233550000101").Return(true, nil)
 
@@ -71,7 +76,7 @@ func TestNominateRejectsDuplicatePending(t *testing.T) {
 }
 
 func TestNominateRejectsInvalidInput(t *testing.T) {
-	svc := NewNominationService(nil, nil, testClock)
+	svc := NewNominationService(nil, nil, testClock, testInviteSecret)
 	in := validInput()
 	in.KinPhone = "0550000101"
 	if _, err := svc.Nominate(context.Background(), in); !errors.Is(err, domain.ErrInvalidNomination) {
@@ -82,7 +87,7 @@ func TestNominateRejectsInvalidInput(t *testing.T) {
 func TestConsentTransitions(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockNominationRepository(ctrl)
-	svc := NewNominationService(repo, nil, testClock)
+	svc := NewNominationService(repo, nil, testClock, testInviteSecret)
 
 	pending, err := domain.NewNomination("mem_12345678", "Auntie Efua", "+233550000101", "aunt", testClock())
 	if err != nil {
@@ -97,7 +102,7 @@ func TestConsentTransitions(t *testing.T) {
 			return nil
 		})
 
-	n, err := svc.Consent(context.Background(), pending.ID)
+	n, err := svc.Consent(context.Background(), pending.ID, svc.inviteToken(pending.ID))
 	if err != nil {
 		t.Fatalf("Consent: %v", err)
 	}
@@ -106,11 +111,21 @@ func TestConsentTransitions(t *testing.T) {
 	}
 }
 
+func TestConsentRejectsInvalidInviteTokenBeforeLookup(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	repo := NewMockNominationRepository(ctrl)
+	svc := NewNominationService(repo, nil, testClock, testInviteSecret)
+
+	if _, err := svc.Consent(context.Background(), "nom_private", "wrong"); !errors.Is(err, ErrInvalidInviteToken) {
+		t.Fatalf("want ErrInvalidInviteToken, got %v", err)
+	}
+}
+
 func TestLazyExpiryOnGet(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockNominationRepository(ctrl)
 	now := time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC)
-	svc := NewNominationService(repo, nil, func() time.Time { return now })
+	svc := NewNominationService(repo, nil, func() time.Time { return now }, testInviteSecret)
 
 	stale, err := domain.NewNomination("mem_12345678", "Auntie Efua", "+233550000101", "aunt", now.Add(-domain.NominationExpiry))
 	if err != nil {
@@ -138,7 +153,7 @@ func TestDeclineAfterExpiryRejected(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := NewMockNominationRepository(ctrl)
 	now := time.Date(2026, 3, 15, 12, 0, 0, 0, time.UTC)
-	svc := NewNominationService(repo, nil, func() time.Time { return now })
+	svc := NewNominationService(repo, nil, func() time.Time { return now }, testInviteSecret)
 
 	stale, err := domain.NewNomination("mem_12345678", "Auntie Efua", "+233550000101", "aunt", now.Add(-domain.NominationExpiry))
 	if err != nil {
@@ -147,7 +162,7 @@ func TestDeclineAfterExpiryRejected(t *testing.T) {
 	repo.EXPECT().FindByID(gomock.Any(), stale.ID).Return(stale, nil)
 	repo.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 
-	if _, err := svc.Decline(context.Background(), stale.ID); !errors.Is(err, domain.ErrNotPending) {
+	if _, err := svc.Decline(context.Background(), stale.ID, svc.inviteToken(stale.ID)); !errors.Is(err, domain.ErrNotPending) {
 		t.Fatalf("want ErrNotPending, got %v", err)
 	}
 }

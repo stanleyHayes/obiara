@@ -16,6 +16,9 @@ const (
 	ScopeQueueRead    Scope = "verification.queue.read"
 	ScopeEvidenceRead Scope = "verification.evidence.read"
 	ScopeReview       Scope = "verification.review"
+	ScopeOperations   Scope = "operations.manage"
+	ScopeFinance      Scope = "finance.settle"
+	ScopeSafety       Scope = "safety.review"
 
 	OutcomeApprove Outcome = "approve"
 	OutcomeReject  Outcome = "reject"

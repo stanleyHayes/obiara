@@ -32,6 +32,9 @@ type AccountRepository interface {
 	Create(context.Context, domain.Account) error
 	FindByPhone(context.Context, string) (domain.Account, error)
 	FindByID(context.Context, string) (domain.Account, error)
+	// List returns accounts newest first for bounded, redacted operational
+	// projections. Callers must never project the stored phone number.
+	List(context.Context, int) ([]domain.Account, error)
 	// UpdateWithAudit applies a tier transition atomically with its audit
 	// record, rejecting stale versions with ErrStaleSession.
 	UpdateWithAudit(context.Context, domain.Account, domain.TierTransition) error

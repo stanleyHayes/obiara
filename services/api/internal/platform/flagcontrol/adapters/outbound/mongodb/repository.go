@@ -88,6 +88,56 @@ func (r *Repository) FindByCommand(ctx context.Context, command string) (domain.
 	}
 	return fromDoc(d)
 }
+func (r *Repository) ListActive(ctx context.Context, limit int64) ([]domain.Proposal, error) {
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	cursor, err := r.proposals.Find(ctx,
+		bson.M{"status": bson.M{"$in": bson.A{domain.StatusProposed, domain.StatusApproved, domain.StatusApplied}}},
+		options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}).SetLimit(limit))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var proposals []domain.Proposal
+	for cursor.Next(ctx) {
+		var document proposalDoc
+		if err := cursor.Decode(&document); err != nil {
+			return nil, err
+		}
+		proposal, err := fromDoc(document)
+		if err != nil {
+			return nil, err
+		}
+		proposals = append(proposals, proposal)
+	}
+	return proposals, cursor.Err()
+}
+func (r *Repository) ListExpired(ctx context.Context, now time.Time, limit int64) ([]domain.Proposal, error) {
+	if limit < 1 || limit > 100 {
+		limit = 100
+	}
+	cursor, err := r.proposals.Find(ctx,
+		bson.M{"status": bson.M{"$ne": domain.StatusExpired}, "expiresAt": bson.M{"$lte": now.UTC()}},
+		options.Find().SetSort(bson.D{{Key: "expiresAt", Value: 1}}).SetLimit(limit))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var proposals []domain.Proposal
+	for cursor.Next(ctx) {
+		var document proposalDoc
+		if err := cursor.Decode(&document); err != nil {
+			return nil, err
+		}
+		proposal, err := fromDoc(document)
+		if err != nil {
+			return nil, err
+		}
+		proposals = append(proposals, proposal)
+	}
+	return proposals, cursor.Err()
+}
 func (r *Repository) SaveWithAudit(ctx context.Context, p domain.Proposal, expected uint64, a domain.Audit) error {
 	err := apimongo.WithTransaction(ctx, r.database.Client(), func(tx context.Context) error {
 		result, e := r.proposals.ReplaceOne(tx, bson.M{"_id": p.ID(), "version": expected}, toDoc(p))

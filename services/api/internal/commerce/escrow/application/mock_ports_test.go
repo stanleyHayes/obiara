@@ -56,6 +56,20 @@ func (mr *MockRepositoryMockRecorder) Create(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockRepository)(nil).Create), arg0, arg1)
 }
 
+// CreateAudited mocks base method.
+func (m *MockRepository) CreateAudited(arg0 context.Context, arg1 domain.Escrow, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateAudited", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateAudited indicates an expected call of CreateAudited.
+func (mr *MockRepositoryMockRecorder) CreateAudited(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAudited", reflect.TypeOf((*MockRepository)(nil).CreateAudited), arg0, arg1, arg2)
+}
+
 // Find mocks base method.
 func (m *MockRepository) Find(arg0 context.Context, arg1 string) (domain.Escrow, error) {
 	m.ctrl.T.Helper()
@@ -69,6 +83,36 @@ func (m *MockRepository) Find(arg0 context.Context, arg1 string) (domain.Escrow,
 func (mr *MockRepositoryMockRecorder) Find(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockRepository)(nil).Find), arg0, arg1)
+}
+
+// FindByCommand mocks base method.
+func (m *MockRepository) FindByCommand(arg0 context.Context, arg1 string) (domain.Escrow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByCommand", arg0, arg1)
+	ret0, _ := ret[0].(domain.Escrow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindByCommand indicates an expected call of FindByCommand.
+func (mr *MockRepositoryMockRecorder) FindByCommand(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByCommand", reflect.TypeOf((*MockRepository)(nil).FindByCommand), arg0, arg1)
+}
+
+// ListForOwner mocks base method.
+func (m *MockRepository) ListForOwner(arg0 context.Context, arg1 string) ([]domain.Escrow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListForOwner", arg0, arg1)
+	ret0, _ := ret[0].([]domain.Escrow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListForOwner indicates an expected call of ListForOwner.
+func (mr *MockRepositoryMockRecorder) ListForOwner(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListForOwner", reflect.TypeOf((*MockRepository)(nil).ListForOwner), arg0, arg1)
 }
 
 // Save mocks base method.
@@ -85,42 +129,32 @@ func (mr *MockRepositoryMockRecorder) Save(arg0, arg1, arg2, arg3 any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockRepository)(nil).Save), arg0, arg1, arg2, arg3)
 }
 
-// MockLedger is a mock of Ledger interface.
-type MockLedger struct {
-	ctrl     *gomock.Controller
-	recorder *MockLedgerMockRecorder
-	isgomock struct{}
-}
-
-// MockLedgerMockRecorder is the mock recorder for MockLedger.
-type MockLedgerMockRecorder struct {
-	mock *MockLedger
-}
-
-// NewMockLedger creates a new mock instance.
-func NewMockLedger(ctrl *gomock.Controller) *MockLedger {
-	mock := &MockLedger{ctrl: ctrl}
-	mock.recorder = &MockLedgerMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockLedger) EXPECT() *MockLedgerMockRecorder {
-	return m.recorder
-}
-
-// RecordSettlement mocks base method.
-func (m *MockLedger) RecordSettlement(arg0 context.Context, arg1 string, arg2 domain.Statement) error {
+// SaveAudited mocks base method.
+func (m *MockRepository) SaveAudited(arg0 context.Context, arg1 domain.Escrow, arg2 uint64, arg3, arg4, arg5 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecordSettlement", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SaveAudited", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RecordSettlement indicates an expected call of RecordSettlement.
-func (mr *MockLedgerMockRecorder) RecordSettlement(arg0, arg1, arg2 any) *gomock.Call {
+// SaveAudited indicates an expected call of SaveAudited.
+func (mr *MockRepositoryMockRecorder) SaveAudited(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordSettlement", reflect.TypeOf((*MockLedger)(nil).RecordSettlement), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveAudited", reflect.TypeOf((*MockRepository)(nil).SaveAudited), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
+// SettleAudited mocks base method.
+func (m *MockRepository) SettleAudited(arg0 context.Context, arg1 domain.Escrow, arg2 uint64, arg3, arg4 string, arg5 domain.Statement) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SettleAudited", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SettleAudited indicates an expected call of SettleAudited.
+func (mr *MockRepositoryMockRecorder) SettleAudited(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SettleAudited", reflect.TypeOf((*MockRepository)(nil).SettleAudited), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // MockIDSource is a mock of IDSource interface.

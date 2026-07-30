@@ -1,38 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  activeReasons,
-  explanationReducer,
-  initialExplanationState,
-} from "./explanation-model";
+import { introductionExplanationAvailability } from "./explanation-model";
 
-describe("introduction explanation consent", () => {
-  it("shows only reasons backed by enabled features", () => {
-    expect(activeReasons(initialExplanationState)).toHaveLength(2);
-    const withdrawn = explanationReducer(initialExplanationState, {
-      type: "toggle",
-      feature: "trust_context",
-    });
-    expect(activeReasons(withdrawn)).toEqual([
-      "You both chose family-minded partnership.",
-    ]);
-  });
-
-  it("keeps optional voice reflections off by default", () => {
-    expect(initialExplanationState.enabled.voice_reflections).toBe(false);
-    expect(JSON.stringify(initialExplanationState)).not.toMatch(
-      /destiny|compatibility|attractiveness|score|rank/i,
-    );
-  });
-
-  it("records rest and open decisions and lets the member change their mind", () => {
-    const resting = explanationReducer(initialExplanationState, {
-      type: "rest",
-    });
-    expect(resting.decision).toBe("resting");
-    const opened = explanationReducer(resting, { type: "open" });
-    expect(opened.decision).toBe("opened");
-    expect(explanationReducer(opened, { type: "undo-decision" }).decision).toBe(
-      "none",
-    );
+describe("introduction explanation availability", () => {
+  it("cannot claim a candidate or reason without a retained introduction", () => {
+    expect(introductionExplanationAvailability).toBe("unavailable");
   });
 });

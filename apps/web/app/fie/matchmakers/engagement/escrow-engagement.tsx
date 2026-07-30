@@ -1,25 +1,102 @@
 "use client";
 
-import {
-  canPreviewSettlement,
-  escrowReducer,
-  formatGhs,
-  initialEscrowState,
-} from "@obiara/escrow-engagement";
 import Link from "next/link";
-import { useReducer } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 
 import {
   CompoundBottomNavigation,
   CompoundRail,
 } from "../../compound-navigation";
 
+type Milestone = {
+  id: string;
+  grossPesewas: number;
+  feePesewas: number;
+  deliveryConfirmed: boolean;
+  acceptanceConfirmed: boolean;
+  settled: boolean;
+  statementRef?: string;
+};
+
+type Escrow = {
+  escrowId: string;
+  engagementId: string;
+  fundedPesewas: number;
+  settledPesewas: number;
+  termsId: string;
+  termsVersion: number;
+  milestones: Milestone[];
+  disputed: boolean;
+  escalationRef?: string;
+  revision: number;
+};
+
+function formatGhs(pesewas: number) {
+  return new Intl.NumberFormat("en-GH", {
+    style: "currency",
+    currency: "GHS",
+  }).format(pesewas / 100);
+}
+
 export function EscrowEngagement() {
-  const [state, dispatch] = useReducer(escrowReducer, initialEscrowState);
-  const selected = state.milestones.find(
-    (milestone) => milestone.id === state.selectedMilestone,
-  )!;
-  const frozen = state.disputeState !== "none";
+  const [escrows, setEscrows] = useReducer(
+    (_: Escrow[], next: Escrow[]) => next,
+    [],
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const load = useCallback(async () => {
+    const response = await fetch("/api/escrows", { cache: "no-store" });
+    const payload = (await response.json().catch(() => null)) as {
+      items?: Escrow[];
+      message?: string;
+    } | null;
+    if (!response.ok || !payload?.items) {
+      setError(
+        payload?.message ?? "Protected engagements could not be loaded.",
+      );
+      return;
+    }
+    setEscrows(payload.items);
+    setSelectedId((current) =>
+      current && payload.items?.some((item) => item.escrowId === current)
+        ? current
+        : (payload.items?.[0]?.escrowId ?? null),
+    );
+    setError("");
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(load);
+  }, [load]);
+
+  const selected = escrows.find((escrow) => escrow.escrowId === selectedId);
+
+  async function mutate(body: object, success: string) {
+    setBusy(true);
+    setError("");
+    const response = await fetch("/api/escrows", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": `escrow.${crypto.randomUUID()}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    if (!response.ok)
+      setError(payload?.message ?? "The escrow action could not be completed.");
+    else {
+      setMessage(success);
+      await load();
+    }
+    setBusy(false);
+  }
 
   return (
     <main className="fie-shell escrow-shell">
@@ -27,149 +104,170 @@ export function EscrowEngagement() {
       <section className="fie-main escrow-main">
         <header className="escrow-topbar">
           <Link href="/fie/matchmakers">Back to matchmakers</Link>
-          <span>{state.engagementRef} · terms locked</span>
+          <span>Member-owned · provider-funded · evidence-bound</span>
         </header>
         <section className="escrow-hero">
           <p className="fie-kicker">Protected engagement</p>
           <h1>Money moves only after shared evidence.</h1>
           <p>
-            Funding, fees and milestones are fixed to the agreed engagement.
-            This preview never releases money or contacts a payment provider.
+            Delivery belongs to the matchmaker, acceptance belongs to you, and
+            settlement belongs to finance. No client can impersonate another
+            authority.
           </p>
         </section>
-
-        <section className="escrow-ledger" aria-label="Engagement totals">
-          <div>
-            <span>Funded</span>
-            <strong>{formatGhs(state.fundedPesewas)}</strong>
-          </div>
-          <div>
-            <span>Platform fee</span>
-            <strong>{formatGhs(state.platformFeePesewas)}</strong>
-          </div>
-          <div>
-            <span>Matchmaker payout</span>
-            <strong>{formatGhs(state.payoutPesewas)}</strong>
-          </div>
-          <div>
-            <span>Payout statement</span>
-            <strong>{state.payoutStatementRef}</strong>
-          </div>
-        </section>
-
-        <section className="escrow-workspace">
-          <article className="escrow-milestones">
-            <p className="fie-kicker">Named milestones</p>
-            <h2>Confirm what was delivered.</h2>
-            <div className="milestone-tabs">
-              {state.milestones.map((milestone) => (
-                <button
-                  aria-pressed={milestone.id === state.selectedMilestone}
-                  key={milestone.id}
-                  onClick={() => dispatch({ type: "select", id: milestone.id })}
-                  type="button"
-                >
-                  <span>{milestone.name}</span>
-                  <strong>{formatGhs(milestone.amountPesewas)}</strong>
-                </button>
-              ))}
-            </div>
-            <div className="evidence-card">
-              <h3>{selected.name}</h3>
-              <p>
-                Both sides confirm delivery independently. Neither confirmation
-                can release funds alone.
-              </p>
-              <div className="evidence-actions">
-                <button
-                  disabled={selected.memberConfirmed || frozen}
-                  onClick={() => dispatch({ type: "confirm-member" })}
-                  type="button"
-                >
-                  {selected.memberConfirmed
-                    ? "Member confirmed"
-                    : "Confirm as member"}
-                </button>
-                <button
-                  disabled={selected.matchmakerConfirmed || frozen}
-                  onClick={() => dispatch({ type: "confirm-matchmaker" })}
-                  type="button"
-                >
-                  {selected.matchmakerConfirmed
-                    ? "Matchmaker confirmed"
-                    : "Preview matchmaker confirmation"}
-                </button>
-              </div>
+        {error ? (
+          <p className="booking-note" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {message ? (
+          <p className="settlement-ready" role="status">
+            {message}
+          </p>
+        ) : null}
+        {escrows.length > 1 ? (
+          <div className="milestone-tabs">
+            {escrows.map((escrow) => (
               <button
-                className="settlement-button"
-                disabled={!canPreviewSettlement(state)}
-                onClick={() => dispatch({ type: "preview-settlement" })}
+                aria-pressed={escrow.escrowId === selectedId}
+                key={escrow.escrowId}
+                onClick={() => setSelectedId(escrow.escrowId)}
                 type="button"
               >
-                Preview settlement
+                <span>{escrow.termsId}</span>
+                <strong>{formatGhs(escrow.fundedPesewas)}</strong>
               </button>
-              {state.settlementPreview ? (
-                <p className="settlement-ready" role="status">
-                  Settlement is eligible for backend review. No money has moved.
-                </p>
-              ) : null}
-            </div>
-          </article>
-
-          <article className="escrow-dispute">
-            <p className="fie-kicker">Dispute protection</p>
-            <h2>
-              {frozen ? "Settlement is frozen." : "Something does not match?"}
-            </h2>
-            {state.disputeState === "none" ? (
-              <>
-                <p>
-                  Explain the delivery issue without phone, card or private
-                  conversation details.
-                </p>
-                <textarea
-                  aria-label="Dispute reason"
-                  onChange={(event) =>
-                    dispatch({
-                      type: "dispute-reason",
-                      value: event.target.value,
-                    })
-                  }
-                  placeholder="Describe what differs from the agreed milestone"
-                  rows={5}
-                  value={state.disputeReason}
-                />
-                <button
-                  disabled={state.disputeReason.trim().length < 12}
-                  onClick={() => dispatch({ type: "open-dispute" })}
-                  type="button"
-                >
-                  Open dispute and freeze settlement
-                </button>
-              </>
-            ) : (
-              <div className="dispute-status">
-                <strong>
-                  Funds remain protected while people review the terms.
-                </strong>
-                <p>
-                  This does not delete the engagement, evidence or payout
-                  statement.
-                </p>
-                {state.disputeState === "open" ? (
-                  <button
-                    onClick={() => dispatch({ type: "escalate-dispute" })}
-                    type="button"
-                  >
-                    Escalate to Mpanyimfo review
-                  </button>
-                ) : (
-                  <span>{state.escalationRef} · awaiting a separate panel</span>
-                )}
+            ))}
+          </div>
+        ) : null}
+        {!selected ? (
+          <section className="escrow-workspace">
+            <article className="escrow-milestones">
+              <p className="fie-kicker">No funded escrow</p>
+              <h2>
+                Your booked terms remain separate until a payment provider
+                confirms funding.
+              </h2>
+              <p>
+                No local preview can create money, evidence, settlement or a
+                dispute.
+              </p>
+            </article>
+          </section>
+        ) : (
+          <>
+            <section className="escrow-ledger" aria-label="Engagement totals">
+              <div>
+                <span>Funded</span>
+                <strong>{formatGhs(selected.fundedPesewas)}</strong>
               </div>
-            )}
-          </article>
-        </section>
+              <div>
+                <span>Settled</span>
+                <strong>{formatGhs(selected.settledPesewas)}</strong>
+              </div>
+              <div>
+                <span>Terms</span>
+                <strong>
+                  {selected.termsId} · v{selected.termsVersion}
+                </strong>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong>
+                  {selected.disputed ? "Frozen for review" : "Protected"}
+                </strong>
+              </div>
+            </section>
+            <section className="escrow-workspace">
+              <article className="escrow-milestones">
+                <p className="fie-kicker">Named milestones</p>
+                <h2>Confirm only what you received.</h2>
+                {selected.milestones.map((milestone) => (
+                  <div className="evidence-card" key={milestone.id}>
+                    <h3>{milestone.id}</h3>
+                    <p>
+                      {formatGhs(milestone.grossPesewas)} gross ·{" "}
+                      {formatGhs(milestone.feePesewas)} disclosed fee
+                    </p>
+                    <div className="evidence-actions">
+                      <span>
+                        {milestone.deliveryConfirmed
+                          ? "Matchmaker delivery recorded"
+                          : "Waiting for matchmaker delivery"}
+                      </span>
+                      <button
+                        disabled={
+                          busy ||
+                          selected.disputed ||
+                          milestone.acceptanceConfirmed ||
+                          !milestone.deliveryConfirmed
+                        }
+                        onClick={() =>
+                          void mutate(
+                            {
+                              action: "accept",
+                              escrowId: selected.escrowId,
+                              milestoneId: milestone.id,
+                            },
+                            "Your acceptance evidence was recorded. It does not settle funds by itself.",
+                          )
+                        }
+                        type="button"
+                      >
+                        {milestone.acceptanceConfirmed
+                          ? "You accepted"
+                          : "Confirm delivery received"}
+                      </button>
+                    </div>
+                    {milestone.settled ? (
+                      <p className="settlement-ready">
+                        Settled · {milestone.statementRef}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </article>
+              <article className="escrow-dispute">
+                <p className="fie-kicker">Dispute protection</p>
+                <h2>
+                  {selected.disputed
+                    ? "Settlement is frozen."
+                    : "Something does not match?"}
+                </h2>
+                {selected.disputed ? (
+                  <div className="dispute-status">
+                    <strong>
+                      Funds remain protected while people review the terms.
+                    </strong>
+                    <p>
+                      {selected.escalationRef} · awaiting a separate Mpanyimfo
+                      panel
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p>
+                      Opening a dispute permanently freezes new evidence and
+                      settlement while preserving the complete record.
+                    </p>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void mutate(
+                          { action: "dispute", escrowId: selected.escrowId },
+                          "The escrow is frozen and a separate review reference was created.",
+                        )
+                      }
+                      type="button"
+                    >
+                      Open dispute and freeze settlement
+                    </button>
+                  </>
+                )}
+              </article>
+            </section>
+          </>
+        )}
       </section>
       <CompoundBottomNavigation contextLabel="Engagement finance" />
     </main>

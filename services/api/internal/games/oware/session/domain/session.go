@@ -56,10 +56,12 @@ type Projection struct {
 	ID, RoomRef              string
 	Players                  []string
 	Turn                     oware.Player
+	YourPlayer               oware.Player
 	Houses                   [12]int
 	Captured                 [2]int
 	Status                   Status
 	Winner                   int
+	Revision                 uint64
 	MoveDeadline, ServerTime time.Time
 }
 type Session struct {
@@ -147,7 +149,7 @@ func (s Session) Expire(now time.Time, c Command) (Session, error) {
 	return s, s.apply(c, "expire", "", -1)
 }
 func (s Session) Project(now time.Time) Projection {
-	return Projection{ID: s.id, RoomRef: s.roomRef, Players: append([]string(nil), s.players...), Turn: s.turn, Houses: s.board.Houses(), Captured: s.board.Captured(), Status: s.status, Winner: s.board.Winner(), MoveDeadline: s.deadline, ServerTime: now.UTC()}
+	return Projection{ID: s.id, RoomRef: s.roomRef, Players: append([]string(nil), s.players...), Turn: s.turn, Houses: s.board.Houses(), Captured: s.board.Captured(), Status: s.status, Winner: s.board.Winner(), Revision: s.revision, MoveDeadline: s.deadline, ServerTime: now.UTC()}
 }
 func (s *Session) apply(c Command, a, actor string, pit int) error {
 	if !opaque.MatchString(c.ID) || c.At.IsZero() || c.ExpectedRevision != s.revision {

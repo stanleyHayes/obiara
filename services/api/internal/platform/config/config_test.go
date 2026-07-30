@@ -48,6 +48,18 @@ func TestLoadOverrides(t *testing.T) {
 		"MONGODB_URI_ROTATED_AT":           now.Format(time.RFC3339),
 		"RESEND_WEBHOOK_SECRET":            "synthetic-test-only",
 		"RESEND_WEBHOOK_SECRET_ROTATED_AT": now.Format(time.RFC3339),
+		"LIVENESS_HMAC_SECRET":             "synthetic-liveness-secret-at-least-32-bytes",
+		"LIVENESS_HMAC_SECRET_ROTATED_AT":  now.Format(time.RFC3339),
+		"COMMERCE_HMAC_SECRET":             "synthetic-commerce-secret-at-least-32-bytes",
+		"COMMERCE_HMAC_SECRET_ROTATED_AT":  now.Format(time.RFC3339),
+		"ADMIN_HMAC_SECRET":                "synthetic-admin-secret-at-least-32-bytes",
+		"ADMIN_HMAC_SECRET_ROTATED_AT":     now.Format(time.RFC3339),
+		"NNOBOA_INVITE_SECRET":             "synthetic-nnoboa-secret-at-least-32-bytes",
+		"NNOBOA_INVITE_SECRET_ROTATED_AT":  now.Format(time.RFC3339),
+		"SEED_HMAC_SECRET":                 "synthetic-seed-secret-at-least-32-bytes",
+		"SEED_HMAC_SECRET_ROTATED_AT":      now.Format(time.RFC3339),
+		"CIRCLE_HMAC_SECRET":               "synthetic-circle-secret-at-least-32-bytes",
+		"CIRCLE_HMAC_SECRET_ROTATED_AT":    now.Format(time.RFC3339),
 	}))
 	if err != nil {
 		t.Fatalf("Load with overrides returned error: %v", err)
@@ -78,8 +90,20 @@ func TestLoadStagingRejectsMissingOrStaleSecretMetadata(t *testing.T) {
 	base := map[string]string{
 		"APP_ENV": "staging", "MONGODB_URI": "synthetic-test-only",
 		"RESEND_WEBHOOK_SECRET":            "synthetic-test-only",
+		"LIVENESS_HMAC_SECRET":             "synthetic-liveness-secret-at-least-32-bytes",
 		"MONGODB_URI_ROTATED_AT":           now.Format(time.RFC3339),
 		"RESEND_WEBHOOK_SECRET_ROTATED_AT": now.Format(time.RFC3339),
+		"LIVENESS_HMAC_SECRET_ROTATED_AT":  now.Format(time.RFC3339),
+		"COMMERCE_HMAC_SECRET":             "synthetic-commerce-secret-at-least-32-bytes",
+		"COMMERCE_HMAC_SECRET_ROTATED_AT":  now.Format(time.RFC3339),
+		"ADMIN_HMAC_SECRET":                "synthetic-admin-secret-at-least-32-bytes",
+		"ADMIN_HMAC_SECRET_ROTATED_AT":     now.Format(time.RFC3339),
+		"NNOBOA_INVITE_SECRET":             "synthetic-nnoboa-secret-at-least-32-bytes",
+		"NNOBOA_INVITE_SECRET_ROTATED_AT":  now.Format(time.RFC3339),
+		"SEED_HMAC_SECRET":                 "synthetic-seed-secret-at-least-32-bytes",
+		"SEED_HMAC_SECRET_ROTATED_AT":      now.Format(time.RFC3339),
+		"CIRCLE_HMAC_SECRET":               "synthetic-circle-secret-at-least-32-bytes",
+		"CIRCLE_HMAC_SECRET_ROTATED_AT":    now.Format(time.RFC3339),
 	}
 	if _, err := loadAt(envWith(base), now); err != nil {
 		t.Fatal(err)

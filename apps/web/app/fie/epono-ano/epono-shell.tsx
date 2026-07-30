@@ -1,25 +1,128 @@
 "use client";
 
-import { useReducer } from "react";
-import { DetailDialog } from "../detail-dialog";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
-import {
-  eponoReducer,
-  gateMessage,
-  initialEponoState,
-  type DoorwayGate,
-} from "./epono-model";
 
-const gateOptions: readonly { value: DoorwayGate; label: string }[] = [
-  { value: "ready", label: "Ready" },
-  { value: "tier-required", label: "Tier gate" },
-  { value: "consent-required", label: "Consent gate" },
-];
+type DoorwayQuestion = {
+  text: string;
+  custom: boolean;
+  updatedAt: string;
+};
+type ConsentBoard = {
+  purposes?: { matching_personalization?: boolean };
+};
+
+const suggestedQuestions = [
+  "What feels like home?",
+  "What do you protect time for?",
+  "What kind of community are you building?",
+] as const;
 
 export function EponoShell() {
-  const [state, dispatch] = useReducer(eponoReducer, initialEponoState);
-  const message = gateMessage(state.gate);
+  const [question, setQuestion] = useState<DoorwayQuestion | null>(null);
+  const [draft, setDraft] = useState<string>(suggestedQuestions[0]);
+  const [personalization, setPersonalization] = useState<boolean | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      fetch("/api/doorway-question", { cache: "no-store" }).then(
+        async (response) => {
+          const payload = (await response.json().catch(() => null)) as {
+            question?: DoorwayQuestion | null;
+            message?: string;
+          } | null;
+          if (!response.ok) throw new Error(payload?.message);
+          return payload?.question ?? null;
+        },
+      ),
+      fetch("/api/consent", { cache: "no-store" }).then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as
+          (ConsentBoard & { message?: string }) | null;
+        if (!response.ok) throw new Error(payload?.message);
+        return Boolean(payload?.purposes?.matching_personalization);
+      }),
+    ])
+      .then(([retained, enabled]) => {
+        if (!active) return;
+        setQuestion(retained);
+        setDraft(retained?.text ?? suggestedQuestions[0]);
+        setPersonalization(enabled);
+      })
+      .catch((reason: unknown) => {
+        if (active) {
+          setMessage(
+            reason instanceof Error && reason.message
+              ? reason.message
+              : "Your doorway readiness could not be loaded.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function saveQuestion() {
+    setBusy(true);
+    setMessage("");
+    const text = draft.trim();
+    const response = await fetch("/api/doorway-question", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        custom: !suggestedQuestions.includes(
+          text as (typeof suggestedQuestions)[number],
+        ),
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      (DoorwayQuestion & { message?: string }) | null;
+    if (!response.ok || !payload?.text) {
+      setMessage(
+        payload?.message ?? "Your doorway question could not be saved.",
+      );
+    } else {
+      setQuestion(payload);
+      setMessage("Your doorway question is retained.");
+    }
+    setBusy(false);
+  }
+
+  async function enablePersonalization() {
+    setBusy(true);
+    setMessage("");
+    const response = await fetch("/api/consent", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        purpose: "matching_personalization",
+        enabled: true,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      enabled?: boolean;
+      message?: string;
+    } | null;
+    if (!response.ok) {
+      setMessage(payload?.message ?? "Your consent choice could not be saved.");
+    } else {
+      setPersonalization(Boolean(payload?.enabled));
+      setMessage("Matching-personalization consent is enabled.");
+    }
+    setBusy(false);
+  }
+
+  const ready = Boolean(question && personalization);
 
   return (
     <main className="fie-shell epono-shell">
@@ -28,149 +131,99 @@ export function EponoShell() {
         <header className="epono-topbar">
           <div>
             <p className="fie-kicker">Ɛpono ano · the doorway</p>
-            <h1>Pause before you open.</h1>
+            <h1>Prepare the doorway. Never invent who waits behind it.</h1>
             <p>
-              One introduction at a time, with enough context to choose
-              deliberately. There is no deck to swipe and no penalty for
-              passing.
+              Obiara has not composed the retained introduction queue yet. This
+              surface now manages only the two real prerequisites already under
+              your control: your doorway question and optional matching
+              personalization.
             </p>
           </div>
           <div className="epono-tier">
-            <span>Tier 1</span>
-            Identity confirmed
+            <span>{ready ? "Ready" : "Not ready"}</span>
+            Server-authoritative prerequisites
           </div>
         </header>
 
-        <div className="epono-preview" aria-label="Preview doorway state">
-          {gateOptions.map((option) => (
-            <button
-              aria-pressed={state.gate === option.value}
-              key={option.value}
-              onClick={() => dispatch({ type: "gate", gate: option.value })}
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
         {message ? (
-          <section className="epono-gate" aria-labelledby="doorway-gate">
-            <p className="fie-kicker">A kind boundary</p>
-            <h2 id="doorway-gate">{message}</h2>
-            <p>
-              Your place in Obiara is unchanged. Return to Fie now, or continue
-              the exact step when you are ready.
-            </p>
-            <DetailDialog
-              kicker={
-                state.gate === "tier-required"
-                  ? "Identity status"
-                  : "Consent status"
-              }
-              title={
-                state.gate === "tier-required"
-                  ? "The doorway opens at Tier 1."
-                  : "Introductions need your consent."
-              }
-              trigger={
-                state.gate === "tier-required"
-                  ? "Review identity status"
-                  : "Review consent"
-              }
-            >
-              {state.gate === "tier-required" ? (
-                <p>
-                  Your phone is confirmed; identity verification is still
-                  pending. Finish the Ghana Card step or an assisted vouch and
-                  the doorway opens on its own — nothing else is asked.
-                </p>
-              ) : (
-                <p>
-                  Seeing why an introduction was made requires your explicit
-                  consent for each signal. You can grant or withdraw each one
-                  separately, at any time, without losing your place.
-                </p>
-              )}
-            </DetailDialog>
+          <section className="epono-gate" aria-live="polite">
+            <p className="fie-kicker">Doorway status</p>
+            <h2>{message}</h2>
           </section>
-        ) : state.decision === "none" ? (
-          <section
-            className="epono-review"
-            aria-labelledby="introduction-title"
-          >
-            <div className="epono-portrait">
-              <span>Photo stays veiled</span>
-              <strong>KE</strong>
+        ) : null}
+
+        <section className="epono-review" aria-labelledby="doorway-title">
+          <div className="epono-portrait">
+            <span>Candidate identity stays absent</span>
+            <strong aria-hidden="true">?</strong>
+          </div>
+          <article>
+            <p className="fie-kicker">Your retained context</p>
+            <h2 id="doorway-title">Choose the question you would answer.</h2>
+            <p>
+              It belongs to your profile. It is not a match, compatibility
+              score, candidate answer, or promise that an introduction exists.
+            </p>
+            <div className="epono-context">
+              {suggestedQuestions.map((item) => (
+                <button
+                  aria-pressed={draft === item}
+                  disabled={loading || busy}
+                  key={item}
+                  onClick={() => setDraft(item)}
+                  type="button"
+                >
+                  {item}
+                </button>
+              ))}
             </div>
-            <article>
-              <p className="fie-kicker">A considered introduction · 1 of 1</p>
-              <h2 id="introduction-title">Meet Kesi, through her own voice.</h2>
-              <div className="epono-voice">
+            <label>
+              <span className="fie-kicker">Doorway question</span>
+              <input
+                disabled={loading || busy}
+                maxLength={60}
+                onChange={(event) => setDraft(event.target.value)}
+                value={draft}
+              />
+            </label>
+            <footer>
+              <button
+                disabled={loading || busy || draft.trim().length === 0}
+                onClick={() => void saveQuestion()}
+                type="button"
+              >
+                {busy ? "Saving…" : "Save doorway question"}
+              </button>
+              {personalization ? (
+                <Link href="/fie/settings/consent">
+                  Personalization consent is on
+                </Link>
+              ) : (
                 <button
-                  aria-pressed={state.voicePlayed}
-                  onClick={() => dispatch({ type: "play-voice" })}
+                  disabled={loading || busy}
+                  onClick={() => void enablePersonalization()}
                   type="button"
                 >
-                  {state.voicePlayed
-                    ? "Voice heard · 0:42"
-                    : "Play introduction · 0:42"}
+                  Enable optional personalization
                 </button>
-                <span>Transcript available</span>
-              </div>
-              <blockquote>
-                “A quiet Sunday, a long walk, and people who mean what they
-                say.”
-              </blockquote>
-              <div className="epono-context">
-                <div>
-                  <span>Doorway answer</span>
-                  <strong>What feels like home?</strong>
-                  <p>Cooking with my sisters while highlife fills the room.</p>
-                </div>
-                <div>
-                  <span>Why this introduction</span>
-                  <strong>One shared path</strong>
-                  <p>A consented connection through Sunday Readers.</p>
-                </div>
-              </div>
-              <footer>
-                <button
-                  onClick={() => dispatch({ type: "pass" })}
-                  type="button"
-                >
-                  Pass kindly
-                </button>
-                <button
-                  onClick={() => dispatch({ type: "accept" })}
-                  type="button"
-                >
-                  Open the introduction
-                </button>
-              </footer>
-            </article>
-          </section>
-        ) : (
-          <section className="epono-decision" role="status">
-            <p className="fie-kicker">Decision saved</p>
-            <h2>
-              {state.decision === "accepted"
-                ? "The introduction can move forward."
-                : "The doorway is quiet again."}
-            </h2>
-            <p>
-              {state.decision === "accepted"
-                ? "Kesi will only see this after the consented introduction handoff."
-                : "Passing changes no standing, score or future access."}
-            </p>
-            <button
-              onClick={() => dispatch({ type: "gate", gate: "ready" })}
-              type="button"
-            >
-              Return to doorway
-            </button>
-          </section>
-        )}
+              )}
+            </footer>
+          </article>
+        </section>
+
+        <section className="epono-decision" role="status">
+          <p className="fie-kicker">Introduction availability</p>
+          <h2>
+            {ready
+              ? "Your prerequisites are retained."
+              : "Complete both prerequisites when you choose."}
+          </h2>
+          <p>
+            No person, photo, voice, transcript, shared path, recommendation
+            reason, accept action, or pass action is displayed until a real
+            consent-governed introduction store is composed.
+          </p>
+        </section>
 
         <CompoundBottomNavigation current="epono-ano" />
       </section>

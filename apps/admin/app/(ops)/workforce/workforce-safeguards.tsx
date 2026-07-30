@@ -6,29 +6,39 @@ import {
   Button,
   Card,
   Chip,
-  LinearProgress,
   Stack,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useReducer } from "react";
 
-import { EmptyState } from "../../empty-state";
-import {
-  initialWorkforceState,
-  workforceReducer,
-  type ExposureCategory,
-} from "./workforce-model";
-
-const categoryLabels: Readonly<Record<ExposureCategory, string>> = {
-  financial_coercion: "Financial coercion",
-  harassment: "Harassment",
-  sexual_safety: "Sexual safety",
-};
+const safeguards = [
+  [
+    "Category before content",
+    "Assignment previews identify the exposure category only. Evidence remains closed until a reviewer explicitly accepts through an authorized queue.",
+  ],
+  [
+    "Protected breaks",
+    "A break must remove new assignments and cannot lower a performance score, because moderation exposure is not a productivity target.",
+  ],
+  [
+    "No-penalty opt-out",
+    "A reviewer may decline graphic or personally unsafe material without retaliation, ranking, or hidden performance flags.",
+  ],
+  [
+    "Bounded exposure",
+    "Shift duration and sensitive-evidence exposure need enforceable limits set with occupational-health review, not invented client counters.",
+  ],
+  [
+    "Human support",
+    "Supervisor and counselling support must be confidential and must not create a diagnosis or employment inference in product telemetry.",
+  ],
+  [
+    "Rotation and review",
+    "High-exposure categories require rotation and a welfare check; incidents involving graphic evidence trigger reviewer follow-up.",
+  ],
+] as const;
 
 export function WorkforceSafeguards() {
-  const [state, dispatch] = useReducer(workforceReducer, initialWorkforceState);
-
   return (
     <main className="verification-shell workforce-shell">
       <header className="verification-header">
@@ -37,158 +47,85 @@ export function WorkforceSafeguards() {
             Return to command centre
           </Link>
           <Typography className="section-kicker">
-            Workforce safeguards
+            Moderation workforce safeguards
           </Typography>
           <Typography component="h1">
             The work must not consume the worker.
           </Typography>
           <Typography>
-            Preview exposure, take protected breaks, opt out without penalty,
-            and ask a supervisor for support.
+            Policy guardrails for evidence-facing teams. No shift, assignment,
+            exposure, break, opt-out, support, HR, or counselling system is
+            composed in this application.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Chip label={`${state.shiftMinutes} min on shift`} />
-          <Chip
-            color={
-              state.exposureCount >= state.maxExposure ? "warning" : "success"
-            }
-            label={`${state.exposureCount}/${state.maxExposure} exposures`}
-          />
+          <Chip color="success" label="No productivity score" />
+          <Chip label="No hidden surveillance" variant="outlined" />
         </Stack>
       </header>
 
-      {state.supportRequested ? (
-        <Alert severity="success" className="verification-alert">
-          Supervisor support requested. No diagnosis, performance flag or
-          retaliation marker was created.
-        </Alert>
-      ) : null}
-      {state.optedOut ? (
-        <Alert severity="info" className="verification-alert">
-          You opted out of this assignment without penalty. No new evidence is
-          shown.
-        </Alert>
-      ) : null}
+      <Alert severity="warning" className="verification-alert">
+        This page is guidance, not a staffing console. Use the approved
+        workforce system and supervisor channel for protected breaks, assignment
+        refusal, rotations, and support. Do not record health information in
+        case notes.
+      </Alert>
 
-      <Box className="workforce-grid">
-        <Card>
-          <Box className="verification-panel-heading">
-            <Typography component="h2">Exposure boundary</Typography>
-            <Chip label="No productivity score" />
-          </Box>
-          <Typography>
-            Exposure limits protect wellbeing. They are not performance targets.
-          </Typography>
-          <LinearProgress
-            aria-label="Current exposure limit"
-            sx={{ my: 3 }}
-            value={(state.exposureCount / state.maxExposure) * 100}
-            variant="determinate"
-          />
-          <Stack spacing={1.2}>
-            {(Object.keys(categoryLabels) as readonly ExposureCategory[]).map(
-              (category) => (
-                <Button
-                  disabled={
-                    state.breakActive ||
-                    state.optedOut ||
-                    state.exposureCount >= state.maxExposure
-                  }
-                  key={category}
-                  onClick={() => dispatch({ type: "preview", category })}
-                  variant="outlined"
+      <Box
+        sx={{
+          display: "grid",
+          gap: 1.5,
+          gridTemplateColumns: { xs: "1fr", md: "repeat(2,1fr)" },
+        }}
+      >
+        {safeguards.map(([title, description], index) => (
+          <Card key={title} variant="outlined" sx={{ p: 2.5 }}>
+            <Stack direction="row" spacing={1.5}>
+              <Typography
+                sx={{ color: "primary.main", fontSize: 22, fontWeight: 900 }}
+              >
+                {String(index + 1).padStart(2, "0")}
+              </Typography>
+              <Box>
+                <Typography
+                  component="h2"
+                  sx={{ fontSize: 20, fontWeight: 800 }}
                 >
-                  Preview {categoryLabels[category]} assignment
-                </Button>
-              ),
-            )}
-          </Stack>
-        </Card>
-
-        <Card>
-          <Box className="verification-panel-heading">
-            <Typography component="h2">Protected controls</Typography>
-            <Chip
-              color={state.breakActive ? "success" : "default"}
-              label={state.breakActive ? "Break active" : "Available"}
-            />
-          </Box>
-          <Stack spacing={1.4}>
-            <Button
-              onClick={() =>
-                dispatch({
-                  type: state.breakActive ? "end-break" : "start-break",
-                })
-              }
-              variant="contained"
-            >
-              {state.breakActive
-                ? "End protected break"
-                : "Start protected break"}
-            </Button>
-            <Button
-              disabled={state.optedOut}
-              onClick={() => dispatch({ type: "opt-out" })}
-              variant="outlined"
-            >
-              Opt out without penalty
-            </Button>
-            <Button
-              disabled={state.supportRequested}
-              onClick={() => dispatch({ type: "request-support" })}
-              variant="outlined"
-            >
-              Request supervisor support
-            </Button>
-          </Stack>
-          <Alert severity="info" sx={{ mt: 3 }}>
-            These controls do not create a health diagnosis, HR score or hidden
-            surveillance event.
-          </Alert>
-        </Card>
+                  {title}
+                </Typography>
+                <Typography sx={{ color: "text.secondary", mt: 0.75 }}>
+                  {description}
+                </Typography>
+              </Box>
+            </Stack>
+          </Card>
+        ))}
       </Box>
 
-      <Card className="workforce-preview">
-        {state.selectedCategory ? (
-          <>
-            <Box>
-              <Typography className="section-kicker">
-                Category preview only
-              </Typography>
-              <Typography component="h2">
-                {categoryLabels[state.selectedCategory]}
-              </Typography>
-              <Typography>
-                No evidence is visible until you explicitly accept this
-                assignment.
-              </Typography>
-            </Box>
-            <Stack spacing={1}>
-              <Button
-                disabled={state.acceptedAssignment}
-                onClick={() => dispatch({ type: "accept" })}
-                variant="contained"
-              >
-                Accept assignment
-              </Button>
-              <Button
-                disabled={!state.acceptedAssignment}
-                onClick={() => dispatch({ type: "complete" })}
-                variant="outlined"
-              >
-                Record bounded exposure
-              </Button>
-            </Stack>
-          </>
-        ) : (
-          <EmptyState
-            icon="◌"
-            title="No assignment selected"
-            description="Choose a category preview only when you are ready."
-          />
-        )}
+      <Card className="workforce-preview" sx={{ mt: 3 }}>
+        <Box>
+          <Typography className="section-kicker">Evidence boundary</Typography>
+          <Typography component="h2">
+            Open content only inside an assigned case.
+          </Typography>
+          <Typography>
+            The safety queue owns assignment and least-exposure access. A
+            fresh-MFA, purpose-audited view is the only composed path to
+            retained evidence.
+          </Typography>
+        </Box>
+        <Button component={Link} href="/safety" variant="contained">
+          Open safety queue
+        </Button>
       </Card>
+
+      <Alert severity="info" sx={{ mt: 3 }}>
+        Before production staffing, the external workforce authority must prove
+        category-only preview, enforceable exposure ceilings, protected breaks,
+        no-penalty refusal, confidential support escalation, rotation, and
+        anti-retaliation audit. Until then, this product does not claim those
+        controls were applied.
+      </Alert>
     </main>
   );
 }

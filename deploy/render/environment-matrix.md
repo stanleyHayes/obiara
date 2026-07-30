@@ -45,11 +45,28 @@ for least-privilege database users. Neither service has a persistent disk.
 | Variable                           | Classification             | API | Worker | Web | Admin | Provisioning rule                                      |
 | ---------------------------------- | -------------------------- | --: | -----: | --: | ----: | ------------------------------------------------------ |
 | `APP_ENV`                          | Non-secret                 | yes |    yes |  no |    no | Staging environment group                              |
+| `FEATURE_SOW_ENABLED`              | Runtime release control    | yes |     no |  no |    no | Explicit `true` for the composed staging capability    |
+| `FEATURE_FIRES_ENABLED`            | Runtime release control    | yes |     no |  no |    no | Explicit `true` for the composed staging capability    |
+| `FEATURE_PAYMENTS_ENABLED`         | Runtime release control    | yes |     no |  no |    no | Explicit `true` for the composed staging capability    |
+| `FEATURE_GATE_ENABLED`             | Runtime release control    | yes |     no |  no |    no | Explicit `true` for the composed staging capability    |
+| `FEATURE_AI_ENABLED`               | Runtime release control    | yes |     no |  no |    no | Explicit `false` until an AI runtime is composed       |
 | `MONGODB_DATABASE`                 | Non-secret                 | yes |    yes |  no |    no | Blueprint value `obiara_staging`                       |
 | `MONGODB_URI`                      | Secret                     | yes |    yes |  no |    no | Independent `sync: false` values; never shared in Git  |
 | `MONGODB_URI_ROTATED_AT`           | Rotation metadata          | yes |    yes |  no |    no | Independent RFC3339 activation evidence; `sync: false` |
 | `RESEND_WEBHOOK_SECRET`            | Secret                     | yes |     no |  no |    no | `sync: false`; staging-only Resend webhook             |
 | `RESEND_WEBHOOK_SECRET_ROTATED_AT` | Rotation metadata          | yes |     no |  no |    no | RFC3339 activation evidence; `sync: false`             |
+| `LIVENESS_HMAC_SECRET`             | Secret                     | yes |     no |  no |    no | `sync: false`; keys retained liveness proof references |
+| `LIVENESS_HMAC_SECRET_ROTATED_AT`  | Rotation metadata          | yes |     no |  no |    no | RFC3339 activation evidence; `sync: false`             |
+| `COMMERCE_HMAC_SECRET`             | Secret                     | yes |     no |  no |    no | `sync: false`; derives scoped commerce member keys     |
+| `COMMERCE_HMAC_SECRET_ROTATED_AT`  | Rotation metadata          | yes |     no |  no |    no | RFC3339 activation evidence; `sync: false`             |
+| `ADMIN_HMAC_SECRET`                | Secret                     | yes |     no |  no |    no | `sync: false`; derives opaque admin subject references |
+| `ADMIN_HMAC_SECRET_ROTATED_AT`     | Rotation metadata          | yes |     no |  no |    no | RFC3339 activation evidence; `sync: false`             |
+| `NNOBOA_INVITE_SECRET`             | Secret                     | yes |     no |  no |    no | signs one-time kin invitation authority                |
+| `NNOBOA_INVITE_SECRET_ROTATED_AT`  | Rotation metadata          | yes |     no |  no |    no | RFC3339 activation evidence; `sync: false`             |
+| `SEED_HMAC_SECRET`                 | Secret                     | yes |     no |  no |    no | keys private seed and garden projections               |
+| `SEED_HMAC_SECRET_ROTATED_AT`      | Rotation metadata          | yes |     no |  no |    no | RFC3339 activation evidence; `sync: false`             |
+| `CIRCLE_HMAC_SECRET`               | Secret                     | yes |     no |  no |    no | keys circle-room actors and invitation authority       |
+| `CIRCLE_HMAC_SECRET_ROTATED_AT`    | Rotation metadata          | yes |     no |  no |    no | RFC3339 activation evidence; `sync: false`             |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`      | Configuration              | yes |    yes |  no |    no | `sync: false`; absolute credential-free HTTPS URL      |
 | `SERVICE_VERSION`                  | Build identity             | yes |    yes |  no |    no | Derived at start from immutable `RENDER_GIT_COMMIT`    |
 | `NEXT_PUBLIC_API_BASE_URL`         | Public build configuration |  no |     no | yes |   yes | `sync: false`; staging API URL, no credentials         |

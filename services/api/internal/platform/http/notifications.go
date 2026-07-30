@@ -18,9 +18,22 @@ type Notifications interface {
 }
 
 // RegisterNotificationRoutes adds notification preference routes.
-func RegisterNotificationRoutes(mux *http.ServeMux, notifications Notifications) {
-	mux.Handle("GET /v1/notification-preferences/{memberId}", getPreferencesHandler(notifications))
-	mux.Handle("PUT /v1/notification-preferences/{memberId}", putPreferencesHandler(notifications))
+func RegisterNotificationRoutes(mux *http.ServeMux, notifications Notifications, sessions SessionAuthenticator) {
+	mux.Handle("GET /v1/notification-preferences", ownNotificationHandler(getPreferencesHandler(notifications, sessions), sessions))
+	mux.Handle("PUT /v1/notification-preferences", ownNotificationHandler(putPreferencesHandler(notifications, sessions), sessions))
+	mux.Handle("GET /v1/notification-preferences/{memberId}", getPreferencesHandler(notifications, sessions))
+	mux.Handle("PUT /v1/notification-preferences/{memberId}", putPreferencesHandler(notifications, sessions))
+}
+
+func ownNotificationHandler(next http.Handler, sessions SessionAuthenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
+		r.SetPathValue("memberId", memberID)
+		next.ServeHTTP(w, r)
+	})
 }
 
 type preferencesResponse struct {
@@ -45,7 +58,31 @@ func toPreferencesResponse(preferences domain.Preferences) preferencesResponse {
 	}
 }
 
-func getPreferencesHandler(notifications Notifications) http.Handler {
+func authenticatedPreferenceMember(w http.ResponseWriter, r *http.Request, sessions SessionAuthenticator) (string, bool) {
+	token, ok := bearerToken(r.Header.Get("Authorization"))
+	if !ok || sessions == nil {
+		writeError(w, r, http.StatusUnauthorized, APIError{
+			Code: "authentication_required", Message: "A valid member session is required.",
+		})
+		return "", false
+	}
+	session, err := sessions.Authenticate(r.Context(), token)
+	if err != nil {
+		writeError(w, r, http.StatusUnauthorized, APIError{
+			Code: "authentication_required", Message: "A valid member session is required.",
+		})
+		return "", false
+	}
+	if session.MemberID() != r.PathValue("memberId") {
+		writeError(w, r, http.StatusForbidden, APIError{
+			Code: "access_denied", Message: "Notification preferences belong to another member.",
+		})
+		return "", false
+	}
+	return session.MemberID(), true
+}
+
+func getPreferencesHandler(notifications Notifications, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !validOpaqueID(r.PathValue("memberId")) {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{
@@ -55,7 +92,11 @@ func getPreferencesHandler(notifications Notifications) http.Handler {
 			})
 			return
 		}
-		preferences, err := notifications.Get(r.Context(), r.PathValue("memberId"))
+		memberID, ok := authenticatedPreferenceMember(w, r, sessions)
+		if !ok {
+			return
+		}
+		preferences, err := notifications.Get(r.Context(), memberID)
 		if err != nil {
 			writeNotificationError(w, r, err)
 			return
@@ -71,8 +112,12 @@ type configurePreferencesRequest struct {
 	Timezone   string          `json:"timezone"`
 }
 
-func putPreferencesHandler(notifications Notifications) http.Handler {
+func putPreferencesHandler(notifications Notifications, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := authenticatedPreferenceMember(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -90,12 +135,8 @@ func putPreferencesHandler(notifications Notifications) http.Handler {
 			return
 		}
 
-		memberID := r.PathValue("memberId")
 		body.Timezone = strings.TrimSpace(body.Timezone)
 		var details []FieldError
-		if !validOpaqueID(memberID) {
-			details = append(details, FieldError{Field: "memberId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
 		for category := range body.Muted {
 			switch domain.Category(category) {
 			case domain.CategoryRitual, domain.CategoryPods, domain.CategoryRooms, domain.CategorySafety:

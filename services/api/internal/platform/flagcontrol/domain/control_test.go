@@ -40,6 +40,22 @@ func TestDistinctApprovalApplyAndExpiryFailClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAppliedChangeCanBeReplayedOnlyBeforeExpiry(t *testing.T) {
+	proposed := proposal(t, ActionKill)
+	approved, _ := proposed.Approve(actorB, time.Unix(11, 0))
+	applied, _, _ := approved.Apply(time.Unix(12, 0))
+	change, err := applied.AppliedChange(time.Unix(13, 0))
+	if err != nil || change.Enabled || !change.Killed {
+		t.Fatalf("change=%+v err=%v", change, err)
+	}
+	if _, err := approved.AppliedChange(time.Unix(13, 0)); !errors.Is(err, ErrState) {
+		t.Fatalf("approved replay err=%v", err)
+	}
+	if _, err := applied.AppliedChange(time.Unix(10, 0).Add(MaxLifetime)); !errors.Is(err, ErrExpired) {
+		t.Fatalf("expired replay err=%v", err)
+	}
+}
 func TestEveryCapabilityActionAndScopeIsBoundedProperty(t *testing.T) {
 	caps := []Capability{CapabilitySow, CapabilityFires, CapabilityAI, CapabilityPayments, CapabilityGate}
 	actions := []Action{ActionEnable, ActionDisable, ActionKill, ActionUnkill}

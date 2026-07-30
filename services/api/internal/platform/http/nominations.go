@@ -16,20 +16,19 @@ import (
 type Nominations interface {
 	Nominate(ctx context.Context, in application.NominateInput) (domain.Nomination, error)
 	ListForMember(ctx context.Context, memberID string) ([]domain.Nomination, error)
-	Consent(ctx context.Context, id string) (domain.Nomination, error)
-	Decline(ctx context.Context, id string) (domain.Nomination, error)
+	Consent(ctx context.Context, id, token string) (domain.Nomination, error)
+	Decline(ctx context.Context, id, token string) (domain.Nomination, error)
 }
 
 // RegisterNominationRoutes adds Nnoboa nomination routes.
-func RegisterNominationRoutes(mux *http.ServeMux, nominations Nominations) {
-	mux.Handle("POST /v1/nominations", nominateHandler(nominations))
-	mux.Handle("GET /v1/nominations", listNominationsHandler(nominations))
+func RegisterNominationRoutes(mux *http.ServeMux, nominations Nominations, sessions SessionAuthenticator) {
+	mux.Handle("POST /v1/nominations", nominateHandler(nominations, sessions))
+	mux.Handle("GET /v1/nominations", listNominationsHandler(nominations, sessions))
 	mux.Handle("POST /v1/nominations/{id}/consent", consentNominationHandler(nominations))
 	mux.Handle("POST /v1/nominations/{id}/decline", declineNominationHandler(nominations))
 }
 
 type nominateRequest struct {
-	MemberID     string `json:"memberId"`
 	KinName      string `json:"kinName"`
 	KinPhone     string `json:"kinPhone"`
 	Relationship string `json:"relationship"`
@@ -49,6 +48,12 @@ type nominationListResponse struct {
 	Nominations []nominationResponse `json:"nominations"`
 }
 
+type nominationInvitationResponse struct {
+	ID          string     `json:"id"`
+	Status      string     `json:"status"`
+	RespondedAt *time.Time `json:"respondedAt,omitempty"`
+}
+
 func toNominationResponse(n domain.Nomination) nominationResponse {
 	return nominationResponse{
 		ID:           n.ID,
@@ -61,8 +66,12 @@ func toNominationResponse(n domain.Nomination) nominationResponse {
 	}
 }
 
-func nominateHandler(nominations Nominations) http.Handler {
+func nominateHandler(nominations Nominations, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -80,14 +89,10 @@ func nominateHandler(nominations Nominations) http.Handler {
 			return
 		}
 
-		body.MemberID = strings.TrimSpace(body.MemberID)
 		body.KinName = strings.TrimSpace(body.KinName)
 		body.KinPhone = strings.TrimSpace(body.KinPhone)
 		body.Relationship = strings.TrimSpace(body.Relationship)
 		var details []FieldError
-		if !validOpaqueID(body.MemberID) {
-			details = append(details, FieldError{Field: "memberId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
 		if body.KinName == "" || len(body.KinName) > 120 {
 			details = append(details, FieldError{Field: "kinName", Reason: "must be 1-120 characters"})
 		}
@@ -109,7 +114,7 @@ func nominateHandler(nominations Nominations) http.Handler {
 		}
 
 		n, err := nominations.Nominate(r.Context(), application.NominateInput{
-			MemberID:     body.MemberID,
+			MemberID:     memberID,
 			KinName:      body.KinName,
 			KinPhone:     body.KinPhone,
 			Relationship: body.Relationship,
@@ -122,15 +127,10 @@ func nominateHandler(nominations Nominations) http.Handler {
 	})
 }
 
-func listNominationsHandler(nominations Nominations) http.Handler {
+func listNominationsHandler(nominations Nominations, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		memberID := strings.TrimSpace(r.URL.Query().Get("memberId"))
-		if !validOpaqueID(memberID) {
-			writeError(w, r, http.StatusUnprocessableEntity, APIError{
-				Code:    "validation_failed",
-				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "memberId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"}},
-			})
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
 			return
 		}
 
@@ -155,19 +155,36 @@ func declineNominationHandler(nominations Nominations) http.Handler {
 	return nominationTransitionHandler(nominations.Decline)
 }
 
-func nominationTransitionHandler(transition func(context.Context, string) (domain.Nomination, error)) http.Handler {
+func nominationTransitionHandler(transition func(context.Context, string, string) (domain.Nomination, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		n, err := transition(r.Context(), r.PathValue("id"))
+		if !requireJSON(w, r) {
+			return
+		}
+		var body struct {
+			Token string `json:"token"`
+		}
+		if err := decodeJSON(w, r, &body); err != nil {
+			writeError(w, r, http.StatusBadRequest, APIError{Code: "invalid_json", Message: "The request body must be one valid JSON object."})
+			return
+		}
+		n, err := transition(r.Context(), r.PathValue("id"), strings.TrimSpace(body.Token))
 		if err != nil {
 			writeNominationError(w, r, err)
 			return
 		}
-		writeSuccess(w, r, http.StatusOK, toNominationResponse(n))
+		writeSuccess(w, r, http.StatusOK, nominationInvitationResponse{
+			ID: n.ID, Status: string(n.Status), RespondedAt: n.RespondedAt,
+		})
 	})
 }
 
 func writeNominationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, application.ErrInvalidInviteToken):
+		writeError(w, r, http.StatusNotFound, APIError{
+			Code:    "nomination_not_found",
+			Message: "No such nomination.",
+		})
 	case errors.Is(err, application.ErrNominationNotFound):
 		writeError(w, r, http.StatusNotFound, APIError{
 			Code:    "nomination_not_found",

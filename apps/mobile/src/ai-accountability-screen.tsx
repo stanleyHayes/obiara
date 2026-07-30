@@ -1,85 +1,64 @@
-import { useState } from "react";
+import { type Href, useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const capabilities = [
-  {
-    id: "okyeame-help",
-    title: "Okyeame guided help",
-    version: "policy-1.0",
-    status: "Available within limits",
-    detail: "Member-invoked help only. Prompt retention is off.",
-  },
-  {
-    id: "resonance-explanation",
-    title: "Introduction explanations",
-    version: "rules-1.0",
-    status: "Rules only",
-    detail: "Only features enabled by both members may appear.",
-  },
-  {
-    id: "matching-ranker",
-    title: "Learned matching ranker",
-    version: "not-released",
-    status: "Not released",
-    detail: "Offline fairness and human approval gates remain closed.",
-  },
+  [
+    "Guided help",
+    "Member-invoked navigation and wording help only. No private-source access or decision authority.",
+  ],
+  [
+    "Introduction explanations",
+    "Only retained, mutually permitted reasons may appear. No hidden score or learned ranker is composed.",
+  ],
+  [
+    "Human review",
+    "Okyeame appeal intake is not composed. The authenticated Suban route owns Suban appeals.",
+  ],
 ] as const;
 
 export function AiAccountabilityScreen() {
-  const [appealReference, setAppealReference] = useState<string | null>(null);
-
+  const router = useRouter();
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.intro}>
           <Text style={styles.kicker}>AI ACCOUNTABILITY</Text>
           <Text accessibilityRole="header" style={styles.title}>
-            See what is on, limited or paused.
+            Capability without invented certainty.
           </Text>
           <Text style={styles.body}>
-            These are capability boundaries, not scores or promises of perfect
-            safety.
+            These are enforced product boundaries, not live model evaluations,
+            certifications or compatibility scores.
           </Text>
         </View>
-
         <View style={styles.cards}>
-          {capabilities.map((capability) => (
-            <View key={capability.id} style={styles.card}>
-              <Text style={styles.version}>{capability.version}</Text>
+          {capabilities.map(([title, detail]) => (
+            <View key={title} style={styles.card}>
+              <Text style={styles.version}>RUNTIME BOUNDARY</Text>
               <Text accessibilityRole="header" style={styles.cardTitle}>
-                {capability.title}
+                {title}
               </Text>
-              <Text style={styles.status}>{capability.status}</Text>
-              <Text style={styles.detail}>{capability.detail}</Text>
-              <Pressable
-                accessibilityRole="button"
-                disabled={appealReference !== null}
-                onPress={() => setAppealReference(`appeal-${capability.id}`)}
-                style={({ pressed }) => [
-                  styles.button,
-                  appealReference !== null && styles.buttonDisabled,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.buttonText}>Ask for human review</Text>
-              </Pressable>
+              <Text style={styles.status}>Fail closed</Text>
+              <Text style={styles.detail}>{detail}</Text>
             </View>
           ))}
         </View>
-
-        <View accessibilityLiveRegion="polite" style={styles.appeal}>
-          <Text style={styles.kicker}>APPEAL PATH</Text>
+        <View style={styles.appeal}>
+          <Text style={styles.kicker}>AVAILABLE REVIEW PATH</Text>
           <Text accessibilityRole="header" style={styles.appealTitle}>
-            {appealReference
-              ? "Your request is with a person."
-              : "A person reviews every appeal."}
+            Suban decisions have a real appeal route.
           </Text>
           <Text style={styles.appealBody}>
-            {appealReference
-              ? `Reference ${appealReference}. No model decides the outcome.`
-              : "Choose a capability to request review. No model decides the appeal."}
+            No local reference is generated here. Open the authenticated Suban
+            explanation to submit a retained appeal.
           </Text>
+          <Pressable
+            onPress={() => router.push("/fie/settings/suban" as Href)}
+            style={styles.button}
+          >
+            <Text style={styles.buttonText}>Open Suban explanation</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -89,11 +68,7 @@ export function AiAccountabilityScreen() {
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: "#F8F2EE", flex: 1 },
   content: { padding: 18, paddingBottom: 48 },
-  intro: {
-    backgroundColor: "#2A1022",
-    borderRadius: 26,
-    padding: 30,
-  },
+  intro: { backgroundColor: "#2A1022", borderRadius: 26, padding: 30 },
   kicker: {
     color: "#D04A69",
     fontFamily: "Outfit_700Bold",
@@ -103,7 +78,7 @@ const styles = StyleSheet.create({
   title: {
     color: "#FFF3E6",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 50,
+    fontSize: 48,
     letterSpacing: -2.8,
     lineHeight: 47,
     marginTop: 46,
@@ -123,11 +98,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: 22,
   },
-  version: {
-    color: "#BD3153",
-    fontFamily: "Outfit_700Bold",
-    fontSize: 11,
-  },
+  version: { color: "#BD3153", fontFamily: "Outfit_700Bold", fontSize: 11 },
   cardTitle: {
     color: "#2A1022",
     fontFamily: "Outfit_800ExtraBold",
@@ -154,22 +125,6 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     marginTop: 18,
   },
-  button: {
-    alignItems: "center",
-    backgroundColor: "#2A1022",
-    borderRadius: 999,
-    justifyContent: "center",
-    marginTop: 22,
-    minHeight: 48,
-    paddingHorizontal: 18,
-  },
-  buttonDisabled: { opacity: 0.48 },
-  buttonText: {
-    color: "#FFF3E6",
-    fontFamily: "Outfit_700Bold",
-    fontSize: 14,
-  },
-  pressed: { opacity: 0.72 },
   appeal: {
     backgroundColor: "#FFEAD0",
     borderRadius: 18,
@@ -191,4 +146,14 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     marginTop: 16,
   },
+  button: {
+    alignItems: "center",
+    backgroundColor: "#2A1022",
+    borderRadius: 999,
+    justifyContent: "center",
+    marginTop: 22,
+    minHeight: 48,
+    paddingHorizontal: 18,
+  },
+  buttonText: { color: "#FFF3E6", fontFamily: "Outfit_700Bold", fontSize: 14 },
 });

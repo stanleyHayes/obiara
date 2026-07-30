@@ -83,6 +83,10 @@ func (service CaseService) NextQueued(ctx context.Context, queue domain.Queue, l
 	return service.cases.NextQueued(ctx, queue, limit)
 }
 
+func (service CaseService) Find(ctx context.Context, caseID string) (domain.Case, error) {
+	return service.cases.FindByID(ctx, caseID)
+}
+
 // BreachCount is the SLA observability signal (Doc 09 §3 queues and SLAs).
 func (service CaseService) BreachCount(ctx context.Context) (int, error) {
 	return service.cases.CountBreached(ctx, service.now())

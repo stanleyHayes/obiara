@@ -1,25 +1,25 @@
 import { type Href, useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const games = [
-  ["Oware", "Async strategy", "/fie/games/oware/game_4Nq8mK2xP7vR5tZa"],
-  ["Ɛbɛ", "Reviewed proverb duel", "/fie/games/ebe/duel_8Km2qP4vN7xR5tZa"],
-  [
-    "Anansesɛm",
-    "Private story relay",
-    "/fie/games/anansesem/story_8Km2qP4vN7xR5tZa",
-  ],
-  ["Ampe", "Low-data live pulse", "/fie/games/ampe/round_8Km2qP4vN7xR5tZa"],
+  ["Oware", "Available in an exact two-member circle", true],
+  ["Ɛbɛ", "Available with approved catalog content", true],
+  ["Anansesɛm", "Available in an exact two-member circle", true],
+  ["Ampe", "Available in an exact two-member circle", true],
 ] as const;
 
 export function GamesHallScreen() {
   const router = useRouter();
-  const [joined, setJoined] = useState(false);
-  const [review, setReview] = useState<"clear" | "review" | "appealed">(
-    "clear",
-  );
+  const [cohortRef, setCohortRef] = useState("");
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -46,87 +46,52 @@ export function GamesHallScreen() {
           Your games.
         </Text>
         <View style={styles.gameGrid}>
-          {games.map(([name, type, href]) => (
+          {games.map(([name, type, available]) => (
             <Pressable
+              accessibilityState={{ disabled: !available }}
+              disabled={!available}
               key={name}
-              onPress={() => router.push(href as Href)}
-              style={styles.gameCard}
+              onPress={() => router.push("/fie/adiwo" as Href)}
+              style={[styles.gameCard, !available && styles.disabled]}
             >
               <Text style={styles.gameType}>{type.toUpperCase()}</Text>
               <Text style={styles.gameName}>{name}</Text>
-              <Text style={styles.gameOpen}>Open privately →</Text>
+              <Text style={styles.gameOpen}>
+                {available ? "Choose a private circle →" : "Unavailable"}
+              </Text>
             </Pressable>
           ))}
         </View>
         <View style={styles.tournament}>
-          <Text style={styles.cardEyebrow}>OPT-IN COHORT · 24 SEATS</Text>
+          <Text style={styles.cardEyebrow}>SERVER-AUTHORITATIVE PLAY</Text>
           <Text accessibilityRole="header" style={styles.cardTitle}>
-            Sunday Oware table.
+            No invented games or tournament seats.
           </Text>
           <Text style={styles.cardCopy}>
-            Three calm rounds over one week. Standing stays inside this joined
-            cohort and never affects matching.
+            Oware, Anansesɛm, Ampe and reviewed-catalog Ɛbɛ begin inside a
+            retained two-member circle. Competition and conduct review stay
+            absent until their persistence and authority adapters are composed.
           </Text>
-          <View style={styles.facts}>
-            <Text style={styles.fact}>Sunday · 4 PM</Text>
-            <Text style={styles.fact}>18 of 24 seats</Text>
-            <Text style={styles.fact}>No entry fee</Text>
-          </View>
+          <TextInput
+            accessibilityLabel="Private competition cohort reference"
+            autoCapitalize="none"
+            onChangeText={setCohortRef}
+            placeholder="cohort_…"
+            placeholderTextColor="#8B7780"
+            style={styles.cohortInput}
+            value={cohortRef}
+          />
           <Pressable
-            disabled={joined}
-            onPress={() => setJoined(true)}
-            style={[styles.primary, joined && styles.disabled]}
+            disabled={!cohortRef.trim()}
+            onPress={() =>
+              router.push(
+                `/fie/games/competition/${encodeURIComponent(cohortRef.trim())}` as Href,
+              )
+            }
+            style={[styles.cohortButton, !cohortRef.trim() && styles.disabled]}
           >
-            <Text style={styles.primaryText}>
-              {joined ? "Seat held privately" : "Join this cohort"}
-            </Text>
+            <Text style={styles.cohortButtonText}>Open private cohort</Text>
           </Pressable>
-        </View>
-        <View style={styles.review}>
-          <Text style={styles.reviewEyebrow}>FAIR-PLAY REVIEW</Text>
-          <Text accessibilityRole="header" style={styles.reviewTitle}>
-            Evidence before action.
-          </Text>
-          {review === "clear" ? (
-            <>
-              <Text style={styles.reviewCopy}>
-                Unusual play creates a private human review, never an automatic
-                accusation.
-              </Text>
-              <Pressable
-                onPress={() => setReview("review")}
-                style={styles.reviewButton}
-              >
-                <Text style={styles.reviewButtonText}>Preview review path</Text>
-              </Pressable>
-            </>
-          ) : null}
-          {review === "review" ? (
-            <>
-              <Text style={styles.reviewLabel}>REVIEW FP-84Q</Text>
-              <Text style={styles.reviewCopy}>
-                Timing pattern needs human review. No public label or automatic
-                penalty.
-              </Text>
-              <Pressable
-                onPress={() => setReview("appealed")}
-                style={styles.reviewButton}
-              >
-                <Text style={styles.reviewButtonText}>
-                  Submit private appeal
-                </Text>
-              </Pressable>
-            </>
-          ) : null}
-          {review === "appealed" ? (
-            <>
-              <Text style={styles.reviewLabel}>APPEAL RECEIVED</Text>
-              <Text style={styles.reviewCopy}>
-                A different reviewer will look again. Your cohort sees no
-                accusation.
-              </Text>
-            </>
-          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -207,6 +172,27 @@ const styles = StyleSheet.create({
     marginTop: 38,
     padding: 22,
   },
+  cohortInput: {
+    backgroundColor: "#FFF8EE",
+    borderColor: "#CDB9C3",
+    borderRadius: 14,
+    borderWidth: 1,
+    color: "#28161F",
+    fontFamily: "Outfit_400Regular",
+    fontSize: 16,
+    marginTop: 18,
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  cohortButton: {
+    alignItems: "center",
+    backgroundColor: "#9B315D",
+    borderRadius: 999,
+    justifyContent: "center",
+    marginTop: 12,
+    minHeight: 50,
+  },
+  cohortButtonText: { color: "#FFF3E6", fontFamily: "Outfit_700Bold" },
   cardEyebrow: {
     color: "#9B315D",
     fontFamily: "Outfit_700Bold",

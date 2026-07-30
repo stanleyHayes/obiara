@@ -1,0 +1,100 @@
+.kin-response {
+  align-items: center;
+  background:
+    radial-gradient(circle at 80% 8%, rgb(217 138 66 / 22%), transparent 26rem),
+    #24101e;
+  color: #fff5e9;
+  display: flex;
+  min-height: 100vh;
+  padding: clamp(1rem, 5vw, 4rem);
+}
+
+.kin-card {
+  background: #fffaf2;
+  border-radius: clamp(1.5rem, 4vw, 3.5rem);
+  color: #2b151f;
+  margin: auto;
+  max-width: 46rem;
+  padding: clamp(1.7rem, 6vw, 5rem);
+}
+
+.kin-wordmark {
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  margin: 0;
+}
+
+.kin-kicker {
+  color: #8e3159;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  margin: clamp(3rem, 9vw, 6rem) 0 1rem;
+}
+
+.kin-card h1 {
+  font-size: clamp(3.1rem, 9vw, 6.8rem);
+  letter-spacing: -0.07em;
+  line-height: 0.88;
+  margin: 0;
+}
+
+.kin-card > p:not(.kin-wordmark, .kin-kicker, .kin-error) {
+  color: #69535d;
+  font-size: 1.08rem;
+  line-height: 1.7;
+  margin-top: 2rem;
+  max-width: 38rem;
+}
+
+.kin-boundary {
+  background: #f1e2d7;
+  border-radius: 1.2rem;
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 2rem;
+  padding: 1.2rem;
+}
+
+.kin-boundary span {
+  color: #69535d;
+}
+
+.kin-error {
+  color: #a42b48;
+  font-weight: 700;
+}
+
+.kin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 2rem;
+}
+
+.kin-actions button {
+  border: 1px solid #38172c;
+  border-radius: 999px;
+  cursor: pointer;
+  flex: 1 1 13rem;
+  font: inherit;
+  font-weight: 850;
+  min-height: 3.4rem;
+  padding: 0.8rem 1.2rem;
+}
+
+.kin-actions button:first-child {
+  background: transparent;
+  color: #38172c;
+}
+
+.kin-actions button:last-child {
+  background: #38172c;
+  color: #fff5e9;
+}
+
+.kin-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

@@ -88,9 +88,15 @@ func TestAdminAuthEndToEnd(t *testing.T) {
 	if err := principals.Create(ctx, root); err != nil {
 		t.Fatal(err)
 	}
+	rootSession := domain.ReconstituteSession(
+		"sess_root", root.ID(), root.Roles(), true, time.Now().Add(time.Hour), false, 2, time.Now(),
+	)
+	if err := sessions.Create(ctx, rootSession); err != nil {
+		t.Fatal(err)
+	}
 
 	// Enroll a verifier through the privileged path; audited.
-	verifier, err := service.Enroll(ctx, "adm_root", "verifier@example.test", []domain.Role{domain.RoleVerifier})
+	verifier, err := service.Enroll(ctx, rootSession.ID(), "verifier@example.test", []domain.Role{domain.RoleVerifier})
 	if err != nil {
 		t.Fatalf("enroll: %v", err)
 	}
@@ -100,8 +106,56 @@ func TestAdminAuthEndToEnd(t *testing.T) {
 	}
 
 	// A verifier cannot enroll (least privilege, FR-801).
-	if _, err := service.Enroll(ctx, verifier.ID(), "sneaky@example.test", []domain.Role{domain.RoleAdmin}); err != application.ErrNotAdmin {
+	verifierSession := domain.ReconstituteSession(
+		"sess_verifier", verifier.ID(), verifier.Roles(), true, time.Now().Add(time.Hour), false, 2, time.Now(),
+	)
+	if err := sessions.Create(ctx, verifierSession); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Enroll(ctx, verifierSession.ID(), "sneaky@example.test", []domain.Role{domain.RoleAdmin}); err != application.ErrNotAdmin {
 		t.Fatalf("verifier enroll = %v, want ErrNotAdmin", err)
+	}
+
+	// Admin-role grants are durable proposals and require a different
+	// stepped-up administrator. Approval updates the proposal, principal and
+	// immutable audit in one transaction.
+	secondAdmin, err := domain.NewPrincipal("adm_second", "second@example.test", []domain.Role{domain.RoleAdmin}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := principals.Create(ctx, secondAdmin); err != nil {
+		t.Fatal(err)
+	}
+	secondSession := domain.ReconstituteSession(
+		"sess_second", secondAdmin.ID(), secondAdmin.Roles(), true, time.Now().Add(time.Hour), false, 2, time.Now(),
+	)
+	if err := sessions.Create(ctx, secondSession); err != nil {
+		t.Fatal(err)
+	}
+	change, err := service.ProposeAdminRoleChange(
+		ctx, rootSession.ID(), verifier.ID(),
+		[]domain.Role{domain.RoleVerifier, domain.RoleAdmin},
+		"Add verified command-centre coverage",
+	)
+	if err != nil {
+		t.Fatalf("propose role change: %v", err)
+	}
+	if _, err := service.ApproveAdminRoleChange(ctx, rootSession.ID(), change.ID()); err != domain.ErrSameApprover {
+		t.Fatalf("self approval = %v, want ErrSameApprover", err)
+	}
+	updatedVerifier, err := service.ApproveAdminRoleChange(ctx, secondSession.ID(), change.ID())
+	if err != nil {
+		t.Fatalf("approve role change: %v", err)
+	}
+	if !updatedVerifier.HasRole(domain.RoleAdmin) {
+		t.Fatal("approved verifier must hold admin role")
+	}
+	roleAuditCount, err := database.Collection("admin_access").CountDocuments(
+		ctx,
+		bson.M{"target": change.ID()},
+	)
+	if err != nil || roleAuditCount != 2 {
+		t.Fatalf("role-change audits = %d, want proposal + approval", roleAuditCount)
 	}
 
 	// Login: code delivered by email bridge, session issued.

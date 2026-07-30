@@ -1,26 +1,86 @@
-import {
-  initialMembershipState,
-  membershipReducer,
-} from "@obiara/membership-settings";
 import { type Href, useRouter } from "expo-router";
-import { useReducer } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { apiRequest } from "./api";
+
+interface Membership {
+  passId: string;
+  passName: string;
+  status: "active" | "grace" | "expired" | "refund_pending" | "refunded";
+  paidThrough: string;
+  graceUntil: string;
+  renewsAutomatically: boolean;
+  receiptRef: string;
+  refundRequestRef?: string;
+}
+
 export function MembershipSettingsScreen() {
   const router = useRouter();
-  const [state, dispatch] = useReducer(
-    membershipReducer,
-    initialMembershipState,
-  );
+  const [membership, setMembership] = useState<Membership | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [cancellationPending, setCancellationPending] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const commandID = useRef<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void apiRequest<Membership>("/v1/membership")
+      .then((value) => {
+        if (active) setMembership(value);
+      })
+      .catch((loadError: unknown) => {
+        if (active) {
+          const text =
+            loadError instanceof Error
+              ? loadError.message
+              : "Membership could not be loaded.";
+          if (text.toLowerCase().includes("no membership pass"))
+            setMembership(null);
+          else setMessage(text);
+        }
+      })
+      .finally(() => {
+        if (active) setLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function mutate(action: "cancel" | "refund") {
+    commandID.current ??= `membership-${action}-${Date.now()}`;
+    setBusy(true);
+    setMessage("");
+    try {
+      const value = await apiRequest<Membership>(
+        action === "cancel"
+          ? "/v1/membership/cancel"
+          : "/v1/membership/refunds",
+        { method: "POST", headers: { "Idempotency-Key": commandID.current } },
+      );
+      setMembership(value);
+      setCancellationPending(false);
+      commandID.current = null;
+    } catch (actionError) {
+      setMessage(
+        actionError instanceof Error
+          ? actionError.message
+          : "The membership action could not be completed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -40,100 +100,118 @@ export function MembershipSettingsScreen() {
           another person.
         </Text>
 
-        <View style={styles.card}>
-          <Text style={styles.eyebrow}>CURRENT PASS</Text>
-          <Text style={styles.cardTitle}>{state.passName}</Text>
-          {[
-            ["Paid through", state.paidThrough],
-            ["Automatic renewal", state.renewsAutomatically ? "On" : "Off"],
-            ["Receipt", state.receiptRef],
-            ["Grace", state.graceEnds ?? "Not currently in grace"],
-          ].map(([label, value]) => (
-            <View key={label} style={styles.fact}>
-              <Text style={styles.factLabel}>{label}</Text>
-              <Text style={styles.factValue}>{value}</Text>
-            </View>
-          ))}
-          {state.status === "cancelled" ? (
-            <View style={styles.notice}>
-              <Text style={styles.noticeTitle}>
-                Cancellation recorded without penalty.
-              </Text>
-              <Text style={styles.noticeCopy}>
-                Access remains through {state.paidThrough}. Standing and safety
-                remain unchanged.
-              </Text>
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => dispatch({ type: "request-cancellation" })}
-              style={styles.secondary}
-            >
-              <Text style={styles.secondaryText}>Review cancellation</Text>
-            </Pressable>
-          )}
-        </View>
+        {!loaded ? (
+          <Text style={styles.status}>Loading membership…</Text>
+        ) : null}
+        {message ? (
+          <Text accessibilityLiveRegion="polite" style={styles.error}>
+            {message}
+          </Text>
+        ) : null}
 
-        <View style={styles.card}>
-          <Text style={styles.eyebrow}>RECEIPT AND REFUND</Text>
-          <Text style={styles.cardTitle}>
-            {state.refundState === "provider_confirmed"
-              ? "Provider confirmed the refund."
-              : state.refundState === "pending"
-                ? "Refund review is pending."
-                : "Need a payment reviewed?"}
-          </Text>
-          <Text style={styles.copySmall}>
-            A request becomes complete only after provider confirmation.
-          </Text>
-          {state.refundState === "none" ? (
-            <>
-              <TextInput
-                accessibilityLabel="Reason for refund review"
-                multiline
-                onChangeText={(value) =>
-                  dispatch({ type: "refund-reason", value })
-                }
-                placeholder="Describe the issue without payment details"
-                placeholderTextColor="#8A747D"
-                style={styles.input}
-                value={state.refundReason}
-              />
-              <Pressable
-                accessibilityState={{
-                  disabled: state.refundReason.trim().length < 12,
-                }}
-                disabled={state.refundReason.trim().length < 12}
-                onPress={() => dispatch({ type: "request-refund" })}
-                style={[
-                  styles.primary,
-                  state.refundReason.trim().length < 12 && styles.disabled,
-                ]}
-              >
-                <Text style={styles.primaryText}>Request refund review</Text>
-              </Pressable>
-            </>
-          ) : (
-            <View style={styles.notice}>
-              <Text style={styles.factLabel}>{state.refundRef}</Text>
-              <Text style={styles.noticeTitle}>
-                {state.refundState === "pending"
-                  ? "Awaiting provider confirmation"
-                  : "Provider confirmation recorded"}
+        {loaded && !membership ? (
+          <View style={styles.card}>
+            <Text style={styles.eyebrowCard}>NO CURRENT PASS</Text>
+            <Text style={styles.cardTitle}>
+              Nothing is renewing or being charged.
+            </Text>
+            <Text style={styles.copySmall}>
+              Purchase options appear only after an approved payment provider is
+              available.
+            </Text>
+          </View>
+        ) : null}
+
+        {membership ? (
+          <>
+            <View style={styles.card}>
+              <Text style={styles.eyebrowCard}>
+                CURRENT PASS ·{" "}
+                {membership.status.replaceAll("_", " ").toUpperCase()}
               </Text>
-              {state.refundState === "pending" ? (
+              <Text style={styles.cardTitle}>
+                {membership.passName.replaceAll("_", " ")}
+              </Text>
+              {[
+                [
+                  "Paid through",
+                  new Date(membership.paidThrough).toLocaleDateString("en-GH"),
+                ],
+                [
+                  "Automatic renewal",
+                  membership.renewsAutomatically ? "On" : "Off",
+                ],
+                ["Receipt", `${membership.receiptRef.slice(0, 12)}…`],
+                [
+                  "Grace",
+                  new Date(membership.graceUntil).toLocaleDateString("en-GH"),
+                ],
+              ].map(([label, value]) => (
+                <View key={label} style={styles.fact}>
+                  <Text style={styles.factLabel}>{label}</Text>
+                  <Text style={styles.factValue}>{value}</Text>
+                </View>
+              ))}
+              {membership.renewsAutomatically ? (
                 <Pressable
-                  onPress={() => dispatch({ type: "provider-confirm-refund" })}
-                  style={styles.primary}
+                  onPress={() => setCancellationPending(true)}
+                  style={styles.secondary}
+                >
+                  <Text style={styles.secondaryText}>Review cancellation</Text>
+                </Pressable>
+              ) : (
+                <View style={styles.notice}>
+                  <Text style={styles.noticeTitle}>
+                    Renewal is cancelled without penalty.
+                  </Text>
+                  <Text style={styles.copySmall}>
+                    Purchased access remains through the paid-through date.
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.eyebrowCard}>RECEIPT AND REFUND</Text>
+              <Text style={styles.cardTitle}>
+                {membership.status === "refunded"
+                  ? "Provider confirmed the refund."
+                  : membership.status === "refund_pending"
+                    ? "Refund review is pending."
+                    : "Need the cancelled payment reviewed?"}
+              </Text>
+              <Text style={styles.copySmall}>
+                A request is not a refund promise. Completion appears only after
+                provider confirmation.
+              </Text>
+              {!membership.renewsAutomatically &&
+              membership.status !== "refund_pending" &&
+              membership.status !== "refunded" ? (
+                <Pressable
+                  disabled={busy}
+                  onPress={() => void mutate("refund")}
+                  style={[styles.primary, busy && styles.disabled]}
                 >
                   <Text style={styles.primaryText}>
-                    Preview provider confirmation
+                    {busy ? "Requesting review…" : "Request refund review"}
                   </Text>
                 </Pressable>
               ) : null}
+              {membership.refundRequestRef ? (
+                <View style={styles.notice}>
+                  <Text style={styles.factLabel}>
+                    {membership.refundRequestRef.slice(0, 12)}…
+                  </Text>
+                  <Text style={styles.noticeTitle}>
+                    {membership.status === "refunded"
+                      ? "Provider confirmation recorded"
+                      : "Awaiting provider confirmation"}
+                  </Text>
+                </View>
+              ) : null}
             </View>
-          )}
-        </View>
+          </>
+        ) : null}
 
         <View style={styles.law}>
           <Text style={styles.lawEyebrow}>WHAT NEVER CHANGES</Text>
@@ -149,26 +227,33 @@ export function MembershipSettingsScreen() {
 
       <Modal
         animationType="fade"
-        onRequestClose={() => dispatch({ type: "keep-membership" })}
+        onRequestClose={() => setCancellationPending(false)}
         transparent
-        visible={state.cancellationPending}
+        visible={cancellationPending}
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.eyebrow}>BEFORE YOU CANCEL</Text>
+            <Text style={styles.eyebrowCard}>BEFORE YOU CANCEL</Text>
             <Text style={styles.cardTitle}>Your paid time remains yours.</Text>
             <Text style={styles.copySmall}>
               Cancellation stops future renewal only. Access continues through{" "}
-              {state.paidThrough}.
+              {membership
+                ? new Date(membership.paidThrough).toLocaleDateString("en-GH")
+                : "the paid-through date"}
+              .
             </Text>
             <Pressable
-              onPress={() => dispatch({ type: "confirm-cancellation" })}
-              style={styles.primary}
+              disabled={busy}
+              onPress={() => void mutate("cancel")}
+              style={[styles.primary, busy && styles.disabled]}
             >
-              <Text style={styles.primaryText}>Confirm cancellation</Text>
+              <Text style={styles.primaryText}>
+                {busy ? "Cancelling renewal…" : "Confirm cancellation"}
+              </Text>
             </Pressable>
             <Pressable
-              onPress={() => dispatch({ type: "keep-membership" })}
+              disabled={busy}
+              onPress={() => setCancellationPending(false)}
               style={styles.secondary}
             >
               <Text style={styles.secondaryText}>Keep membership</Text>
@@ -184,14 +269,13 @@ const styles = StyleSheet.create({
   safe: { backgroundColor: "#F7EFE3", flex: 1 },
   content: { padding: 20, paddingBottom: 60 },
   back: {
-    alignItems: "center",
+    alignSelf: "flex-start",
     borderColor: "#9F8793",
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 48,
     paddingHorizontal: 18,
-    alignSelf: "flex-start",
   },
   backText: { color: "#2B151F", fontFamily: "Outfit_700Bold" },
   eyebrow: {
@@ -201,12 +285,18 @@ const styles = StyleSheet.create({
     letterSpacing: 1.3,
     marginTop: 38,
   },
+  eyebrowCard: {
+    color: "#8E3159",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 11,
+    letterSpacing: 1.3,
+  },
   title: {
     color: "#2B151F",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 54,
-    letterSpacing: -3.5,
-    lineHeight: 49,
+    fontSize: 48,
+    letterSpacing: -3,
+    lineHeight: 46,
     marginTop: 14,
   },
   copy: {
@@ -221,6 +311,13 @@ const styles = StyleSheet.create({
     color: "#69535D",
     fontFamily: "Outfit_400Regular",
     lineHeight: 22,
+    marginTop: 6,
+  },
+  status: { color: "#69535D", fontFamily: "Outfit_600SemiBold" },
+  error: {
+    color: "#9D2948",
+    fontFamily: "Outfit_600SemiBold",
+    marginBottom: 12,
   },
   card: {
     backgroundColor: "#FFFAF2",
@@ -273,63 +370,42 @@ const styles = StyleSheet.create({
   },
   secondaryText: { color: "#8E3159", fontFamily: "Outfit_700Bold" },
   disabled: { opacity: 0.4 },
-  input: {
-    borderColor: "#BDA9B1",
-    borderRadius: 14,
-    borderWidth: 1,
-    color: "#2B151F",
-    fontFamily: "Outfit_400Regular",
-    minHeight: 100,
-    marginTop: 16,
-    padding: 14,
-    textAlignVertical: "top",
-  },
   notice: {
     backgroundColor: "#EEE1D7",
     borderRadius: 16,
     marginTop: 14,
     padding: 16,
   },
-  noticeTitle: {
-    color: "#2B151F",
-    fontFamily: "Outfit_700Bold",
-    fontSize: 17,
-  },
-  noticeCopy: {
-    color: "#69535D",
-    fontFamily: "Outfit_400Regular",
-    lineHeight: 22,
-    marginTop: 8,
-  },
+  noticeTitle: { color: "#2B151F", fontFamily: "Outfit_700Bold", fontSize: 17 },
   law: {
-    backgroundColor: "#D98A42",
+    backgroundColor: "#38172C",
     borderRadius: 24,
     marginTop: 12,
     padding: 22,
   },
   lawEyebrow: {
-    color: "#2B151F",
+    color: "#FF9AB0",
     fontFamily: "Outfit_700Bold",
     fontSize: 11,
     letterSpacing: 1.2,
   },
   lawTitle: {
-    color: "#2B151F",
+    color: "#FFF5E9",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 34,
-    letterSpacing: -1.8,
-    lineHeight: 34,
+    fontSize: 30,
+    letterSpacing: -1.5,
+    lineHeight: 32,
     marginTop: 10,
   },
   lawCopy: {
-    color: "#4E2A21",
+    color: "#D8C4CE",
     fontFamily: "Outfit_400Regular",
     lineHeight: 22,
-    marginTop: 12,
+    marginTop: 10,
   },
   modalBackdrop: {
     alignItems: "center",
-    backgroundColor: "rgba(32,12,24,0.72)",
+    backgroundColor: "rgba(29,11,23,0.72)",
     flex: 1,
     justifyContent: "center",
     padding: 20,
@@ -337,6 +413,7 @@ const styles = StyleSheet.create({
   modalCard: {
     backgroundColor: "#FFFAF2",
     borderRadius: 24,
+    maxWidth: 420,
     padding: 22,
     width: "100%",
   },

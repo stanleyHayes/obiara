@@ -16,12 +16,36 @@ type ConsentMap interface {
 }
 
 // RegisterConsentRoutes adds the consent switchboard routes.
-func RegisterConsentRoutes(mux *http.ServeMux, consentMap ConsentMap) {
-	mux.Handle("GET /v1/consent/{memberId}", switchboardHandler(consentMap))
-	mux.Handle("PUT /v1/consent/{memberId}/{purpose}", setConsentHandler(consentMap))
+func RegisterConsentRoutes(mux *http.ServeMux, consentMap ConsentMap, sessions SessionAuthenticator) {
+	mux.Handle("GET /v1/consent", ownSwitchboardHandler(consentMap, sessions))
+	mux.Handle("PUT /v1/consent/purposes/{purpose}", setOwnConsentHandler(consentMap, sessions))
+	mux.Handle("GET /v1/consent/{memberId}", switchboardHandler(consentMap, sessions))
+	mux.Handle("PUT /v1/consent/{memberId}/{purpose}", setConsentHandler(consentMap, sessions))
 }
 
-func switchboardHandler(consentMap ConsentMap) http.Handler {
+func ownSwitchboardHandler(consentMap ConsentMap, sessions SessionAuthenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
+		writeConsentSwitchboard(w, r, consentMap, memberID)
+	})
+}
+
+func consentMember(w http.ResponseWriter, r *http.Request, sessions SessionAuthenticator) (string, bool) {
+	memberID, ok := subanSubject(w, r, sessions)
+	if !ok {
+		return "", false
+	}
+	if memberID != r.PathValue("memberId") {
+		writeError(w, r, http.StatusForbidden, APIError{Code: "access_denied", Message: "Consent choices belong to another member."})
+		return "", false
+	}
+	return memberID, true
+}
+
+func switchboardHandler(consentMap ConsentMap, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !validOpaqueID(r.PathValue("memberId")) {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{
@@ -31,19 +55,27 @@ func switchboardHandler(consentMap ConsentMap) http.Handler {
 			})
 			return
 		}
-		board, err := consentMap.Switchboard(r.Context(), r.PathValue("memberId"))
-		if err != nil {
-			writeError(w, r, http.StatusInternalServerError, APIError{Code: "internal_error", Message: "The request could not be completed."})
+		memberID, ok := consentMember(w, r, sessions)
+		if !ok {
 			return
 		}
-		purposes := make(map[string]bool, len(board))
-		for purpose, enabled := range board {
-			purposes[string(purpose)] = enabled
-		}
-		writeSuccess(w, r, http.StatusOK, struct {
-			Purposes map[string]bool `json:"purposes"`
-		}{Purposes: purposes})
+		writeConsentSwitchboard(w, r, consentMap, memberID)
 	})
+}
+
+func writeConsentSwitchboard(w http.ResponseWriter, r *http.Request, consentMap ConsentMap, memberID string) {
+	board, err := consentMap.Switchboard(r.Context(), memberID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, APIError{Code: "internal_error", Message: "The request could not be completed."})
+		return
+	}
+	purposes := make(map[string]bool, len(board))
+	for purpose, enabled := range board {
+		purposes[string(purpose)] = enabled
+	}
+	writeSuccess(w, r, http.StatusOK, struct {
+		Purposes map[string]bool `json:"purposes"`
+	}{Purposes: purposes})
 }
 
 type setConsentRequest struct {
@@ -55,23 +87,8 @@ type consentStateResponse struct {
 	Enabled bool   `json:"enabled"`
 }
 
-func setConsentHandler(consentMap ConsentMap) http.Handler {
+func setConsentHandler(consentMap ConsentMap, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
-			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
-				Code:    "unsupported_media_type",
-				Message: "Content-Type must be application/json.",
-			})
-			return
-		}
-		var body setConsentRequest
-		if err := decodeJSON(w, r, &body); err != nil {
-			writeError(w, r, http.StatusBadRequest, APIError{
-				Code:    "invalid_json",
-				Message: "The request body must be one valid JSON object.",
-			})
-			return
-		}
 		if !validOpaqueID(r.PathValue("memberId")) {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{
 				Code:    "validation_failed",
@@ -80,14 +97,47 @@ func setConsentHandler(consentMap ConsentMap) http.Handler {
 			})
 			return
 		}
-		purpose := domain.Purpose(r.PathValue("purpose"))
-		enabled, err := consentMap.Set(r.Context(), r.PathValue("memberId"), purpose, body.Enabled)
-		if err != nil {
-			writeConsentError(w, r, err)
+		memberID, ok := consentMember(w, r, sessions)
+		if !ok {
 			return
 		}
-		writeSuccess(w, r, http.StatusOK, consentStateResponse{Purpose: string(purpose), Enabled: enabled})
+		setConsent(w, r, consentMap, memberID)
 	})
+}
+
+func setOwnConsentHandler(consentMap ConsentMap, sessions SessionAuthenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
+		setConsent(w, r, consentMap, memberID)
+	})
+}
+
+func setConsent(w http.ResponseWriter, r *http.Request, consentMap ConsentMap, memberID string) {
+	if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
+		writeError(w, r, http.StatusUnsupportedMediaType, APIError{
+			Code:    "unsupported_media_type",
+			Message: "Content-Type must be application/json.",
+		})
+		return
+	}
+	var body setConsentRequest
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeError(w, r, http.StatusBadRequest, APIError{
+			Code:    "invalid_json",
+			Message: "The request body must be one valid JSON object.",
+		})
+		return
+	}
+	purpose := domain.Purpose(r.PathValue("purpose"))
+	enabled, err := consentMap.Set(r.Context(), memberID, purpose, body.Enabled)
+	if err != nil {
+		writeConsentError(w, r, err)
+		return
+	}
+	writeSuccess(w, r, http.StatusOK, consentStateResponse{Purpose: string(purpose), Enabled: enabled})
 }
 
 func writeConsentError(w http.ResponseWriter, r *http.Request, err error) {

@@ -1,6 +1,5 @@
-import { initialSubanState, subanReducer } from "@obiara/suban-explanation";
 import { type Href, useRouter } from "expo-router";
-import { useReducer } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -10,13 +9,104 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { apiRequest } from "./api";
+
+interface VisibleEvent {
+  id: string;
+  kind: string;
+  effect: string;
+  sourceCategory: string;
+  occurredAt: string;
+}
+
+interface Explanation {
+  marks: string[];
+  events: VisibleEvent[];
+}
+
+const adverseKinds = new Set([
+  "ghost_pattern",
+  "harassment_finding",
+  "fraud_finding",
+  "vouch_stake_loss",
+]);
+
+function humanize(value: string) {
+  return value
+    .replaceAll("_", " ")
+    .replace(/^./, (letter) => letter.toUpperCase());
+}
 
 export function SubanExplanationScreen() {
   const router = useRouter();
-  const [state, dispatch] = useReducer(subanReducer, initialSubanState);
-  const selected = state.events.find(
-    (event) => event.ref === state.selectedEventRef,
-  )!;
+  const [record, setRecord] = useState<Explanation | null>(null);
+  const [selectedID, setSelectedID] = useState("");
+  const [appealReason, setAppealReason] = useState("");
+  const [appealRef, setAppealRef] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const commandID = useRef<string | null>(null);
+  const selected = useMemo(
+    () => record?.events.find((event) => event.id === selectedID) ?? null,
+    [record, selectedID],
+  );
+
+  useEffect(() => {
+    let active = true;
+    void apiRequest<Explanation>("/v1/suban/explanation")
+      .then((value) => {
+        if (active) {
+          setRecord(value);
+          setSelectedID(value.events[0]?.id ?? "");
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (active)
+          setMessage(
+            loadError instanceof Error
+              ? loadError.message
+              : "Your Suban record could not be loaded.",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function appeal() {
+    if (
+      !selected ||
+      !adverseKinds.has(selected.kind) ||
+      appealReason.trim().length < 12
+    )
+      return;
+    commandID.current ??= `suban-${Date.now()}`;
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await apiRequest<{ appealId: string }>(
+        "/v1/suban/appeals",
+        {
+          method: "POST",
+          headers: { "Idempotency-Key": commandID.current },
+          body: JSON.stringify({
+            eventId: selected.id,
+            reason: "event_inaccurate",
+          }),
+        },
+      );
+      setAppealRef(result.appealId);
+      commandID.current = null;
+    } catch (appealError) {
+      setMessage(
+        appealError instanceof Error
+          ? appealError.message
+          : "The appeal could not be filed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -36,64 +126,75 @@ export function SubanExplanationScreen() {
         </Text>
         <View style={styles.mark}>
           <Text style={styles.markLabel}>
-            CURRENT MARK · {state.markState.toUpperCase()}
+            CURRENT MARKS · {record?.marks.length ? "VISIBLE" : "BUILDING"}
           </Text>
-          <Text style={styles.markTitle}>{state.mark}</Text>
-          <Text style={styles.markCopy}>{state.explanation}</Text>
+          <Text style={styles.markTitle}>
+            {record?.marks.length
+              ? record.marks.map(humanize).join(" · ")
+              : "No visible mark"}
+          </Text>
+          <Text style={styles.markCopy}>
+            Marks are recomputed from the append-only record and never expose a
+            hidden score.
+          </Text>
         </View>
         <View style={styles.card}>
           <Text style={styles.eyebrowCard}>VISIBLE EVENT HISTORY</Text>
           <Text style={styles.cardTitle}>Nothing contributing is hidden.</Text>
-          {state.events.map((event) => (
+          {(record?.events ?? []).map((event) => (
             <Pressable
-              key={event.ref}
-              onPress={() => dispatch({ type: "select-event", ref: event.ref })}
+              key={event.id}
+              onPress={() => {
+                setSelectedID(event.id);
+                setAppealReason("");
+                setAppealRef("");
+                commandID.current = null;
+              }}
               style={[
                 styles.event,
-                event.ref === state.selectedEventRef && styles.eventActive,
+                event.id === selectedID && styles.eventActive,
               ]}
             >
               <Text style={styles.eventDate}>
-                {event.date} · {event.ref}
+                {new Date(event.occurredAt).toLocaleDateString("en-GH")} ·{" "}
+                {event.sourceCategory.replaceAll("_", " ")}
               </Text>
-              <Text style={styles.eventTitle}>{event.label}</Text>
+              <Text style={styles.eventTitle}>{humanize(event.kind)}</Text>
             </Pressable>
           ))}
-          <View style={styles.detail}>
-            <Text style={styles.detailLabel}>
-              {selected.decays ? "DECAYS OVER TIME" : "DOES NOT DECAY"}
-            </Text>
-            <Text style={styles.detailTitle}>{selected.label}</Text>
-            <Text style={styles.detailCopy}>{selected.effect}</Text>
-            <Text style={styles.weight}>
-              Bounded contribution · {selected.weight.toFixed(2)}
-            </Text>
-          </View>
+          {selected ? (
+            <View style={styles.detail}>
+              <Text style={styles.detailLabel}>BOUNDED EXPLANATION</Text>
+              <Text style={styles.detailTitle}>{humanize(selected.kind)}</Text>
+              <Text style={styles.detailCopy}>{humanize(selected.effect)}</Text>
+            </View>
+          ) : null}
         </View>
         <View style={styles.card}>
           <Text style={styles.eyebrowCard}>HUMAN APPEAL</Text>
           <Text style={styles.cardTitle}>
             The original record stays intact.
           </Text>
-          {state.appealState === "none" ? (
+          {!appealRef && selected && adverseKinds.has(selected.kind) ? (
             <>
               <TextInput
                 accessibilityLabel="Why should this be reviewed?"
                 multiline
-                onChangeText={(value) =>
-                  dispatch({ type: "appeal-reason", value })
-                }
+                onChangeText={(value) => {
+                  setAppealReason(value.slice(0, 240));
+                  commandID.current = null;
+                }}
                 placeholder="Share context without names or private messages"
                 placeholderTextColor="#8A747D"
                 style={styles.input}
-                value={state.appealReason}
+                value={appealReason}
               />
               <Pressable
-                disabled={state.appealReason.trim().length < 12}
-                onPress={() => dispatch({ type: "submit-appeal" })}
+                disabled={busy || appealReason.trim().length < 12}
+                onPress={() => void appeal()}
                 style={[
                   styles.primary,
-                  state.appealReason.trim().length < 12 && styles.disabled,
+                  (busy || appealReason.trim().length < 12) && styles.disabled,
                 ]}
               >
                 <Text style={styles.primaryText}>
@@ -101,9 +202,9 @@ export function SubanExplanationScreen() {
                 </Text>
               </Pressable>
             </>
-          ) : (
+          ) : appealRef ? (
             <View style={styles.status}>
-              <Text style={styles.statusRef}>{state.appealRef}</Text>
+              <Text style={styles.statusRef}>{appealRef}</Text>
               <Text style={styles.statusTitle}>
                 Awaiting a separate human panel
               </Text>
@@ -111,7 +212,16 @@ export function SubanExplanationScreen() {
                 Your original record remains visible and unchanged.
               </Text>
             </View>
+          ) : (
+            <Text style={styles.detailCopy}>
+              Only adverse reviewed events can be appealed from this record.
+            </Text>
           )}
+          {message ? (
+            <Text accessibilityLiveRegion="polite" style={styles.error}>
+              {message}
+            </Text>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -262,6 +372,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   disabled: { opacity: 0.38 },
+  error: { color: "#9D2948", fontFamily: "Outfit_600SemiBold", marginTop: 14 },
   status: { backgroundColor: "#DCEFE6", borderRadius: 16, padding: 16 },
   statusRef: { color: "#1C654F", fontFamily: "Outfit_400Regular" },
   statusTitle: {

@@ -2,10 +2,9 @@ import {
   initialNotificationSettings,
   notificationSettingsReducer,
   type NotificationCategory,
-  type NotificationChannel,
 } from "@obiara/notification-settings";
 import { type Href, useRouter } from "expo-router";
-import { useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -15,26 +14,90 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { apiRequest } from "./api";
 
 const categories: ReadonlyArray<[NotificationCategory, string]> = [
   ["courtship", "Courtship"],
   ["community", "Community"],
-  ["games", "Games"],
   ["rituals", "Rituals"],
 ];
-const channels: ReadonlyArray<[NotificationChannel, string]> = [
-  ["push", "Push"],
-  ["in_app", "In-app"],
-  ["sms", "SMS"],
-  ["whatsapp", "WhatsApp"],
-];
-
 export function NotificationSettingsScreen() {
   const router = useRouter();
   const [state, dispatch] = useReducer(
     notificationSettingsReducer,
     initialNotificationSettings,
   );
+  const [status, setStatus] = useState<
+    "loading" | "ready" | "saving" | "saved" | "error"
+  >("loading");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void apiRequest<{
+      muted: Record<string, boolean>;
+      quietStart: number;
+      quietEnd: number;
+    }>("/v1/notification-preferences")
+      .then((preferences) => {
+        if (!active) return;
+        const storageCategory = {
+          courtship: "rooms",
+          community: "pods",
+          rituals: "ritual",
+        } as const;
+        dispatch({
+          type: "hydrate",
+          enabledCategories: (
+            ["courtship", "community", "rituals"] as const
+          ).filter((category) => !preferences.muted[storageCategory[category]]),
+          quietStart: minuteText(preferences.quietStart),
+          quietEnd: minuteText(preferences.quietEnd),
+        });
+        setStatus("ready");
+      })
+      .catch((loadError: unknown) => {
+        if (active) {
+          setMessage(
+            loadError instanceof Error
+              ? loadError.message
+              : "Preferences could not be loaded.",
+          );
+          setStatus("error");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function save() {
+    setStatus("saving");
+    setMessage("");
+    try {
+      await apiRequest("/v1/notification-preferences", {
+        method: "PUT",
+        body: JSON.stringify({
+          muted: {
+            rooms: !state.enabledCategories.includes("courtship"),
+            pods: !state.enabledCategories.includes("community"),
+            ritual: !state.enabledCategories.includes("rituals"),
+          },
+          quietStart: textMinutes(state.quietStart),
+          quietEnd: textMinutes(state.quietEnd),
+          timezone: "Africa/Accra",
+        }),
+      });
+      setStatus("saved");
+    } catch (saveError) {
+      setMessage(
+        saveError instanceof Error
+          ? saveError.message
+          : "Preferences could not be saved.",
+      );
+      setStatus("error");
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -74,36 +137,6 @@ export function NotificationSettingsScreen() {
               </Pressable>
             );
           })}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.eyebrow}>CHANNELS</Text>
-          <Text style={styles.cardTitle}>Where may they arrive?</Text>
-          <View style={styles.channels}>
-            {channels.map(([id, label]) => {
-              const selected = state.enabledChannels.includes(id);
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  key={id}
-                  onPress={() =>
-                    dispatch({ type: "toggle-channel", value: id })
-                  }
-                  style={[styles.channel, selected && styles.channelSelected]}
-                >
-                  <Text
-                    style={[
-                      styles.channelText,
-                      selected && styles.channelTextSelected,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
         </View>
 
         <View style={styles.rules}>
@@ -148,6 +181,30 @@ export function NotificationSettingsScreen() {
             </Text>
           </View>
         </View>
+        {message ? (
+          <Text accessibilityLiveRegion="polite" style={styles.error}>
+            {message}
+          </Text>
+        ) : null}
+        {status === "saved" ? (
+          <Text accessibilityLiveRegion="polite" style={styles.saved}>
+            Preferences saved on the server.
+          </Text>
+        ) : null}
+        <Pressable
+          disabled={status === "loading" || status === "saving"}
+          onPress={() => void save()}
+          style={[
+            styles.save,
+            (status === "loading" || status === "saving") && styles.disabled,
+          ]}
+        >
+          <Text style={styles.saveText}>
+            {status === "saving"
+              ? "Saving securely…"
+              : "Save notification settings"}
+          </Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -301,4 +358,26 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: 8,
   },
+  error: { color: "#9D2948", fontFamily: "Outfit_600SemiBold", marginTop: 16 },
+  saved: { color: "#1C654F", fontFamily: "Outfit_600SemiBold", marginTop: 16 },
+  save: {
+    alignItems: "center",
+    backgroundColor: "#38172C",
+    borderRadius: 999,
+    justifyContent: "center",
+    marginTop: 18,
+    minHeight: 54,
+  },
+  saveText: { color: "#FFF5E9", fontFamily: "Outfit_700Bold" },
+  disabled: { opacity: 0.4 },
 });
+
+function minuteText(value: number) {
+  const normalized = ((value % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+}
+
+function textMinutes(value: string) {
+  const [hour = "0", minute = "0"] = value.split(":");
+  return Number(hour) * 60 + Number(minute);
+}

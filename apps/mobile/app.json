@@ -22,7 +22,8 @@
       "policy": "appVersion"
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/brand-mark.png"
     }
   }
 }

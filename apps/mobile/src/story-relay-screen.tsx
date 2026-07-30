@@ -1,6 +1,7 @@
 import { type Href, useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,153 +10,342 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { apiRequest } from "./api";
 
-const passages = [
-  [
-    "AMA",
-    "At dusk, Ananse found a calabash humming beside the old silk-cotton tree.",
-  ],
-  [
-    "YOU",
-    "He leaned close, but the song moved into the path beneath his feet.",
-  ],
-  ["AMA", "Every step gave him one memory and borrowed another from the moon."],
-  ["YOU", "So he stopped walking and asked the path what it wanted in return."],
-] as const;
+type Passage = {
+  id: string;
+  ordinal: number;
+  content: string;
+  yours: boolean;
+  createdAt: string;
+  editedAt: string;
+};
 
-export function StoryRelayScreen() {
+type Story = {
+  id: string;
+  titleCode: string;
+  passages: Passage[];
+  yourTurn: boolean;
+  yourGrant: boolean;
+  otherGrant: boolean;
+  bothGranted: boolean;
+  editions: Array<{ version: number; publishedAt: string }>;
+  revision: number;
+};
+
+type Action = "add" | "edit" | "grant" | "publish";
+
+export function StoryRelayScreen({
+  storyId,
+  circleId,
+}: Readonly<{ storyId: string; circleId: string }>) {
   const router = useRouter();
+  const [story, setStory] = useState<Story | null>(null);
   const [draft, setDraft] = useState("");
-  const [sent, setSent] = useState(false);
-  const [publishConsent, setPublishConsent] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [busy, setBusy] = useState<Action | "load" | null>("load");
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    if (!circleId || !storyId) {
+      setError("This story needs its private circle reference.");
+      setBusy(null);
+      return;
+    }
+    try {
+      const result = await apiRequest<Story>(
+        `/v1/circles/${encodeURIComponent(circleId)}/stories/${encodeURIComponent(storyId)}`,
+      );
+      setStory(result);
+      setError("");
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "The private story could not be opened.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }, [circleId, storyId]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) void load();
+    });
+    return () => {
+      active = false;
+    };
+  }, [load]);
+
+  async function mutate(action: Action) {
+    if (!story) return;
+    setBusy(action);
+    setError("");
+    const suffix =
+      action === "add"
+        ? "/passages"
+        : action === "edit"
+          ? `/passages/${encodeURIComponent(editing ?? "")}`
+          : action === "grant"
+            ? "/publication-grants"
+            : "/publish";
+    try {
+      const result = await apiRequest<Story>(
+        `/v1/circles/${encodeURIComponent(circleId)}/stories/${encodeURIComponent(storyId)}${suffix}`,
+        {
+          method: action === "edit" ? "PUT" : "POST",
+          headers: {
+            "Idempotency-Key": `story-${action}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          },
+          body: JSON.stringify({
+            ...(action === "add" || action === "edit"
+              ? { content: draft.trim() }
+              : {}),
+            expectedRevision: story.revision,
+          }),
+        },
+      );
+      setStory(result);
+      setDraft("");
+      setEditing(null);
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "The story action could not be retained.",
+      );
+      await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function beginEdit(passage: Passage) {
+    setEditing(passage.id);
+    setDraft(passage.content);
+  }
+
+  const roomHref = circleId
+    ? (`/fie/dan-mu/rooms/${circleId}` as Href)
+    : ("/fie/adiwo" as Href);
+  const canAdd =
+    !!story && story.yourTurn && story.passages.length < 40 && !editing;
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.topbar}>
-          <Pressable
-            onPress={() =>
-              router.push("/fie/dan-mu/rooms/room_7Qp9kL2xV4mN8zTa" as Href)
-            }
-            style={styles.control}
-          >
-            <Text style={styles.controlText}>Private room</Text>
+    <SafeAreaView style={s.safe}>
+      <ScrollView contentContainerStyle={s.content}>
+        <View style={s.topbar}>
+          <Pressable onPress={() => router.push(roomHref)} style={s.control}>
+            <Text style={s.controlText}>Private room</Text>
           </Pressable>
-          <Pressable style={styles.control}>
-            <Text style={styles.controlText}>Safety</Text>
-          </Pressable>
+          <Text style={s.reference}>{storyId.slice(0, 8)}</Text>
         </View>
-        <Text style={styles.eyebrow}>ONE LINE, THEN THE OTHER</Text>
-        <Text accessibilityRole="header" style={styles.title}>
-          Build a story without racing its ending.
+        <Text style={s.eyebrow}>ONE PASSAGE, THEN THE OTHER</Text>
+        <Text accessibilityRole="header" style={s.title}>
+          Build a story without inventing its history.
         </Text>
-        <Text style={styles.body}>
-          Publishing is a separate choice both writers make after the latest
-          contribution.
+        <Text style={s.body}>
+          Every passage is retained and alternation is verified by the server.
+          Publishing requires two grants bound to the current draft.
         </Text>
-        <View style={styles.paper}>
-          <Text style={styles.meta}>
-            DRAFT · PRIVATE TO TWO · {sent ? "5" : "4"} PASSAGES
-          </Text>
-          <Text accessibilityRole="header" style={styles.storyTitle}>
-            The path that remembered
-          </Text>
-          {passages.map(([who, text], index) => (
-            <View key={text} style={styles.passage}>
-              <Text style={styles.who}>
-                {String(index + 1).padStart(2, "0")} · {who}
+
+        {busy === "load" ? (
+          <ActivityIndicator color="#9B315D" style={s.loader} />
+        ) : null}
+        {error ? <Text style={s.error}>{error}</Text> : null}
+        {story ? (
+          <>
+            <View style={s.paper}>
+              <Text style={s.meta}>
+                DRAFT · PRIVATE TO TWO · {story.passages.length} PASSAGES ·
+                REVISION {story.revision}
               </Text>
-              <Text style={styles.passageText}>{text}</Text>
-            </View>
-          ))}
-          {sent ? (
-            <View style={styles.passage}>
-              <Text style={styles.who}>05 · YOU</Text>
-              <Text style={styles.passageText}>
-                The path answered with a drumbeat.
+              <Text accessibilityRole="header" style={s.storyTitle}>
+                {story.titleCode.replaceAll("-", " ")}
               </Text>
+              {story.passages.length === 0 ? (
+                <View style={s.passage}>
+                  <Text style={s.who}>THE FIRST PAGE IS OPEN</Text>
+                  <Text style={s.passageText}>
+                    No sample prose is inserted. The first retained passage
+                    begins here.
+                  </Text>
+                </View>
+              ) : null}
+              {story.passages.map((passage) => (
+                <View key={passage.id} style={s.passage}>
+                  <Text style={s.who}>
+                    {String(passage.ordinal + 1).padStart(2, "0")} ·{" "}
+                    {passage.yours ? "YOU" : "OTHER AUTHOR"}
+                  </Text>
+                  <Text style={s.passageText}>{passage.content}</Text>
+                  {passage.yours ? (
+                    <Pressable
+                      disabled={busy !== null}
+                      onPress={() => beginEdit(passage)}
+                      style={s.editButton}
+                    >
+                      <Text style={s.editText}>Revise this passage</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))}
+              <View style={s.composer}>
+                <Text style={s.composerLabel}>
+                  {editing
+                    ? "AUTHOR-OWNED REVISION"
+                    : story.yourTurn
+                      ? "THE RELAY IS WITH YOU"
+                      : "THE RELAY IS WITH THE OTHER AUTHOR"}
+                </Text>
+                <Text style={s.composerTitle}>
+                  {editing
+                    ? "Revise your passage."
+                    : story.yourTurn
+                      ? "Add one passage."
+                      : "Your words are resting."}
+                </Text>
+                <TextInput
+                  accessibilityLabel={
+                    editing ? "Revised passage" : "Your next passage"
+                  }
+                  editable={busy === null && (!!editing || canAdd)}
+                  maxLength={280}
+                  multiline
+                  onChangeText={setDraft}
+                  placeholder="Let the next moment unfold…"
+                  placeholderTextColor="#846E79"
+                  style={s.input}
+                  value={draft}
+                />
+                <Text style={s.count}>{draft.length}/280</Text>
+                <Pressable
+                  disabled={
+                    busy !== null ||
+                    draft.trim().length === 0 ||
+                    (!editing && !canAdd)
+                  }
+                  onPress={() => void mutate(editing ? "edit" : "add")}
+                  style={[
+                    s.primary,
+                    (busy !== null ||
+                      draft.trim().length === 0 ||
+                      (!editing && !canAdd)) &&
+                      s.disabled,
+                  ]}
+                >
+                  <Text style={s.primaryText}>
+                    {busy === "add" || busy === "edit"
+                      ? "Retaining…"
+                      : editing
+                        ? "Retain revision"
+                        : "Add one passage"}
+                  </Text>
+                </Pressable>
+                {editing ? (
+                  <Pressable
+                    disabled={busy !== null}
+                    onPress={() => {
+                      setEditing(null);
+                      setDraft("");
+                    }}
+                    style={s.cancel}
+                  >
+                    <Text style={s.cancelText}>Cancel revision</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
-          ) : null}
-          <View style={styles.composer}>
-            <Text style={styles.composerLabel}>
-              {sent ? "THE RELAY IS WITH AMA" : "THE RELAY IS WITH YOU"}
-            </Text>
-            <Text style={styles.composerTitle}>
-              {sent ? "Your words are resting." : "Add one passage."}
-            </Text>
-            <TextInput
-              accessibilityLabel="Your next passage"
-              editable={!sent}
-              maxLength={280}
-              multiline
-              onChangeText={setDraft}
-              placeholder="Let the next moment unfold…"
-              placeholderTextColor="#846E79"
-              style={styles.input}
-              value={draft}
-            />
-            <Text style={styles.count}>{draft.length}/280</Text>
-            <Pressable
-              disabled={draft.trim().length < 3 || sent}
-              onPress={() => {
-                setSent(true);
-                setDraft("");
-                setPublishConsent(false);
-              }}
-              style={[
-                styles.primary,
-                (draft.trim().length < 3 || sent) && styles.disabled,
-              ]}
-            >
-              <Text style={styles.primaryText}>Add one passage</Text>
-            </Pressable>
-          </View>
-        </View>
-        <View style={styles.publish}>
-          <Text style={styles.eyebrow}>SEPARATE PUBLISHING CONSENT</Text>
-          <Text accessibilityRole="header" style={styles.publishTitle}>
-            Private unless both say otherwise.
-          </Text>
-          <Text style={styles.publishCopy}>
-            A public edition removes room references and private authorship.
-            Either person can withdraw before publication.
-          </Text>
-          <View style={styles.consentRow}>
-            <Text style={styles.consentName}>Ama</Text>
-            <Text style={styles.consentValue}>Consents</Text>
-          </View>
-          <View style={styles.consentRow}>
-            <Text style={styles.consentName}>You</Text>
-            <Text style={styles.consentValue}>
-              {publishConsent ? "Consent" : "Private"}
-            </Text>
-          </View>
-          <Pressable
-            accessibilityState={{ checked: publishConsent }}
-            accessibilityRole="checkbox"
-            onPress={() => setPublishConsent((value) => !value)}
-            style={styles.consentButton}
-          >
-            <Text style={styles.consentButtonText}>
-              {publishConsent
-                ? "Withdraw my consent"
-                : "Consent to a redacted edition"}
-            </Text>
-          </Pressable>
-          <Text accessibilityLiveRegion="polite" style={styles.consentStatus}>
-            {publishConsent
-              ? "Both consent. A redacted preview can be prepared."
-              : "This draft remains private."}
-          </Text>
-        </View>
+
+            <View style={s.publish}>
+              <Text style={s.publishEyebrow}>
+                FINGERPRINT-BOUND PUBLICATION
+              </Text>
+              <Text accessibilityRole="header" style={s.publishTitle}>
+                Private unless both grant this draft.
+              </Text>
+              <Text style={s.publishCopy}>
+                New writing clears prior grants. Published editions contain no
+                room reference or private authorship.
+              </Text>
+              <View style={s.consentRow}>
+                <Text style={s.consentName}>Other author</Text>
+                <Text style={s.consentValue}>
+                  {story.otherGrant ? "Granted" : "Private"}
+                </Text>
+              </View>
+              <View style={s.consentRow}>
+                <Text style={s.consentName}>You</Text>
+                <Text style={s.consentValue}>
+                  {story.yourGrant ? "Granted" : "Private"}
+                </Text>
+              </View>
+              <Pressable
+                disabled={
+                  busy !== null ||
+                  story.yourGrant ||
+                  story.passages.length === 0
+                }
+                onPress={() => void mutate("grant")}
+                style={[
+                  s.consentButton,
+                  (busy !== null ||
+                    story.yourGrant ||
+                    story.passages.length === 0) &&
+                    s.disabled,
+                ]}
+              >
+                <Text style={s.consentButtonText}>
+                  {busy === "grant"
+                    ? "Retaining grant…"
+                    : story.yourGrant
+                      ? "Current draft granted"
+                      : "Grant publication for this draft"}
+                </Text>
+              </Pressable>
+              <Pressable
+                disabled={busy !== null || !story.bothGranted}
+                onPress={() => void mutate("publish")}
+                style={[
+                  s.consentButton,
+                  (busy !== null || !story.bothGranted) && s.disabled,
+                ]}
+              >
+                <Text style={s.consentButtonText}>
+                  {busy === "publish"
+                    ? "Publishing…"
+                    : "Publish current edition"}
+                </Text>
+              </Pressable>
+              <Text accessibilityLiveRegion="polite" style={s.consentStatus}>
+                {story.bothGranted
+                  ? "Both current-draft grants are present."
+                  : "This draft remains private."}
+              </Text>
+              {story.editions.length ? (
+                <Text style={s.consentStatus}>
+                  {story.editions.length} retained public{" "}
+                  {story.editions.length === 1 ? "edition" : "editions"}.
+                </Text>
+              ) : null}
+            </View>
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { backgroundColor: "#F5EAD8", flex: 1 },
   content: { padding: 20, paddingBottom: 56 },
-  topbar: { flexDirection: "row", justifyContent: "space-between" },
+  topbar: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   control: {
     alignItems: "center",
     borderColor: "#927982",
@@ -166,6 +356,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 17,
   },
   controlText: { color: "#291720", fontFamily: "Outfit_700Bold" },
+  reference: {
+    color: "#705C67",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 11,
+    letterSpacing: 1,
+  },
   eyebrow: {
     color: "#9B315D",
     fontFamily: "Outfit_700Bold",
@@ -176,9 +372,9 @@ const styles = StyleSheet.create({
   title: {
     color: "#291720",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 54,
-    letterSpacing: -3.4,
-    lineHeight: 49,
+    fontSize: 50,
+    letterSpacing: -3.1,
+    lineHeight: 47,
     marginTop: 14,
   },
   body: {
@@ -186,6 +382,13 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit_400Regular",
     fontSize: 16,
     lineHeight: 25,
+    marginTop: 22,
+  },
+  loader: { marginTop: 30 },
+  error: {
+    color: "#8E1F3C",
+    fontFamily: "Outfit_600SemiBold",
+    lineHeight: 21,
     marginTop: 22,
   },
   paper: {
@@ -201,6 +404,7 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit_700Bold",
     fontSize: 10,
     letterSpacing: 1.1,
+    lineHeight: 16,
   },
   storyTitle: {
     color: "#291720",
@@ -209,6 +413,7 @@ const styles = StyleSheet.create({
     letterSpacing: -2,
     lineHeight: 42,
     marginVertical: 36,
+    textTransform: "capitalize",
   },
   passage: {
     borderTopColor: "#DFD2C8",
@@ -227,6 +432,17 @@ const styles = StyleSheet.create({
     fontSize: 19,
     lineHeight: 29,
     marginTop: 10,
+  },
+  editButton: {
+    alignSelf: "flex-start",
+    justifyContent: "center",
+    marginTop: 12,
+    minHeight: 44,
+  },
+  editText: {
+    color: "#7C294E",
+    fontFamily: "Outfit_700Bold",
+    textDecorationLine: "underline",
   },
   composer: {
     backgroundColor: "#291720",
@@ -273,12 +489,24 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   primaryText: { color: "#291720", fontFamily: "Outfit_700Bold" },
+  cancel: { alignItems: "center", justifyContent: "center", minHeight: 48 },
+  cancelText: {
+    color: "#FFF3E6",
+    fontFamily: "Outfit_700Bold",
+    textDecorationLine: "underline",
+  },
   disabled: { opacity: 0.4 },
   publish: {
     backgroundColor: "#291720",
     borderRadius: 26,
     marginTop: 38,
     padding: 22,
+  },
+  publishEyebrow: {
+    color: "#FF91A6",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 10,
+    letterSpacing: 1.1,
   },
   publishTitle: {
     color: "#FFF3E6",
@@ -309,11 +537,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFAD3D",
     borderRadius: 999,
     justifyContent: "center",
-    marginTop: 22,
+    marginTop: 16,
     minHeight: 52,
     paddingHorizontal: 12,
   },
-  consentButtonText: { color: "#291720", fontFamily: "Outfit_700Bold" },
+  consentButtonText: {
+    color: "#291720",
+    fontFamily: "Outfit_700Bold",
+    textAlign: "center",
+  },
   consentStatus: {
     color: "rgba(255,243,230,.65)",
     fontFamily: "Outfit_400Regular",

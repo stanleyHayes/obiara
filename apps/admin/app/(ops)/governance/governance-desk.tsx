@@ -5,31 +5,130 @@ import {
   Box,
   Button,
   Card,
+  Checkbox,
   Chip,
+  CircularProgress,
   Container,
-  FormControl,
-  InputLabel,
+  FormControlLabel,
   MenuItem,
-  Select,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import Link from "next/link";
-import { useReducer } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  checksPass,
-  governanceReducer,
-  initialGovernanceState,
-} from "./governance-model";
+type Market = "gh_en" | "gh_tw" | "gh_pidgin" | "gh_ga";
+type Pack = {
+  packId: string;
+  market: Market;
+  terminologyRef: string;
+  features: Record<string, boolean>;
+  status: "draft" | "published" | "retired";
+  version: number;
+  createdAt: string;
+  publishedAt?: string;
+  proposedByMe?: boolean;
+  approvedByMe?: boolean;
+};
+
+const marketLabels: Record<Market, string> = {
+  gh_en: "Ghana · English",
+  gh_tw: "Ghana · Twi",
+  gh_pidgin: "Ghana · Pidgin",
+  gh_ga: "Ghana · Ga",
+};
+const capabilities = ["sow", "fires", "ai", "payments", "gate"] as const;
+
+function compactRef(value: string) {
+  return `pack···${value.slice(-8).toUpperCase()}`;
+}
 
 export function GovernanceDesk() {
-  const [state, dispatch] = useReducer(
-    governanceReducer,
-    initialGovernanceState,
+  const [packs, setPacks] = useState<Pack[]>([]);
+  const [market, setMarket] = useState<Market>("gh_tw");
+  const [terminologyRef, setTerminologyRef] = useState("");
+  const [features, setFeatures] = useState<Record<string, boolean>>({
+    sow: true,
+    fires: true,
+    ai: false,
+    payments: true,
+    gate: true,
+  });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/governance", { cache: "no-store" });
+      const body = (await response.json().catch(() => null)) as {
+        packs?: Pack[];
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          body?.message ?? "Market-pack governance could not be loaded.",
+        );
+      setPacks(body?.packs ?? []);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Market-pack governance could not be loaded.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(initialLoad);
+  }, [load]);
+
+  const counts = useMemo(
+    () => ({
+      draft: packs.filter((pack) => pack.status === "draft").length,
+      published: packs.filter((pack) => pack.status === "published").length,
+      retired: packs.filter((pack) => pack.status === "retired").length,
+    }),
+    [packs],
   );
-  const ready = checksPass(state);
+
+  async function mutate(payload: object, key: string, success: string) {
+    setBusy(key);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/governance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          body?.message ?? "The governance action could not be completed.",
+        );
+      setNotice(success);
+      if (key === "draft") setTerminologyRef("");
+      await load();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The governance action could not be completed.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <Box
       sx={{
@@ -40,218 +139,290 @@ export function GovernanceDesk() {
       }}
     >
       <Container maxWidth="lg">
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
+        <Box sx={{ mb: 5, maxWidth: 820 }}>
+          <Typography
+            sx={{
+              color: "#8e3159",
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: 1.4,
+            }}
+          >
+            MARKET GOVERNANCE · LIVE
+          </Typography>
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: { xs: 42, md: 70 },
+              fontWeight: 800,
+              letterSpacing: "-0.06em",
+              lineHeight: 0.95,
+              mt: 1,
+            }}
+          >
+            Configuration needs a second set of eyes.
+          </Typography>
+          <Typography sx={{ color: "#69535d", mt: 2, maxWidth: "68ch" }}>
+            Draft bounded market configuration, publish only through a distinct
+            operator, and retire without erasing history. Every transition
+            commits atomically with its audit.
+          </Typography>
+        </Box>
+
+        {error ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        ) : null}
+        {notice ? (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {notice}
+          </Alert>
+        ) : null}
+
+        <Box
           sx={{
-            alignItems: { md: "center" },
-            justifyContent: "space-between",
-            mb: 5,
+            display: "grid",
+            gap: 1.5,
+            gridTemplateColumns: "repeat(3,minmax(0,1fr))",
+            mb: 2,
           }}
         >
-          <Box>
-            <Typography
-              sx={{
-                color: "#8e3159",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 1.4,
-              }}
-            >
-              LANGUAGE GOVERNANCE
-            </Typography>
-            <Typography
-              component="h1"
-              sx={{
-                fontSize: { xs: 44, md: 72 },
-                fontWeight: 800,
-                letterSpacing: "-0.06em",
-                lineHeight: 0.95,
-                mt: 1,
-              }}
-            >
-              Meaning needs human custody.
-            </Typography>
-            <Typography sx={{ color: "#69535d", mt: 2 }}>
-              {state.proposalRef} · {state.locale} · version {state.version}
-            </Typography>
-          </Box>
-          <Link href="/">
-            <Button variant="outlined">Back to command centre</Button>
-          </Link>
-        </Stack>
-
-        <Alert
-          severity={state.publishState === "publish_ready" ? "success" : "info"}
-          sx={{ borderRadius: 1, mb: 3 }}
-        >
-          <strong>
-            {state.publishState === "publish_ready"
-              ? "Publish-ready preview."
-              : "Current registry remains unchanged."}
-          </strong>{" "}
-          This desk records review readiness only; it cannot deploy or activate
-          a market.
-        </Alert>
+          {(["draft", "published", "retired"] as const).map((status) => (
+            <Card key={status} variant="outlined" sx={{ p: 2.25 }}>
+              <Typography
+                sx={{
+                  color: "text.secondary",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                }}
+              >
+                {status}
+              </Typography>
+              <Typography sx={{ fontSize: 30, fontWeight: 800 }}>
+                {counts[status]}
+              </Typography>
+            </Card>
+          ))}
+        </Box>
 
         <Box
           sx={{
             display: "grid",
             gap: 2,
-            gridTemplateColumns: { xs: "1fr", md: "repeat(3,minmax(0,1fr))" },
+            gridTemplateColumns: { xs: "1fr", lg: "360px minmax(0,1fr)" },
           }}
         >
-          <Card sx={{ borderRadius: 1, p: 3 }}>
-            <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
-              Key parity
+          <Card sx={{ p: 3 }}>
+            <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
+              Draft a market pack
             </Typography>
-            <Typography sx={{ fontSize: 36, fontWeight: 800 }}>
-              {state.translatedKeys}/{state.sourceKeys}
+            <Typography sx={{ color: "text.secondary", fontSize: 13, mb: 2 }}>
+              A terminology reference identifies separately reviewed language
+              assets; this desk does not upload or invent translations.
             </Typography>
-            <Chip
-              color={
-                state.translatedKeys === state.sourceKeys ? "success" : "error"
-              }
-              label={
-                state.translatedKeys === state.sourceKeys
-                  ? "Complete"
-                  : "Missing keys"
-              }
-            />
+            <Stack spacing={2}>
+              <TextField
+                select
+                label="Market"
+                value={market}
+                onChange={(event) => setMarket(event.target.value as Market)}
+              >
+                {(Object.keys(marketLabels) as Market[]).map((value) => (
+                  <MenuItem key={value} value={value}>
+                    {marketLabels[value]}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Terminology registry reference"
+                placeholder="terminology:gh-tw:v4"
+                value={terminologyRef}
+                onChange={(event) =>
+                  setTerminologyRef(event.target.value.slice(0, 128))
+                }
+              />
+              <Box>
+                <Typography sx={{ fontSize: 12, fontWeight: 800, mb: 0.5 }}>
+                  CAPABILITIES
+                </Typography>
+                {capabilities.map((capability) => (
+                  <FormControlLabel
+                    key={capability}
+                    control={
+                      <Checkbox
+                        checked={features[capability] ?? false}
+                        onChange={(event) =>
+                          setFeatures((current) => ({
+                            ...current,
+                            [capability]: event.target.checked,
+                          }))
+                        }
+                      />
+                    }
+                    label={capability}
+                  />
+                ))}
+              </Box>
+              <Button
+                disabled={terminologyRef.trim().length < 3 || busy !== null}
+                onClick={() =>
+                  void mutate(
+                    {
+                      action: "draft",
+                      market,
+                      terminologyRef: terminologyRef.trim(),
+                      features,
+                    },
+                    "draft",
+                    "Draft retained with an immutable audit record.",
+                  )
+                }
+                variant="contained"
+              >
+                {busy === "draft" ? "Retaining…" : "Create audited draft"}
+              </Button>
+            </Stack>
           </Card>
-          <Card sx={{ borderRadius: 1, p: 3 }}>
-            <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
-              Placeholder validation
-            </Typography>
-            <Typography sx={{ fontSize: 36, fontWeight: 800 }}>
-              {state.placeholdersValid ? "Valid" : "Drift"}
-            </Typography>
-            <Typography sx={{ color: "text.secondary" }}>
-              Names and counts preserve typed parameters.
-            </Typography>
-          </Card>
-          <Card sx={{ borderRadius: 1, p: 3 }}>
-            <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
-              Terminology review
-            </Typography>
-            <Typography sx={{ fontSize: 36, fontWeight: 800 }}>
-              {state.terminologyReviewed ? "Reviewed" : "Pending"}
-            </Typography>
-            <Typography sx={{ color: "text.secondary" }}>
-              Cultural meaning is not inferred by a machine.
-            </Typography>
-          </Card>
-        </Box>
 
-        <Card
-          sx={{
-            borderRadius: 1,
-            display: "grid",
-            gap: 4,
-            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-            mt: 3,
-            p: 3,
-          }}
-        >
-          <Box>
-            <Typography
+          <Card sx={{ p: 3 }}>
+            <Stack
+              direction="row"
               sx={{
-                color: "#8e3159",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 1.2,
+                alignItems: "center",
+                justifyContent: "space-between",
+                mb: 2,
               }}
             >
-              REVIEW ACKNOWLEDGEMENT
-            </Typography>
-            <Typography
-              component="h2"
-              sx={{ fontSize: 32, fontWeight: 800, mt: 1 }}
-            >
-              Two people protect one meaning.
-            </Typography>
-            <Typography
-              sx={{ color: "text.secondary", lineHeight: 1.6, mt: 1 }}
-            >
-              English fallback remains a runtime safety net—not approval
-              evidence. Reviewers confirm parity, placeholders and culturally
-              accurate product terms before a version becomes publish-ready.
-            </Typography>
-          </Box>
-          {state.publishState === "draft" ? (
-            <Box>
-              <TextField
-                fullWidth
-                label="Human review note"
-                multiline
-                onChange={(event) =>
-                  dispatch({ type: "review-note", value: event.target.value })
-                }
-                rows={4}
-                value={state.humanReviewNote}
-              />
-              <Button
-                disabled={!ready || state.humanReviewNote.trim().length < 12}
-                fullWidth
-                onClick={() =>
-                  dispatch({ type: "first-approve", actor: "operator•••A1" })
-                }
-                sx={{ mt: 1.5 }}
-                variant="contained"
-              >
-                Record first approval
+              <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
+                Governance register
+              </Typography>
+              <Button onClick={() => void load()} size="small">
+                Refresh
               </Button>
-            </Box>
-          ) : state.publishState === "first_approved" ? (
-            <Box>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                First approval · {state.primaryApprover}
+            </Stack>
+            {loading ? (
+              <Stack sx={{ alignItems: "center", py: 8 }}>
+                <CircularProgress size={28} />
+              </Stack>
+            ) : packs.length === 0 ? (
+              <Alert severity="info">
+                No market packs have been drafted in this environment.
               </Alert>
-              <FormControl fullWidth>
-                <InputLabel id="second-approver-label">
-                  Distinct second approver
-                </InputLabel>
-                <Select
-                  label="Distinct second approver"
-                  labelId="second-approver-label"
-                  onChange={(event) =>
-                    dispatch({
-                      type: "second-approver",
-                      actor: event.target.value,
-                    })
-                  }
-                  value={state.secondApprover}
-                >
-                  <MenuItem value="operator•••A1">
-                    Adwoa · same operator
-                  </MenuItem>
-                  <MenuItem value="operator•••B8">
-                    Kofi · language governance
-                  </MenuItem>
-                </Select>
-              </FormControl>
-              <Button
-                disabled={
-                  !state.secondApprover ||
-                  state.secondApprover === state.primaryApprover
-                }
-                fullWidth
-                onClick={() => dispatch({ type: "confirm-second-approval" })}
-                sx={{ mt: 1.5 }}
-                variant="contained"
-              >
-                Confirm second approval
-              </Button>
-            </Box>
-          ) : (
-            <Alert severity="success">
-              <strong>Version {state.version} is publish-ready.</strong>
-              <br />
-              The immutable proposal is ready for a separate deployment
-              workflow. No registry or market was changed here.
-            </Alert>
-          )}
-        </Card>
+            ) : (
+              <Stack spacing={1.25}>
+                {packs.map((pack) => (
+                  <Card key={pack.packId} variant="outlined" sx={{ p: 2 }}>
+                    <Stack
+                      direction={{ xs: "column", md: "row" }}
+                      spacing={1.5}
+                      sx={{
+                        alignItems: { md: "center" },
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Stack
+                          direction="row"
+                          spacing={1}
+                          sx={{ alignItems: "center", flexWrap: "wrap" }}
+                        >
+                          <Typography
+                            sx={{ fontFamily: "monospace", fontWeight: 800 }}
+                          >
+                            {compactRef(pack.packId)}
+                          </Typography>
+                          <Chip
+                            label={pack.status}
+                            size="small"
+                            color={
+                              pack.status === "published"
+                                ? "success"
+                                : pack.status === "draft"
+                                  ? "warning"
+                                  : "default"
+                            }
+                          />
+                          <Chip
+                            label={`v${pack.version}`}
+                            size="small"
+                            variant="outlined"
+                          />
+                          {pack.proposedByMe ? (
+                            <Chip
+                              label="proposed by you"
+                              size="small"
+                              variant="outlined"
+                            />
+                          ) : null}
+                        </Stack>
+                        <Typography sx={{ fontWeight: 800, mt: 0.75 }}>
+                          {marketLabels[pack.market]}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            color: "text.secondary",
+                            fontFamily: "monospace",
+                            fontSize: 12,
+                            overflowWrap: "anywhere",
+                          }}
+                        >
+                          {pack.terminologyRef}
+                        </Typography>
+                        <Typography
+                          sx={{ color: "text.secondary", fontSize: 12 }}
+                        >
+                          {Object.entries(pack.features)
+                            .filter(([, enabled]) => enabled)
+                            .map(([name]) => name)
+                            .join(" · ") || "No capabilities enabled"}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" spacing={1}>
+                        {pack.status === "draft" ? (
+                          <Button
+                            disabled={
+                              Boolean(pack.proposedByMe) || busy !== null
+                            }
+                            onClick={() =>
+                              void mutate(
+                                { action: "publish", packId: pack.packId },
+                                pack.packId,
+                                "Pack published by a distinct operator.",
+                              )
+                            }
+                            variant="contained"
+                          >
+                            {pack.proposedByMe
+                              ? "Second operator required"
+                              : "Publish"}
+                          </Button>
+                        ) : null}
+                        {pack.status === "published" ? (
+                          <Button
+                            color="warning"
+                            disabled={busy !== null}
+                            onClick={() =>
+                              void mutate(
+                                { action: "retire", packId: pack.packId },
+                                pack.packId,
+                                "Pack retired; its history remains intact.",
+                              )
+                            }
+                            variant="outlined"
+                          >
+                            Retire
+                          </Button>
+                        ) : null}
+                      </Stack>
+                    </Stack>
+                  </Card>
+                ))}
+              </Stack>
+            )}
+          </Card>
+        </Box>
       </Container>
     </Box>
   );

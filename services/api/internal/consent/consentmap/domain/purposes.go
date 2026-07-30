@@ -13,11 +13,12 @@ import (
 type Purpose string
 
 const (
-	PurposeIdentitySafety   Purpose = "identity_safety"
-	PurposeMatching         Purpose = "matching_personalization"
-	PurposeScamArc          Purpose = "scam_arc_monitoring"
-	PurposePlayPortraits    Purpose = "play_portraits"
-	PurposeProductAnalytics Purpose = "product_analytics"
+	PurposeIdentitySafety    Purpose = "identity_safety"
+	PurposeMatching          Purpose = "matching_personalization"
+	PurposeScamArc           Purpose = "scam_arc_monitoring"
+	PurposePlayPortraits     Purpose = "play_portraits"
+	PurposeProductAnalytics  Purpose = "product_analytics"
+	PurposeProfileVisibility Purpose = "profile_visibility"
 )
 
 // control is the member's control level over a purpose.
@@ -37,11 +38,12 @@ type purposeSpec struct {
 }
 
 var specs = map[Purpose]purposeSpec{
-	PurposeIdentitySafety:   {defaultOn: true, control: controlNone},
-	PurposeMatching:         {defaultOn: false, control: controlOptIn},
-	PurposeScamArc:          {defaultOn: true, control: controlOptOut},
-	PurposePlayPortraits:    {defaultOn: false, control: controlOptIn},
-	PurposeProductAnalytics: {defaultOn: true, control: controlOptOut},
+	PurposeIdentitySafety:    {defaultOn: true, control: controlNone},
+	PurposeMatching:          {defaultOn: false, control: controlOptIn},
+	PurposeScamArc:           {defaultOn: true, control: controlOptOut},
+	PurposePlayPortraits:     {defaultOn: false, control: controlOptIn},
+	PurposeProductAnalytics:  {defaultOn: true, control: controlOptOut},
+	PurposeProfileVisibility: {defaultOn: false, control: controlToggle},
 }
 
 var (

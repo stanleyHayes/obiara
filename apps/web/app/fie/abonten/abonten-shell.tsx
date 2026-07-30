@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer } from "react";
+import { useEffect, useReducer, useState } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
 import { DetailDialog } from "../detail-dialog";
@@ -11,49 +11,106 @@ import {
 } from "./abonten-model";
 
 const filters: readonly { value: StreetFilter; label: string }[] = [
-  { value: "all", label: "Everything" },
+  { value: "all", label: "All retained moments" },
   { value: "fires", label: "Community fires" },
-  { value: "learning", label: "Learning" },
-  { value: "notices", label: "Notices" },
 ];
 
-const moments = [
-  {
-    id: "fire-stories",
-    kind: "fires",
-    eyebrow: "Tonight · 7:30 PM",
-    title: "Stories we inherited",
-    detail: "An open fire about names, proverbs and what our elders passed on.",
-    meta: "Nana Esi · 46 of 80 seats",
-    accent: "orange",
-  },
-  {
-    id: "learning-twi",
-    kind: "learning",
-    eyebrow: "Wednesday · 6:00 PM",
-    title: "Twi without fear",
-    detail:
-      "A gentle practice hour for members finding their way back to the language.",
-    meta: "Akua Mensima · Online",
-    accent: "green",
-  },
-  {
-    id: "notice-library",
-    kind: "notices",
-    eyebrow: "Community notice",
-    title: "Books for the Nima reading room",
-    detail:
-      "The Saturday team needs children's books and two more sorting hands.",
-    meta: "Posted by Obiara community care",
-    accent: "rose",
-  },
-] as const;
+interface FireMoment {
+  id: string;
+  kind: "fires";
+  eyebrow: string;
+  title: string;
+  detail: string;
+  meta: string;
+  accent: "orange";
+}
 
 export function AbontenShell() {
   const [state, dispatch] = useReducer(abontenReducer, initialAbontenState);
+  const [fires, setFires] = useState<FireMoment[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [joining, setJoining] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/fires")
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          fires?: Array<{
+            fireId: string;
+            title: string;
+            startsAt: string;
+            capacity: number;
+            goingCount: number;
+          }>;
+          message?: string;
+        };
+        if (!response.ok)
+          throw new Error(
+            payload.message || "Community fires could not be loaded.",
+          );
+        if (active) {
+          setFires(
+            (payload.fires ?? []).map((fire) => ({
+              id: fire.fireId,
+              kind: "fires",
+              eyebrow: new Intl.DateTimeFormat("en-GH", {
+                weekday: "short",
+                hour: "numeric",
+                minute: "2-digit",
+              }).format(new Date(fire.startsAt)),
+              title: fire.title,
+              detail:
+                "A bounded community gathering with safety controls available throughout.",
+              meta: `${fire.goingCount} of ${fire.capacity} seats`,
+              accent: "orange",
+            })),
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "Community fires could not be loaded.",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const moments = fires;
   const visibleMoments = moments.filter(
     (moment) => state.filter === "all" || moment.kind === state.filter,
   );
+
+  async function reserveFire(id: string) {
+    setJoining(id);
+    setLoadError("");
+    try {
+      const response = await fetch(
+        `/api/fires/${encodeURIComponent(id)}/rsvp`,
+        { method: "POST" },
+      );
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!response.ok && response.status !== 409) {
+        throw new Error(
+          payload?.message || "Your place could not be reserved.",
+        );
+      }
+      if (!state.savedIds.includes(id)) dispatch({ type: "toggle-save", id });
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "Your place could not be reserved.",
+      );
+    } finally {
+      setJoining(null);
+    }
+  }
 
   return (
     <main className="fie-shell abonten-shell">
@@ -64,8 +121,9 @@ export function AbontenShell() {
             <p className="fie-kicker">Abɔnten · the public street</p>
             <h1>Step outside. Stay yourself.</h1>
             <p>
-              Open community moments, shared learning and useful notices. This
-              street never starts romantic contact.
+              Retained community Fires appear here. Learning and notice cards
+              stay absent until their catalogs are connected. This street never
+              starts romantic contact.
             </p>
           </div>
           <div className="abonten-status" role="status">
@@ -114,6 +172,17 @@ export function AbontenShell() {
           </header>
 
           <div className="abonten-grid" aria-live="polite">
+            {loadError ? <p role="alert">{loadError}</p> : null}
+            {!loadError && visibleMoments.length === 0 ? (
+              <article className="abonten-card is-orange">
+                <p className="fie-kicker">Community board</p>
+                <h3>No retained moments are available.</h3>
+                <p>
+                  Obiara will not invent an event, host, notice or seat count
+                  while the board is empty.
+                </p>
+              </article>
+            ) : null}
             {visibleMoments.map((moment) => {
               const saved = state.savedIds.includes(moment.id);
               return (
@@ -142,12 +211,25 @@ export function AbontenShell() {
                     </DetailDialog>
                     <button
                       aria-pressed={saved}
+                      disabled={
+                        moment.kind === "fires" && joining === moment.id
+                      }
                       onClick={() =>
-                        dispatch({ type: "toggle-save", id: moment.id })
+                        moment.kind === "fires"
+                          ? void reserveFire(moment.id)
+                          : dispatch({ type: "toggle-save", id: moment.id })
                       }
                       type="button"
                     >
-                      {saved ? "Saved" : "Save for later"}
+                      {moment.kind === "fires"
+                        ? joining === moment.id
+                          ? "Reserving"
+                          : saved
+                            ? "Place reserved"
+                            : "Reserve a place"
+                        : saved
+                          ? "Saved"
+                          : "Save for later"}
                     </button>
                   </div>
                 </article>

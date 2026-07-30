@@ -60,7 +60,7 @@ func TestMarketPackGovernanceEndToEnd(t *testing.T) {
 			return "pack_" + strings.Repeat("z", counter)
 		}
 	}()
-	service := application.NewMarketPackService(repository, repository, time.Now, ids)
+	service := application.NewMarketPackService(repository, time.Now, ids)
 
 	// Draft a Twi pack; audited.
 	pack, err := service.Draft(ctx, domain.MarketGhanaTwi, "term:gh-tw:1", map[string]bool{"fires": true, "circles": true}, "proposer-1")

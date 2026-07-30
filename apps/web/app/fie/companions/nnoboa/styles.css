@@ -91,6 +91,46 @@
   color: #1c654f;
 }
 
+.nnoboa-panel > header > button {
+  background: transparent;
+  border: 0;
+  color: #8e3159;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.nnoboa-invite-form {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 2rem;
+}
+
+.nnoboa-invite-form label {
+  color: #5f4852;
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 0.42rem;
+}
+
+.nnoboa-invite-form input,
+.nnoboa-invite-form select {
+  background: #f8eee5;
+  border: 1px solid #d8c7bd;
+  border-radius: 0.9rem;
+  color: #2b151f;
+  font: inherit;
+  min-height: 3.2rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.nnoboa-invite-form input:focus-visible,
+.nnoboa-invite-form select:focus-visible {
+  outline: 3px solid rgb(142 49 89 / 24%);
+  outline-offset: 2px;
+}
+
 .nnoboa-nominators {
   display: grid;
   gap: 0.7rem;
@@ -122,6 +162,12 @@
 .nnoboa-nominators small,
 .nnoboa-nominators strong {
   display: block;
+}
+
+.nnoboa-nominators b {
+  color: #8e3159;
+  font-size: 0.72rem;
+  text-transform: uppercase;
 }
 
 .nnoboa-nominators small,

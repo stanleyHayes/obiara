@@ -15,12 +15,19 @@ type Metrics interface {
 }
 
 // RegisterMetricsRoutes adds the metrics routes.
-func RegisterMetricsRoutes(mux *http.ServeMux, metrics Metrics) {
-	mux.Handle("GET /v1/metrics/funnel", funnelHandler(metrics))
+func RegisterMetricsRoutes(mux *http.ServeMux, metrics Metrics, resolve AdminPrincipalResolver) {
+	mux.Handle("GET /v1/metrics/funnel", funnelHandler(metrics, resolve))
 }
 
-func funnelHandler(metrics Metrics) http.Handler {
+func funnelHandler(metrics Metrics, resolve AdminPrincipalResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := resolveAdminPrincipal(w, r, resolve)
+		if !ok || !principal.Has(adminOperationsScope) {
+			if ok {
+				writeAdminVerificationError(w, r, errAdminOperationsForbidden)
+			}
+			return
+		}
 		days := 30
 		if raw := strings.TrimSpace(r.URL.Query().Get("days")); raw != "" {
 			parsed, err := strconv.Atoi(raw)

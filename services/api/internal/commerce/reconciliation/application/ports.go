@@ -11,9 +11,12 @@ type Repository interface {
 	AppendFact(context.Context, domain.StatementFact) error
 	FindFactByEvent(context.Context, string) (domain.StatementFact, error)
 	AppendAudit(context.Context, domain.Audit) error
+	ListRecentAudits(context.Context, int) ([]domain.Audit, error)
+	FindFactByID(context.Context, string) (domain.StatementFact, error)
 	ListFactsForDay(context.Context, string) ([]domain.StatementFact, error)
 	AppendCheckpoint(context.Context, domain.Checkpoint) error
 	FindCheckpoint(context.Context, string) (domain.Checkpoint, error)
+	ListRecentCheckpoints(context.Context, int) ([]domain.Checkpoint, error)
 }
 type SignatureVerifier interface {
 	Verify(context.Context, SignedEnvelope) error

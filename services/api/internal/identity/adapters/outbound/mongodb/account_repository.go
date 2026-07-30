@@ -81,6 +81,37 @@ func (repository *AccountRepository) FindByID(ctx context.Context, id string) (d
 	return repository.findOne(ctx, bson.M{"_id": id})
 }
 
+// List returns the newest accounts first. The repository returns domain
+// accounts; privacy-safe projection remains the inbound adapter's duty.
+func (repository *AccountRepository) List(ctx context.Context, limit int) ([]domain.Account, error) {
+	if limit < 1 || limit > 200 {
+		limit = 100
+	}
+	cursor, err := repository.collection().Find(
+		ctx,
+		bson.M{},
+		options.Find().
+			SetSort(bson.D{{Key: "createdAt", Value: -1}, {Key: "_id", Value: 1}}).
+			SetLimit(int64(limit)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	accounts := make([]domain.Account, 0)
+	for cursor.Next(ctx) {
+		var document accountDocument
+		if err := cursor.Decode(&document); err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, domain.ReconstituteAccount(
+			document.ID, document.Phone, domain.AccountStatus(document.Status),
+			domain.Tier(document.Tier), document.Version, document.SuspendedUntil, document.CreatedAt))
+	}
+	return accounts, cursor.Err()
+}
+
 func (repository *AccountRepository) findOne(ctx context.Context, filter bson.M) (domain.Account, error) {
 	var document accountDocument
 	if err := repository.collection().FindOne(ctx, filter).Decode(&document); err != nil {

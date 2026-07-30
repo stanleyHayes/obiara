@@ -29,3 +29,21 @@ func TestPodAlertValidation(t *testing.T) {
 		t.Fatalf("message = %#v, %v", message, err)
 	}
 }
+
+func TestNnoboaConsentMessageRequiresOpaqueAuthority(t *testing.T) {
+	if _, err := NewNnoboaConsentMessage("+233550000101", "Auntie Efua", "nom_1", "short"); err != ErrConsentTokenRequired {
+		t.Fatalf("short consent token = %v", err)
+	}
+	message, err := NewNnoboaConsentMessage(
+		"+233550000101",
+		"Auntie Efua",
+		"nom_private",
+		"opaque-private-consent-authority-1234567890",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if message.Params()["kin_name"] != "Auntie Efua" || message.Params()["consent_token"] == "" {
+		t.Fatalf("message params = %#v", message.Params())
+	}
+}

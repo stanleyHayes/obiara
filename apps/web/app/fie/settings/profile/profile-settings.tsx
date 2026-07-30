@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 
 import {
   CompoundBottomNavigation,
@@ -12,6 +12,7 @@ import {
   initialProfileSettingsState,
   introductionLimit,
   profileSettingsReducer,
+  validateProfileForm,
   type FieldVisibility,
 } from "./profile-model";
 
@@ -30,7 +31,224 @@ export function ProfileSettings() {
     initialProfileSettingsState,
   );
   const [copied, setCopied] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [requestState, setRequestState] = useState<
+    "loading" | "ready" | "saving" | "error"
+  >("loading");
+  const [requestError, setRequestError] = useState("");
+  const [initialized, setInitialized] = useState(false);
+  const [doorwayQuestion, setDoorwayQuestion] = useState("");
+  const [doorwayState, setDoorwayState] = useState<
+    "loading" | "ready" | "saving" | "saved" | "error"
+  >("loading");
+  const [doorwayMessage, setDoorwayMessage] = useState("");
+  const commandID = useRef<string | null>(null);
   const { account } = state;
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/profile")
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          profile?: {
+            memberId: string;
+            displayName: string | null;
+            introduction: string | null;
+            displayNameVisibility: FieldVisibility;
+            introductionVisibility: FieldVisibility;
+            revision: number;
+            updatedAt: string;
+          } | null;
+          message?: string;
+        };
+        if (!response.ok)
+          throw new Error(
+            payload.message || "Your profile could not be loaded.",
+          );
+        if (active && payload.profile) {
+          dispatch({
+            type: "hydrate",
+            memberRef: payload.profile.memberId,
+            displayName: payload.profile.displayName || "",
+            introduction: payload.profile.introduction || "",
+            nameVisibility: payload.profile.displayNameVisibility,
+            introVisibility: payload.profile.introductionVisibility,
+          });
+          setRevision(payload.profile.revision);
+          setUpdatedAt(payload.profile.updatedAt);
+        } else if (active) {
+          dispatch({
+            type: "hydrate",
+            memberRef: "Not created",
+            displayName: "",
+            introduction: "",
+            nameVisibility: "private",
+            introVisibility: "private",
+          });
+        }
+        if (active) {
+          setInitialized(true);
+          setRequestState("ready");
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setRequestError(
+            error instanceof Error
+              ? error.message
+              : "Your profile could not be loaded.",
+          );
+          setInitialized(true);
+          setRequestState("error");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/doorway-question")
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          question?: { text: string } | null;
+          message?: string;
+        };
+        if (!response.ok) {
+          throw new Error(
+            payload.message || "Your doorway question could not be loaded.",
+          );
+        }
+        if (active) {
+          setDoorwayQuestion(payload.question?.text ?? "");
+          setDoorwayState("ready");
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setDoorwayMessage(
+            error instanceof Error
+              ? error.message
+              : "Your doorway question could not be loaded.",
+          );
+          setDoorwayState("error");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    commandID.current = null;
+  }, [
+    state.displayName,
+    state.introduction,
+    state.nameVisibility,
+    state.introVisibility,
+  ]);
+
+  async function saveProfile() {
+    const validationError = validateProfileForm(state);
+    if (validationError) {
+      setRequestError(validationError);
+      setRequestState("error");
+      return;
+    }
+    commandID.current ??= `profile-${crypto.randomUUID()}`;
+    setRequestState("saving");
+    setRequestError("");
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": commandID.current,
+        },
+        body: JSON.stringify({
+          displayName: state.displayName,
+          introduction: state.introduction,
+          displayNameVisibility: state.nameVisibility,
+          introductionVisibility: state.introVisibility,
+          expectedRevision: revision,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        memberId?: string;
+        displayName?: string | null;
+        introduction?: string | null;
+        displayNameVisibility?: FieldVisibility;
+        introductionVisibility?: FieldVisibility;
+        revision?: number;
+        updatedAt?: string;
+        message?: string;
+      } | null;
+      if (
+        !response.ok ||
+        !payload?.memberId ||
+        typeof payload.revision !== "number"
+      ) {
+        throw new Error(payload?.message || "Your profile could not be saved.");
+      }
+      dispatch({
+        type: "hydrate",
+        memberRef: payload.memberId,
+        displayName: payload.displayName || "",
+        introduction: payload.introduction || "",
+        nameVisibility: payload.displayNameVisibility || "private",
+        introVisibility: payload.introductionVisibility || "private",
+      });
+      setRevision(payload.revision);
+      setUpdatedAt(payload.updatedAt || "");
+      commandID.current = null;
+      setRequestState("ready");
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "Your profile could not be saved.",
+      );
+      setRequestState("error");
+    }
+  }
+
+  async function saveDoorwayQuestion() {
+    const text = doorwayQuestion.trim();
+    if (!text || [...text].length > 60) {
+      setDoorwayMessage("Use 1–60 characters for your doorway question.");
+      setDoorwayState("error");
+      return;
+    }
+    setDoorwayState("saving");
+    setDoorwayMessage("");
+    try {
+      const response = await fetch("/api/doorway-question", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, custom: true }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        text?: string;
+        message?: string;
+      } | null;
+      if (!response.ok || !payload?.text) {
+        throw new Error(
+          payload?.message || "Your doorway question could not be saved.",
+        );
+      }
+      setDoorwayQuestion(payload.text);
+      setDoorwayState("saved");
+    } catch (error) {
+      setDoorwayMessage(
+        error instanceof Error
+          ? error.message
+          : "Your doorway question could not be saved.",
+      );
+      setDoorwayState("error");
+    }
+  }
 
   const initials = account.displayName
     .split(" ")
@@ -49,6 +267,29 @@ export function ProfileSettings() {
       .catch(() => {
         // Clipboard unavailable (insecure context); stay silent.
       });
+  }
+
+  if (
+    !initialized ||
+    (requestState === "error" &&
+      revision === 0 &&
+      account.memberRef === "member···92K")
+  ) {
+    return (
+      <main className="fie-shell profile-shell">
+        <CompoundRail contextLabel="Profile" />
+        <section className="fie-main profile-main">
+          <header className="profile-topbar">
+            <Link href="/fie">Back to Fie</Link>
+          </header>
+          <section className="profile-hero" role="status">
+            <p className="fie-kicker">Your profile</p>
+            <h1>{requestError || "Loading your profile…"}</h1>
+          </section>
+        </section>
+        <CompoundBottomNavigation contextLabel="Profile" />
+      </main>
+    );
   }
 
   return (
@@ -76,10 +317,7 @@ export function ProfileSettings() {
             </span>
             <div>
               <h2>{account.displayName}</h2>
-              <p>
-                {account.verification}
-                {account.host ? " · host" : ""}
-              </p>
+              <p>{revision ? `Revision ${revision}` : "Create your profile"}</p>
             </div>
           </div>
           <dl className="profile-tiles">
@@ -93,23 +331,12 @@ export function ProfileSettings() {
               </dd>
             </div>
             <div>
-              <dt>Tier</dt>
+              <dt>Last updated</dt>
               <dd>
-                Tier {account.tier} ·{" "}
-                {account.tier === 2
-                  ? "sowing"
-                  : account.tier === 1
-                    ? "verified"
-                    : "registered"}
+                {updatedAt
+                  ? new Date(updatedAt).toLocaleString("en-GH")
+                  : "Not saved yet"}
               </dd>
-            </div>
-            <div>
-              <dt>Host capability</dt>
-              <dd>{account.host ? "Active" : "Not yet"}</dd>
-            </div>
-            <div>
-              <dt>Member since</dt>
-              <dd>{account.joined}</dd>
             </div>
           </dl>
         </section>
@@ -123,7 +350,7 @@ export function ProfileSettings() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              dispatch({ type: "save" });
+              void saveProfile();
             }}
           >
             <div className="profile-field-row">
@@ -204,19 +431,84 @@ export function ProfileSettings() {
               receipt for that field.
             </p>
 
-            {state.error ? (
+            {requestError ? (
               <p className="profile-error" role="alert">
-                {state.error}
+                {requestError}
               </p>
             ) : null}
-            {state.saved ? (
+            {state.saved && requestState === "ready" ? (
               <p className="profile-saved" role="status">
                 Profile saved. Your circle sees the change on their next view.
               </p>
             ) : null}
 
-            <button className="profile-save" type="submit">
-              Save changes
+            <button
+              className="profile-save"
+              disabled={requestState === "loading" || requestState === "saving"}
+              type="submit"
+            >
+              {requestState === "saving" ? "Saving securely" : "Save changes"}
+            </button>
+          </form>
+        </section>
+
+        <section
+          className="profile-edit"
+          aria-labelledby="doorway-question-title"
+        >
+          <header>
+            <p className="fie-kicker">Doorway question</p>
+            <h2 id="doorway-question-title">Choose what a seed must answer.</h2>
+          </header>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveDoorwayQuestion();
+            }}
+          >
+            <div className="profile-field-row">
+              <label htmlFor="doorway-question">
+                Your question
+                <span className="profile-count">
+                  {[...doorwayQuestion].length}/60
+                </span>
+              </label>
+              <input
+                disabled={doorwayState === "loading"}
+                id="doorway-question"
+                maxLength={60}
+                onChange={(event) => {
+                  setDoorwayQuestion(event.target.value);
+                  setDoorwayState("ready");
+                  setDoorwayMessage("");
+                }}
+                placeholder="What does care look like on an ordinary day?"
+                required
+                value={doorwayQuestion}
+              />
+            </div>
+            <p className="profile-note">
+              This is the one bounded prompt a person answers before sowing a
+              seed. Contact details and links are rejected.
+            </p>
+            {doorwayMessage ? (
+              <p className="profile-error" role="alert">
+                {doorwayMessage}
+              </p>
+            ) : null}
+            {doorwayState === "saved" ? (
+              <p className="profile-saved" role="status">
+                Doorway question saved.
+              </p>
+            ) : null}
+            <button
+              className="profile-save"
+              disabled={doorwayState === "loading" || doorwayState === "saving"}
+              type="submit"
+            >
+              {doorwayState === "saving"
+                ? "Saving question"
+                : "Save doorway question"}
             </button>
           </form>
         </section>
@@ -233,6 +525,14 @@ export function ProfileSettings() {
           <Link href="/fie/settings/suban">
             <strong>Suban</strong>
             <span>Your character marks and history</span>
+          </Link>
+          <Link href="/fie/settings/privacy">
+            <strong>Privacy requests</strong>
+            <span>Export, deletion and request status</span>
+          </Link>
+          <Link href="/fie/settings/consent">
+            <strong>Consent controls</strong>
+            <span>Purpose-bound processing choices</span>
           </Link>
         </nav>
       </section>

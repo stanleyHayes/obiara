@@ -15,6 +15,10 @@ type Repository interface {
 	Save(context.Context, domain.Pass, uint64, string) error
 }
 
+type MemberRepository interface {
+	FindForMember(context.Context, string) (domain.Pass, error)
+}
+
 // RefundConfirmation is a provider-confirmed opaque fact supplied by an
 // adapter owned elsewhere. This boundary makes no provider call.
 type RefundConfirmationSource interface {

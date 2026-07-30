@@ -1,30 +1,44 @@
-"use client";
-
 import {
   Alert,
   Box,
   Button,
   Card,
-  Checkbox,
   Chip,
   Container,
-  FormControlLabel,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useReducer } from "react";
 
-import {
-  communityReducer,
-  initialCommunityState,
-  selectedHostEligible,
-} from "./community-model";
+const evidence = [
+  {
+    title: "Circle and fire state",
+    detail:
+      "Current density, capacity, schedule and source versions must come from the community authorities.",
+  },
+  {
+    title: "Host eligibility",
+    detail:
+      "Verification, training, Suban vetting and certification must all be current and versioned.",
+  },
+  {
+    title: "Participant notice",
+    detail:
+      "The approved template, locale, audience and content digest must be resolved before preview.",
+  },
+  {
+    title: "Bounded reason",
+    detail:
+      "Only host unavailable, certification expired, safety capacity or schedule conflict is accepted.",
+  },
+  {
+    title: "Human acknowledgement",
+    detail:
+      "The exact notice is acknowledged only after every source version is revalidated.",
+  },
+] as const;
 
 export function CommunityDesk() {
-  const [state, dispatch] = useReducer(communityReducer, initialCommunityState);
-  const eligible = selectedHostEligible(state);
   return (
     <Box
       sx={{
@@ -65,10 +79,11 @@ export function CommunityDesk() {
                 mt: 1,
               }}
             >
-              Keep the circle held.
+              Evidence before intervention.
             </Typography>
-            <Typography sx={{ color: "#69535d", mt: 2 }}>
-              {state.circleLabel} · {state.circleRef}
+            <Typography sx={{ color: "text.secondary", maxWidth: 720, mt: 2 }}>
+              Community changes stay closed until the runtime can prove the
+              circle, fire, host and participant-notice evidence together.
             </Typography>
           </Box>
           <Link href="/">
@@ -76,198 +91,123 @@ export function CommunityDesk() {
           </Link>
         </Stack>
 
-        <Box
-          sx={{
-            display: "grid",
-            gap: 2,
-            gridTemplateColumns: { xs: "1fr", md: "repeat(3,minmax(0,1fr))" },
-          }}
-        >
-          <Card sx={{ borderRadius: 1, p: 3 }}>
-            <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
-              Circle density
-            </Typography>
-            <Typography sx={{ fontSize: 38, fontWeight: 800 }}>
-              {state.activeMembers}/{state.capacity}
-            </Typography>
-            <Typography sx={{ color: "text.secondary" }}>
-              Active seats · no member list exposed
-            </Typography>
-          </Card>
-          <Card sx={{ borderRadius: 1, p: 3 }}>
-            <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
-              Scheduled fire
-            </Typography>
-            <Typography sx={{ fontSize: 24, fontWeight: 800, mt: 1 }}>
-              {state.fireStarts}
-            </Typography>
-            <Typography sx={{ color: "text.secondary" }}>
-              {state.fireRef} · immutable reference
-            </Typography>
-          </Card>
-          <Card sx={{ borderRadius: 1, p: 3 }}>
-            <Typography sx={{ color: "text.secondary", fontWeight: 700 }}>
-              Capacity posture
-            </Typography>
-            <Typography sx={{ fontSize: 30, fontWeight: 800, mt: 1 }}>
-              6 seats remain
-            </Typography>
-            <Chip color="success" label="Within capacity" size="small" />
-          </Card>
-        </Box>
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Operations proposals are unavailable. Host certification and
+          participant-notice authorities are not yet composed into the API
+          runtime.
+        </Alert>
 
-        <Card sx={{ borderRadius: 1, mt: 3, p: 3 }}>
-          <Typography
-            sx={{
-              color: "#8e3159",
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: 1.2,
-            }}
+        <Card sx={{ borderRadius: 1, p: { xs: 2.5, md: 4 } }}>
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={2}
+            sx={{ justifyContent: "space-between" }}
           >
-            HOST ELIGIBILITY
-          </Typography>
-          <Typography
-            component="h2"
-            sx={{ fontSize: 34, fontWeight: 800, mt: 1 }}
-          >
-            Verification and certification stay current.
-          </Typography>
+            <Box>
+              <Typography
+                sx={{
+                  color: "#8e3159",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: 1.2,
+                }}
+              >
+                REQUIRED EVIDENCE CHAIN
+              </Typography>
+              <Typography
+                component="h2"
+                sx={{ fontSize: { xs: 30, md: 42 }, fontWeight: 800, mt: 1 }}
+              >
+                Five checks. One bounded proposal.
+              </Typography>
+            </Box>
+            <Chip
+              color="warning"
+              label="Fail closed"
+              sx={{ alignSelf: "flex-start" }}
+            />
+          </Stack>
+
           <Box
             sx={{
               display: "grid",
-              gap: 2,
-              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-              mt: 2,
+              gap: 1.5,
+              gridTemplateColumns: { xs: "1fr", md: "repeat(2,minmax(0,1fr))" },
+              mt: 3,
             }}
           >
-            {state.hostCandidates.map((host) => (
-              <Button
-                key={host.ref}
-                onClick={() => dispatch({ type: "select-host", ref: host.ref })}
+            {evidence.map((item, index) => (
+              <Box
+                key={item.title}
                 sx={{
-                  alignItems: "flex-start",
+                  border: "1px solid",
+                  borderColor: "divider",
                   borderRadius: 1,
-                  justifyContent: "space-between",
-                  p: 2,
-                  textAlign: "left",
+                  p: 2.5,
                 }}
-                variant={
-                  state.selectedHostRef === host.ref ? "contained" : "outlined"
-                }
               >
-                <Box>
-                  <Typography sx={{ fontWeight: 800 }}>{host.label}</Typography>
-                  <Typography sx={{ opacity: 0.8 }}>
-                    {host.ref} · {host.certificationEnds}
-                  </Typography>
-                </Box>
-                <Chip
-                  color={
-                    host.verified && host.certified ? "success" : "warning"
-                  }
-                  label={
-                    host.verified && host.certified
-                      ? "Eligible"
-                      : "Not eligible"
-                  }
-                  size="small"
-                />
-              </Button>
+                <Typography
+                  sx={{ color: "#8e3159", fontSize: 12, fontWeight: 800 }}
+                >
+                  {String(index + 1).padStart(2, "0")}
+                </Typography>
+                <Typography sx={{ fontSize: 20, fontWeight: 800, mt: 0.5 }}>
+                  {item.title}
+                </Typography>
+                <Typography
+                  sx={{ color: "text.secondary", lineHeight: 1.6, mt: 1 }}
+                >
+                  {item.detail}
+                </Typography>
+              </Box>
             ))}
           </Box>
         </Card>
 
-        <Card
+        <Box
           sx={{
-            borderRadius: 1,
             display: "grid",
-            gap: 4,
+            gap: 2,
             gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
             mt: 3,
-            p: 3,
           }}
         >
-          <Box>
-            <Typography
-              sx={{
-                color: "#8e3159",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 1.2,
-              }}
-            >
-              BOUNDED ACTION PROPOSAL
+          <Card sx={{ borderRadius: 1, p: 3 }}>
+            <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
+              What readiness means
             </Typography>
             <Typography
-              component="h2"
-              sx={{ fontSize: 34, fontWeight: 800, mt: 1 }}
+              sx={{ color: "text.secondary", lineHeight: 1.7, mt: 1 }}
             >
-              No silent host or fire change.
+              A successful proposal is ready for human review only. It does not
+              assign a host, cancel a fire, change a circle or send a
+              notification.
+            </Typography>
+          </Card>
+          <Card sx={{ borderRadius: 1, p: 3 }}>
+            <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
+              Available controls
             </Typography>
             <Typography
-              sx={{ color: "text.secondary", lineHeight: 1.6, mt: 1 }}
+              sx={{ color: "text.secondary", lineHeight: 1.7, mt: 1 }}
             >
-              The preview shows a generic participant notice without names,
-              contact details or community content. Preparing it does not assign
-              a host, cancel a fire or send a notification.
+              Use runtime controls for governed feature changes, or the safety
+              queue for an active safety case.
             </Typography>
-          </Box>
-          {state.proposalState === "draft" ? (
-            <Box>
-              {!eligible ? (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  Selected host is not currently certified. Proposal is blocked.
-                </Alert>
-              ) : null}
-              <TextField
-                fullWidth
-                label="Operational reason"
-                multiline
-                onChange={(event) =>
-                  dispatch({ type: "reason", value: event.target.value })
-                }
-                rows={3}
-                value={state.actionReason}
-              />
-              <Alert severity="info" sx={{ mt: 1.5 }}>
-                Notice preview: “Your scheduled fire has an operations update.
-                The time remains {state.fireStarts}. Open Fie for the reviewed
-                host status.”
-              </Alert>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={state.noticePreviewConfirmed}
-                    onChange={() =>
-                      dispatch({ type: "confirm-notice-preview" })
-                    }
-                  />
-                }
-                label="I reviewed the participant notice preview"
-              />
-              <Button
-                disabled={
-                  !eligible ||
-                  state.actionReason.trim().length < 12 ||
-                  !state.noticePreviewConfirmed
-                }
-                fullWidth
-                onClick={() => dispatch({ type: "prepare-proposal" })}
-                variant="contained"
-              >
-                Prepare operations proposal
-              </Button>
-            </Box>
-          ) : (
-            <Alert severity="success">
-              <strong>{state.proposalRef} · proposal ready</strong>
-              <br />
-              Eligible host, reason and notice preview recorded. Circle, fire
-              and notification state remain unchanged.
-            </Alert>
-          )}
-        </Card>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1.5}
+              sx={{ mt: 2 }}
+            >
+              <Link href="/controls">
+                <Button variant="contained">Runtime controls</Button>
+              </Link>
+              <Link href="/safety">
+                <Button variant="outlined">Safety queue</Button>
+              </Link>
+            </Stack>
+          </Card>
+        </Box>
       </Container>
     </Box>
   );

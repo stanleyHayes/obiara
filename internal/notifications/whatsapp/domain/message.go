@@ -23,12 +23,13 @@ const (
 )
 
 var (
-	ErrInvalidPhone       = errors.New("recipient must be an E.164 phone number")
-	ErrInvalidTemplate    = errors.New("unknown whatsapp template")
-	ErrInvalidOtpCode     = errors.New("otp code must be 6 digits")
-	ErrPodRefRequired     = errors.New("pod reference is required")
-	ErrKinNameRequired    = errors.New("kin name is required")
-	ErrFreeTextNotAllowed = errors.New("whatsapp templates take bounded parameters, never free text")
+	ErrInvalidPhone         = errors.New("recipient must be an E.164 phone number")
+	ErrInvalidTemplate      = errors.New("unknown whatsapp template")
+	ErrInvalidOtpCode       = errors.New("otp code must be 6 digits")
+	ErrPodRefRequired       = errors.New("pod reference is required")
+	ErrKinNameRequired      = errors.New("kin name is required")
+	ErrConsentTokenRequired = errors.New("consent token is required")
+	ErrFreeTextNotAllowed   = errors.New("whatsapp templates take bounded parameters, never free text")
 )
 
 var (
@@ -67,16 +68,25 @@ func NewPodAlertMessage(to, podRef string) (Message, error) {
 }
 
 // NewNnoboaConsentMessage builds the Nnoboa kin-consent invite (E13-S06).
-// The kin name is the only parameter — the message says nothing about the
-// member or their journey.
-func NewNnoboaConsentMessage(to, kinName string) (Message, error) {
+// The bounded parameters are the kin name and opaque response authority. The
+// message says nothing about the member or their journey.
+func NewNnoboaConsentMessage(to, kinName, nominationID, consentToken string) (Message, error) {
 	if !e164Pattern.MatchString(to) {
 		return Message{}, ErrInvalidPhone
 	}
 	if strings.TrimSpace(kinName) == "" {
 		return Message{}, ErrKinNameRequired
 	}
-	return Message{to: to, template: TemplateNnoboaConsent, params: map[string]string{"kin_name": kinName}}, nil
+	if len(strings.TrimSpace(consentToken)) < 32 || len(consentToken) > 128 {
+		return Message{}, ErrConsentTokenRequired
+	}
+	nominationID = strings.TrimSpace(nominationID)
+	if nominationID == "" || len(nominationID) > 128 {
+		return Message{}, ErrConsentTokenRequired
+	}
+	return Message{to: to, template: TemplateNnoboaConsent, params: map[string]string{
+		"kin_name": kinName, "nomination_id": nominationID, "consent_token": strings.TrimSpace(consentToken),
+	}}, nil
 }
 
 func (message Message) To() string                { return message.to }

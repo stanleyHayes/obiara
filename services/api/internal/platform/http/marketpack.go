@@ -10,6 +10,7 @@ import (
 
 	"github.com/stanleyHayes/obiara/services/api/internal/marketpack/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/marketpack/domain"
+	admin "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/application"
 )
 
 // MarketPacks is the inbound port for pack governance (E16-S06).
@@ -17,14 +18,16 @@ type MarketPacks interface {
 	Draft(ctx context.Context, market domain.Market, terminologyRef string, features map[string]bool, proposerID string) (domain.MarketPack, error)
 	Publish(ctx context.Context, packID, approverID string) (domain.MarketPack, error)
 	Retire(ctx context.Context, packID, actorID string) (domain.MarketPack, error)
+	All(ctx context.Context, limit int) ([]domain.MarketPack, error)
 	Published(ctx context.Context) ([]domain.MarketPack, error)
 }
 
 // RegisterMarketPackRoutes adds the market-pack routes.
-func RegisterMarketPackRoutes(mux *http.ServeMux, packs MarketPacks) {
-	mux.Handle("POST /v1/admin/market-packs", draftPackHandler(packs))
-	mux.Handle("POST /v1/admin/market-packs/{id}/publish", publishPackHandler(packs))
-	mux.Handle("POST /v1/admin/market-packs/{id}/retire", retirePackHandler(packs))
+func RegisterMarketPackRoutes(mux *http.ServeMux, packs MarketPacks, resolve AdminPrincipalResolver) {
+	mux.Handle("GET /v1/admin/market-packs", listAdminPacksHandler(packs, resolve))
+	mux.Handle("POST /v1/admin/market-packs", draftPackHandler(packs, resolve))
+	mux.Handle("POST /v1/admin/market-packs/{id}/publish", publishPackHandler(packs, resolve))
+	mux.Handle("POST /v1/admin/market-packs/{id}/retire", retirePackHandler(packs, resolve))
 	mux.Handle("GET /v1/market-packs/published", listPublishedHandler(packs))
 }
 
@@ -40,30 +43,64 @@ func packJSONGuard(w http.ResponseWriter, r *http.Request) bool {
 }
 
 type packResponse struct {
-	PackID     string    `json:"packId"`
-	Market     string    `json:"market"`
-	Status     string    `json:"status"`
-	ProposedBy string    `json:"proposedBy"`
-	ApprovedBy string    `json:"approvedBy,omitempty"`
-	CreatedAt  time.Time `json:"createdAt"`
+	PackID         string          `json:"packId"`
+	Market         string          `json:"market"`
+	TerminologyRef string          `json:"terminologyRef"`
+	Features       map[string]bool `json:"features"`
+	Status         string          `json:"status"`
+	Version        int64           `json:"version"`
+	CreatedAt      time.Time       `json:"createdAt"`
+	PublishedAt    *time.Time      `json:"publishedAt,omitempty"`
+	ProposedByMe   bool            `json:"proposedByMe,omitempty"`
+	ApprovedByMe   bool            `json:"approvedByMe,omitempty"`
 }
 
-func toPackResponse(pack domain.MarketPack) packResponse {
+func toPackResponse(pack domain.MarketPack, actorID string) packResponse {
 	return packResponse{
-		PackID: pack.ID(), Market: string(pack.Market()), Status: string(pack.Status()),
-		ProposedBy: pack.ProposedBy(), ApprovedBy: pack.ApprovedBy(), CreatedAt: pack.CreatedAt(),
+		PackID: pack.ID(), Market: string(pack.Market()), TerminologyRef: pack.TerminologyRef(),
+		Features: pack.Features(), Status: string(pack.Status()), Version: pack.Version(),
+		CreatedAt: pack.CreatedAt(), PublishedAt: pack.PublishedAt(),
+		ProposedByMe: actorID != "" && pack.ProposedBy() == actorID,
+		ApprovedByMe: actorID != "" && pack.ApprovedBy() == actorID,
 	}
+}
+
+func listAdminPacksHandler(packs MarketPacks, resolve AdminPrincipalResolver) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := operationsPrincipal(w, r, resolve)
+		if !ok {
+			return
+		}
+		found, err := packs.All(r.Context(), 100)
+		if err != nil {
+			writePackError(w, r, err)
+			return
+		}
+		response := make([]packResponse, 0, len(found))
+		for _, pack := range found {
+			response = append(response, toPackResponse(pack, principal.ActorID))
+		}
+		writeSuccess(w, r, http.StatusOK, struct {
+			Packs []packResponse `json:"packs"`
+		}{Packs: response})
+	})
 }
 
 type draftPackRequest struct {
 	Market         string          `json:"market"`
 	TerminologyRef string          `json:"terminologyRef"`
 	Features       map[string]bool `json:"features"`
-	ProposerID     string          `json:"proposerId"`
 }
 
-func draftPackHandler(packs MarketPacks) http.Handler {
+func draftPackHandler(packs MarketPacks, resolve AdminPrincipalResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := operationsPrincipal(w, r, resolve)
+		if !ok {
+			return
+		}
+		if !requireMarketPackStepUp(w, r, principal) {
+			return
+		}
 		if !packJSONGuard(w, r) {
 			return
 		}
@@ -72,71 +109,95 @@ func draftPackHandler(packs MarketPacks) http.Handler {
 			writeError(w, r, http.StatusBadRequest, APIError{Code: "invalid_json", Message: "The request body must be one valid JSON object."})
 			return
 		}
-		if !validOpaqueID(body.ProposerID) || strings.TrimSpace(body.TerminologyRef) == "" {
+		if strings.TrimSpace(body.TerminologyRef) == "" {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{
 				Code:    "validation_failed",
 				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "proposerId/terminologyRef", Reason: "proposerId must be an opaque id and terminologyRef is required"}},
+				Details: []FieldError{{Field: "terminologyRef", Reason: "is required"}},
 			})
 			return
 		}
-		pack, err := packs.Draft(r.Context(), domain.Market(body.Market), body.TerminologyRef, body.Features, body.ProposerID)
+		pack, err := packs.Draft(r.Context(), domain.Market(body.Market), body.TerminologyRef, body.Features, principal.ActorID)
 		if err != nil {
 			writePackError(w, r, err)
 			return
 		}
-		writeSuccess(w, r, http.StatusCreated, toPackResponse(pack))
+		writeSuccess(w, r, http.StatusCreated, toPackResponse(pack, principal.ActorID))
 	})
 }
 
-type actorRequest struct {
-	ActorID string `json:"actorId"`
-}
-
-func publishPackHandler(packs MarketPacks) http.Handler {
+func publishPackHandler(packs MarketPacks, resolve AdminPrincipalResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := operationsPrincipal(w, r, resolve)
+		if !ok {
+			return
+		}
+		if !requireMarketPackStepUp(w, r, principal) {
+			return
+		}
 		if !packJSONGuard(w, r) {
 			return
 		}
-		var body actorRequest
+		var body struct{}
 		if err := decodeJSON(w, r, &body); err != nil {
 			writeError(w, r, http.StatusBadRequest, APIError{Code: "invalid_json", Message: "The request body must be one valid JSON object."})
 			return
 		}
-		if !validOpaqueID(body.ActorID) {
-			writeError(w, r, http.StatusUnprocessableEntity, APIError{
-				Code:    "validation_failed",
-				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "actorId", Reason: "must be an opaque identifier"}},
-			})
-			return
-		}
-		pack, err := packs.Publish(r.Context(), r.PathValue("id"), body.ActorID)
+		pack, err := packs.Publish(r.Context(), r.PathValue("id"), principal.ActorID)
 		if err != nil {
 			writePackError(w, r, err)
 			return
 		}
-		writeSuccess(w, r, http.StatusOK, toPackResponse(pack))
+		writeSuccess(w, r, http.StatusOK, toPackResponse(pack, principal.ActorID))
 	})
 }
 
-func retirePackHandler(packs MarketPacks) http.Handler {
+func retirePackHandler(packs MarketPacks, resolve AdminPrincipalResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		principal, ok := operationsPrincipal(w, r, resolve)
+		if !ok {
+			return
+		}
+		if !requireMarketPackStepUp(w, r, principal) {
+			return
+		}
 		if !packJSONGuard(w, r) {
 			return
 		}
-		var body actorRequest
+		var body struct{}
 		if err := decodeJSON(w, r, &body); err != nil {
 			writeError(w, r, http.StatusBadRequest, APIError{Code: "invalid_json", Message: "The request body must be one valid JSON object."})
 			return
 		}
-		pack, err := packs.Retire(r.Context(), r.PathValue("id"), strings.TrimSpace(body.ActorID))
+		pack, err := packs.Retire(r.Context(), r.PathValue("id"), principal.ActorID)
 		if err != nil {
 			writePackError(w, r, err)
 			return
 		}
-		writeSuccess(w, r, http.StatusOK, toPackResponse(pack))
+		writeSuccess(w, r, http.StatusOK, toPackResponse(pack, principal.ActorID))
 	})
+}
+
+func operationsPrincipal(w http.ResponseWriter, r *http.Request, resolve AdminPrincipalResolver) (admin.Principal, bool) {
+	principal, ok := resolveAdminPrincipal(w, r, resolve)
+	if !ok {
+		return admin.Principal{}, false
+	}
+	if !principal.Has(adminOperationsScope) {
+		writeAdminVerificationError(w, r, errAdminOperationsForbidden)
+		return admin.Principal{}, false
+	}
+	return principal, true
+}
+
+func requireMarketPackStepUp(w http.ResponseWriter, r *http.Request, principal admin.Principal) bool {
+	if principal.MFAVerified {
+		return true
+	}
+	writeError(w, r, http.StatusForbidden, APIError{
+		Code: "admin_step_up_required", Message: "Complete a fresh MFA step-up before changing market configuration.",
+	})
+	return false
 }
 
 func listPublishedHandler(packs MarketPacks) http.Handler {
@@ -164,7 +225,7 @@ func listPublishedHandler(packs MarketPacks) http.Handler {
 			if market != "" && string(pack.Market()) != market {
 				continue
 			}
-			response = append(response, toPackResponse(pack))
+			response = append(response, toPackResponse(pack, ""))
 		}
 		writeSuccess(w, r, http.StatusOK, struct {
 			Packs []packResponse `json:"packs"`

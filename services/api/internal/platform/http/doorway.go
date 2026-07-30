@@ -25,17 +25,17 @@ type Vault interface {
 }
 
 // RegisterDoorwayRoutes adds doorway question and photo vault routes.
-func RegisterDoorwayRoutes(mux *http.ServeMux, doorway Doorway, vault Vault) {
-	mux.Handle("PUT /v1/doorway-question", setDoorwayQuestionHandler(doorway))
-	mux.Handle("GET /v1/doorway-question/{memberId}", getDoorwayQuestionHandler(doorway))
-	mux.Handle("POST /v1/photo-vault/items", addVaultItemHandler(vault))
-	mux.Handle("GET /v1/photo-vault/{ownerId}", viewVaultHandler(vault))
+func RegisterDoorwayRoutes(mux *http.ServeMux, doorway Doorway, vault Vault, sessions SessionAuthenticator) {
+	mux.Handle("PUT /v1/doorway-question", setDoorwayQuestionHandler(doorway, sessions))
+	mux.Handle("GET /v1/doorway-question", getOwnDoorwayQuestionHandler(doorway, sessions))
+	mux.Handle("GET /v1/doorway-question/{memberId}", getDoorwayQuestionHandler(doorway, sessions))
+	mux.Handle("POST /v1/photo-vault/items", addVaultItemHandler(vault, sessions))
+	mux.Handle("GET /v1/photo-vault/{ownerId}", viewVaultHandler(vault, sessions))
 }
 
 type doorwayQuestionRequest struct {
-	MemberID string `json:"memberId"`
-	Text     string `json:"text"`
-	Custom   bool   `json:"custom"`
+	Text   string `json:"text"`
+	Custom bool   `json:"custom"`
 }
 
 type doorwayQuestionResponse struct {
@@ -44,8 +44,12 @@ type doorwayQuestionResponse struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-func setDoorwayQuestionHandler(doorway Doorway) http.Handler {
+func setDoorwayQuestionHandler(doorway Doorway, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -63,17 +67,7 @@ func setDoorwayQuestionHandler(doorway Doorway) http.Handler {
 			return
 		}
 
-		body.MemberID = strings.TrimSpace(body.MemberID)
-		if body.MemberID == "" || len(body.MemberID) > maxIdentifierLength || !identifierPattern.MatchString(body.MemberID) {
-			writeError(w, r, http.StatusUnprocessableEntity, APIError{
-				Code:    "validation_failed",
-				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "memberId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"}},
-			})
-			return
-		}
-
-		question, err := doorway.Set(r.Context(), body.MemberID, body.Text, body.Custom)
+		question, err := doorway.Set(r.Context(), memberID, body.Text, body.Custom)
 		if err != nil {
 			writeDoorwayError(w, r, err)
 			return
@@ -86,23 +80,45 @@ func setDoorwayQuestionHandler(doorway Doorway) http.Handler {
 	})
 }
 
-func getDoorwayQuestionHandler(doorway Doorway) http.Handler {
+func getOwnDoorwayQuestionHandler(doorway Doorway, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		question, err := doorway.Get(r.Context(), r.PathValue("memberId"))
-		if err != nil {
-			writeDoorwayError(w, r, err)
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
 			return
 		}
-		writeSuccess(w, r, http.StatusOK, doorwayQuestionResponse{
-			Text:      question.Text(),
-			Custom:    question.Custom(),
-			UpdatedAt: question.UpdatedAt(),
-		})
+		writeDoorwayQuestion(w, r, doorway, memberID)
+	})
+}
+
+func getDoorwayQuestionHandler(doorway Doorway, sessions SessionAuthenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
+		requested := r.PathValue("memberId")
+		if requested != memberID {
+			writeError(w, r, http.StatusForbidden, APIError{Code: "member_access_denied", Message: "You can only read your own doorway question."})
+			return
+		}
+		writeDoorwayQuestion(w, r, doorway, memberID)
+	})
+}
+
+func writeDoorwayQuestion(w http.ResponseWriter, r *http.Request, doorway Doorway, memberID string) {
+	question, err := doorway.Get(r.Context(), memberID)
+	if err != nil {
+		writeDoorwayError(w, r, err)
+		return
+	}
+	writeSuccess(w, r, http.StatusOK, doorwayQuestionResponse{
+		Text:      question.Text(),
+		Custom:    question.Custom(),
+		UpdatedAt: question.UpdatedAt(),
 	})
 }
 
 type vaultItemRequest struct {
-	MemberID string `json:"memberId"`
 	AssetID  string `json:"assetId"`
 	Position int    `json:"position"`
 }
@@ -112,8 +128,12 @@ type vaultItemResponse struct {
 	Position int    `json:"position"`
 }
 
-func addVaultItemHandler(vault Vault) http.Handler {
+func addVaultItemHandler(vault Vault, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -131,12 +151,8 @@ func addVaultItemHandler(vault Vault) http.Handler {
 			return
 		}
 
-		body.MemberID = strings.TrimSpace(body.MemberID)
 		body.AssetID = strings.TrimSpace(body.AssetID)
 		var details []FieldError
-		if body.MemberID == "" || len(body.MemberID) > maxIdentifierLength || !identifierPattern.MatchString(body.MemberID) {
-			details = append(details, FieldError{Field: "memberId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
 		if body.AssetID == "" || len(body.AssetID) > maxIdentifierLength || !identifierPattern.MatchString(body.AssetID) {
 			details = append(details, FieldError{Field: "assetId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
 		}
@@ -152,7 +168,7 @@ func addVaultItemHandler(vault Vault) http.Handler {
 			return
 		}
 
-		item, err := vault.Add(r.Context(), body.MemberID, body.AssetID, body.Position)
+		item, err := vault.Add(r.Context(), memberID, body.AssetID, body.Position)
 		if err != nil {
 			writeDoorwayError(w, r, err)
 			return
@@ -171,8 +187,12 @@ type vaultViewResponse struct {
 	Items []vaultItemViewJSON `json:"items"`
 }
 
-func viewVaultHandler(vault Vault) http.Handler {
+func viewVaultHandler(vault Vault, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		viewerID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		ownerID := r.PathValue("ownerId")
 		if ownerID == "" || len(ownerID) > maxIdentifierLength || !identifierPattern.MatchString(ownerID) {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{
@@ -182,7 +202,6 @@ func viewVaultHandler(vault Vault) http.Handler {
 			})
 			return
 		}
-		viewerID := strings.TrimSpace(r.URL.Query().Get("viewerId"))
 		views, err := vault.ViewFor(r.Context(), ownerID, viewerID)
 		if err != nil {
 			writeDoorwayError(w, r, err)

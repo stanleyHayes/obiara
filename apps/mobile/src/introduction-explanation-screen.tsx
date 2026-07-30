@@ -1,37 +1,64 @@
 import { type Href, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { apiRequest } from "./api";
 
-type Feature = "shared" | "trust" | "voice";
-export function IntroductionExplanationScreen() {
+type ConsentBoard = {
+  purposes: { matching_personalization: boolean };
+};
+
+export function IntroductionExplanationScreen({
+  introId,
+}: Readonly<{ introId: string }>) {
   const router = useRouter();
-  const [enabled, setEnabled] = useState<Record<Feature, boolean>>({
-    shared: true,
-    trust: true,
-    voice: false,
-  });
-  const [details, setDetails] = useState(false);
-  const reasons = [
-    enabled.shared ? "You both chose family-minded partnership." : null,
-    enabled.trust ? "A private trust path is available to each of you." : null,
-    enabled.voice
-      ? "You both consented to compare selected voice reflections."
-      : null,
-  ].filter(Boolean) as string[];
-  const features: readonly [Feature, string, string][] = [
-    ["shared", "Shared intentions", "Choices you made in profile preferences."],
-    [
-      "trust",
-      "Private trust context",
-      "Only the existence of a permitted path, never its people or shape.",
-    ],
-    [
-      "voice",
-      "Selected voice reflections",
-      "Off by default; only reflections both people choose.",
-    ],
-  ];
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void apiRequest<ConsentBoard>("/v1/consent")
+      .then((board) => {
+        if (active) setEnabled(board.purposes.matching_personalization);
+      })
+      .catch((loadError: unknown) => {
+        if (active) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Your explanation controls could not be loaded.",
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function allowPersonalization() {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await apiRequest<{
+        purpose: string;
+        enabled: boolean;
+      }>("/v1/consent/purposes/matching_personalization", {
+        method: "PUT",
+        body: JSON.stringify({ enabled: true }),
+      });
+      setEnabled(result.enabled);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Your consent choice could not be saved.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <SafeAreaView style={s.safe}>
       <ScrollView contentContainerStyle={s.content}>
@@ -42,104 +69,96 @@ export function IntroductionExplanationScreen() {
           >
             <Text style={s.controlText}>Garden</Text>
           </Pressable>
-          <Pressable style={s.control}>
-            <Text style={s.controlText}>Safety</Text>
-          </Pressable>
+          <Text style={s.reference}>{introId.slice(0, 8)}</Text>
         </View>
+
         <Text style={s.eyebrow}>WHY THIS INTRODUCTION</Text>
         <Text accessibilityRole="header" style={s.title}>
-          Grounded reasons. Your controls.
+          No invented reasons. No hidden score.
         </Text>
         <Text style={s.body}>
-          Obiara explains permitted signals. It cannot promise compatibility,
-          destiny or an outcome.
+          Obiara will show an explanation only when a retained introduction
+          record supports it. No identity, match reason, or decision is
+          manufactured here.
         </Text>
-        <View style={s.person}>
-          <Text style={s.personMeta}>PRIVATE · NO PUBLIC MATCH SCORE</Text>
-          <Text style={s.personName}>Ama K.</Text>
-        </View>
-        <View style={s.reasons}>
-          <Text style={s.darkEyebrow}>WHAT IS ACTIVE NOW</Text>
-          <Text accessibilityRole="header" style={s.reasonsTitle}>
-            {reasons.length
-              ? "Why you may have something to explore."
-              : "No explanation features are active."}
+
+        <View style={s.status}>
+          <Text style={s.statusEyebrow}>EXPLANATION STATUS</Text>
+          <Text accessibilityRole="header" style={s.statusTitle}>
+            Waiting for verified introduction data.
           </Text>
-          {reasons.length ? (
-            reasons.map((reason, index) => (
-              <View key={reason} style={s.reason}>
-                <Text style={s.reasonNumber}>0{index + 1}</Text>
-                <Text style={s.reasonText}>{reason}</Text>
-              </View>
-            ))
-          ) : (
-            <View style={s.reason}>
-              <Text style={s.reasonText}>
-                This introduction can rest. Re-enable a feature only if you want
-                it considered.
-              </Text>
-            </View>
-          )}
+          <Text style={s.statusCopy}>
+            Candidate identity, reciprocal preferences, trust paths, and voice
+            comparisons are not inferred by this screen.
+          </Text>
         </View>
+
+        <Text style={s.sectionEyebrow}>YOUR REAL CONTROL</Text>
         <Text accessibilityRole="header" style={s.sectionTitle}>
-          Nothing hidden in the recipe.
+          Introduction personalization
         </Text>
         <Text style={s.sectionCopy}>
-          Turn a feature off to remove it from future explanations. Withdrawing
-          consent does not lower visibility.
+          This purpose-bound choice comes from your consent record. It does not
+          create an introduction or imply that one exists.
         </Text>
-        {features.map(([id, label, copy]) => (
-          <View key={id} style={s.feature}>
-            <View style={s.featureCopy}>
-              <Text style={s.featureTitle}>{label}</Text>
-              <Text style={s.featureBody}>{copy}</Text>
-            </View>
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityState={{ checked: enabled[id] }}
-              onPress={() =>
-                setEnabled((current) => ({ ...current, [id]: !current[id] }))
-              }
-              style={[s.toggle, enabled[id] && s.toggleOn]}
-            >
-              <Text style={[s.toggleText, enabled[id] && s.toggleTextOn]}>
-                {enabled[id] ? "On" : "Off"}
-              </Text>
-            </Pressable>
-          </View>
-        ))}
-        <Pressable
-          onPress={() => setDetails((value) => !value)}
-          style={s.detailsButton}
-        >
-          <Text style={s.detailsText}>
-            {details ? "Hide system details" : "Show system details"}
+
+        <View style={s.card}>
+          <Text style={s.cardTitle}>
+            Use preferences for private introductions
           </Text>
-        </Pressable>
-        {details ? (
-          <View style={s.details}>
-            <Text style={s.featureTitle}>Rules first · AI wording only</Text>
-            <Text style={s.featureBody}>
-              Reciprocal preferences and a privacy-scoped trust-path rule
-              selected the candidate. AI may phrase the explanation; it did not
-              choose or rank the person.
+          <Text style={s.cardCopy}>
+            Optional and one-way under the current consent policy.
+          </Text>
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{
+              checked: enabled ?? false,
+              disabled: enabled !== false || busy,
+            }}
+            disabled={enabled !== false || busy}
+            onPress={() => void allowPersonalization()}
+            style={[
+              s.button,
+              enabled && s.buttonOn,
+              (enabled !== false || busy) && s.disabled,
+            ]}
+          >
+            <Text style={[s.buttonText, enabled && s.buttonTextOn]}>
+              {busy
+                ? "Saving…"
+                : enabled === null
+                  ? "Loading…"
+                  : enabled
+                    ? "Allowed"
+                    : "Allow"}
             </Text>
-          </View>
-        ) : null}
-        <Pressable style={s.primary}>
-          <Text style={s.primaryText}>Open the introduction gently</Text>
+          </Pressable>
+        </View>
+
+        <Pressable
+          onPress={() => router.push("/fie/settings/consent" as Href)}
+          style={s.secondary}
+        >
+          <Text style={s.secondaryText}>Open consent switchboard</Text>
         </Pressable>
+        {error ? <Text style={s.error}>{error}</Text> : null}
         <Text style={s.footer}>
-          No urgency, read receipt or public activity signal.
+          No urgency, read receipt, public activity signal, or fabricated
+          compatibility claim.
         </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
 const s = StyleSheet.create({
   safe: { backgroundColor: "#F7EFE2", flex: 1 },
   content: { padding: 20, paddingBottom: 56 },
-  topbar: { flexDirection: "row", justifyContent: "space-between" },
+  topbar: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
   control: {
     alignItems: "center",
     borderColor: "#8F7885",
@@ -150,6 +169,12 @@ const s = StyleSheet.create({
     paddingHorizontal: 18,
   },
   controlText: { color: "#28161F", fontFamily: "Outfit_700Bold" },
+  reference: {
+    color: "#705C67",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 12,
+    letterSpacing: 1,
+  },
   eyebrow: {
     color: "#9B315D",
     fontFamily: "Outfit_700Bold",
@@ -160,9 +185,9 @@ const s = StyleSheet.create({
   title: {
     color: "#28161F",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 53,
-    letterSpacing: -3.4,
-    lineHeight: 49,
+    fontSize: 49,
+    letterSpacing: -3,
+    lineHeight: 48,
     marginTop: 14,
   },
   body: {
@@ -172,145 +197,115 @@ const s = StyleSheet.create({
     lineHeight: 25,
     marginTop: 22,
   },
-  person: {
-    borderColor: "#C5A15C",
-    borderRadius: 18,
-    borderWidth: 1,
-    marginTop: 28,
-    padding: 18,
-  },
-  personMeta: {
-    color: "#705C67",
-    fontFamily: "Outfit_700Bold",
-    fontSize: 9,
-    letterSpacing: 1,
-  },
-  personName: {
-    color: "#28161F",
-    fontFamily: "Outfit_800ExtraBold",
-    fontSize: 28,
-    marginTop: 12,
-  },
-  reasons: {
+  status: {
     backgroundColor: "#28161F",
     borderRadius: 26,
     marginTop: 38,
     padding: 22,
   },
-  darkEyebrow: {
+  statusEyebrow: {
     color: "#FFB7C4",
     fontFamily: "Outfit_700Bold",
     fontSize: 10,
     letterSpacing: 1.1,
   },
-  reasonsTitle: {
+  statusTitle: {
     color: "#FFF3E6",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 38,
-    letterSpacing: -2,
-    lineHeight: 38,
-    marginBottom: 20,
+    fontSize: 34,
+    letterSpacing: -1.8,
+    lineHeight: 36,
     marginTop: 12,
   },
-  reason: {
-    backgroundColor: "rgba(255,243,230,.08)",
-    borderColor: "rgba(255,243,230,.14)",
-    borderRadius: 16,
-    borderWidth: 1,
-    marginTop: 8,
-    padding: 18,
+  statusCopy: {
+    color: "#E8D8DF",
+    fontFamily: "Outfit_400Regular",
+    fontSize: 15,
+    lineHeight: 23,
+    marginTop: 16,
   },
-  reasonNumber: {
-    color: "#FFB7C4",
+  sectionEyebrow: {
+    color: "#9B315D",
     fontFamily: "Outfit_700Bold",
     fontSize: 10,
-  },
-  reasonText: {
-    color: "#FFF3E6",
-    fontFamily: "Outfit_400Regular",
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: 10,
+    letterSpacing: 1.1,
+    marginTop: 40,
   },
   sectionTitle: {
     color: "#28161F",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 40,
-    letterSpacing: -2.2,
-    lineHeight: 40,
-    marginTop: 44,
+    fontSize: 36,
+    letterSpacing: -2,
+    lineHeight: 38,
+    marginTop: 8,
   },
   sectionCopy: {
     color: "#705C67",
     fontFamily: "Outfit_400Regular",
+    fontSize: 15,
     lineHeight: 23,
-    marginBottom: 16,
     marginTop: 12,
   },
-  feature: {
-    alignItems: "center",
-    borderColor: "#D1BDC7",
-    borderRadius: 17,
+  card: {
+    backgroundColor: "#FFFDFC",
+    borderColor: "rgba(58,14,46,.12)",
+    borderRadius: 18,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    justifyContent: "space-between",
-    marginTop: 9,
-    padding: 16,
+    marginTop: 22,
+    padding: 18,
   },
-  featureCopy: { flex: 1 },
-  featureTitle: {
+  cardTitle: {
     color: "#28161F",
-    fontFamily: "Outfit_700Bold",
-    fontSize: 16,
+    fontFamily: "Outfit_800ExtraBold",
+    fontSize: 19,
   },
-  featureBody: {
+  cardCopy: {
     color: "#705C67",
     fontFamily: "Outfit_400Regular",
+    fontSize: 14,
     lineHeight: 21,
-    marginTop: 5,
+    marginTop: 7,
   },
-  toggle: {
+  button: {
     alignItems: "center",
-    borderColor: "#6D244F",
-    borderRadius: 999,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 46,
-    minWidth: 58,
-  },
-  toggleOn: { backgroundColor: "#6D244F" },
-  toggleText: { color: "#6D244F", fontFamily: "Outfit_700Bold" },
-  toggleTextOn: { color: "#FFF3E6" },
-  detailsButton: {
-    alignItems: "center",
-    borderColor: "#6D244F",
+    borderColor: "#3A0E2E",
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: "center",
     marginTop: 16,
-    minHeight: 50,
+    minHeight: 48,
   },
-  detailsText: { color: "#6D244F", fontFamily: "Outfit_700Bold" },
-  details: {
-    backgroundColor: "#FFF0D9",
-    borderRadius: 17,
-    marginTop: 12,
-    padding: 18,
+  buttonOn: { backgroundColor: "#3A0E2E" },
+  buttonText: {
+    color: "#3A0E2E",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 14,
   },
-  primary: {
+  buttonTextOn: { color: "#FFF3E6" },
+  disabled: { opacity: 0.6 },
+  secondary: {
     alignItems: "center",
-    backgroundColor: "#6D244F",
-    borderRadius: 999,
     justifyContent: "center",
-    marginTop: 30,
     minHeight: 52,
   },
-  primaryText: { color: "#FFF3E6", fontFamily: "Outfit_700Bold" },
+  secondaryText: {
+    color: "#3A0E2E",
+    fontFamily: "Outfit_700Bold",
+    fontSize: 14,
+    textDecorationLine: "underline",
+  },
+  error: {
+    color: "#8E1F3C",
+    fontFamily: "Outfit_600SemiBold",
+    fontSize: 13,
+    marginTop: 8,
+  },
   footer: {
     color: "#705C67",
     fontFamily: "Outfit_400Regular",
-    marginTop: 14,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 28,
     textAlign: "center",
   },
 });

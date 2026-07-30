@@ -65,6 +65,17 @@ func TestReplayAndOptimisticRevision(t *testing.T) {
 	}
 }
 
+func TestMembershipCannotApprovePromoteOrExpelItself(t *testing.T) {
+	circle := newCircle(t)
+	circle = apply(t, circle, "member-1", StateRequested, "member-1")
+	for index, target := range []MembershipState{StateMember, StateHost, StateExpelled} {
+		command := testCommand(circle, fmt.Sprintf("self-escalate-%d", index), "member-1", "membership."+string(target), "member-1")
+		if _, err := transitionForTest(circle, "member-1", target, command); !errors.Is(err, ErrAccessDenied) && !errors.Is(err, ErrInvalidTransition) {
+			t.Fatalf("self transition to %q error = %v, want access denial", target, err)
+		}
+	}
+}
+
 func TestRandomTransitionsNeverReactivateTerminalMemberships(t *testing.T) {
 	property := func(steps []byte) bool {
 		circle := newCircle(t)

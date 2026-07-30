@@ -1,5 +1,5 @@
-import { FieScreen } from "../../src/fie-screen";
+import { AdiwoScreen } from "../../src/adiwo-screen";
 
-export default function AdiwoScreen() {
-  return <FieScreen routeId="adiwo" />;
+export default function AdiwoRoute() {
+  return <AdiwoScreen />;
 }

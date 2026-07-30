@@ -20,14 +20,13 @@ type Safety interface {
 }
 
 // RegisterSafetyRoutes adds report and block routes.
-func RegisterSafetyRoutes(mux *http.ServeMux, safety Safety) {
-	mux.Handle("POST /v1/reports", fileReportHandler(safety))
-	mux.Handle("POST /v1/blocks", blockHandler(safety))
-	mux.Handle("DELETE /v1/blocks/{blockerId}/{blockedId}", unblockHandler(safety))
+func RegisterSafetyRoutes(mux *http.ServeMux, safety Safety, sessions SessionAuthenticator) {
+	mux.Handle("POST /v1/reports", fileReportHandler(safety, sessions))
+	mux.Handle("POST /v1/blocks", blockHandler(safety, sessions))
+	mux.Handle("DELETE /v1/blocks/{blockerId}/{blockedId}", unblockHandler(safety, sessions))
 }
 
 type fileReportRequest struct {
-	ReporterID string `json:"reporterId"`
 	SubjectID  string `json:"subjectId"`
 	Category   string `json:"category"`
 	Surface    string `json:"surface"`
@@ -41,8 +40,26 @@ type reportAckResponse struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-func fileReportHandler(safety Safety) http.Handler {
+func safetyMember(w http.ResponseWriter, r *http.Request, sessions SessionAuthenticator) (string, bool) {
+	token, ok := bearerToken(r.Header.Get("Authorization"))
+	if !ok || sessions == nil {
+		writeError(w, r, http.StatusUnauthorized, APIError{Code: "authentication_required", Message: "A valid member session is required."})
+		return "", false
+	}
+	session, err := sessions.Authenticate(r.Context(), token)
+	if err != nil {
+		writeError(w, r, http.StatusUnauthorized, APIError{Code: "authentication_required", Message: "A valid member session is required."})
+		return "", false
+	}
+	return session.MemberID(), true
+}
+
+func fileReportHandler(safety Safety, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reporterID, ok := safetyMember(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -60,12 +77,8 @@ func fileReportHandler(safety Safety) http.Handler {
 			return
 		}
 
-		body.ReporterID = strings.TrimSpace(body.ReporterID)
 		body.SubjectID = strings.TrimSpace(body.SubjectID)
 		var details []FieldError
-		if !validOpaqueID(body.ReporterID) {
-			details = append(details, FieldError{Field: "reporterId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
 		if !validOpaqueID(body.SubjectID) {
 			details = append(details, FieldError{Field: "subjectId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
 		}
@@ -78,7 +91,7 @@ func fileReportHandler(safety Safety) http.Handler {
 			return
 		}
 
-		id, tier, err := safety.File(r.Context(), body.ReporterID, body.SubjectID,
+		id, tier, err := safety.File(r.Context(), reporterID, body.SubjectID,
 			domain.Category(body.Category), domain.Surface(body.Surface), body.ContextRef, body.Reason)
 		if err != nil {
 			writeSafetyError(w, r, err)
@@ -89,12 +102,15 @@ func fileReportHandler(safety Safety) http.Handler {
 }
 
 type blockRequest struct {
-	BlockerID string `json:"blockerId"`
 	BlockedID string `json:"blockedId"`
 }
 
-func blockHandler(safety Safety) http.Handler {
+func blockHandler(safety Safety, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		blockerID, ok := safetyMember(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -112,9 +128,8 @@ func blockHandler(safety Safety) http.Handler {
 			return
 		}
 
-		body.BlockerID = strings.TrimSpace(body.BlockerID)
 		body.BlockedID = strings.TrimSpace(body.BlockedID)
-		if !validOpaqueID(body.BlockerID) || !validOpaqueID(body.BlockedID) {
+		if !validOpaqueID(body.BlockedID) {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{
 				Code:    "validation_failed",
 				Message: "One or more fields are invalid.",
@@ -123,7 +138,7 @@ func blockHandler(safety Safety) http.Handler {
 			return
 		}
 
-		if err := safety.Block(r.Context(), body.BlockerID, body.BlockedID); err != nil {
+		if err := safety.Block(r.Context(), blockerID, body.BlockedID); err != nil {
 			writeSafetyError(w, r, err)
 			return
 		}
@@ -133,9 +148,17 @@ func blockHandler(safety Safety) http.Handler {
 	})
 }
 
-func unblockHandler(safety Safety) http.Handler {
+func unblockHandler(safety Safety, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := safety.Unblock(r.Context(), r.PathValue("blockerId"), r.PathValue("blockedId")); err != nil {
+		blockerID, ok := safetyMember(w, r, sessions)
+		if !ok {
+			return
+		}
+		if blockerID != r.PathValue("blockerId") {
+			writeError(w, r, http.StatusForbidden, APIError{Code: "access_denied", Message: "That block belongs to another member."})
+			return
+		}
+		if err := safety.Unblock(r.Context(), blockerID, r.PathValue("blockedId")); err != nil {
 			writeSafetyError(w, r, err)
 			return
 		}

@@ -132,6 +132,13 @@ func TestOtpRegistrationEndToEnd(t *testing.T) {
 	if account.Tier() != domain.TierSowing || account.Version() != 3 {
 		t.Fatalf("account tier=%d version=%d, want 2/3", account.Tier(), account.Version())
 	}
+	listed, err := accountRepository.List(ctx, 10)
+	if err != nil {
+		t.Fatalf("list accounts: %v", err)
+	}
+	if len(listed) != 1 || listed[0].ID() != account.ID() || listed[0].Tier() != domain.TierSowing {
+		t.Fatalf("account directory = %#v, want the current account projection", listed)
+	}
 	transitionCount, err := database.Collection("tier_transitions").CountDocuments(ctx, map[string]any{"accountId": account.ID()})
 	if err != nil || transitionCount != 2 {
 		t.Fatalf("audit transitions = %d, %v; want 2", transitionCount, err)

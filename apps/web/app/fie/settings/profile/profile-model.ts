@@ -29,6 +29,14 @@ export interface ProfileSettingsState {
 }
 
 export type ProfileSettingsAction =
+  | {
+      type: "hydrate";
+      memberRef: string;
+      displayName: string;
+      introduction: string;
+      nameVisibility: FieldVisibility;
+      introVisibility: FieldVisibility;
+    }
   | { type: "display-name"; value: string }
   | { type: "introduction"; value: string }
   | { type: "name-visibility"; value: FieldVisibility }
@@ -40,19 +48,19 @@ export const introductionLimit = 280;
 
 export const initialProfileSettingsState: ProfileSettingsState = {
   account: {
-    memberRef: "member···92K",
-    displayName: "Ama Serwaa",
-    introduction: "Teacher in Accra. I cook groundnut soup for people I like.",
-    nameVisibility: "circles",
+    memberRef: "",
+    displayName: "",
+    introduction: "",
+    nameVisibility: "private",
     introVisibility: "private",
-    tier: 2,
-    verification: "Ghana Card · verified",
-    host: true,
-    joined: "Mar 2026",
+    tier: 0,
+    verification: "",
+    host: false,
+    joined: "",
   },
-  displayName: "Ama Serwaa",
-  introduction: "Teacher in Accra. I cook groundnut soup for people I like.",
-  nameVisibility: "circles",
+  displayName: "",
+  introduction: "",
+  nameVisibility: "private",
   introVisibility: "private",
   saved: false,
   error: null,
@@ -91,6 +99,26 @@ export function profileSettingsReducer(
   action: ProfileSettingsAction,
 ): ProfileSettingsState {
   switch (action.type) {
+    case "hydrate": {
+      const account = {
+        ...state.account,
+        memberRef: action.memberRef,
+        displayName: action.displayName,
+        introduction: action.introduction,
+        nameVisibility: action.nameVisibility,
+        introVisibility: action.introVisibility,
+      };
+      return {
+        ...state,
+        account,
+        displayName: action.displayName,
+        introduction: action.introduction,
+        nameVisibility: action.nameVisibility,
+        introVisibility: action.introVisibility,
+        saved: true,
+        error: null,
+      };
+    }
     case "display-name":
       return { ...state, displayName: action.value, saved: false, error: null };
     case "introduction":

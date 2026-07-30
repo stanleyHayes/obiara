@@ -5,27 +5,249 @@ import {
   Box,
   Button,
   Card,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
+  Skeleton,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useReducer } from "react";
+import { useEffect, useState } from "react";
 
-import {
-  careQueueReducer,
-  careScripts,
-  initialCareQueueState,
-} from "./care-model";
+type ScriptKey =
+  | "helpline_directory_gh"
+  | "counselor_referral"
+  | "support_content"
+  | "closure_quietening";
+
+interface CareCase {
+  caseId: string;
+  subjectRef: string;
+  signal:
+    | "distress_report"
+    | "self_harm_indication"
+    | "victim_report"
+    | "okyeame_escalation"
+    | "closure";
+  status: "open" | "engaged" | "resolved";
+  scripts: ScriptKey[];
+  createdAt: string;
+  version: number;
+}
+
+const resources: ReadonlyArray<{
+  key: ScriptKey;
+  label: string;
+  detail: string;
+}> = [
+  {
+    key: "helpline_directory_gh",
+    label: "Ghana helpline directory",
+    detail: "Record that the reviewed local directory was shared.",
+  },
+  {
+    key: "counselor_referral",
+    label: "Counsellor referral",
+    detail: "Record that the approved referral path was offered.",
+  },
+  {
+    key: "support_content",
+    label: "Support content",
+    detail: "Record that reviewed, non-diagnostic support material was used.",
+  },
+  {
+    key: "closure_quietening",
+    label: "Closure quietening",
+    detail: "Record the closure-specific quietening resource.",
+  },
+];
+
+const signalLabels: Record<CareCase["signal"], string> = {
+  distress_report: "Distress report",
+  self_harm_indication: "Self-harm indication",
+  victim_report: "Victim support",
+  okyeame_escalation: "Okyeame escalation",
+  closure: "Closure support",
+};
+
+function ageLabel(value: string) {
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(value).getTime()) / 60_000),
+  );
+  if (minutes < 60) return `${minutes}m waiting`;
+  return `${Math.floor(minutes / 60)}h waiting`;
+}
 
 export function CareQueue() {
-  const [state, dispatch] = useReducer(careQueueReducer, initialCareQueueState);
-  const selected = state.cases.find((item) => item.id === state.selectedId);
-  const script = careScripts.find((item) => item.id === state.selectedScriptId);
+  const [cases, setCases] = useState<CareCase[]>([]);
+  const [selectedID, setSelectedID] = useState("");
+  const [scripts, setScripts] = useState<ScriptKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState("");
+  const [stepUpOpen, setStepUpOpen] = useState(false);
+  const [stepUpCode, setStepUpCode] = useState("");
+  const selected = cases.find((item) => item.caseId === selectedID);
+
+  async function loadQueue() {
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/care");
+      const payload = (await response.json()) as {
+        cases?: CareCase[];
+        message?: string;
+      };
+      if (!response.ok)
+        throw new Error(
+          payload.message || "The care queue could not be loaded.",
+        );
+      const next = payload.cases ?? [];
+      setCases(next);
+      setSelectedID((current) =>
+        next.some((item) => item.caseId === current)
+          ? current
+          : (next[0]?.caseId ?? ""),
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The care queue could not be loaded.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/care")
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          cases?: CareCase[];
+          message?: string;
+        };
+        if (!response.ok)
+          throw new Error(
+            payload.message || "The care queue could not be loaded.",
+          );
+        if (active) {
+          const next = payload.cases ?? [];
+          setCases(next);
+          setSelectedID(next[0]?.caseId ?? "");
+        }
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "The care queue could not be loaded.",
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function mutate(action: "engage" | "resolve") {
+    if (!selected) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/care", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, caseId: selected.caseId, scripts }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        (CareCase & { message?: string }) | null;
+      if (!response.ok || !payload?.caseId) {
+        if (action === "resolve" && response.status === 403)
+          setStepUpOpen(true);
+        throw new Error(
+          payload?.message ||
+            `The care case could not be ${action === "engage" ? "engaged" : "resolved"}.`,
+        );
+      }
+      setCases((current) =>
+        action === "resolve"
+          ? current.filter((item) => item.caseId !== payload.caseId)
+          : current.map((item) =>
+              item.caseId === payload.caseId ? payload : item,
+            ),
+      );
+      setScripts([]);
+      setSuccess(
+        action === "engage"
+          ? `${payload.caseId} is now engaged by the care desk.`
+          : `${payload.caseId} was resolved with approved resource keys.`,
+      );
+      if (action === "resolve") setSelectedID("");
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "The care action failed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function stepUp(action: "start" | "complete") {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/step-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          action === "start" ? { action } : { action, code: stepUpCode },
+        ),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          payload?.message || "The MFA step-up could not be completed.",
+        );
+      if (action === "start") {
+        setSuccess("A fresh step-up code was sent to your admin email.");
+      } else {
+        setStepUpOpen(false);
+        setStepUpCode("");
+        await mutate("resolve");
+      }
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The MFA step-up could not be completed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleScript(key: ScriptKey) {
+    setScripts((current) =>
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key],
+    );
+  }
 
   return (
     <main className="verification-shell care-shell">
@@ -39,164 +261,204 @@ export function CareQueue() {
             Resources first. People always.
           </Typography>
           <Typography>
-            This desk offers reviewed support resources without diagnosis,
-            pressure or punitive action.
+            Persisted care signals stay separate from enforcement, diagnosis and
+            message delivery.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Chip label={`${state.cases.length} waiting`} color="warning" />
-          <Chip label="Human contact only" color="success" />
+          <Chip label={`${cases.length} active`} color="warning" />
+          <Chip label="Care is non-punitive" color="success" />
         </Stack>
       </header>
 
-      {state.lastSent ? (
-        <Alert severity="success" className="verification-alert">
-          Approved resource message prepared for {state.lastSent.caseId}.
-          Delivery remains with the member-contact service.
+      {message ? (
+        <Alert severity="error" className="verification-alert">
+          {message}
+        </Alert>
+      ) : null}
+      {success ? (
+        <Alert
+          severity="success"
+          className="verification-alert"
+          onClose={() => setSuccess("")}
+        >
+          {success}
         </Alert>
       ) : null}
 
       <Box className="verification-grid">
         <Card className="verification-list">
           <Box className="verification-panel-heading">
-            <Typography component="h2">Care requests</Typography>
-            <Typography>Least exposure</Typography>
+            <Typography component="h2">Oldest first</Typography>
+            <Button
+              disabled={loading}
+              onClick={() => void loadQueue()}
+              size="small"
+            >
+              Refresh
+            </Button>
           </Box>
           <Box aria-label="Care cases">
-            {state.cases.map((item) => (
-              <Button
-                aria-pressed={item.id === state.selectedId}
-                className="care-case"
-                key={item.id}
-                onClick={() => dispatch({ type: "select", caseId: item.id })}
-              >
-                <Box>
-                  <Typography component="strong">{item.id}</Typography>
-                  <Typography>
-                    {item.reason === "requested_support"
-                      ? "Member requested support"
-                      : "Safety follow-up"}
-                  </Typography>
-                  <Typography className="safety-reference">
-                    {item.memberRef} / {item.age}
-                  </Typography>
-                </Box>
-                <Chip
-                  label={
-                    item.contactPreference === "none"
-                      ? "Do not contact"
-                      : item.contactPreference
-                  }
-                  size="small"
-                />
-              </Button>
-            ))}
+            {loading ? (
+              <Stack spacing={1.5} sx={{ p: 2 }}>
+                <Skeleton height={76} />
+                <Skeleton height={76} />
+              </Stack>
+            ) : cases.length ? (
+              cases.map((item) => (
+                <Button
+                  aria-pressed={item.caseId === selectedID}
+                  className="care-case"
+                  key={item.caseId}
+                  onClick={() => {
+                    setSelectedID(item.caseId);
+                    setScripts([]);
+                  }}
+                >
+                  <Box>
+                    <Typography component="strong">{item.caseId}</Typography>
+                    <Typography>{signalLabels[item.signal]}</Typography>
+                    <Typography className="safety-reference">
+                      {item.subjectRef} · {ageLabel(item.createdAt)}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={item.status}
+                    color={item.status === "engaged" ? "success" : "warning"}
+                    size="small"
+                  />
+                </Button>
+              ))
+            ) : (
+              <Alert severity="success">No care cases are waiting.</Alert>
+            )}
           </Box>
         </Card>
 
         <Card className="verification-review">
           {selected ? (
-            <>
+            <Stack spacing={3}>
               <Box className="verification-panel-heading">
                 <Box>
                   <Typography className="section-kicker">
-                    Case {selected.id}
+                    Case {selected.caseId}
                   </Typography>
                   <Typography component="h2">
-                    Choose an approved resource script
+                    {signalLabels[selected.signal]}
                   </Typography>
                 </Box>
                 <Chip
-                  color={
-                    selected.contactPreference === "none"
-                      ? "default"
-                      : "success"
-                  }
-                  label={
-                    selected.contactPreference === "none"
-                      ? "No contact consent"
-                      : `Contact: ${selected.contactPreference}`
-                  }
+                  label={selected.status}
+                  color={selected.status === "engaged" ? "success" : "warning"}
                 />
               </Box>
-
-              <Alert
-                severity={
-                  selected.contactPreference === "none" ? "warning" : "info"
-                }
-              >
-                {selected.contactPreference === "none"
-                  ? "The member has not permitted contact. Scripts can be reviewed but not prepared for sending."
-                  : "Use only the approved script. Do not add diagnoses, promises or pressure."}
-              </Alert>
-
-              <Box className="care-scripts">
-                {careScripts.map((item) => (
+              <Box className="verification-facts">
+                <Box>
+                  <Typography>Private subject</Typography>
+                  <Typography component="strong">
+                    {selected.subjectRef}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography>Created</Typography>
+                  <Typography component="strong">
+                    {new Date(selected.createdAt).toLocaleString()}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography>Revision</Typography>
+                  <Typography component="strong">{selected.version}</Typography>
+                </Box>
+              </Box>
+              {selected.status === "open" ? (
+                <>
+                  <Alert severity="info">
+                    Engaging acknowledges that trained staff have begun this
+                    care case. It does not contact the member or create an
+                    enforcement record.
+                  </Alert>
                   <Button
-                    aria-pressed={item.id === state.selectedScriptId}
-                    className="care-script"
-                    key={item.id}
-                    onClick={() =>
-                      dispatch({ type: "choose-script", scriptId: item.id })
-                    }
+                    disabled={busy}
+                    onClick={() => void mutate("engage")}
+                    variant="contained"
                   >
-                    <Box>
-                      <Typography className="section-kicker">
-                        {item.version} / approved
-                      </Typography>
-                      <Typography component="h3">{item.title}</Typography>
-                      <Typography>{item.body}</Typography>
-                      <Typography component="strong">
-                        Resource: {item.resource}
-                      </Typography>
-                    </Box>
+                    Engage care case
                   </Button>
-                ))}
-              </Box>
-
-              <Box className="verification-actions">
-                <Button
-                  disabled={!script || selected.contactPreference === "none"}
-                  onClick={() => dispatch({ type: "prepare-send" })}
-                  variant="contained"
-                >
-                  Review contact
-                </Button>
-              </Box>
-            </>
-          ) : null}
+                </>
+              ) : (
+                <>
+                  <Alert severity="info">
+                    Record only resources actually used. This closes the care
+                    case; it does not claim that any message was delivered.
+                  </Alert>
+                  <Stack>
+                    {resources.map((resource) => (
+                      <FormControlLabel
+                        key={resource.key}
+                        control={
+                          <Checkbox
+                            checked={scripts.includes(resource.key)}
+                            onChange={() => toggleScript(resource.key)}
+                          />
+                        }
+                        label={
+                          <Box>
+                            <Typography component="strong">
+                              {resource.label}
+                            </Typography>
+                            <Typography>{resource.detail}</Typography>
+                          </Box>
+                        }
+                      />
+                    ))}
+                  </Stack>
+                  <Button
+                    disabled={busy || scripts.length === 0}
+                    onClick={() => void mutate("resolve")}
+                    variant="contained"
+                  >
+                    Resolve with selected resources
+                  </Button>
+                </>
+              )}
+            </Stack>
+          ) : (
+            <Alert severity="info">Select an active care case to begin.</Alert>
+          )}
         </Card>
       </Box>
 
       <Dialog
-        aria-labelledby="care-send-title"
         fullWidth
-        maxWidth="sm"
-        onClose={() => dispatch({ type: "cancel-send" })}
-        open={state.sendPending}
+        maxWidth="xs"
+        onClose={() => setStepUpOpen(false)}
+        open={stepUpOpen}
       >
-        <DialogTitle id="care-send-title">Confirm human contact</DialogTitle>
+        <DialogTitle>Fresh MFA required</DialogTitle>
         <DialogContent>
-          <Stack spacing={2}>
+          <Stack spacing={2} sx={{ pt: 1 }}>
             <Alert severity="info">
-              This prepares one approved message for the member&apos;s chosen
-              channel. It does not diagnose, schedule repeated contact or change
-              a safety case.
+              Resolution remains unchanged until this session completes a fresh
+              step-up.
             </Alert>
-            <Typography component="strong">{script?.title}</Typography>
-            <Typography>{script?.body}</Typography>
-            <Typography>Resource: {script?.resource}</Typography>
+            <TextField
+              autoComplete="one-time-code"
+              label="Step-up code"
+              onChange={(event) => setStepUpCode(event.target.value)}
+              value={stepUpCode}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => dispatch({ type: "cancel-send" })}>
-            Go back
+          <Button disabled={busy} onClick={() => void stepUp("start")}>
+            Send code
           </Button>
           <Button
-            onClick={() => dispatch({ type: "confirm-send" })}
+            disabled={busy || stepUpCode.trim().length < 6}
+            onClick={() => void stepUp("complete")}
             variant="contained"
           >
-            Confirm approved message
+            Verify and resolve
           </Button>
         </DialogActions>
       </Dialog>

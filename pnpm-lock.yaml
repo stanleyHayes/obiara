@@ -57,12 +57,55 @@ importers:
       "@mui/material-nextjs":
         specifier: 9.1.1
         version: 9.1.1(@emotion/cache@11.14.0)(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.3)(supports-color@10.2.2))(@types/react@19.2.14)(next@16.2.12(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.62.0)(@types/node@24.10.1)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
+      "@obiara/api-client":
+        specifier: workspace:*
+        version: link:../../packages/api-client
       "@obiara/design-tokens":
         specifier: workspace:*
         version: link:../../packages/design-tokens
       "@obiara/ui-web":
         specifier: workspace:*
         version: link:../../packages/ui-web
+      next:
+        specifier: 16.2.12
+        version: 16.2.12(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.62.0)(@types/node@24.10.1)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
+    devDependencies:
+      "@obiara/config-eslint":
+        specifier: workspace:*
+        version: link:../../packages/config-eslint
+      "@obiara/config-typescript":
+        specifier: workspace:*
+        version: link:../../packages/config-typescript
+      "@types/node":
+        specifier: 24.10.1
+        version: 24.10.1
+      "@types/react":
+        specifier: 19.2.14
+        version: 19.2.14
+      "@types/react-dom":
+        specifier: 19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      eslint:
+        specifier: 9.39.2
+        version: 9.39.2(supports-color@10.2.2)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@24.10.1)(vite@8.1.5(@types/node@24.10.1)(esbuild@0.28.1)(terser@5.49.0)(yaml@2.9.0))
+
+  apps/marketing:
+    dependencies:
+      "@fontsource-variable/outfit":
+        specifier: 5.3.0
+        version: 5.3.0
       next:
         specifier: 16.2.12
         version: 16.2.12(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.62.0)(@types/node@24.10.1)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -145,6 +188,9 @@ importers:
       expo-router:
         specifier: 57.0.8
         version: 57.0.8(a7a84c896dce166be83db380f090ff7d)
+      expo-secure-store:
+        specifier: ~57.0.1
+        version: 57.0.1(expo@57.0.8)
       expo-status-bar:
         specifier: 57.0.1
         version: 57.0.1(expo@57.0.8)(react-native@0.86.0(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.0(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.14)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3)
@@ -195,46 +241,6 @@ importers:
         specifier: 4.1.10
         version: 4.1.10(@types/node@26.1.1)(vite@8.1.5(@types/node@26.1.1)(esbuild@0.28.1)(terser@5.49.0)(yaml@2.9.0))
 
-  apps/marketing:
-    dependencies:
-      "@fontsource-variable/outfit":
-        specifier: 5.3.0
-        version: 5.3.0
-      next:
-        specifier: 16.2.12
-        version: 16.2.12(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.62.0)(@types/node@24.10.1)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react:
-        specifier: 19.2.3
-        version: 19.2.3
-      react-dom:
-        specifier: 19.2.3
-        version: 19.2.3(react@19.2.3)
-    devDependencies:
-      "@obiara/config-eslint":
-        specifier: workspace:*
-        version: link:../../packages/config-eslint
-      "@obiara/config-typescript":
-        specifier: workspace:*
-        version: link:../../packages/config-typescript
-      "@types/node":
-        specifier: 24.10.1
-        version: 24.10.1
-      "@types/react":
-        specifier: 19.2.14
-        version: 19.2.14
-      "@types/react-dom":
-        specifier: 19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      eslint:
-        specifier: 9.39.2
-        version: 9.39.2(supports-color@10.2.2)
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: 4.1.10
-        version: 4.1.10(@types/node@24.10.1)(vite@8.1.5(@types/node@24.10.1)(esbuild@0.28.1)(terser@5.49.0)(yaml@2.9.0))
-
   apps/web:
     dependencies:
       "@emotion/react":
@@ -252,6 +258,9 @@ importers:
       "@mui/material-nextjs":
         specifier: 9.1.1
         version: 9.1.1(@emotion/cache@11.14.0)(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.3)(supports-color@10.2.2))(@types/react@19.2.14)(next@16.2.12(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.62.0)(@types/node@24.10.1)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
+      "@obiara/api-client":
+        specifier: workspace:*
+        version: link:../../packages/api-client
       "@obiara/design-tokens":
         specifier: workspace:*
         version: link:../../packages/design-tokens
@@ -5738,6 +5747,14 @@ packages:
       react-server-dom-webpack:
         optional: true
 
+  expo-secure-store@57.0.1:
+    resolution:
+      {
+        integrity: sha512-tLa1VmSadOq19mA/dwkl99RbHyjLE0T1qqBYMY3/OsguZTI+rlrDy/DDJjupqlVtmr95hD7o1pYqx5aL+B4YMA==,
+      }
+    peerDependencies:
+      expo: "*"
+
   expo-server@57.0.1:
     resolution:
       {
@@ -10773,7 +10790,7 @@ snapshots:
       "@jest/schemas": 29.6.3
       "@types/istanbul-lib-coverage": 2.0.6
       "@types/istanbul-reports": 3.0.4
-      "@types/node": 24.10.1
+      "@types/node": 26.1.1
       "@types/yargs": 17.0.35
       chalk: 4.1.2
 
@@ -13132,6 +13149,10 @@ snapshots:
       - react-native-worklets
       - supports-color
 
+  expo-secure-store@57.0.1(expo@57.0.8):
+    dependencies:
+      expo: 57.0.8(@babel/core@7.29.7(supports-color@10.2.2))(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.7)(expo-router@57.0.8)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.0(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.0(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(react-native@0.86.0(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.0(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.14)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2))(react-native@0.86.0(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.0(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.14)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2)(typescript@6.0.3)
+
   expo-server@57.0.1: {}
 
   expo-status-bar@57.0.1(expo@57.0.8)(react-native@0.86.0(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.86.0(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.14)(react@19.2.3)(supports-color@10.2.2))(react@19.2.3):
@@ -13671,7 +13692,7 @@ snapshots:
   jest-util@29.7.0:
     dependencies:
       "@jest/types": 29.6.3
-      "@types/node": 24.10.1
+      "@types/node": 26.1.1
       chalk: 4.1.2
       ci-info: 3.9.0
       graceful-fs: 4.2.11
@@ -13688,7 +13709,7 @@ snapshots:
 
   jest-worker@29.7.0:
     dependencies:
-      "@types/node": 24.10.1
+      "@types/node": 26.1.1
       jest-util: 29.7.0
       merge-stream: 2.0.0
       supports-color: 8.1.1

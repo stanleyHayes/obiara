@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -32,14 +33,29 @@ import (
 	"github.com/stanleyHayes/obiara/internal/safety"
 	"github.com/stanleyHayes/obiara/services/api/internal/admin"
 	adminemail "github.com/stanleyHayes/obiara/services/api/internal/admin/adapters/outbound/email"
+	admindomain "github.com/stanleyHayes/obiara/services/api/internal/admin/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/analytics"
 	"github.com/stanleyHayes/obiara/services/api/internal/calls"
 	callsapp "github.com/stanleyHayes/obiara/services/api/internal/calls/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/circle"
+	circledomain "github.com/stanleyHayes/obiara/services/api/internal/circle/domain"
+	circleroom "github.com/stanleyHayes/obiara/services/api/internal/circle/room"
+	circleroomapp "github.com/stanleyHayes/obiara/services/api/internal/circle/room/application"
+	commerceescrow "github.com/stanleyHayes/obiara/services/api/internal/commerce/escrow"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/matchmaker"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/membership"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/reconciliation"
 	"github.com/stanleyHayes/obiara/services/api/internal/companions/nnoboa"
+	onboardingconsent "github.com/stanleyHayes/obiara/services/api/internal/consent"
 	"github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap"
 	consentdomain "github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
+	"github.com/stanleyHayes/obiara/services/api/internal/games/ampe"
+	"github.com/stanleyHayes/obiara/services/api/internal/games/anansesem"
+	"github.com/stanleyHayes/obiara/services/api/internal/games/competition"
+	"github.com/stanleyHayes/obiara/services/api/internal/games/ebe"
+	owaresession "github.com/stanleyHayes/obiara/services/api/internal/games/oware/session"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
 	identitymongodb "github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/mongodb"
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
@@ -47,17 +63,26 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/marketpack"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
+	"github.com/stanleyHayes/obiara/services/api/internal/platform/flagcontrol"
+	flagcontroldomain "github.com/stanleyHayes/obiara/services/api/internal/platform/flagcontrol/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
 	apihttp "github.com/stanleyHayes/obiara/services/api/internal/platform/http"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/telemetry"
 	"github.com/stanleyHayes/obiara/services/api/internal/profile"
 	"github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit"
 	livekitapp "github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit/application"
+	gardenmongodb "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/mongodb"
+	gardenprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/privacy"
+	gardenapp "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
 	"github.com/stanleyHayes/obiara/services/api/internal/sentinel/scamarc"
 	"github.com/stanleyHayes/obiara/services/api/internal/suban"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification"
+	adminverificationmongodb "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/adapters/outbound/mongodb"
+	adminverificationprivacy "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/adapters/outbound/privacy"
+	adminverificationapp "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/verification/liveness"
 )
 
 func main() {
@@ -111,11 +136,19 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build identity module: %w", err)
 	}
+	onboardingConsentModule, err := onboardingconsent.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build onboarding consent module: %w", err)
+	}
 	// Verification (E03-S03) promotes accounts through the identity tier
 	// state machine via the composition-time bridge.
 	verificationModule, err := verification.NewModule(ctx, client.Database(cfg.MongoDatabase), tierBridge{tiers: identityModule.Tiers})
 	if err != nil {
 		return fmt.Errorf("build verification module: %w", err)
+	}
+	livenessModule, err := liveness.NewModule(ctx, client.Database(cfg.MongoDatabase), cfg.LivenessHMACSecret)
+	if err != nil {
+		return fmt.Errorf("build liveness module: %w", err)
 	}
 	// Privacy (E03-S10) serves export/deletion requests and legal holds.
 	privacyModule, err := privacy.NewModule(ctx, client.Database(cfg.MongoDatabase))
@@ -145,10 +178,85 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build listening module: %w", err)
 	}
+	gardenRepository := gardenmongodb.NewRepository(client.Database(cfg.MongoDatabase))
+	if err := gardenRepository.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("ensure seed garden indexes: %w", err)
+	}
+	gardenKeyer, err := gardenprivacy.NewKeyer([]byte(cfg.SeedHMACSecret))
+	if err != nil {
+		return fmt.Errorf("configure seed garden privacy: %w", err)
+	}
+	gardenService := gardenapp.NewService(gardenRepository, gardenKeyer, time.Now)
+	circleModule, err := circle.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build circle module: %w", err)
+	}
+	gamePairs := circleGamePairResolver{circles: circleModule.Circles}
+	owareModule, err := owaresession.NewModule(
+		ctx,
+		client.Database(cfg.MongoDatabase),
+		cfg.CircleHMACSecret,
+		gamePairs,
+		gamePairs,
+	)
+	if err != nil {
+		return fmt.Errorf("build oware module: %w", err)
+	}
+	anansesemModule, err := anansesem.NewModule(
+		ctx, client.Database(cfg.MongoDatabase), cfg.CircleHMACSecret, gamePairs,
+	)
+	if err != nil {
+		return fmt.Errorf("build anansesem module: %w", err)
+	}
+	ampeModule, err := ampe.NewModule(
+		ctx, client.Database(cfg.MongoDatabase), cfg.CircleHMACSecret, gamePairs,
+	)
+	if err != nil {
+		return fmt.Errorf("build ampe module: %w", err)
+	}
+	ebeModule, err := ebe.NewModule(
+		ctx, client.Database(cfg.MongoDatabase), cfg.CircleHMACSecret,
+		gamePairs, composedReviewerAuthority{},
+	)
+	if err != nil {
+		return fmt.Errorf("build ebe module: %w", err)
+	}
+	competitionModule, err := competition.NewModule(
+		ctx, client.Database(cfg.MongoDatabase), cfg.CircleHMACSecret,
+		composedReviewerAuthority{},
+	)
+	if err != nil {
+		return fmt.Errorf("build competition module: %w", err)
+	}
+	circleRoomModule, err := circleroom.NewModule(
+		ctx, client.Database(cfg.MongoDatabase), cfg.CircleHMACSecret,
+		circleRoomAuthorizer{circles: circleModule.Circles},
+	)
+	if err != nil {
+		return fmt.Errorf("build circle room module: %w", err)
+	}
 	// Fire scheduling and attendance (E09-S01).
 	fireModule, err := fire.NewModule(ctx, client.Database(cfg.MongoDatabase))
 	if err != nil {
 		return fmt.Errorf("build fire module: %w", err)
+	}
+	membershipModule, err := membership.NewModule(
+		ctx, client.Database(cfg.MongoDatabase), cfg.CommerceHMACSecret,
+	)
+	if err != nil {
+		return fmt.Errorf("build membership module: %w", err)
+	}
+	matchmakerModule, err := matchmaker.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build matchmaker module: %w", err)
+	}
+	escrowModule, err := commerceescrow.NewModule(ctx, client.Database(cfg.MongoDatabase), []byte(cfg.CommerceHMACSecret))
+	if err != nil {
+		return fmt.Errorf("build escrow module: %w", err)
+	}
+	reconciliationModule, err := reconciliation.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build reconciliation module: %w", err)
 	}
 	// Embers (E06-S10). The mutual-ember doorway opener stays nil until the
 	// sprout module composes.
@@ -172,6 +280,56 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build admin module: %w", err)
 	}
+	adminSubjectKeyer, err := adminverificationprivacy.NewHMACKeyer([]byte(cfg.AdminHMACSecret))
+	if err != nil {
+		return fmt.Errorf("configure admin subject references: %w", err)
+	}
+	adminVerificationRepository := adminverificationmongodb.NewRepository(client.Database(cfg.MongoDatabase), adminSubjectKeyer)
+	if err := adminVerificationRepository.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("ensure admin verification indexes: %w", err)
+	}
+	adminVerificationService := adminverificationapp.NewService(adminVerificationRepository, time.Now)
+	flagEnvironment := flagcontroldomain.EnvironmentStaging
+	if strings.EqualFold(cfg.Environment, "production") {
+		flagEnvironment = flagcontroldomain.EnvironmentProduction
+	}
+	flagControlModule, err := flagcontrol.NewModule(
+		ctx, client.Database(cfg.MongoDatabase), adminModule.Admin,
+		adminSubjectKeyer, flagEnvironment, os.Getenv,
+	)
+	if err != nil {
+		return fmt.Errorf("build runtime flag controls: %w", err)
+	}
+	adminPrincipalResolver := func(r *http.Request) (adminverificationapp.Principal, error) {
+		authorization := strings.TrimSpace(r.Header.Get("Authorization"))
+		if !strings.HasPrefix(authorization, "Bearer ") {
+			return adminverificationapp.Principal{}, adminverificationapp.ErrForbidden
+		}
+		session, principal, authErr := adminModule.Admin.Authenticate(r.Context(), strings.TrimSpace(strings.TrimPrefix(authorization, "Bearer ")))
+		if authErr != nil {
+			return adminverificationapp.Principal{}, adminverificationapp.ErrForbidden
+		}
+		scopes := make([]adminverificationapp.Scope, 0, 3)
+		if principal.HasRole(admindomain.RoleVerifier) || principal.HasRole(admindomain.RoleAdmin) {
+			scopes = append(scopes,
+				adminverificationapp.ScopeQueueRead,
+				adminverificationapp.ScopeEvidenceRead,
+				adminverificationapp.ScopeReview,
+			)
+		}
+		if principal.HasRole(admindomain.RoleAdmin) {
+			scopes = append(scopes, adminverificationapp.ScopeOperations)
+		}
+		if principal.HasRole(admindomain.RoleFinance) || principal.HasRole(admindomain.RoleAdmin) {
+			scopes = append(scopes, adminverificationapp.ScopeFinance)
+		}
+		if principal.HasRole(admindomain.RoleTSAgent) || principal.HasRole(admindomain.RoleAdmin) {
+			scopes = append(scopes, adminverificationapp.ScopeSafety)
+		}
+		return adminverificationapp.Principal{
+			ActorID: principal.ID(), Scopes: scopes, MFAVerified: session.SteppedUp(),
+		}, nil
+	}
 	// Suban character ledger (E15-S04): append-only events, recomputed marks.
 	subanModule, err := suban.NewModule(ctx, client.Database(cfg.MongoDatabase))
 	if err != nil {
@@ -188,6 +346,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build consent module: %w", err)
 	}
+	profileModule = profileModule.WithConsent(profileConsent{consents: consentModule.ConsentMap})
 	// Scam-arc detection (E11-S11): rules-first signals with the action
 	// ladder; case creation bridges to the safety context when wired.
 	scamModule, err := scamarc.NewModule(ctx, client.Database(cfg.MongoDatabase), monitoringConsent{consents: consentModule.ConsentMap}, nil)
@@ -237,9 +396,12 @@ func run() error {
 	whatsappChannel := whatsappapp.NewChannelService(wasimulator.NewSender(), whatsappLog, nil, time.Now)
 	nnoboaModule, err := nnoboa.NewModule(ctx, client.Database(cfg.MongoDatabase), nnoboa.SenderFunc(
 		func(ctx context.Context, msg whatsappdomain.Message) error {
-			_, err := whatsappChannel.SendNnoboaConsent(ctx, msg.To(), msg.Params()["kin_name"])
+			_, err := whatsappChannel.SendNnoboaConsent(
+				ctx, msg.To(), msg.Params()["kin_name"],
+				msg.Params()["nomination_id"], msg.Params()["consent_token"],
+			)
 			return err
-		}))
+		}), cfg.NnoboaInviteSecret)
 	if err != nil {
 		return fmt.Errorf("build nnoboa module: %w", err)
 	}
@@ -251,29 +413,56 @@ func run() error {
 	}))
 	apihttp.RegisterMemberRoutes(mux, memberModule.Register.Handle)
 	apihttp.RegisterAuthRoutes(mux, identityModule.Registration)
-	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification)
-	apihttp.RegisterPrivacyRoutes(mux, privacyModule.Privacy)
+	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
+	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
+	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)
+	apihttp.RegisterPrivacyRoutes(mux, privacyModule.Privacy, identityModule.Sessions)
 	apihttp.RegisterTrustVisibilityRoutes(mux, trustModule.Visibility, identityModule.Sessions)
-	apihttp.RegisterDoorwayRoutes(mux, profileModule.Doorway, profileModule.Vault)
-	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening)
-	apihttp.RegisterFireRoutes(mux, fireModule.Fires)
-	apihttp.RegisterEmberRoutes(mux, emberModule.Embers)
-	apihttp.RegisterNotificationRoutes(mux, notificationModule.Notifications)
-	apihttp.RegisterSafetyRoutes(mux, safetyModule.Safety)
-	apihttp.RegisterSubanRoutes(mux, subanModule.Suban)
+	apihttp.RegisterDoorwayRoutes(mux, profileModule.Doorway, profileModule.Vault, identityModule.Sessions)
+	apihttp.RegisterProfileRoutes(mux, profileModule.Profile, consentModule.ConsentMap, identityModule.Sessions)
+	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening, identityModule.Sessions)
+	apihttp.RegisterGardenRoutes(mux, gardenService, identityModule.Sessions)
+	apihttp.RegisterCircleRoutes(mux, circleModule.Circles, identityModule.Sessions)
+	apihttp.RegisterCircleRoomRoutes(mux, circleRoomModule.Rooms, identityModule.Sessions)
+	apihttp.RegisterOwareRoutes(mux, owareModule.Sessions, gamePairs, identityModule.Sessions)
+	apihttp.RegisterAnansesemRoutes(mux, anansesemModule.Stories, gamePairs, identityModule.Sessions)
+	apihttp.RegisterAmpeRoutes(mux, ampeModule.Rounds, ampeModule.Presence, gamePairs, identityModule.Sessions)
+	apihttp.RegisterEbeRoutes(mux, ebeModule.Catalog, ebeModule.Duels, gamePairs, identityModule.Sessions, adminPrincipalResolver)
+	apihttp.RegisterCompetitionRoutes(
+		mux, competitionModule.Cohorts, competitionModule.Manager,
+		competitionModule.Competitions, competitionModule.Competitions,
+		competitionModule.Oware,
+		identityModule.Sessions, adminPrincipalResolver,
+	)
+	apihttp.RegisterFireRoutes(mux, fireModule.Fires, identityModule.Sessions, identityModule.Tiers)
+	apihttp.RegisterMembershipRoutes(mux, membershipModule.Membership, membershipModule.Keyer, identityModule.Sessions)
+	apihttp.RegisterMatchmakerRoutes(mux, matchmakerModule.Engagements, membershipModule.Keyer, identityModule.Sessions)
+	apihttp.RegisterEscrowRoutes(mux, escrowModule.Escrows, membershipModule.Keyer, identityModule.Sessions)
+	apihttp.RegisterEmberRoutes(mux, emberModule.Embers, identityModule.Sessions)
+	apihttp.RegisterNotificationRoutes(mux, notificationModule.Notifications, identityModule.Sessions)
+	apihttp.RegisterSafetyRoutes(mux, safetyModule.Safety, identityModule.Sessions)
+	apihttp.RegisterSubanRoutes(mux, subanModule.Suban, subanModule.Explanation, identityModule.Sessions)
 	apihttp.RegisterAdminRoutes(mux, adminModule.Admin)
-	apihttp.RegisterCallRoutes(mux, callsModule.Calls)
-	apihttp.RegisterMetricsRoutes(mux, analyticsModule.Metrics)
-	apihttp.RegisterScamArcRoutes(mux, scamModule.ScamArc)
-	apihttp.RegisterDeliveryStatsRoutes(mux, deliverystatsapp.NewStatsService(deliverystats.NewStore(client.Database(cfg.MongoDatabase)), time.Now))
-	apihttp.RegisterConsentRoutes(mux, consentModule.ConsentMap)
-	apihttp.RegisterMarketPackRoutes(mux, marketPackModule.Packs)
-	apihttp.RegisterNominationRoutes(mux, nnoboaModule.Nominations)
+	apihttp.RegisterAdminMatchmakerRoutes(mux, matchmakerModule.Catalog, adminPrincipalResolver)
+	apihttp.RegisterAdminEscrowRoutes(mux, escrowModule.Escrows, matchmakerModule.Engagements, adminPrincipalResolver)
+	apihttp.RegisterAdminFinanceRoutes(mux, reconciliationModule.Queries, adminPrincipalResolver)
+	apihttp.RegisterAdminVerificationRoutes(mux, adminVerificationService, adminPrincipalResolver)
+	apihttp.RegisterAdminSafetyRoutes(mux, safetyModule.Cases, safetyModule.Evidence, membershipModule.Keyer, adminPrincipalResolver)
+	apihttp.RegisterAdminCareRoutes(mux, safetyModule.Care, membershipModule.Keyer, adminPrincipalResolver)
+	apihttp.RegisterAdminControlRoutes(mux, flagControlModule.Controls, flagControlModule.Repo, adminSubjectKeyer, adminPrincipalResolver)
+	apihttp.RegisterAdminMemberRoutes(mux, identitymongodb.NewAccountRepository(client.Database(cfg.MongoDatabase)), adminSubjectKeyer, adminPrincipalResolver)
+	apihttp.RegisterCallRoutes(mux, callsModule.Calls, identityModule.Sessions)
+	apihttp.RegisterMetricsRoutes(mux, analyticsModule.Metrics, adminPrincipalResolver)
+	apihttp.RegisterScamArcRoutes(mux, scamModule.ScamArc, adminPrincipalResolver)
+	apihttp.RegisterDeliveryStatsRoutes(mux, deliverystatsapp.NewStatsService(deliverystats.NewStore(client.Database(cfg.MongoDatabase)), time.Now), adminPrincipalResolver)
+	apihttp.RegisterConsentRoutes(mux, consentModule.ConsentMap, identityModule.Sessions)
+	apihttp.RegisterMarketPackRoutes(mux, marketPackModule.Packs, adminPrincipalResolver)
+	apihttp.RegisterNominationRoutes(mux, nnoboaModule.Nominations, identityModule.Sessions)
 	apihttp.RegisterResendWebhookRoute(mux, emailModule.Webhook, inbox.NewStore(client.Database(cfg.MongoDatabase), time.Now))
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           apihttp.Correlation(telemetryRuntime.HTTP(mux, apihttp.CorrelationID)),
+		Handler:           apihttp.Correlation(telemetryRuntime.HTTP(apihttp.FeatureFlags(mux, flagControlModule.Flags), apihttp.CorrelationID)),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -295,6 +484,79 @@ func run() error {
 
 type ownerProjectionAuthorizer struct{}
 
+type circleRoomAuthorizer struct {
+	circles interface {
+		Allows(context.Context, string, string, circledomain.Capability) (bool, error)
+	}
+}
+
+type circleGamePairResolver struct {
+	circles interface {
+		Get(context.Context, string, string) (circledomain.Circle, error)
+	}
+}
+
+func (resolver circleGamePairResolver) Pair(ctx context.Context, circleID, actorID string) (string, error) {
+	current, err := resolver.circles.Get(ctx, strings.TrimSpace(circleID), strings.TrimSpace(actorID))
+	if err != nil {
+		return "", err
+	}
+	active := make([]string, 0, 2)
+	actorActive := false
+	for _, membership := range current.Memberships() {
+		switch membership.State() {
+		case circledomain.StateMember, circledomain.StateHost, circledomain.StateOwner:
+			active = append(active, membership.MemberID())
+			if membership.MemberID() == strings.TrimSpace(actorID) {
+				actorActive = true
+			}
+		}
+	}
+	if len(active) != 2 || !actorActive {
+		return "", errors.New("private game requires exactly two active circle members")
+	}
+	if active[0] == strings.TrimSpace(actorID) {
+		return active[1], nil
+	}
+	return active[0], nil
+}
+
+func (resolver circleGamePairResolver) RequireParticipant(ctx context.Context, roomID, actorID string) error {
+	_, err := resolver.Pair(ctx, roomID, actorID)
+	return err
+}
+
+func (resolver circleGamePairResolver) Revalidate(ctx context.Context, roomID, firstID, secondID string) error {
+	other, err := resolver.Pair(ctx, roomID, firstID)
+	if err != nil || other != strings.TrimSpace(secondID) {
+		return errors.New("private game participant pair is not current")
+	}
+	return nil
+}
+
+func (resolver circleGamePairResolver) RevalidateAuthors(ctx context.Context, roomID, firstID, secondID string) error {
+	return resolver.Revalidate(ctx, roomID, firstID, secondID)
+}
+
+func (authorizer circleRoomAuthorizer) Authorize(ctx context.Context, decision circleroomapp.Decision) error {
+	capability := circledomain.CapabilityView
+	switch decision.Capability {
+	case circleroomapp.CapabilityRead:
+		capability = circledomain.CapabilityView
+	case circleroomapp.CapabilityPost:
+		capability = circledomain.CapabilityPost
+	case circleroomapp.CapabilityHost:
+		capability = circledomain.CapabilityManage
+	default:
+		return circleroomapp.ErrDenied
+	}
+	allowed, err := authorizer.circles.Allows(ctx, decision.CircleID, decision.ActorID, capability)
+	if err != nil || !allowed {
+		return circleroomapp.ErrDenied
+	}
+	return nil
+}
+
 func (ownerProjectionAuthorizer) CanProject(_ context.Context, requesterID, rootID string) (bool, error) {
 	return requesterID != "" && requesterID == rootID, nil
 }
@@ -314,6 +576,21 @@ func (ownerEndpointAuthorizer) CanReveal(_ context.Context, requesterID, endpoin
 // consentGate bridges the analytics ConsentGate port to the consent map.
 type consentGate struct {
 	consents consentMapService
+}
+
+type profileConsentState interface {
+	StateFor(context.Context, string, consentdomain.Purpose) (bool, error)
+}
+
+type profileConsent struct {
+	consents profileConsentState
+}
+
+func (bridge profileConsent) Allows(ctx context.Context, memberID, consentRef string) (bool, error) {
+	if consentRef != "cons_profile_visibility" {
+		return false, nil
+	}
+	return bridge.consents.StateFor(ctx, memberID, consentdomain.PurposeProfileVisibility)
 }
 
 func (gate consentGate) AllowsAnalytics(ctx context.Context, memberID string) (bool, error) {
@@ -341,6 +618,22 @@ type unconfiguredLivekit struct{}
 
 func (unconfiguredLivekit) Issue(context.Context, livekitapp.JoinRequest) (livekitapp.JoinToken, error) {
 	return livekitapp.JoinToken{}, errors.New("livekit is not configured")
+}
+
+// composedReviewerAuthority is intentionally reachable only behind the
+// operations-scoped admin HTTP boundary. It rejects missing actor identities;
+// the resolver performs the current session, role, and scope revalidation.
+type composedReviewerAuthority struct{}
+
+func (composedReviewerAuthority) RequireReviewer(_ context.Context, actorID string) error {
+	if strings.TrimSpace(actorID) == "" {
+		return errors.New("reviewer identity is required")
+	}
+	return nil
+}
+
+func (authority composedReviewerAuthority) RequireTournamentManager(ctx context.Context, actorID string) error {
+	return authority.RequireReviewer(ctx, actorID)
 }
 
 // tierBridge adapts the verification context's provider-neutral tier port

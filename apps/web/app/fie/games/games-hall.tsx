@@ -1,155 +1,125 @@
 "use client";
 
 import Link from "next/link";
-import { useReducer } from "react";
-import { gamesReducer, initialGamesState } from "./games-model";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useState } from "react";
 import { SafetySheet } from "../safety-sheet";
 
 const games = [
-  [
-    "Oware",
-    "Async strategy",
-    "/fie/games/oware/game_4Nq8mK2xP7vR5tZa",
-    "Your move",
-  ],
-  [
-    "Ɛbɛ",
-    "Reviewed proverb duel",
-    "/fie/games/ebe/duel_8Km2qP4vN7xR5tZa",
-    "Round one",
-  ],
-  [
-    "Anansesɛm",
-    "Private story relay",
-    "/fie/games/anansesem/story_8Km2qP4vN7xR5tZa",
-    "With Ama",
-  ],
-  [
-    "Ampe",
-    "Low-data live pulse",
-    "/fie/games/ampe/round_8Km2qP4vN7xR5tZa",
-    "Ready",
-  ],
+  {
+    name: "Oware",
+    type: "Async strategy",
+    status: "Available in an exact two-member circle",
+    href: "/fie/adiwo",
+  },
+  {
+    name: "Ɛbɛ",
+    type: "Reviewed proverb duel",
+    status: "Available when the reviewed catalog is populated",
+    href: "/fie/adiwo",
+  },
+  {
+    name: "Anansesɛm",
+    type: "Private story relay",
+    status: "Available in an exact two-member circle",
+    href: "/fie/adiwo",
+  },
+  {
+    name: "Ampe",
+    type: "Low-data live pulse",
+    status: "Available in an exact two-member circle",
+    href: "/fie/adiwo",
+  },
 ] as const;
 
 export function GamesHall() {
-  const [state, dispatch] = useReducer(gamesReducer, initialGamesState);
+  const router = useRouter();
+  const [cohortRef, setCohortRef] = useState("");
+  function openCohort(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (cohortRef.trim()) {
+      router.push(
+        `/fie/games/competition/${encodeURIComponent(cohortRef.trim())}`,
+      );
+    }
+  }
   return (
     <main className="games-hall">
       <header>
         <Link href="/fie">← Fie</Link>
         <strong>Games of character</strong>
-        <SafetySheet context="the games hall" />
+        <SafetySheet context="the games hall" surface="game" />
       </header>
       <section className="games-hero">
         <p className="fie-kicker">Play reveals moments—not worth</p>
-        <h1>A hall for skill, wit and shared stories.</h1>
+        <h1>A hall for real boards, not demo scores.</h1>
         <p>
-          Every game stays separate from matching visibility. There are no
-          global popularity ranks or pay-to-win paths.
+          Every game stays separate from matching visibility. A table appears
+          only when its authenticated runtime can retain the play.
         </p>
       </section>
       <section className="games-grid" aria-labelledby="your-games-title">
         <div>
           <p className="fie-kicker">Private tables</p>
-          <h2 id="your-games-title">Your games.</h2>
+          <h2 id="your-games-title">Choose from what is actually ready.</h2>
         </div>
         <div className="games-list">
-          {games.map(([name, type, href, status]) => (
-            <Link href={href} key={name}>
-              <span>{type}</span>
-              <h3>{name}</h3>
-              <strong>{status} →</strong>
+          {games.map((game) => (
+            <Link href={game.href} key={game.name}>
+              <span>{game.type}</span>
+              <h3>{game.name}</h3>
+              <strong>Choose a private circle →</strong>
             </Link>
           ))}
         </div>
       </section>
       <section className="tournament" aria-labelledby="tournament-title">
         <div>
-          <p className="fie-kicker">Opt-in cohort · 24 seats</p>
-          <h2 id="tournament-title">Sunday Oware table.</h2>
+          <p className="fie-kicker">Competition runtime</p>
+          <h2 id="tournament-title">No invented cohort or seat count.</h2>
           <p>
-            Three calm rounds over one week. Your standing is visible only
-            inside this joined cohort and never affects discovery or matching.
+            Tournament cohorts are private invitation references with explicit
+            opt-in. There is no public cohort browser or member grid.
           </p>
-          <div className="tournament-facts">
-            <span>Starts Sunday · 4 PM</span>
-            <span>18 of 24 seats</span>
-            <span>No entry fee</span>
-          </div>
+          <form onSubmit={openCohort}>
+            <label htmlFor="competition-reference">
+              Private cohort reference
+            </label>
+            <input
+              id="competition-reference"
+              onChange={(event) => setCohortRef(event.target.value)}
+              placeholder="cohort_…"
+              value={cohortRef}
+            />
+            <button disabled={!cohortRef.trim()} type="submit">
+              Open private cohort
+            </button>
+          </form>
         </div>
         <aside>
-          <strong>
-            {state.joined
-              ? "Seat held privately."
-              : "Joining is always optional."}
-          </strong>
+          <strong>Registration requires an invitation reference.</strong>
           <p>
-            {state.joined
-              ? "Your first pairing appears after registration closes."
-              : "Review the format before taking a seat. Leaving before the first pairing has no penalty."}
+            Capacity, enrollment, bracket and standings appear only from
+            retained server state.
           </p>
-          <button
-            disabled={state.joined}
-            onClick={() => dispatch({ type: "join" })}
-            type="button"
-          >
-            {state.joined ? "You joined" : "Join this cohort"}
-          </button>
         </aside>
       </section>
       <section className="fair-play" aria-labelledby="fair-play-title">
         <div>
-          <p className="fie-kicker">Fair-play review</p>
+          <p className="fie-kicker">Fair-play boundary</p>
           <h2 id="fair-play-title">Evidence before action.</h2>
           <p>
-            Unusual play creates a private review—not an automatic accusation.
-            Reviewers see bounded game evidence, and every action can be
-            appealed.
+            Conduct review will require a retained game, bounded evidence and a
+            human decision. No demonstration review or appeal is submitted from
+            this page.
           </p>
         </div>
         <div className="review-card">
-          {state.fairPlay === "clear" ? (
-            <>
-              <strong>No open review.</strong>
-              <p>
-                This demonstration can show the review and appeal path without
-                changing your account.
-              </p>
-              <button
-                onClick={() => dispatch({ type: "open-review" })}
-                type="button"
-              >
-                Preview review path
-              </button>
-            </>
-          ) : null}
-          {state.fairPlay === "review" ? (
-            <>
-              <span>Review FP-84Q</span>
-              <strong>Timing pattern needs human review.</strong>
-              <p>
-                No public label or automatic penalty. Evidence: three
-                move-timing clusters from this cohort only.
-              </p>
-              <button
-                onClick={() => dispatch({ type: "appeal" })}
-                type="button"
-              >
-                Submit private appeal
-              </button>
-            </>
-          ) : null}
-          {state.fairPlay === "appealed" ? (
-            <>
-              <span>Appeal received</span>
-              <strong>A different reviewer will look again.</strong>
-              <p>
-                Your cohort sees no accusation. Play remains paused only for the
-                reviewed table.
-              </p>
-            </>
-          ) : null}
+          <strong>No server-backed review is open here.</strong>
+          <p>
+            There is no fabricated case reference, accusation, pause or appeal
+            confirmation.
+          </p>
         </div>
       </section>
     </main>

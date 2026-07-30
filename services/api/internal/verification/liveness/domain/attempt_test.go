@@ -55,6 +55,38 @@ func TestOnlyExplicitLiveDecisionPasses(t *testing.T) {
 	}
 }
 
+func TestReconstituteRejectsHistoryDrift(t *testing.T) {
+	attempt := newAttempt(t)
+	decided, err := attempt.ProviderDecision(
+		true, "provider:proof", strings.Repeat("c", 64),
+		fixedTime.Add(time.Second), attempt.Version(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := Reconstitute(
+		decided.ID(), decided.CommandID(), decided.SubjectKey(), decided.InputKey(),
+		decided.Status(), decided.Reason(), decided.ProviderRef(),
+		decided.CreatedAt(), decided.DecidedAt(), decided.Version(), decided.Events(),
+	)
+	if err != nil || !restored.Passed() || restored.Version() != decided.Version() {
+		t.Fatalf("restored=%+v err=%v", restored, err)
+	}
+	bad := decided.Events()
+	bad[0], _ = NewEvent(EventParams{
+		Status: StatusFailed, Reason: ReasonProviderNotLive,
+		ActorKey: strings.Repeat("c", 64), OccurredAt: fixedTime.Add(time.Second),
+		Version: 2,
+	})
+	if _, err := Reconstitute(
+		decided.ID(), decided.CommandID(), decided.SubjectKey(), decided.InputKey(),
+		decided.Status(), decided.Reason(), decided.ProviderRef(),
+		decided.CreatedAt(), decided.DecidedAt(), decided.Version(), bad,
+	); err == nil {
+		t.Fatal("accepted history whose terminal event disagrees with state")
+	}
+}
+
 func TestManualDecisionRequiresQueuedAttempt(t *testing.T) {
 	attempt := newAttempt(t)
 	actor := strings.Repeat("c", 64)

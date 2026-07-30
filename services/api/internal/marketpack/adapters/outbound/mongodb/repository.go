@@ -57,9 +57,13 @@ func (repository *Repository) EnsureIndexes(ctx context.Context) error {
 	return err
 }
 
-func (repository *Repository) Create(ctx context.Context, pack domain.MarketPack) error {
-	_, err := repository.packs().InsertOne(ctx, toDocument(pack))
-	return err
+func (repository *Repository) CreateWithAudit(ctx context.Context, pack domain.MarketPack, actorID, action string, at time.Time) error {
+	return repository.transaction(ctx, func(tx context.Context) error {
+		if _, err := repository.packs().InsertOne(tx, toDocument(pack)); err != nil {
+			return err
+		}
+		return repository.append(tx, actorID, action, pack.ID(), at)
+	})
 }
 
 func (repository *Repository) FindByID(ctx context.Context, id string) (domain.MarketPack, error) {
@@ -73,25 +77,44 @@ func (repository *Repository) FindByID(ctx context.Context, id string) (domain.M
 	return toDomain(document), nil
 }
 
-func (repository *Repository) Update(ctx context.Context, pack domain.MarketPack) error {
-	document := toDocument(pack)
-	result, err := repository.packs().UpdateOne(ctx,
-		bson.M{"_id": document.ID, "version": document.Version - 1},
-		bson.M{"$set": bson.M{
-			"status": document.Status, "approvedBy": document.ApprovedBy,
-			"publishedAt": document.PublishedAt, "version": document.Version,
-		}})
-	if err != nil {
-		return err
-	}
-	if result.MatchedCount == 0 {
-		return application.ErrPackNotFound
-	}
-	return nil
+func (repository *Repository) UpdateWithAudit(ctx context.Context, pack domain.MarketPack, actorID, action string, at time.Time) error {
+	return repository.transaction(ctx, func(tx context.Context) error {
+		document := toDocument(pack)
+		result, err := repository.packs().UpdateOne(tx,
+			bson.M{"_id": document.ID, "version": document.Version - 1},
+			bson.M{"$set": bson.M{
+				"status": document.Status, "approvedBy": document.ApprovedBy,
+				"publishedAt": document.PublishedAt, "version": document.Version,
+			}})
+		if err != nil {
+			return err
+		}
+		if result.MatchedCount == 0 {
+			return application.ErrPackNotFound
+		}
+		return repository.append(tx, actorID, action, pack.ID(), at)
+	})
 }
 
 func (repository *Repository) ListPublished(ctx context.Context) ([]domain.MarketPack, error) {
-	cursor, err := repository.packs().Find(ctx, bson.M{"status": string(domain.StatusPublished)})
+	return repository.list(ctx, bson.M{"status": string(domain.StatusPublished)}, 200)
+}
+
+func (repository *Repository) ListAll(ctx context.Context, limit int) ([]domain.MarketPack, error) {
+	if limit < 1 || limit > 200 {
+		limit = 100
+	}
+	return repository.list(ctx, bson.M{}, limit)
+}
+
+func (repository *Repository) list(ctx context.Context, filter bson.M, limit int) ([]domain.MarketPack, error) {
+	cursor, err := repository.packs().Find(
+		ctx,
+		filter,
+		options.Find().
+			SetSort(bson.D{{Key: "createdAt", Value: -1}, {Key: "_id", Value: 1}}).
+			SetLimit(int64(limit)),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -108,9 +131,21 @@ func (repository *Repository) ListPublished(ctx context.Context) ([]domain.Marke
 	return packs, cursor.Err()
 }
 
-func (repository *Repository) Append(ctx context.Context, actorID, action, packID string, at time.Time) error {
+func (repository *Repository) append(ctx context.Context, actorID, action, packID string, at time.Time) error {
 	_, err := repository.changes().InsertOne(ctx, bson.M{
 		"actorId": actorID, "action": action, "packId": packID, "at": at.UTC(),
+	})
+	return err
+}
+
+func (repository *Repository) transaction(ctx context.Context, operation func(context.Context) error) error {
+	session, err := repository.database.Client().StartSession()
+	if err != nil {
+		return err
+	}
+	defer session.EndSession(ctx)
+	_, err = session.WithTransaction(ctx, func(tx context.Context) (any, error) {
+		return nil, operation(tx)
 	})
 	return err
 }

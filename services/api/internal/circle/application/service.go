@@ -50,6 +50,9 @@ func (service Service) Create(ctx context.Context, command Command, kind domain.
 func (service Service) Request(ctx context.Context, command Command) (Result, error) {
 	change := service.domainCommand(command, "membership.request", command.ActorID)
 	return service.mutate(ctx, command, func(circle domain.Circle) (domain.Circle, error) {
+		if !circle.Allows(command.ActorID, domain.CapabilityDiscover) {
+			return domain.Circle{}, domain.ErrAccessDenied
+		}
 		return circle.Request(command.ActorID, change)
 	})
 }
@@ -98,6 +101,46 @@ func (service Service) Allows(ctx context.Context, circleID, memberID string, ca
 		return false, err
 	}
 	return circle.Allows(strings.TrimSpace(memberID), capability), nil
+}
+
+func (service Service) Get(ctx context.Context, circleID, memberID string) (domain.Circle, error) {
+	if service.repository == nil {
+		return domain.Circle{}, ErrUnavailable
+	}
+	circle, err := service.repository.Find(ctx, strings.TrimSpace(circleID))
+	if err != nil {
+		return domain.Circle{}, err
+	}
+	if !circle.Allows(strings.TrimSpace(memberID), domain.CapabilityDiscover) {
+		return domain.Circle{}, domain.ErrAccessDenied
+	}
+	return circle, nil
+}
+
+func (service Service) List(ctx context.Context, memberID, view string, limit int) ([]domain.Circle, error) {
+	query, ok := service.repository.(QueryRepository)
+	if !ok {
+		return nil, ErrUnavailable
+	}
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	var (
+		circles []domain.Circle
+		err     error
+	)
+	switch strings.TrimSpace(view) {
+	case "", "mine":
+		circles, err = query.ListForMember(ctx, strings.TrimSpace(memberID), limit)
+	case "discover":
+		circles, err = query.ListDiscoverable(ctx, strings.TrimSpace(memberID), limit)
+	default:
+		return nil, domain.ErrInvalidCircle
+	}
+	if err != nil {
+		return nil, ErrUnavailable
+	}
+	return circles, nil
 }
 
 func (service Service) mutate(ctx context.Context, command Command, mutate func(domain.Circle) (domain.Circle, error)) (Result, error) {

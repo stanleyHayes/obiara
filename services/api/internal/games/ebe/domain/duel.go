@@ -72,6 +72,15 @@ func (duel Duel) Revision() uint64 { return duel.revision }
 func (duel Duel) Complete() bool   { return duel.complete }
 func (duel Duel) Scores() [2]uint8 { return duel.scores }
 
+// Specification is server-private replay material. Player keys and accepted
+// prompt forms must never be projected to member clients.
+func (duel Duel) Specification() DuelSpec {
+	return DuelSpec{
+		ID: duel.spec.ID, PlayerKeys: duel.spec.PlayerKeys,
+		Prompts: append([]Prompt(nil), duel.spec.Prompts...),
+	}
+}
+
 func (duel Duel) Turns() []Turn {
 	return append([]Turn(nil), duel.turns...)
 }

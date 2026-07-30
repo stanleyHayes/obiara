@@ -23,6 +23,12 @@ type Config struct {
 	TelemetryInsecure   bool
 	ServiceVersion      string
 	Environment         string
+	LivenessHMACSecret  string
+	CommerceHMACSecret  string
+	AdminHMACSecret     string
+	NnoboaInviteSecret  string
+	SeedHMACSecret      string
+	CircleHMACSecret    string
 }
 
 // Load reads configuration using getenv (os.Getenv in production) and
@@ -40,6 +46,30 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 		TelemetryEndpoint: strings.TrimSpace(getenv("OTEL_EXPORTER_OTLP_ENDPOINT")),
 		ServiceVersion:    valueOrDefault(getenv("SERVICE_VERSION"), "dev"),
 		Environment:       valueOrDefault(getenv("APP_ENV"), "development"),
+		LivenessHMACSecret: valueOrDefault(
+			getenv("LIVENESS_HMAC_SECRET"),
+			"obiara-local-liveness-key-change-before-production",
+		),
+		CommerceHMACSecret: valueOrDefault(
+			getenv("COMMERCE_HMAC_SECRET"),
+			"obiara-local-commerce-key-change-before-production",
+		),
+		AdminHMACSecret: valueOrDefault(
+			getenv("ADMIN_HMAC_SECRET"),
+			"obiara-local-admin-key-change-before-production",
+		),
+		NnoboaInviteSecret: valueOrDefault(
+			getenv("NNOBOA_INVITE_SECRET"),
+			"obiara-local-nnoboa-invite-key-change-before-production",
+		),
+		SeedHMACSecret: valueOrDefault(
+			getenv("SEED_HMAC_SECRET"),
+			"obiara-local-seed-key-change-before-production",
+		),
+		CircleHMACSecret: valueOrDefault(
+			getenv("CIRCLE_HMAC_SECRET"),
+			"obiara-local-circle-key-change-before-production",
+		),
 	}
 
 	var err error
@@ -62,6 +92,24 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 	}
 	if strings.TrimSpace(cfg.MongoDatabase) == "" {
 		return Config{}, fmt.Errorf("MONGODB_DATABASE must not be empty")
+	}
+	if len(cfg.LivenessHMACSecret) < 32 {
+		return Config{}, fmt.Errorf("LIVENESS_HMAC_SECRET must contain at least 32 bytes")
+	}
+	if len(cfg.CommerceHMACSecret) < 32 {
+		return Config{}, fmt.Errorf("COMMERCE_HMAC_SECRET must contain at least 32 bytes")
+	}
+	if len(cfg.AdminHMACSecret) < 32 {
+		return Config{}, fmt.Errorf("ADMIN_HMAC_SECRET must contain at least 32 bytes")
+	}
+	if len(cfg.NnoboaInviteSecret) < 32 {
+		return Config{}, fmt.Errorf("NNOBOA_INVITE_SECRET must contain at least 32 bytes")
+	}
+	if len(cfg.SeedHMACSecret) < 32 {
+		return Config{}, fmt.Errorf("SEED_HMAC_SECRET must contain at least 32 bytes")
+	}
+	if len(cfg.CircleHMACSecret) < 32 {
+		return Config{}, fmt.Errorf("CIRCLE_HMAC_SECRET must contain at least 32 bytes")
 	}
 	if err := secrets.ValidateRuntime(secrets.API, cfg.Environment, getenv, now); err != nil {
 		return Config{}, fmt.Errorf("runtime secret policy: %w", err)

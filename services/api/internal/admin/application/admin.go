@@ -12,11 +12,17 @@ import (
 )
 
 var (
-	ErrPrincipalNotFound = errors.New("admin principal not found")
-	ErrPrincipalExists   = errors.New("admin principal already exists")
-	ErrChallengeNotFound = errors.New("mfa challenge not found")
-	ErrSessionNotFound   = errors.New("admin session not found")
-	ErrNotAdmin          = errors.New("actor lacks the admin role for enrollment")
+	ErrPrincipalNotFound  = errors.New("admin principal not found")
+	ErrPrincipalExists    = errors.New("admin principal already exists")
+	ErrChallengeNotFound  = errors.New("mfa challenge not found")
+	ErrSessionNotFound    = errors.New("admin session not found")
+	ErrNotAdmin           = errors.New("actor lacks the admin role for enrollment")
+	ErrStepUpRequired     = errors.New("a recent MFA step-up is required")
+	ErrSelfSuspension     = errors.New("an admin cannot suspend their own principal")
+	ErrLastAdmin          = errors.New("the last active admin cannot be removed or suspended")
+	ErrFourEyesRequired   = errors.New("admin role changes require a distinct second approver")
+	ErrPrincipalConflict  = errors.New("admin principal changed concurrently")
+	ErrRoleChangeNotFound = errors.New("admin role change not found")
 )
 
 // PrincipalRepository persists admin principals.
@@ -24,6 +30,13 @@ type PrincipalRepository interface {
 	Create(context.Context, domain.Principal) error
 	FindByEmail(context.Context, string) (domain.Principal, error)
 	FindByID(context.Context, string) (domain.Principal, error)
+	List(context.Context) ([]domain.Principal, error)
+	Update(context.Context, domain.Principal) error
+	CountActiveAdmins(context.Context) (int, error)
+	CreateRoleChange(context.Context, domain.RoleChange) error
+	FindRoleChange(context.Context, string) (domain.RoleChange, error)
+	ListPendingRoleChanges(context.Context) ([]domain.RoleChange, error)
+	ApproveRoleChange(context.Context, domain.RoleChange, domain.Principal) error
 }
 
 // ChallengeRepository persists MFA challenges.
@@ -67,13 +80,10 @@ func NewAdminService(principals PrincipalRepository, challenges ChallengeReposit
 
 // Enroll creates a principal. The actor must hold the admin role, and the
 // enrollment is always audited.
-func (service AdminService) Enroll(ctx context.Context, actorID, email string, roles []domain.Role) (domain.Principal, error) {
-	actor, err := service.principals.FindByID(ctx, actorID)
+func (service AdminService) Enroll(ctx context.Context, sessionID, email string, roles []domain.Role) (domain.Principal, error) {
+	_, actor, err := service.requireSteppedUpAdmin(ctx, sessionID)
 	if err != nil {
 		return domain.Principal{}, err
-	}
-	if !actor.HasRole(domain.RoleAdmin) || actor.Status() != domain.StatusActive {
-		return domain.Principal{}, ErrNotAdmin
 	}
 
 	principal, err := domain.NewPrincipal(service.newID(), email, roles, service.now())
@@ -83,10 +93,179 @@ func (service AdminService) Enroll(ctx context.Context, actorID, email string, r
 	if err := service.principals.Create(ctx, principal); err != nil {
 		return domain.Principal{}, err
 	}
-	if err := service.audit.Append(ctx, actorID, "admin.enroll", principal.ID(), service.now().UTC()); err != nil {
+	if err := service.audit.Append(ctx, actor.ID(), "admin.enroll", principal.ID(), service.now().UTC()); err != nil {
 		return domain.Principal{}, err
 	}
 	return principal, nil
+}
+
+// ListPrincipals returns the bounded operator directory to an authenticated admin.
+func (service AdminService) ListPrincipals(ctx context.Context, sessionID string) ([]domain.Principal, error) {
+	_, actor, err := service.Authenticate(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if !actor.HasRole(domain.RoleAdmin) {
+		return nil, ErrNotAdmin
+	}
+	return service.principals.List(ctx)
+}
+
+// ChangeStatus suspends or reactivates an operator after MFA step-up.
+func (service AdminService) ChangeStatus(ctx context.Context, sessionID, targetID string, status domain.Status) (domain.Principal, error) {
+	_, actor, err := service.requireSteppedUpAdmin(ctx, sessionID)
+	if err != nil {
+		return domain.Principal{}, err
+	}
+	target, err := service.principals.FindByID(ctx, targetID)
+	if err != nil {
+		return domain.Principal{}, err
+	}
+	switch status {
+	case domain.StatusSuspended:
+		if actor.ID() == target.ID() {
+			return domain.Principal{}, ErrSelfSuspension
+		}
+		if target.HasRole(domain.RoleAdmin) && target.Status() == domain.StatusActive {
+			count, countErr := service.principals.CountActiveAdmins(ctx)
+			if countErr != nil {
+				return domain.Principal{}, countErr
+			}
+			if count <= 1 {
+				return domain.Principal{}, ErrLastAdmin
+			}
+		}
+		target.Suspend()
+	case domain.StatusActive:
+		target.Reactivate()
+	default:
+		return domain.Principal{}, domain.ErrInvalidStatus
+	}
+	if err := service.principals.Update(ctx, target); err != nil {
+		return domain.Principal{}, err
+	}
+	if err := service.audit.Append(ctx, actor.ID(), "admin.principal.status."+string(status), target.ID(), service.now().UTC()); err != nil {
+		return domain.Principal{}, err
+	}
+	return target, nil
+}
+
+// ChangeRoles applies non-admin role changes. Admin grants/revocations are
+// deliberately routed to the separate four-eyes proposal flow.
+func (service AdminService) ChangeRoles(ctx context.Context, sessionID, targetID string, roles []domain.Role) (domain.Principal, error) {
+	_, actor, err := service.requireSteppedUpAdmin(ctx, sessionID)
+	if err != nil {
+		return domain.Principal{}, err
+	}
+	target, err := service.principals.FindByID(ctx, targetID)
+	if err != nil {
+		return domain.Principal{}, err
+	}
+	hasAdmin := false
+	for _, role := range roles {
+		hasAdmin = hasAdmin || role == domain.RoleAdmin
+	}
+	if hasAdmin != target.HasRole(domain.RoleAdmin) {
+		return domain.Principal{}, ErrFourEyesRequired
+	}
+	if err := target.ReplaceRoles(roles); err != nil {
+		return domain.Principal{}, err
+	}
+	if err := service.principals.Update(ctx, target); err != nil {
+		return domain.Principal{}, err
+	}
+	if err := service.audit.Append(ctx, actor.ID(), "admin.principal.roles", target.ID(), service.now().UTC()); err != nil {
+		return domain.Principal{}, err
+	}
+	return target, nil
+}
+
+func (service AdminService) ProposeAdminRoleChange(ctx context.Context, sessionID, targetID string, roles []domain.Role, reason string) (domain.RoleChange, error) {
+	_, actor, err := service.requireSteppedUpAdmin(ctx, sessionID)
+	if err != nil {
+		return domain.RoleChange{}, err
+	}
+	target, err := service.principals.FindByID(ctx, targetID)
+	if err != nil {
+		return domain.RoleChange{}, err
+	}
+	hasAdmin := false
+	for _, role := range roles {
+		hasAdmin = hasAdmin || role == domain.RoleAdmin
+	}
+	if hasAdmin == target.HasRole(domain.RoleAdmin) {
+		return domain.RoleChange{}, ErrFourEyesRequired
+	}
+	if target.HasRole(domain.RoleAdmin) && !hasAdmin && target.Status() == domain.StatusActive {
+		count, countErr := service.principals.CountActiveAdmins(ctx)
+		if countErr != nil {
+			return domain.RoleChange{}, countErr
+		}
+		if count <= 1 {
+			return domain.RoleChange{}, ErrLastAdmin
+		}
+	}
+	change, err := domain.NewRoleChange(service.newID(), target.ID(), target.Version(), roles, reason, actor.ID(), service.now())
+	if err != nil {
+		return domain.RoleChange{}, err
+	}
+	if err := service.principals.CreateRoleChange(ctx, change); err != nil {
+		return domain.RoleChange{}, err
+	}
+	return change, nil
+}
+
+func (service AdminService) ListPendingRoleChanges(ctx context.Context, sessionID string) ([]domain.RoleChange, error) {
+	_, actor, err := service.Authenticate(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if !actor.HasRole(domain.RoleAdmin) {
+		return nil, ErrNotAdmin
+	}
+	return service.principals.ListPendingRoleChanges(ctx)
+}
+
+func (service AdminService) ApproveAdminRoleChange(ctx context.Context, sessionID, changeID string) (domain.Principal, error) {
+	_, actor, err := service.requireSteppedUpAdmin(ctx, sessionID)
+	if err != nil {
+		return domain.Principal{}, err
+	}
+	change, err := service.principals.FindRoleChange(ctx, changeID)
+	if err != nil {
+		return domain.Principal{}, err
+	}
+	target, err := service.principals.FindByID(ctx, change.TargetID())
+	if err != nil {
+		return domain.Principal{}, err
+	}
+	if target.Version() != change.TargetVersion() {
+		return domain.Principal{}, ErrPrincipalConflict
+	}
+	if err := change.Approve(actor.ID(), service.now()); err != nil {
+		return domain.Principal{}, err
+	}
+	if err := target.ReplaceRoles(change.Roles()); err != nil {
+		return domain.Principal{}, err
+	}
+	if err := service.principals.ApproveRoleChange(ctx, change, target); err != nil {
+		return domain.Principal{}, err
+	}
+	return target, nil
+}
+
+func (service AdminService) requireSteppedUpAdmin(ctx context.Context, sessionID string) (domain.Session, domain.Principal, error) {
+	session, actor, err := service.Authenticate(ctx, sessionID)
+	if err != nil {
+		return domain.Session{}, domain.Principal{}, err
+	}
+	if !actor.HasRole(domain.RoleAdmin) {
+		return domain.Session{}, domain.Principal{}, ErrNotAdmin
+	}
+	if !session.SteppedUp() {
+		return domain.Session{}, domain.Principal{}, ErrStepUpRequired
+	}
+	return session, actor, nil
 }
 
 // StartLogin mints and sends an MFA code for an active principal.
@@ -180,4 +359,18 @@ func (service AdminService) StepUpComplete(ctx context.Context, sessionID, code 
 		return domain.Session{}, err
 	}
 	return session, nil
+}
+
+// Authenticate resolves a short-lived bearer session and its active principal.
+// Transport adapters use this instead of trusting caller-supplied roles.
+func (service AdminService) Authenticate(ctx context.Context, sessionID string) (domain.Session, domain.Principal, error) {
+	session, err := service.sessions.FindByID(ctx, sessionID)
+	if err != nil || !session.Active(service.now()) {
+		return domain.Session{}, domain.Principal{}, ErrSessionNotFound
+	}
+	principal, err := service.principals.FindByID(ctx, session.PrincipalID())
+	if err != nil || principal.Status() != domain.StatusActive {
+		return domain.Session{}, domain.Principal{}, ErrPrincipalNotFound
+	}
+	return session, principal, nil
 }

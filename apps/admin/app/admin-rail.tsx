@@ -159,9 +159,11 @@ function RailUserMenu() {
         ))}
         <Divider />
         <MenuItem
-          onClick={() => {
+          onClick={async () => {
             setAnchor(null);
+            await fetch("/api/auth", { method: "DELETE" });
             router.push("/signed-out");
+            router.refresh();
           }}
           sx={{ color: "error.main" }}
         >

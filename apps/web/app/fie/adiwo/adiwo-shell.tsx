@@ -1,50 +1,115 @@
 "use client";
 
-import { useReducer } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
-import {
-  adiwoReducer,
-  initialAdiwoState,
-  membershipAction,
-} from "./adiwo-model";
 
-const circles = [
-  {
-    id: "circle-readers",
-    name: "Sunday Readers",
-    type: "Interest circle",
-    membership: "member",
-    detail: "A slow reading circle for Ghanaian essays and short fiction.",
-    moment: "Voice room opens Sunday at 5:00 PM",
-    mark: "SR",
-  },
-  {
-    id: "circle-builders",
-    name: "Builders in Accra",
-    type: "Professional circle",
-    membership: "requestable",
-    detail: "People making useful things across design, craft and technology.",
-    moment: "Next gathering: honest lessons from a first launch",
-    mark: "BA",
-  },
-  {
-    id: "circle-old-students",
-    name: "Mfantsipim 2014",
-    type: "Institution circle",
-    membership: "invite-only",
-    detail: "A private old-student courtyard with verified hosts.",
-    moment: "Membership details stay private until you are invited",
-    mark: "M14",
-  },
-] as const;
+type CircleType =
+  "community" | "campus" | "professional" | "interest" | "support";
+interface Circle {
+  id: string;
+  type: CircleType;
+  visibility: "private" | "discoverable";
+  membership:
+    "none" | "requested" | "member" | "host" | "owner" | "expelled" | "left";
+  memberCount: number;
+  revision: number;
+  updatedAt: string;
+  members?: { id: string; state: "requested" | "member" | "host" | "owner" }[];
+}
+
+const typeLabels: Record<CircleType, string> = {
+  community: "Community",
+  campus: "Campus",
+  professional: "Professional",
+  interest: "Interest",
+  support: "Support",
+};
 
 export function AdiwoShell() {
-  const [state, dispatch] = useReducer(adiwoReducer, initialAdiwoState);
-  const visibleCircles =
-    state.view === "mine"
-      ? circles.filter((circle) => circle.membership === "member")
-      : circles.filter((circle) => circle.membership !== "member");
+  const [view, setView] = useState<"mine" | "discover">("mine");
+  const [circles, setCircles] = useState<Circle[]>([]);
+  const [busy, setBusy] = useState<string | null>("load");
+  const [message, setMessage] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [type, setType] = useState<CircleType>("community");
+
+  const load = useCallback(async () => {
+    setBusy("load");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/circles?view=${view}`);
+      const payload = (await response.json()) as {
+        items?: Circle[];
+        message?: string;
+      };
+      if (!response.ok || !payload.items)
+        throw new Error(payload.message || "Circles could not be loaded.");
+      setCircles(payload.items);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Circles could not be loaded.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }, [view]);
+
+  useEffect(() => {
+    let active = true;
+    void fetch(`/api/circles?view=${view}`)
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          items?: Circle[];
+          message?: string;
+        };
+        if (!response.ok || !payload.items)
+          throw new Error(payload.message || "Circles could not be loaded.");
+        if (active) setCircles(payload.items);
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Circles could not be loaded.",
+          );
+      })
+      .finally(() => {
+        if (active) setBusy(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [view]);
+
+  async function act(body: Record<string, unknown>, key: string) {
+    setBusy(key);
+    setMessage("");
+    try {
+      const response = await fetch("/api/circles", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `circle-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const payload = (await response.json()) as Circle & { message?: string };
+      if (!response.ok || !payload.id)
+        throw new Error(
+          payload.message || "The circle action could not be completed.",
+        );
+      await load();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The circle action could not be completed.",
+      );
+      setBusy(null);
+    }
+  }
 
   return (
     <main className="fie-shell adiwo-shell">
@@ -53,51 +118,18 @@ export function AdiwoShell() {
         <header className="adiwo-topbar">
           <div>
             <p className="fie-kicker">Adiwo · the courtyard</p>
-            <h1>Familiar people. Shared purpose.</h1>
+            <h1>Belonging is deliberate.</h1>
             <p>
-              Circles gather around what members hold in common. Membership is
-              deliberate, and private courtyards reveal nothing before entry.
+              Private circles reveal nothing before entry. Discoverable circles
+              show only their type, reference and aggregate size until a host
+              approves a request.
             </p>
           </div>
           <div className="adiwo-count">
-            <strong>4</strong>
-            <span>Your circles</span>
+            <strong>{circles.length}</strong>
+            <span>{view === "mine" ? "Your circles" : "Available now"}</span>
           </div>
         </header>
-
-        <section className="adiwo-now" aria-labelledby="courtyard-now">
-          <div>
-            <p className="fie-kicker">In your courtyard</p>
-            <h2 id="courtyard-now">A voice room is warming up.</h2>
-            <p>
-              Sunday Readers begins in 24 minutes. Listening is welcome; nobody
-              is required to perform.
-            </p>
-          </div>
-          {state.waitingRoom ? (
-            <div className="adiwo-waiting" role="status">
-              <p>
-                You are in the waiting room. Sunday Readers opens in 24 minutes
-                — nobody sees whether you speak or only listen.
-              </p>
-              <button
-                onClick={() =>
-                  dispatch({ type: "waiting-room", joined: false })
-                }
-                type="button"
-              >
-                Leave waiting room
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => dispatch({ type: "waiting-room", joined: true })}
-              type="button"
-            >
-              Enter waiting room
-            </button>
-          )}
-        </section>
 
         <section className="adiwo-circles" aria-labelledby="circles-title">
           <header>
@@ -107,15 +139,21 @@ export function AdiwoShell() {
             </div>
             <div aria-label="Choose circle view" className="adiwo-switch">
               <button
-                aria-pressed={state.view === "mine"}
-                onClick={() => dispatch({ type: "view", view: "mine" })}
+                aria-pressed={view === "mine"}
+                onClick={() => {
+                  setBusy("load");
+                  setView("mine");
+                }}
                 type="button"
               >
                 My circles
               </button>
               <button
-                aria-pressed={state.view === "discover"}
-                onClick={() => dispatch({ type: "view", view: "discover" })}
+                aria-pressed={view === "discover"}
+                onClick={() => {
+                  setBusy("load");
+                  setView("discover");
+                }}
                 type="button"
               >
                 Find a circle
@@ -123,53 +161,226 @@ export function AdiwoShell() {
             </div>
           </header>
 
-          <div className="adiwo-grid" aria-live="polite">
-            {visibleCircles.map((circle) => {
-              const pending = state.pendingCircleId === circle.id;
-              const action = membershipAction(circle.membership);
-              return (
-                <article className="adiwo-card" key={circle.id}>
-                  <div className="adiwo-mark" aria-hidden="true">
-                    {circle.mark}
-                  </div>
-                  <p className="fie-kicker">{circle.type}</p>
-                  <h3>{circle.name}</h3>
-                  <p>{circle.detail}</p>
-                  <small>{circle.moment}</small>
-                  <button
-                    disabled={circle.membership === "invite-only"}
-                    onClick={() => {
-                      if (circle.membership === "requestable") {
-                        dispatch({ type: "request", circleId: circle.id });
-                      }
-                    }}
-                    type="button"
-                  >
-                    {pending ? "Request ready to review" : action}
-                  </button>
-                </article>
-              );
-            })}
-          </div>
-          {state.pendingCircleId ? (
-            <div className="adiwo-request" role="status">
+          {view === "mine" ? (
+            <div className="adiwo-request">
               <div>
-                <strong>Review before sending</strong>
+                <strong>Open a private courtyard</strong>
                 <p>
-                  The host will see your display name and request, not your
-                  other circle memberships.
+                  New circles begin private. You can make one discoverable after
+                  reviewing the boundary.
                 </p>
               </div>
               <button
-                onClick={() => dispatch({ type: "cancel-request" })}
+                onClick={() => setCreating((value) => !value)}
                 type="button"
               >
-                Cancel request
+                {creating ? "Close" : "Create circle"}
               </button>
             </div>
           ) : null}
-        </section>
+          {creating ? (
+            <div className="adiwo-request">
+              <label htmlFor="circle-type">
+                <strong>Circle type</strong>
+              </label>
+              <select
+                id="circle-type"
+                onChange={(event) => setType(event.target.value as CircleType)}
+                value={type}
+              >
+                {Object.entries(typeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    {
+                      action: "create",
+                      id: `circle_${crypto.randomUUID()}`,
+                      type,
+                    },
+                    "create",
+                  )
+                }
+                type="button"
+              >
+                Create private circle
+              </button>
+            </div>
+          ) : null}
 
+          {message ? (
+            <p className="profile-error" role="alert">
+              {message}
+            </p>
+          ) : null}
+          {busy === "load" ? <p role="status">Opening the courtyard…</p> : null}
+          {busy !== "load" && circles.length === 0 ? (
+            <div className="adiwo-now">
+              <div>
+                <p className="fie-kicker">Quiet for now</p>
+                <h2>No circles in this view.</h2>
+                <p>
+                  {view === "mine"
+                    ? "Create a private circle or browse discoverable courtyards."
+                    : "No hosts have opened a discoverable courtyard yet."}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="adiwo-grid" aria-live="polite">
+            {circles.map((circle) => (
+              <article className="adiwo-card" key={circle.id}>
+                <div className="adiwo-mark" aria-hidden="true">
+                  {typeLabels[circle.type].slice(0, 2).toUpperCase()}
+                </div>
+                <p className="fie-kicker">{typeLabels[circle.type]} circle</p>
+                <h3>{circle.id.slice(0, 18)}</h3>
+                <p>
+                  {circle.memberCount} active{" "}
+                  {circle.memberCount === 1 ? "member" : "members"} ·{" "}
+                  {circle.visibility}
+                </p>
+                <small>Your state: {circle.membership}</small>
+                {circle.membership === "none" ? (
+                  <button
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void act(
+                        {
+                          action: "request",
+                          id: circle.id,
+                          expectedRevision: circle.revision,
+                        },
+                        circle.id,
+                      )
+                    }
+                    type="button"
+                  >
+                    {busy === circle.id
+                      ? "Sending request…"
+                      : "Request to join"}
+                  </button>
+                ) : null}
+                {circle.membership === "owner" ? (
+                  <button
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void act(
+                        {
+                          action: "visibility",
+                          id: circle.id,
+                          expectedRevision: circle.revision,
+                          visibility:
+                            circle.visibility === "private"
+                              ? "discoverable"
+                              : "private",
+                        },
+                        circle.id,
+                      )
+                    }
+                    type="button"
+                  >
+                    {circle.visibility === "private"
+                      ? "Allow discovery"
+                      : "Make private"}
+                  </button>
+                ) : null}
+                {circle.membership === "member" ||
+                circle.membership === "host" ? (
+                  <button
+                    disabled={busy !== null}
+                    onClick={() =>
+                      void act(
+                        {
+                          action: "leave",
+                          id: circle.id,
+                          expectedRevision: circle.revision,
+                        },
+                        circle.id,
+                      )
+                    }
+                    type="button"
+                  >
+                    Leave circle
+                  </button>
+                ) : null}
+                {circle.membership === "owner"
+                  ? circle.members?.map((member) =>
+                      member.state === "owner" ? null : (
+                        <div className="adiwo-request" key={member.id}>
+                          <div>
+                            <strong>{member.id.slice(0, 18)}</strong>
+                            <p>{member.state}</p>
+                          </div>
+                          {member.state === "requested" ? (
+                            <button
+                              disabled={busy !== null}
+                              onClick={() =>
+                                void act(
+                                  {
+                                    action: "approve",
+                                    id: circle.id,
+                                    memberId: member.id,
+                                    expectedRevision: circle.revision,
+                                  },
+                                  member.id,
+                                )
+                              }
+                              type="button"
+                            >
+                              Approve
+                            </button>
+                          ) : member.state === "member" ? (
+                            <button
+                              disabled={busy !== null}
+                              onClick={() =>
+                                void act(
+                                  {
+                                    action: "promote",
+                                    id: circle.id,
+                                    memberId: member.id,
+                                    expectedRevision: circle.revision,
+                                  },
+                                  member.id,
+                                )
+                              }
+                              type="button"
+                            >
+                              Make host
+                            </button>
+                          ) : (
+                            <button
+                              disabled={busy !== null}
+                              onClick={() =>
+                                void act(
+                                  {
+                                    action: "expel",
+                                    id: circle.id,
+                                    memberId: member.id,
+                                    expectedRevision: circle.revision,
+                                  },
+                                  member.id,
+                                )
+                              }
+                              type="button"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      ),
+                    )
+                  : null}
+              </article>
+            ))}
+          </div>
+        </section>
         <CompoundBottomNavigation current="adiwo" />
       </section>
     </main>

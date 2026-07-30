@@ -2,11 +2,14 @@ import { type Href, useRouter } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const choices = [
-  ["The first thread", true],
-  ["Theme one reflection", false],
-  ["Care promises", false],
+const requirements = [
+  "A retained private-room record",
+  "A bounded material selection",
+  "Current consent from both room members",
+  "A separately delivered reviewer authority",
+  "Expiry, revocation and audited access",
 ] as const;
+
 export function AbusuaGateScreen() {
   const router = useRouter();
   return (
@@ -20,66 +23,41 @@ export function AbusuaGateScreen() {
         </Pressable>
         <Text style={styles.eyebrow}>ABUSUA GATE</Text>
         <Text accessibilityRole="header" style={styles.title}>
-          Open one careful window.
+          A gate opens only on retained consent.
         </Text>
         <Text style={styles.copy}>
-          Invite one trusted person to review only what you both choose. Either
-          of you can close the gate.
+          Reviewer access is not composed in the mobile runtime. This screen
+          does not invent a room, material, person, consent or one-time code.
         </Text>
-        <Text style={styles.step}>01 · CHOOSE THE MATERIAL</Text>
-        {choices.map(([title, selected]) => (
-          <View
-            key={title}
-            style={[styles.choice, selected && styles.selected]}
-          >
-            <Text style={[styles.choiceMark, selected && styles.selectedText]}>
-              {selected ? "✓" : "+"}
-            </Text>
-            <Text style={[styles.choiceText, selected && styles.selectedText]}>
-              {title}
-            </Text>
-          </View>
-        ))}
-        <Text style={styles.step}>02 · BOTH HANDS ON THE LATCH</Text>
-        <View style={styles.consent}>
-          <Text style={styles.consentName}>You</Text>
-          <Text style={styles.ready}>Consent given</Text>
-        </View>
-        <View style={styles.consent}>
-          <Text style={styles.consentName}>Ama</Text>
-          <Text style={styles.waiting}>Waiting privately</Text>
-        </View>
         <View style={styles.passage}>
-          <Text style={styles.passageEyebrow}>REVIEWER PASSAGE</Text>
-          <Text style={styles.passageTitle}>A link is not enough.</Text>
-          <Text style={styles.passageCopy}>
-            Both consents create a 24-hour invite and a separately delivered
-            10-minute one-time code. Every view is watermarked.
-          </Text>
-          <Pressable
-            accessibilityState={{ disabled: true }}
-            disabled
-            style={styles.disabled}
-          >
-            <Text style={styles.disabledText}>Waiting for both consents</Text>
-          </Pressable>
+          <Text style={styles.passageEyebrow}>REQUIRED AUTHORITY CHAIN</Text>
+          <Text style={styles.passageTitle}>A link is never enough.</Text>
+          {requirements.map((requirement, index) => (
+            <Text key={requirement} style={styles.passageCopy}>
+              {index + 1}. {requirement}
+            </Text>
+          ))}
+          <View accessibilityState={{ disabled: true }} style={styles.disabled}>
+            <Text style={styles.disabledText}>Reviewer access unavailable</Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   safe: { backgroundColor: "#F7EFE2", flex: 1 },
   content: { padding: 20, paddingBottom: 60 },
   back: {
     alignItems: "center",
+    alignSelf: "flex-start",
     borderColor: "#9F8793",
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 48,
     paddingHorizontal: 18,
-    alignSelf: "flex-start",
   },
   backText: { color: "#2B151F", fontFamily: "Outfit_700Bold" },
   eyebrow: {
@@ -92,9 +70,9 @@ const styles = StyleSheet.create({
   title: {
     color: "#2B151F",
     fontFamily: "Outfit_800ExtraBold",
-    fontSize: 58,
-    letterSpacing: -3.8,
-    lineHeight: 52,
+    fontSize: 54,
+    letterSpacing: -3.5,
+    lineHeight: 51,
     marginTop: 14,
   },
   copy: {
@@ -104,42 +82,6 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     marginTop: 24,
   },
-  step: {
-    color: "#8E3159",
-    fontFamily: "Outfit_700Bold",
-    fontSize: 11,
-    letterSpacing: 1.2,
-    marginBottom: 10,
-    marginTop: 42,
-  },
-  choice: {
-    alignItems: "center",
-    backgroundColor: "#FFFAF2",
-    borderColor: "#D8C7BD",
-    borderRadius: 18,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 14,
-    marginTop: 8,
-    minHeight: 70,
-    padding: 16,
-  },
-  selected: { backgroundColor: "#38172C", borderColor: "#38172C" },
-  choiceMark: { color: "#2B151F", fontFamily: "Outfit_700Bold", fontSize: 20 },
-  choiceText: { color: "#2B151F", fontFamily: "Outfit_700Bold", fontSize: 16 },
-  selectedText: { color: "#FFF5E9" },
-  consent: {
-    backgroundColor: "#FFFAF2",
-    borderColor: "#D8C7BD",
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 8,
-    marginTop: 8,
-    padding: 18,
-  },
-  consentName: { color: "#2B151F", fontFamily: "Outfit_700Bold", fontSize: 18 },
-  ready: { color: "#27755F", fontFamily: "Outfit_700Bold" },
-  waiting: { color: "#69535D", fontFamily: "Outfit_600SemiBold" },
   passage: {
     backgroundColor: "#38172C",
     borderRadius: 24,

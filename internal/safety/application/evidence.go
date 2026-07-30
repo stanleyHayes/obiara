@@ -18,13 +18,14 @@ type AccessAudit interface {
 // accounted for (plan §15 insider-access controls).
 type EvidenceService struct {
 	reports ReportRepository
+	cases   CaseRepository
 	audit   AccessAudit
 	now     func() time.Time
 	newID   func() string
 }
 
-func NewEvidenceService(reports ReportRepository, audit AccessAudit, now func() time.Time, newID func() string) EvidenceService {
-	return EvidenceService{reports: reports, audit: audit, now: now, newID: newID}
+func NewEvidenceService(reports ReportRepository, cases CaseRepository, audit AccessAudit, now func() time.Time, newID func() string) EvidenceService {
+	return EvidenceService{reports: reports, cases: cases, audit: audit, now: now, newID: newID}
 }
 
 // View returns the redacted bundle for a case after auditing the access.
@@ -37,7 +38,11 @@ func (service EvidenceService) View(ctx context.Context, caseID, agentID string,
 		return domain.Bundle{}, err
 	}
 
-	report, err := service.reports.FindByID(ctx, caseID)
+	safetyCase, err := service.cases.FindByID(ctx, caseID)
+	if err != nil {
+		return domain.Bundle{}, err
+	}
+	report, err := service.reports.FindByID(ctx, safetyCase.ReportID())
 	if err != nil {
 		return domain.Bundle{}, err
 	}

@@ -1,0 +1,27 @@
+.privacy-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.privacy-grid .profile-edit + .profile-edit {
+  margin-top: 0;
+}
+
+.privacy-danger {
+  background: #7e233c;
+}
+
+.privacy-status {
+  margin-top: 1.5rem;
+}
+
+.privacy-result {
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 760px) {
+  .privacy-grid {
+    grid-template-columns: 1fr;
+  }
+}

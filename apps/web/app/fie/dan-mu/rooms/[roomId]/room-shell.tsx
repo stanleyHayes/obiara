@@ -1,442 +1,347 @@
 "use client";
 
 import Link from "next/link";
-import { useReducer, useState } from "react";
-import {
-  canOpenTheme,
-  guidedThemes,
-  roomReducer,
-  initialRoomState,
-} from "./room-model";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { SafetySheet } from "../../../safety-sheet";
 
-const sharedReflections: Readonly<
-  Record<number, { them: string; you: string }>
-> = {
-  1: {
-    them: "Home feels like people making room for one another.",
-    you: "Mine sounds like highlife and too many voices in one kitchen.",
-  },
-  2: {
-    them: "Care is remembering the small things without being asked.",
-    you: "Care is showing up on the hard days, not just the good ones.",
-  },
-  3: {
-    them: "We protect each other's families and our private boundaries.",
-    you: "We protect honesty, even when it costs comfort.",
-  },
-  4: {
-    them: "A home where both our people feel expected.",
-    you: "A garden, a long table, and Sundays that stay slow.",
-  },
-};
-
-const events = [
-  {
-    who: "Ama",
-    when: "Monday · 7:12 PM",
-    text: "Home feels like people making room for one another.",
-    side: "them",
-  },
-  {
-    who: "You",
-    when: "Tuesday · 6:30 AM",
-    text: "Mine sounds like highlife and too many voices in one kitchen.",
-    side: "you",
-  },
-  {
-    who: "Ama",
-    when: "Yesterday · 8:14 PM",
-    text: "That sounds warm. What is one tradition you would keep?",
-    side: "them",
-  },
-] as const;
+interface RoomEntry {
+  id: string;
+  kind: "voice" | "event" | "notice";
+  contentRef?: string;
+  assetId?: string;
+  transcriptId?: string;
+  durationMs?: number;
+  startsAt?: string;
+  endsAt?: string;
+  createdAt: string;
+  expiresAt: string;
+}
 
 export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
-  const [state, dispatch] = useReducer(roomReducer, initialRoomState);
-  const [revisiting, setRevisiting] = useState<number | null>(null);
+  const router = useRouter();
+  const [entries, setEntries] = useState<RoomEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [startingGame, setStartingGame] = useState(false);
+  const [startingStory, setStartingStory] = useState(false);
+  const [startingAmpe, setStartingAmpe] = useState(false);
+  const [startingEbe, setStartingEbe] = useState(false);
+
+  async function startOware() {
+    setStartingGame(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/oware", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `oware-create-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ action: "create", circleId: roomId }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        id?: string;
+        message?: string;
+      } | null;
+      if (!response.ok || !payload?.id) {
+        throw new Error(
+          payload?.message ||
+            "Oware opens only in a circle with exactly two active members.",
+        );
+      }
+      router.push(
+        `/fie/games/oware/${encodeURIComponent(payload.id)}?circleId=${encodeURIComponent(roomId)}`,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "A private Oware game could not be started.",
+      );
+    } finally {
+      setStartingGame(false);
+    }
+  }
+
+  async function startStory() {
+    setStartingStory(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/anansesem", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `story-create-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({
+          action: "create",
+          circleId: roomId,
+          titleCode: "shared-story",
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        id?: string;
+        message?: string;
+      } | null;
+      if (!response.ok || !payload?.id) {
+        throw new Error(
+          payload?.message ||
+            "Anansesɛm opens only in a circle with exactly two active members.",
+        );
+      }
+      router.push(
+        `/fie/games/anansesem/${encodeURIComponent(payload.id)}?circleId=${encodeURIComponent(roomId)}`,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "A private story could not be started.",
+      );
+    } finally {
+      setStartingStory(false);
+    }
+  }
+
+  async function startAmpe() {
+    setStartingAmpe(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/ampe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `ampe-create-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ action: "create", circleId: roomId }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        id?: string;
+        message?: string;
+      } | null;
+      if (!response.ok || !payload?.id) {
+        throw new Error(
+          payload?.message ||
+            "Ampe opens only in a circle with exactly two active members.",
+        );
+      }
+      router.push(
+        `/fie/games/ampe/${encodeURIComponent(payload.id)}?circleId=${encodeURIComponent(roomId)}`,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "A private Ampe round could not be started.",
+      );
+    } finally {
+      setStartingAmpe(false);
+    }
+  }
+
+  async function startEbe() {
+    setStartingEbe(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/ebe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `ebe-create-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ action: "create", circleId: roomId }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        id?: string;
+        message?: string;
+      } | null;
+      if (!response.ok || !payload?.id)
+        throw new Error(
+          payload?.message ||
+            "Ɛbɛ needs exactly two active members and at least one approved prompt.",
+        );
+      router.push(
+        `/fie/games/ebe/${encodeURIComponent(payload.id)}?circleId=${encodeURIComponent(roomId)}`,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "A reviewed Ɛbɛ duel could not be started.",
+      );
+    } finally {
+      setStartingEbe(false);
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+    void fetch(`/api/circle-room?circleId=${encodeURIComponent(roomId)}`)
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          items?: RoomEntry[];
+          message?: string;
+        };
+        if (!response.ok || !payload.items)
+          throw new Error(payload.message || "The room could not be opened.");
+        if (active) setEntries(payload.items);
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "The room could not be opened.",
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [roomId]);
+
   return (
     <main className="room-detail">
       <header className="room-detail-top">
-        <Link href="/fie/dan-mu">← Dan mu</Link>
+        <Link href="/fie/adiwo">← Adiwo</Link>
         <div>
           <span aria-hidden="true">◉</span>
-          <strong>Private to two people</strong>
+          <strong>Circle members only</strong>
         </div>
-        <button onClick={() => dispatch({ type: "open-safety" })} type="button">
-          Safety
-        </button>
+        <SafetySheet
+          context="this circle room"
+          contextRef={roomId}
+          surface="room"
+        />
       </header>
       <section className="room-detail-hero">
         <div>
-          <p className="fie-kicker">Guided room · theme one</p>
-          <h1>Make room for honesty.</h1>
+          <p className="fie-kicker">Retained circle room</p>
+          <h1>A quiet record, without invented activity.</h1>
           <p>
-            Strict alternation keeps the pace human. There are no read receipts,
-            streaks, popularity marks or public activity.
+            Only persisted voice, event and notice references appear here.
+            Author identifiers are privacy-keyed and never projected.
           </p>
         </div>
         <aside>
-          <span>Room {roomId.slice(0, 6)}</span>
-          <strong>
-            {state.mode === "open"
-              ? state.turn === "you"
-                ? "Your turn"
-                : "Ama’s turn"
-              : state.mode === "paused"
-                ? "Paused together"
-                : "Closing kindly"}
-          </strong>
-          <small>Nothing here needs an immediate response.</small>
+          <span>Circle reference</span>
+          <strong>{roomId.slice(0, 18)}</strong>
+          <small>Membership is checked on every load.</small>
         </aside>
       </section>
-      <section className="room-themes" aria-labelledby="guided-arc-title">
-        <div className="room-themes-intro">
-          <p className="fie-kicker">A guided arc, never a race</p>
-          <h2 id="guided-arc-title">Four ways to listen deeper.</h2>
-          <p>
-            Each reflection stays folded until you both answer. The next theme
-            opens only after the shared reveal.
-          </p>
-        </div>
-        <div className="room-theme-grid">
-          {guidedThemes.map((theme) => {
-            const themeState = state.themes[theme.number - 1];
-            return (
-              <article className={`is-${themeState}`} key={theme.number}>
-                <span>Theme {theme.number}</span>
-                <h3>{theme.title}</h3>
-                <p>
-                  {themeState === "revealed"
-                    ? "Both reflections are visible here."
-                    : themeState === "ready"
-                      ? "Ready whenever you both want to continue."
-                      : `Opens after theme ${theme.number - 1} is revealed.`}
-                </p>
-                <button
-                  disabled={!canOpenTheme(themeState)}
-                  onClick={() =>
-                    themeState === "revealed"
-                      ? setRevisiting(
-                          revisiting === theme.number ? null : theme.number,
-                        )
-                      : dispatch({ type: "open-theme", number: theme.number })
-                  }
-                  type="button"
-                >
-                  {themeState === "revealed"
-                    ? revisiting === theme.number
-                      ? "Close shared reveal"
-                      : "Revisit shared reveal"
-                    : themeState === "ready"
-                      ? "Open this theme"
-                      : "Resting for now"}
-                </button>
-                {themeState === "revealed" && revisiting === theme.number ? (
-                  <div className="theme-reflections">
-                    <p>
-                      <strong>Them:</strong>{" "}
-                      {sharedReflections[theme.number].them}
-                    </p>
-                    <p>
-                      <strong>You:</strong>{" "}
-                      {sharedReflections[theme.number].you}
-                    </p>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
-      </section>
-      <section className="room-call" aria-labelledby="private-call-title">
-        <div>
-          <p className="fie-kicker">Private call · Obiara names only</p>
-          <h2 id="private-call-title">
-            {state.call.state === "incoming"
-              ? "Ama would like to talk."
-              : state.call.state === "active"
-                ? "You’re together now."
-                : state.call.state === "declined"
-                  ? "The invitation rested."
-                  : "The call has ended."}
-          </h2>
-          <p>
-            {state.call.state === "incoming"
-              ? "This audio call starts only if you accept. Your phone number, email and contacts are never shared."
-              : state.call.state === "active"
-                ? "Connected inside this private room. Captions, Safety and leave stay within reach."
-                : "No contact details were shared. Conversation can continue here whenever it feels right."}
-          </p>
-        </div>
-        <div className="room-call-panel">
-          {state.call.state === "incoming" ? (
-            <>
+      {loading ? (
+        <section className="room-composer">
+          <div>
+            <p className="fie-kicker">Opening room</p>
+            <h2>Checking your membership…</h2>
+          </div>
+        </section>
+      ) : null}
+      {message ? (
+        <section className="room-composer" role="alert">
+          <div>
+            <p className="fie-kicker">Room unavailable</p>
+            <h2>{message}</h2>
+            <p>Private circles remain indistinguishable from missing ones.</p>
+          </div>
+        </section>
+      ) : null}
+      {!loading && !message && entries.length === 0 ? (
+        <section className="room-composer">
+          <div>
+            <p className="fie-kicker">Nothing retained</p>
+            <h2>This room is quiet.</h2>
+            <p>
+              Media upload and live-room providers are not simulated here. New
+              entries will appear only after an authorized host or member
+              creates a durable record.
+            </p>
+          </div>
+        </section>
+      ) : null}
+      {entries.length ? (
+        <section
+          className="room-timeline"
+          aria-label="Persisted circle room entries"
+        >
+          <span aria-hidden="true" className="room-watermark">
+            OBIARA · CIRCLE ROOM · {roomId.slice(0, 8)}
+          </span>
+          {entries.map((entry) => (
+            <article key={entry.id}>
               <div>
-                <span className="room-call-avatar" aria-hidden="true">
-                  A
-                </span>
-                <div>
-                  <strong>Ama</strong>
-                  <small>Audio invitation · no phone number</small>
-                </div>
+                <strong>{entry.kind}</strong>
+                <span>{new Date(entry.createdAt).toLocaleString("en-GH")}</span>
               </div>
-              <div className="room-call-actions">
-                <button
-                  onClick={() => dispatch({ type: "decline-call" })}
-                  type="button"
-                >
-                  Not now
-                </button>
-                <button
-                  onClick={() => dispatch({ type: "accept-call" })}
-                  type="button"
-                >
-                  Accept audio call
-                </button>
-              </div>
-            </>
-          ) : null}
-          {state.call.state === "active" ? (
-            <>
-              <div>
-                <span className="room-call-pulse" aria-hidden="true" />
-                <div>
-                  <strong>Private audio · 00:24</strong>
-                  <small>Ama can see only your Obiara name</small>
-                </div>
-              </div>
-              <p className="room-live-caption" aria-live="polite">
-                {state.call.captions
-                  ? "Ama: I wanted to hear how your week has been."
-                  : "Captions are off."}
+              <p>
+                {entry.kind === "voice"
+                  ? `Private audio asset · ${Math.ceil((entry.durationMs ?? 0) / 1000)} seconds`
+                  : entry.kind === "event"
+                    ? `Scheduled ${entry.startsAt ? new Date(entry.startsAt).toLocaleString("en-GH") : "without a visible start"}`
+                    : "Circle notice"}
               </p>
-              <div className="room-call-actions">
-                <button
-                  onClick={() => dispatch({ type: "toggle-call-captions" })}
-                  type="button"
-                >
-                  {state.call.captions ? "Hide captions" : "Show captions"}
-                </button>
-                <button
-                  onClick={() => dispatch({ type: "open-safety" })}
-                  type="button"
-                >
-                  Safety
-                </button>
-                <button
-                  onClick={() => dispatch({ type: "end-call" })}
-                  type="button"
-                >
-                  Leave call
-                </button>
-              </div>
-            </>
-          ) : null}
-          {state.call.state === "declined" || state.call.state === "ended" ? (
-            <small className="room-call-rest">
-              {state.call.state === "declined"
-                ? "Ama sees only that you were not available."
-                : "Disconnected safely. Nothing was recorded."}
-            </small>
-          ) : null}
-        </div>
-      </section>
-      <section
-        className="room-timeline"
-        aria-label="Private alternating conversation"
-      >
-        <span aria-hidden="true" className="room-watermark">
-          OBIARA · PRIVATE · {roomId.slice(0, 8)}
-        </span>
-        {events.map((event) => (
-          <article
-            className={`is-${event.side}`}
-            key={`${event.who}-${event.when}`}
-          >
-            <div>
-              <strong>{event.who}</strong>
-              <span>{event.when}</span>
-            </div>
-            <p>{event.text}</p>
-            <small>Voice · transcript visible only here</small>
-          </article>
-        ))}
-      </section>
-      <section className="room-composer" aria-labelledby="room-compose-title">
-        <div>
-          <p className="fie-kicker">The talking drum</p>
-          <h2 id="room-compose-title">
-            {state.mode === "closing"
-              ? "The room is closing with care."
-              : state.mode === "paused"
-                ? "The room is resting."
-                : state.turn === "you"
-                  ? "Speak when it feels right."
-                  : "The drum is with Ama."}
-          </h2>
-          <p>A voice reply can be saved safely before one deliberate send.</p>
-        </div>
-        <div className="room-actions">
+              <small>
+                Retained until{" "}
+                {new Date(entry.expiresAt).toLocaleString("en-GH")} · reference{" "}
+                {(entry.assetId || entry.contentRef || entry.id).slice(0, 18)}
+              </small>
+            </article>
+          ))}
+        </section>
+      ) : null}
+      {!loading && !message ? (
+        <section className="room-composer">
+          <div>
+            <p className="fie-kicker">Private play</p>
+            <h2>Start one retained Oware board.</h2>
+            <p>
+              The server derives both players. This action is available only
+              when the circle currently has exactly two active members.
+            </p>
+          </div>
           <button
-            disabled={state.mode === "closing"}
-            onClick={() => dispatch({ type: "toggle-pause" })}
+            disabled={startingGame}
+            onClick={() => void startOware()}
             type="button"
           >
-            {state.mode === "paused" ? "Resume room" : "Pause room"}
+            {startingGame ? "Preparing board…" : "Start private Oware"}
           </button>
           <button
-            disabled={state.mode !== "open" || state.turn !== "you"}
-            onClick={() => dispatch({ type: "record" })}
+            disabled={startingStory}
+            onClick={() => void startStory()}
             type="button"
           >
-            {state.draftReady ? "Voice ready · 0:21" : "Record voice reply"}
+            {startingStory ? "Opening story…" : "Start private Anansesɛm"}
           </button>
           <button
-            disabled={!state.draftReady}
-            onClick={() => dispatch({ type: "send-confirmed" })}
+            disabled={startingAmpe}
+            onClick={() => void startAmpe()}
             type="button"
           >
-            Send once
+            {startingAmpe ? "Opening round…" : "Start private Ampe"}
           </button>
-        </div>
-      </section>
+          <button
+            disabled={startingEbe}
+            onClick={() => void startEbe()}
+            type="button"
+          >
+            {startingEbe ? "Opening duel…" : "Start reviewed Ɛbɛ"}
+          </button>
+        </section>
+      ) : null}
       <footer className="room-care">
         <div>
-          <button
-            onClick={() => dispatch({ type: "begin-closure" })}
-            type="button"
-          >
-            Close this room kindly
-          </button>
-          <Link href="/fie/abusua-gate">Prepare an Abusua Gate</Link>
-          <Link href="/fie/games/oware/game_4Nq8mK2xP7vR5tZa">
-            Open private Oware
-          </Link>
+          <Link href="/fie/adiwo">Return to circles</Link>
+          <Link href="/fie/settings/notifications">Room notifications</Link>
         </div>
         <p>
-          Pause, block and report remain available regardless of whose turn it
-          is.
+          No fake transcript, caller, presence, timer, read receipt or turn
+          state is shown.
         </p>
       </footer>
-      {state.safetyOpen ? (
-        <div
-          aria-labelledby="safety-title"
-          aria-modal="true"
-          className="room-safety"
-          role="dialog"
-        >
-          <div>
-            {state.safetyStep === "menu" ? (
-              <>
-                <p className="fie-kicker">Safety stays close</p>
-                <h2 id="safety-title">You control your boundary.</h2>
-                <p>
-                  Pausing is quiet. Blocking ends contact immediately. Reports
-                  go to trained care review without notifying the other person.
-                </p>
-                <div>
-                  <button
-                    disabled={state.mode === "closing"}
-                    onClick={() => dispatch({ type: "toggle-pause" })}
-                    type="button"
-                  >
-                    Pause quietly
-                  </button>
-                  <button
-                    onClick={() => dispatch({ type: "confirm-block" })}
-                    type="button"
-                  >
-                    Block and leave
-                  </button>
-                  <button
-                    onClick={() => dispatch({ type: "begin-report" })}
-                    type="button"
-                  >
-                    Report concern
-                  </button>
-                </div>
-              </>
-            ) : null}
-            {state.safetyStep === "report" ? (
-              <>
-                <p className="fie-kicker">Private care report</p>
-                <h2 id="safety-title">What should care review?</h2>
-                <p>
-                  Choose one category. The room reference and protected evidence
-                  snapshot are attached without showing your report to the other
-                  person.
-                </p>
-                <fieldset>
-                  <legend>Concern category</legend>
-                  {(["harassment", "identity", "threat", "other"] as const).map(
-                    (category) => (
-                      <label key={category}>
-                        <input
-                          checked={state.reportCategory === category}
-                          name="report-category"
-                          onChange={() =>
-                            dispatch({
-                              type: "select-report-category",
-                              category,
-                            })
-                          }
-                          type="radio"
-                        />
-                        {category === "identity"
-                          ? "Identity concern"
-                          : category[0].toUpperCase() + category.slice(1)}
-                      </label>
-                    ),
-                  )}
-                </fieldset>
-                <div>
-                  <button
-                    disabled={!state.reportCategory}
-                    onClick={() => dispatch({ type: "submit-report" })}
-                    type="button"
-                  >
-                    Send to care review
-                  </button>
-                  <button
-                    onClick={() => dispatch({ type: "open-safety" })}
-                    type="button"
-                  >
-                    Back
-                  </button>
-                </div>
-              </>
-            ) : null}
-            {state.safetyStep === "reported" ? (
-              <>
-                <p className="fie-kicker">Report received</p>
-                <h2 id="safety-title">Care review has it.</h2>
-                <p>
-                  You can leave now. The other person is not shown your category
-                  or evidence.
-                </p>
-              </>
-            ) : null}
-            {state.safetyStep === "blocked" ? (
-              <>
-                <p className="fie-kicker">Contact blocked</p>
-                <h2 id="safety-title">This room is closed.</h2>
-                <p>
-                  No new messages can reach you here. Your private report
-                  options remain available from Safety.
-                </p>
-              </>
-            ) : null}
-            <button
-              onClick={() => dispatch({ type: "close-safety" })}
-              type="button"
-            >
-              {state.safetyStep === "blocked" || state.safetyStep === "reported"
-                ? "Leave safety sheet"
-                : "Return to room"}
-            </button>
-          </div>
-        </div>
-      ) : null}
     </main>
   );
 }

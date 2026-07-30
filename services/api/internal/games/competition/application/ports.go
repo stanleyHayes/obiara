@@ -21,10 +21,10 @@ type OptIn interface {
 	Revalidate(context.Context, string, string) error
 }
 type ResultVerifier interface {
-	Revalidate(context.Context, string, string, string) error
+	Revalidate(context.Context, string, string, string, string) error
 }
 type FairPlayVerifier interface {
-	Revalidate(context.Context, string, string) error
+	Revalidate(context.Context, string, string, string) error
 }
 type Keyer interface {
 	Key(string, string) (string, error)

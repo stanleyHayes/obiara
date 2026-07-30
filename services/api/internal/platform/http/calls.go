@@ -19,14 +19,13 @@ type Calls interface {
 }
 
 // RegisterCallRoutes adds the call routes.
-func RegisterCallRoutes(mux *http.ServeMux, calls Calls) {
-	mux.Handle("POST /v1/rooms/{roomId}/calls", initiateCallHandler(calls))
-	mux.Handle("POST /v1/calls/{id}/end", endCallHandler(calls))
+func RegisterCallRoutes(mux *http.ServeMux, calls Calls, sessions SessionAuthenticator) {
+	mux.Handle("POST /v1/rooms/{roomId}/calls", initiateCallHandler(calls, sessions))
+	mux.Handle("POST /v1/calls/{id}/end", endCallHandler(calls, sessions))
 }
 
 type initiateCallRequest struct {
-	InitiatorID string `json:"initiatorId"`
-	OtherID     string `json:"otherId"`
+	OtherID string `json:"otherId"`
 }
 
 type tokenResponse struct {
@@ -39,8 +38,12 @@ type initiateCallResponse struct {
 	Tokens map[string]tokenResponse `json:"tokens"`
 }
 
-func initiateCallHandler(calls Calls) http.Handler {
+func initiateCallHandler(calls Calls, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		initiatorID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -56,16 +59,12 @@ func initiateCallHandler(calls Calls) http.Handler {
 			})
 			return
 		}
-		body.InitiatorID = strings.TrimSpace(body.InitiatorID)
 		body.OtherID = strings.TrimSpace(body.OtherID)
 		var details []FieldError
-		if !validOpaqueID(body.InitiatorID) {
-			details = append(details, FieldError{Field: "initiatorId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
 		if !validOpaqueID(body.OtherID) {
 			details = append(details, FieldError{Field: "otherId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
 		}
-		if body.InitiatorID != "" && body.InitiatorID == body.OtherID {
+		if initiatorID == body.OtherID {
 			details = append(details, FieldError{Field: "otherId", Reason: "must differ from initiatorId"})
 		}
 		if len(details) > 0 {
@@ -77,7 +76,7 @@ func initiateCallHandler(calls Calls) http.Handler {
 			return
 		}
 
-		issued, err := calls.Initiate(r.Context(), r.PathValue("roomId"), body.InitiatorID, body.OtherID)
+		issued, err := calls.Initiate(r.Context(), r.PathValue("roomId"), initiatorID, body.OtherID)
 		if err != nil {
 			writeCallError(w, r, err)
 			return
@@ -90,12 +89,12 @@ func initiateCallHandler(calls Calls) http.Handler {
 	})
 }
 
-type endCallRequest struct {
-	ActorID string `json:"actorId"`
-}
-
-func endCallHandler(calls Calls) http.Handler {
+func endCallHandler(calls Calls, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		actorID, ok := subanSubject(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -103,7 +102,7 @@ func endCallHandler(calls Calls) http.Handler {
 			})
 			return
 		}
-		var body endCallRequest
+		var body struct{}
 		if err := decodeJSON(w, r, &body); err != nil {
 			writeError(w, r, http.StatusBadRequest, APIError{
 				Code:    "invalid_json",
@@ -111,16 +110,7 @@ func endCallHandler(calls Calls) http.Handler {
 			})
 			return
 		}
-		body.ActorID = strings.TrimSpace(body.ActorID)
-		if !validOpaqueID(body.ActorID) {
-			writeError(w, r, http.StatusUnprocessableEntity, APIError{
-				Code:    "validation_failed",
-				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "actorId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"}},
-			})
-			return
-		}
-		if err := calls.End(r.Context(), r.PathValue("id"), body.ActorID); err != nil {
+		if err := calls.End(r.Context(), r.PathValue("id"), actorID); err != nil {
 			writeCallError(w, r, err)
 			return
 		}

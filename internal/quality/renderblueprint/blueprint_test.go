@@ -3,6 +3,7 @@ package renderblueprint_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -132,15 +133,21 @@ func TestServicesArePinnedStatelessAndCheckGated(t *testing.T) {
 func TestSecretsArePromptedAndNeverCommitted(t *testing.T) {
 	parsed, raw := load(t)
 	lower := strings.ToLower(raw)
-	for _, forbidden := range []string{"mongodb+srv://", "mongodb://", "re_", "sk-", "-----begin"} {
+	for _, forbidden := range []string{"mongodb+srv://", "mongodb://", "sk-", "-----begin"} {
 		if strings.Contains(lower, forbidden) {
 			t.Fatalf("render.yaml contains forbidden secret shape %q", forbidden)
 		}
+	}
+	if regexp.MustCompile(`\bre_[A-Za-z0-9]{20,}\b`).MatchString(raw) {
+		t.Fatal("render.yaml contains a Resend API key shape")
 	}
 	services := parsed.Projects[0].Environments[0].Services
 	for _, candidate := range services {
 		for _, variable := range candidate.EnvVars {
 			if variable.Key == "MONGODB_URI" || variable.Key == "RESEND_WEBHOOK_SECRET" ||
+				variable.Key == "LIVENESS_HMAC_SECRET" ||
+				variable.Key == "COMMERCE_HMAC_SECRET" ||
+				variable.Key == "ADMIN_HMAC_SECRET" ||
 				variable.Key == "OTEL_EXPORTER_OTLP_ENDPOINT" ||
 				variable.Key == "NEXT_PUBLIC_API_BASE_URL" {
 				if variable.Sync == nil || *variable.Sync {

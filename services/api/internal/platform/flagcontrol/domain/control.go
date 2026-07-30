@@ -219,6 +219,18 @@ func (p Proposal) Version() uint64        { return p.version }
 func (p Proposal) Capability() Capability { return p.capability }
 func (p Proposal) ExpiresAt() time.Time   { return p.expiresAt }
 
+// AppliedChange reconstructs the exact immutable runtime change for restart
+// recovery. Only an applied, unexpired proposal can be replayed.
+func (p Proposal) AppliedChange(at time.Time) (RuntimeChange, error) {
+	if p.status != StatusApplied {
+		return RuntimeChange{}, ErrState
+	}
+	if !at.UTC().Before(p.expiresAt) {
+		return RuntimeChange{}, ErrExpired
+	}
+	return requestedChange(p), nil
+}
+
 type AuditKind string
 
 const (

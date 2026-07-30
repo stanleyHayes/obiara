@@ -28,6 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     ...expo,
     runtimeVersion: { policy: "appVersion" },
+    plugins: [...(expo.plugins ?? []), "expo-secure-store"],
     updates: projectId
       ? {
           url: `https://u.expo.dev/${projectId}`,

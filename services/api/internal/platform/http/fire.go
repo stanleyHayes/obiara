@@ -10,6 +10,7 @@ import (
 
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/domain"
+	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 // Fires is the inbound port for fire scheduling and attendance (E09-S01).
@@ -22,16 +23,19 @@ type Fires interface {
 }
 
 // RegisterFireRoutes adds fire scheduling and RSVP routes.
-func RegisterFireRoutes(mux *http.ServeMux, fires Fires) {
-	mux.Handle("POST /v1/fires", scheduleFireHandler(fires))
-	mux.Handle("GET /v1/fires", listFiresHandler(fires))
-	mux.Handle("POST /v1/fires/{id}/rsvps", rsvpHandler(fires))
-	mux.Handle("DELETE /v1/fires/{id}/rsvps/{memberId}", cancelRsvpHandler(fires))
-	mux.Handle("POST /v1/fires/{id}/close", closeFireHandler(fires))
+type TierReader interface {
+	Tier(context.Context, string) (identitydomain.Tier, error)
+}
+
+func RegisterFireRoutes(mux *http.ServeMux, fires Fires, sessions SessionAuthenticator, tiers TierReader) {
+	mux.Handle("POST /v1/fires", scheduleFireHandler(fires, sessions))
+	mux.Handle("GET /v1/fires", listFiresHandler(fires, sessions))
+	mux.Handle("POST /v1/fires/{id}/rsvps", rsvpHandler(fires, sessions, tiers))
+	mux.Handle("DELETE /v1/fires/{id}/rsvps/{memberId}", cancelRsvpHandler(fires, sessions))
+	mux.Handle("POST /v1/fires/{id}/close", closeFireHandler(fires, sessions))
 }
 
 type scheduleFireRequest struct {
-	HostID   string `json:"hostId"`
 	CircleID string `json:"circleId,omitempty"`
 	Title    string `json:"title"`
 	StartsAt string `json:"startsAt"`
@@ -62,8 +66,26 @@ func toFireResponse(fire domain.Fire) fireResponse {
 	}
 }
 
-func scheduleFireHandler(fires Fires) http.Handler {
+func fireMember(w http.ResponseWriter, r *http.Request, sessions SessionAuthenticator) (string, bool) {
+	token, ok := bearerToken(r.Header.Get("Authorization"))
+	if !ok || sessions == nil {
+		writeError(w, r, http.StatusUnauthorized, APIError{Code: "authentication_required", Message: "A valid member session is required."})
+		return "", false
+	}
+	session, err := sessions.Authenticate(r.Context(), token)
+	if err != nil {
+		writeError(w, r, http.StatusUnauthorized, APIError{Code: "authentication_required", Message: "A valid member session is required."})
+		return "", false
+	}
+	return session.MemberID(), true
+}
+
+func scheduleFireHandler(fires Fires, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hostID, ok := fireMember(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -81,13 +103,9 @@ func scheduleFireHandler(fires Fires) http.Handler {
 			return
 		}
 
-		body.HostID = strings.TrimSpace(body.HostID)
 		body.Title = strings.TrimSpace(body.Title)
 		startsAt, startErr := time.Parse(time.RFC3339, strings.TrimSpace(body.StartsAt))
 		var details []FieldError
-		if !validOpaqueID(body.HostID) {
-			details = append(details, FieldError{Field: "hostId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
-		}
 		if body.CircleID != "" && !validOpaqueID(body.CircleID) {
 			details = append(details, FieldError{Field: "circleId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"})
 		}
@@ -109,7 +127,7 @@ func scheduleFireHandler(fires Fires) http.Handler {
 			return
 		}
 
-		fire, err := fires.Schedule(r.Context(), body.HostID, body.CircleID, body.Title, startsAt, body.Capacity)
+		fire, err := fires.Schedule(r.Context(), hostID, body.CircleID, body.Title, startsAt, body.Capacity)
 		if err != nil {
 			writeFireError(w, r, err)
 			return
@@ -118,8 +136,11 @@ func scheduleFireHandler(fires Fires) http.Handler {
 	})
 }
 
-func listFiresHandler(fires Fires) http.Handler {
+func listFiresHandler(fires Fires, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := fireMember(w, r, sessions); !ok {
+			return
+		}
 		circleID := strings.TrimSpace(r.URL.Query().Get("circleId"))
 		if circleID != "" && !validOpaqueID(circleID) {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{
@@ -148,8 +169,6 @@ func listFiresHandler(fires Fires) http.Handler {
 }
 
 type rsvpRequest struct {
-	MemberID string `json:"memberId"`
-	Tier     int    `json:"tier"`
 }
 
 type rsvpResponse struct {
@@ -157,8 +176,12 @@ type rsvpResponse struct {
 	Position int    `json:"position,omitempty"`
 }
 
-func rsvpHandler(fires Fires) http.Handler {
+func rsvpHandler(fires Fires, sessions SessionAuthenticator, tiers TierReader) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := fireMember(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -176,17 +199,16 @@ func rsvpHandler(fires Fires) http.Handler {
 			return
 		}
 
-		body.MemberID = strings.TrimSpace(body.MemberID)
-		if !validOpaqueID(body.MemberID) || body.Tier < 0 || body.Tier > 2 {
-			writeError(w, r, http.StatusUnprocessableEntity, APIError{
-				Code:    "validation_failed",
-				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "memberId/tier", Reason: "memberId must be an opaque id and tier 0-2"}},
-			})
+		if tiers == nil {
+			writeFireError(w, r, errors.New("tier service unavailable"))
 			return
 		}
-
-		rsvp, err := fires.RSVP(r.Context(), r.PathValue("id"), body.MemberID, body.Tier)
+		tier, err := tiers.Tier(r.Context(), memberID)
+		if err != nil {
+			writeFireError(w, r, err)
+			return
+		}
+		rsvp, err := fires.RSVP(r.Context(), r.PathValue("id"), memberID, int(tier))
 		if err != nil {
 			writeFireError(w, r, err)
 			return
@@ -200,9 +222,17 @@ type cancelRsvpResponse struct {
 	PromotedMemberID string `json:"promotedMemberId,omitempty"`
 }
 
-func cancelRsvpHandler(fires Fires) http.Handler {
+func cancelRsvpHandler(fires Fires, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		promoted, err := fires.Cancel(r.Context(), r.PathValue("id"), r.PathValue("memberId"))
+		memberID, ok := fireMember(w, r, sessions)
+		if !ok {
+			return
+		}
+		if memberID != r.PathValue("memberId") {
+			writeError(w, r, http.StatusForbidden, APIError{Code: "access_denied", Message: "That RSVP belongs to another member."})
+			return
+		}
+		promoted, err := fires.Cancel(r.Context(), r.PathValue("id"), memberID)
 		if err != nil {
 			writeFireError(w, r, err)
 			return
@@ -216,7 +246,6 @@ func cancelRsvpHandler(fires Fires) http.Handler {
 }
 
 type closeFireRequest struct {
-	ActorID string `json:"actorId"`
 }
 
 type closeFireResponse struct {
@@ -224,8 +253,12 @@ type closeFireResponse struct {
 	Attendees []string `json:"attendees"`
 }
 
-func closeFireHandler(fires Fires) http.Handler {
+func closeFireHandler(fires Fires, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		actorID, ok := fireMember(w, r, sessions)
+		if !ok {
+			return
+		}
 		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
 			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
 				Code:    "unsupported_media_type",
@@ -241,16 +274,7 @@ func closeFireHandler(fires Fires) http.Handler {
 			})
 			return
 		}
-		body.ActorID = strings.TrimSpace(body.ActorID)
-		if !validOpaqueID(body.ActorID) {
-			writeError(w, r, http.StatusUnprocessableEntity, APIError{
-				Code:    "validation_failed",
-				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "actorId", Reason: "must be 1-128 letters, numbers, dots, underscores, colons, or hyphens"}},
-			})
-			return
-		}
-		attendees, err := fires.CloseToEmbers(r.Context(), r.PathValue("id"), body.ActorID)
+		attendees, err := fires.CloseToEmbers(r.Context(), r.PathValue("id"), actorID)
 		if err != nil {
 			writeFireError(w, r, err)
 			return

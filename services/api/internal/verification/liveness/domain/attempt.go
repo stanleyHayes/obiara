@@ -46,6 +46,27 @@ type Event struct {
 	version    uint64
 }
 
+type EventParams struct {
+	Status     Status
+	Reason     Reason
+	ActorKey   string
+	OccurredAt time.Time
+	Version    uint64
+}
+
+func NewEvent(params EventParams) (Event, error) {
+	if !validStatusReason(params.Status, params.Reason) ||
+		!validDigest(strings.TrimSpace(params.ActorKey)) ||
+		params.OccurredAt.IsZero() || params.Version < 2 {
+		return Event{}, ErrInvalidAttempt
+	}
+	return Event{
+		status: params.Status, reason: params.Reason,
+		actorKey: params.ActorKey, occurredAt: params.OccurredAt.UTC(),
+		version: params.Version,
+	}, nil
+}
+
 func (event Event) Status() Status        { return event.status }
 func (event Event) Reason() Reason        { return event.reason }
 func (event Event) ActorKey() string      { return event.actorKey }
@@ -81,6 +102,45 @@ func NewAttempt(id, commandID, subjectKey, inputKey string, now time.Time) (Atte
 		id: id, commandID: commandID, subjectKey: subjectKey, inputKey: inputKey,
 		status: StatusPending, createdAt: now.UTC(), version: 1,
 	}, nil
+}
+
+func Reconstitute(
+	id, commandID, subjectKey, inputKey string,
+	status Status, reason Reason, providerRef string,
+	createdAt, decidedAt time.Time, version uint64, events []Event,
+) (Attempt, error) {
+	attempt, err := NewAttempt(id, commandID, subjectKey, inputKey, createdAt)
+	if err != nil {
+		return Attempt{}, err
+	}
+	if status == StatusPending {
+		if reason != "" || providerRef != "" || !decidedAt.IsZero() || version != 1 || len(events) != 0 {
+			return Attempt{}, ErrInvalidAttempt
+		}
+		return attempt, nil
+	}
+	if version < 2 || len(events) == 0 || events[len(events)-1].Version() != version ||
+		events[len(events)-1].Status() != status || events[len(events)-1].Reason() != reason ||
+		decidedAt.IsZero() || !validStatusReason(status, reason) {
+		return Attempt{}, ErrInvalidAttempt
+	}
+	for index, event := range events {
+		if event.Version() != uint64(index+2) ||
+			(index > 0 && event.OccurredAt().Before(events[index-1].OccurredAt())) {
+			return Attempt{}, ErrInvalidAttempt
+		}
+	}
+	providerDecision := reason == ReasonProviderLive || reason == ReasonProviderNotLive
+	if (providerDecision && !validOpaque(providerRef)) || (!providerDecision && providerRef != "") {
+		return Attempt{}, ErrInvalidAttempt
+	}
+	attempt.status = status
+	attempt.reason = reason
+	attempt.providerRef = providerRef
+	attempt.decidedAt = decidedAt.UTC()
+	attempt.version = version
+	attempt.events = append([]Event(nil), events...)
+	return attempt, nil
 }
 
 func (attempt Attempt) QueueManual(reason Reason, actorKey string, now time.Time, expectedVersion uint64) (Attempt, error) {
@@ -172,4 +232,17 @@ func validDigest(value string) bool {
 		}
 	}
 	return true
+}
+
+func validStatusReason(status Status, reason Reason) bool {
+	switch status {
+	case StatusPassed:
+		return reason == ReasonProviderLive || reason == ReasonManualPass
+	case StatusFailed:
+		return reason == ReasonProviderNotLive || reason == ReasonManualFail
+	case StatusQueuedManual:
+		return reason == ReasonProviderUncertain || reason == ReasonProviderUnavailable
+	default:
+		return false
+	}
 }

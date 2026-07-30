@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   Pressable,
@@ -12,7 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import { type Href, useRouter } from "expo-router";
 
 import brandMark from "../assets/brand-mark.png";
-import { buildConnectionCopy, type ConnectionMode } from "../src/connection";
+import { apiRequest } from "../src/api";
 
 const palette = {
   plum: "#3A0E2E",
@@ -31,7 +31,7 @@ const zones = [
   {
     name: "Abɔnten",
     gloss: "the street",
-    count: "3 live",
+    count: "Community",
     symbol: "✦",
     tone: palette.gold,
     href: "/fie/abonten",
@@ -39,7 +39,7 @@ const zones = [
   {
     name: "Adiwo",
     gloss: "the courtyard",
-    count: "4 circles",
+    count: "Your circles",
     symbol: "◌",
     tone: palette.green,
     href: "/fie/adiwo",
@@ -47,7 +47,7 @@ const zones = [
   {
     name: "Ɛpono ano",
     gloss: "the doorway",
-    count: "2 waiting",
+    count: "Private",
     symbol: "⌂",
     tone: palette.pink,
     href: "/fie/epono-ano",
@@ -55,7 +55,7 @@ const zones = [
   {
     name: "Dan mu",
     gloss: "the inner room",
-    count: "1 turn",
+    count: "Mutual rooms",
     symbol: "●",
     tone: palette.plum,
     href: "/fie/dan-mu",
@@ -64,16 +64,29 @@ const zones = [
 
 const heroCopy = {
   EN: {
-    title: "Akwaaba, Ama.",
-    outline: "Your fie is awake.",
-    body: "Two voices are waiting at your doorway. The drum is with you in one room, and tonight’s Legon fire still has a seat.",
+    title: "Akwaaba.",
+    outline: "Your fie is here.",
+    body: "Move through your compound at your own pace. Nothing here asks you to perform or rush.",
   },
   TWI: {
-    title: "Akwaaba, Ama.",
-    outline: "Wo fie anyan.",
-    body: "Nnero abien reten wo Ɛpono ano. Kankyere wɔ wo nkyɛn wɔ dan bi mu, na anɔpmwe Gyaase ogya no da so wɔ bea.",
+    title: "Akwaaba.",
+    outline: "Wo fie wɔ ha.",
+    body: "Fa wo bere fa wo fie mu. Biribiara nhyɛ wo sɛ yɛ ntɛm anaa kyerɛ wo ho.",
   },
 } as const;
+
+type GardenSummary = {
+  movingQuietly: number;
+  sprouts: number;
+  message: string;
+};
+type Fire = {
+  fireId: string;
+  title: string;
+  startsAt: string;
+  capacity: number;
+  goingCount: number;
+};
 
 function ActionButton({
   label,
@@ -149,15 +162,25 @@ function ZoneCard({ zone }: Readonly<{ zone: (typeof zones)[number] }>) {
 
 export default function Home() {
   const router = useRouter();
-  const [connectionMode, setConnectionMode] =
-    useState<ConnectionMode>("constrained");
-  const [queued, setQueued] = useState(false);
   const [language, setLanguage] = useState<"EN" | "TWI">("EN");
-  const connection = useMemo(
-    () => buildConnectionCopy(connectionMode, queued),
-    [connectionMode, queued],
-  );
+  const [garden, setGarden] = useState<GardenSummary | null>(null);
+  const [fire, setFire] = useState<Fire | null>(null);
   const hero = heroCopy[language];
+
+  useEffect(() => {
+    void Promise.all([
+      apiRequest<GardenSummary>("/v1/garden"),
+      apiRequest<{ fires: Fire[] }>("/v1/fires"),
+    ])
+      .then(([gardenSummary, fireList]) => {
+        setGarden(gardenSummary);
+        setFire(fireList.fires[0] ?? null);
+      })
+      .catch(() => {
+        setGarden(null);
+        setFire(null);
+      });
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -193,7 +216,7 @@ export default function Home() {
               </Text>
             </Pressable>
             <Pressable
-              accessibilityLabel="Open Ama's profile"
+              accessibilityLabel="Open your profile"
               accessibilityRole="button"
               onPress={() => router.push("/fie/settings/profile" as Href)}
               style={({ pressed }) => [
@@ -201,40 +224,27 @@ export default function Home() {
                 pressed && styles.pressed,
               ]}
             >
-              <Text style={styles.avatarText}>A</Text>
+              <Text style={styles.avatarText}>Me</Text>
             </Pressable>
           </View>
         </View>
 
-        <Pressable
-          accessibilityHint="Toggles the network simulation for this feasibility prototype"
-          accessibilityLabel={connection.accessibilityLabel}
-          accessibilityRole="switch"
-          accessibilityState={{ checked: connectionMode === "constrained" }}
-          onPress={() =>
-            setConnectionMode((current) =>
-              current === "constrained" ? "online" : "constrained",
-            )
-          }
-          style={({ pressed }) => [
-            styles.networkBanner,
-            pressed && styles.pressed,
-          ]}
-        >
+        <View style={styles.networkBanner}>
           <View style={styles.networkPulse} />
           <View style={styles.networkCopy}>
-            <Text style={styles.networkTitle}>{connection.title}</Text>
-            <Text style={styles.networkBody}>{connection.body}</Text>
+            <Text style={styles.networkTitle}>
+              Connection saver is available
+            </Text>
+            <Text style={styles.networkBody}>
+              Media surfaces can reduce data use when your connection changes.
+            </Text>
           </View>
-          <Text aria-hidden style={styles.chevron}>
-            ›
-          </Text>
-        </Pressable>
+        </View>
 
         <View style={styles.hero}>
           <View style={styles.dayPill}>
             <View style={styles.dayDot} />
-            <Text style={styles.dayText}>SUNDAY · YOUR QUIET MORNING</Text>
+            <Text style={styles.dayText}>YOUR QUIET RETURN</Text>
           </View>
           <Text style={styles.heroTitle}>
             {hero.title}
@@ -260,16 +270,18 @@ export default function Home() {
           </View>
           <View style={styles.metrics}>
             <View style={styles.metric}>
-              <Text style={styles.metricValue}>2</Text>
-              <Text style={styles.metricLabel}>pods waiting</Text>
+              <Text style={styles.metricValue}>
+                {garden?.movingQuietly ?? "—"}
+              </Text>
+              <Text style={styles.metricLabel}>moving quietly</Text>
             </View>
             <View style={[styles.metric, styles.metricBorder]}>
-              <Text style={styles.metricValue}>1</Text>
-              <Text style={styles.metricLabel}>drum turn</Text>
+              <Text style={styles.metricValue}>{garden?.sprouts ?? "—"}</Text>
+              <Text style={styles.metricLabel}>doorways ready</Text>
             </View>
             <View style={[styles.metric, styles.metricBorder]}>
-              <Text style={styles.metricValue}>7</Text>
-              <Text style={styles.metricLabel}>seeds this week</Text>
+              <Text style={styles.metricValue}>0</Text>
+              <Text style={styles.metricLabel}>public signals</Text>
             </View>
           </View>
           <ActionButton
@@ -298,53 +310,33 @@ export default function Home() {
           ))}
         </View>
 
-        <View style={styles.fireCard}>
-          <View style={styles.fireGlow} />
-          <View style={styles.fireMeta}>
-            <View style={styles.livePill}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>TONIGHT · 8:00 PM</Text>
+        {fire ? (
+          <View style={styles.fireCard}>
+            <View style={styles.fireGlow} />
+            <View style={styles.fireMeta}>
+              <View style={styles.livePill}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>
+                  {new Date(fire.startsAt).toLocaleString().toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.seatText}>
+                {Math.max(0, fire.capacity - fire.goingCount)} places left
+              </Text>
             </View>
-            <Text style={styles.seatText}>18 seats left</Text>
-          </View>
-          <Text style={styles.fireEyebrow}>GYAASE FIRE · LEGON COURTYARD</Text>
-          <Text style={styles.fireTitle}>
-            Come and sit.{"\n"}The fire is catching.
-          </Text>
-          <Text style={styles.fireBody}>
-            Voice games, an Oware table and one ember to carry home. Audio
-            automatically becomes listen-only when the network is too weak.
-          </Text>
-          <ActionButton
-            label="Keep my seat"
-            onPress={() => router.push("/fie/fires/fire_legon_gyaase" as Href)}
-            variant="cream"
-          />
-        </View>
-
-        <View style={styles.queueCard}>
-          <View style={styles.queueIcon}>
-            <Text aria-hidden style={styles.queueIconText}>
-              {queued ? "✓" : "↥"}
+            <Text style={styles.fireEyebrow}>UPCOMING COMMUNITY FIRE</Text>
+            <Text style={styles.fireTitle}>{fire.title}</Text>
+            <Text style={styles.fireBody}>
+              A bounded gathering with private attendance and no contact
+              exchange.
             </Text>
+            <ActionButton
+              label="Keep my seat"
+              onPress={() => router.push(`/fie/fires/${fire.fireId}` as Href)}
+              variant="cream"
+            />
           </View>
-          <View style={styles.queueCopy}>
-            <Text style={styles.queueTitle}>{connection.queueTitle}</Text>
-            <Text style={styles.queueBody}>{connection.queueBody}</Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setQueued((current) => !current)}
-            style={({ pressed }) => [
-              styles.queueButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.queueButtonText}>
-              {queued ? "Undo" : "Try it"}
-            </Text>
-          </Pressable>
-        </View>
+        ) : null}
 
         <Pressable
           accessibilityHint="Opens the okyeame guide"

@@ -15,61 +15,254 @@ import {
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useReducer } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import {
-  initialReviewState,
-  reviewReducer,
-  type VerificationCase,
-} from "./review-model";
+type Outcome = "approve" | "reject";
 
-const reasonLabels: Record<VerificationCase["reason"], string> = {
-  provider_uncertain: "Provider response was uncertain",
-  provider_outage: "Provider was unavailable",
-  known_name: "Known-name review requested",
-};
-
-function QueueItem({
-  item,
-  selected,
-  onSelect,
-}: Readonly<{
-  item: VerificationCase;
-  selected: boolean;
-  onSelect: () => void;
-}>) {
-  return (
-    <Button
-      aria-pressed={selected}
-      className="verification-case"
-      disabled={item.status === "decided"}
-      onClick={onSelect}
-    >
-      <Box>
-        <Stack direction="row" spacing={1}>
-          <Typography component="strong">{item.id}</Typography>
-          <Chip
-            color={item.tier === "urgent" ? "warning" : "default"}
-            label={item.tier === "urgent" ? "Urgent" : "Standard"}
-            size="small"
-          />
-        </Stack>
-        <Typography>{reasonLabels[item.reason]}</Typography>
-        <Typography className="verification-reference">
-          {item.subjectRef}
-        </Typography>
-      </Box>
-      <span aria-hidden="true">›</span>
-    </Button>
-  );
+interface VerificationCase {
+  caseId: string;
+  subjectRef: string;
+  reasonCode: "provider_uncertain" | "provider_outage" | "manual_review";
+  submittedAt: string;
+  status?: string;
+  version: number;
 }
 
+interface Evidence {
+  caseId: string;
+  maskedCard: string;
+  ageBand: string;
+  providerStatus: string;
+}
+
+const reasonLabels: Record<VerificationCase["reasonCode"], string> = {
+  provider_uncertain: "Provider response was uncertain",
+  provider_outage: "Provider was unavailable",
+  manual_review: "Manual review requested",
+};
+
 export function VerificationQueue() {
-  const [state, dispatch] = useReducer(reviewReducer, initialReviewState);
-  const selected = state.cases.find((item) => item.id === state.selectedId);
-  const queuedCount = state.cases.filter(
-    (item) => item.status === "queued",
-  ).length;
+  const [cases, setCases] = useState<VerificationCase[]>([]);
+  const [selectedID, setSelectedID] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState("");
+  const [pendingOutcome, setPendingOutcome] = useState<Outcome | null>(null);
+  const [decisionReason, setDecisionReason] = useState("");
+  const [evidenceReason, setEvidenceReason] = useState("");
+  const [evidence, setEvidence] = useState<Evidence | null>(null);
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [stepUpOpen, setStepUpOpen] = useState(false);
+  const [stepUpCode, setStepUpCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const commandID = useRef<string | null>(null);
+  const selected = cases.find((item) => item.caseId === selectedID);
+
+  async function loadQueue() {
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/verifications");
+      const payload = (await response.json()) as {
+        cases?: VerificationCase[];
+        message?: string;
+      };
+      if (!response.ok)
+        throw new Error(
+          payload.message || "The verification queue could not be loaded.",
+        );
+      const next = payload.cases ?? [];
+      setCases(next);
+      setSelectedID((current) =>
+        next.some((item) => item.caseId === current)
+          ? current
+          : (next[0]?.caseId ?? ""),
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The verification queue could not be loaded.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/verifications")
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          cases?: VerificationCase[];
+          message?: string;
+        };
+        if (!response.ok) {
+          throw new Error(
+            payload.message || "The verification queue could not be loaded.",
+          );
+        }
+        if (active) {
+          const next = payload.cases ?? [];
+          setCases(next);
+          setSelectedID(next[0]?.caseId ?? "");
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "The verification queue could not be loaded.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function requestEvidence() {
+    if (!selected || evidenceReason.trim().length < 8) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/verifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "evidence",
+          caseId: selected.caseId,
+          purpose: "verification_review",
+          reason: evidenceReason,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        (Evidence & { message?: string }) | null;
+      if (!response.ok || !payload?.caseId) {
+        const error = new Error(
+          payload?.message || "Redacted evidence could not be opened.",
+        );
+        if (response.status === 403) setStepUpOpen(true);
+        throw error;
+      }
+      setEvidence(payload);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Redacted evidence could not be opened.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startStepUp() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/step-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start" }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          payload?.message || "The step-up code could not be sent.",
+        );
+      setSuccess("A fresh step-up code was sent to your admin email.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The step-up code could not be sent.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function completeStepUp() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/step-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "complete", code: stepUpCode }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          payload?.message || "The step-up code could not be verified.",
+        );
+      setStepUpOpen(false);
+      setStepUpCode("");
+      setSuccess("Sensitive evidence access is unlocked for this session.");
+      await requestEvidence();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The step-up code could not be verified.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function decide() {
+    if (!selected || !pendingOutcome || decisionReason.trim().length < 8)
+      return;
+    commandID.current ??= `verification-${crypto.randomUUID()}`;
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/verifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": commandID.current,
+        },
+        body: JSON.stringify({
+          action: "decision",
+          caseId: selected.caseId,
+          outcome: pendingOutcome,
+          reason: decisionReason,
+          expectedVersion: selected.version,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          payload?.message || "The decision could not be recorded.",
+        );
+      setSuccess(`${selected.caseId} was recorded as ${pendingOutcome}.`);
+      setPendingOutcome(null);
+      setDecisionReason("");
+      commandID.current = null;
+      await loadQueue();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The decision could not be recorded.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <main className="verification-shell">
@@ -86,16 +279,24 @@ export function VerificationQueue() {
             Provider uncertainty comes here. Approval never happens silently.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Chip label={`${queuedCount} waiting`} color="warning" />
-          <Chip label="SLA healthy" color="success" />
-        </Stack>
+        <Chip
+          label={loading ? "Loading queue" : `${cases.length} waiting`}
+          color={cases.length ? "warning" : "success"}
+        />
       </header>
 
-      {state.lastDecision ? (
-        <Alert severity="success" className="verification-alert">
-          {state.lastDecision.caseId} recorded as {state.lastDecision.outcome}.
-          The audit event is ready to persist.
+      {message ? (
+        <Alert severity="error" className="verification-alert">
+          {message}
+        </Alert>
+      ) : null}
+      {success ? (
+        <Alert
+          severity="success"
+          className="verification-alert"
+          onClose={() => setSuccess("")}
+        >
+          {success}
         </Alert>
       ) : null}
 
@@ -106,13 +307,26 @@ export function VerificationQueue() {
             <Typography>Oldest first</Typography>
           </Box>
           <Box aria-label="Manual verification queue">
-            {state.cases.map((item) => (
-              <QueueItem
-                item={item}
-                key={item.id}
-                onSelect={() => dispatch({ type: "select", caseId: item.id })}
-                selected={item.id === state.selectedId}
-              />
+            {cases.map((item) => (
+              <Button
+                aria-pressed={item.caseId === selectedID}
+                className="verification-case"
+                key={item.caseId}
+                onClick={() => {
+                  setSelectedID(item.caseId);
+                  setEvidence(null);
+                  setEvidenceOpen(false);
+                }}
+              >
+                <Box>
+                  <Typography component="strong">{item.caseId}</Typography>
+                  <Typography>{reasonLabels[item.reasonCode]}</Typography>
+                  <Typography className="verification-reference">
+                    {item.subjectRef}
+                  </Typography>
+                </Box>
+                <span aria-hidden="true">›</span>
+              </Button>
             ))}
           </Box>
         </Card>
@@ -123,13 +337,12 @@ export function VerificationQueue() {
               <Box className="verification-panel-heading">
                 <Box>
                   <Typography className="section-kicker">
-                    Case {selected.id}
+                    Case {selected.caseId}
                   </Typography>
                   <Typography component="h2">Review bounded proof</Typography>
                 </Box>
-                <Chip label="Not yet decided" />
+                <Chip label={selected.status || "queued"} />
               </Box>
-
               <Box className="verification-facts">
                 <Box>
                   <Typography>Private reference</Typography>
@@ -140,45 +353,35 @@ export function VerificationQueue() {
                 <Box>
                   <Typography>Queue reason</Typography>
                   <Typography component="strong">
-                    {reasonLabels[selected.reason]}
+                    {reasonLabels[selected.reasonCode]}
                   </Typography>
                 </Box>
                 <Box>
                   <Typography>Submitted</Typography>
                   <Typography component="strong">
-                    26 Jul, 17:{selected.id === "IDV-2841" ? "54" : "41"} GMT
+                    {new Date(selected.submittedAt).toLocaleString("en-GH")}
                   </Typography>
                 </Box>
               </Box>
-
               <Alert severity="info">
                 Full card numbers, raw media and contact details are not shown.
                 Opening evidence creates an operator audit event.
               </Alert>
-
-              <Button
-                variant="outlined"
-                onClick={() => dispatch({ type: "open-evidence" })}
-              >
+              <Button variant="outlined" onClick={() => setEvidenceOpen(true)}>
                 Open redacted evidence
               </Button>
-
               <Box className="verification-actions">
                 <Button
                   variant="contained"
                   color="success"
-                  onClick={() =>
-                    dispatch({ type: "propose", outcome: "approve" })
-                  }
+                  onClick={() => setPendingOutcome("approve")}
                 >
                   Propose approval
                 </Button>
                 <Button
                   variant="outlined"
                   color="error"
-                  onClick={() =>
-                    dispatch({ type: "propose", outcome: "reject" })
-                  }
+                  onClick={() => setPendingOutcome("reject")}
                 >
                   Propose rejection
                 </Button>
@@ -186,10 +389,12 @@ export function VerificationQueue() {
             </>
           ) : (
             <Box className="verification-empty" role="status">
-              <Typography component="h2">The queue is clear.</Typography>
+              <Typography component="h2">
+                {loading ? "Loading the queue…" : "The queue is clear."}
+              </Typography>
               <Typography>
-                New uncertain cases will appear here without exposing raw
-                identity data.
+                New uncertain cases appear here without exposing raw identity
+                data.
               </Typography>
             </Box>
           )}
@@ -197,81 +402,147 @@ export function VerificationQueue() {
       </Box>
 
       <Dialog
-        aria-labelledby="evidence-title"
         fullWidth
         maxWidth="sm"
-        onClose={() => dispatch({ type: "close-evidence" })}
-        open={state.evidenceOpened}
+        onClose={() => setEvidenceOpen(false)}
+        open={evidenceOpen}
       >
-        <DialogTitle id="evidence-title">Redacted evidence</DialogTitle>
+        <DialogTitle>Redacted evidence</DialogTitle>
         <DialogContent>
-          <Stack spacing={2}>
+          <Stack spacing={2} sx={{ pt: 1 }}>
             <Alert severity="warning">
-              Access is recorded against the operator session.
+              Access requires recent MFA and is recorded against this operator
+              session.
             </Alert>
-            <Box className="evidence-row">
-              <Typography>Document match</Typography>
-              <Typography component="strong">
-                Partial, confidence 0.71
-              </Typography>
-            </Box>
-            <Box className="evidence-row">
-              <Typography>Provider proof</Typography>
-              <Typography component="strong">Reference ending 72CA</Typography>
-            </Box>
-            <Box className="evidence-row">
-              <Typography>Raw media</Typography>
-              <Typography component="strong">Not retained</Typography>
-            </Box>
+            {!evidence ? (
+              <TextField
+                autoFocus
+                helperText="At least 8 characters; do not include raw identity data"
+                label="Reason for opening evidence"
+                multiline
+                onChange={(event) =>
+                  setEvidenceReason(event.target.value.slice(0, 240))
+                }
+                rows={3}
+                value={evidenceReason}
+              />
+            ) : (
+              <>
+                <Box className="evidence-row">
+                  <Typography>Ghana Card</Typography>
+                  <Typography component="strong">
+                    {evidence.maskedCard}
+                  </Typography>
+                </Box>
+                <Box className="evidence-row">
+                  <Typography>Age band</Typography>
+                  <Typography component="strong">
+                    {evidence.ageBand.replaceAll("_", " ")}
+                  </Typography>
+                </Box>
+                <Box className="evidence-row">
+                  <Typography>Provider status</Typography>
+                  <Typography component="strong">
+                    {evidence.providerStatus.replaceAll("_", " ")}
+                  </Typography>
+                </Box>
+                <Box className="evidence-row">
+                  <Typography>Raw media</Typography>
+                  <Typography component="strong">Not retained</Typography>
+                </Box>
+              </>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => dispatch({ type: "close-evidence" })}>
-            Close evidence
+          <Button onClick={() => setEvidenceOpen(false)}>Close</Button>
+          {!evidence ? (
+            <Button
+              disabled={busy || evidenceReason.trim().length < 8}
+              onClick={() => void requestEvidence()}
+              variant="contained"
+            >
+              Open and audit
+            </Button>
+          ) : null}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        fullWidth
+        maxWidth="sm"
+        onClose={() => setPendingOutcome(null)}
+        open={pendingOutcome !== null}
+      >
+        <DialogTitle>
+          Confirm {pendingOutcome === "approve" ? "approval" : "rejection"}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            helperText="At least 8 characters, no raw identity data"
+            label="Decision reason"
+            multiline
+            onChange={(event) => {
+              setDecisionReason(event.target.value.slice(0, 240));
+              commandID.current = null;
+            }}
+            rows={3}
+            sx={{ mt: 1 }}
+            value={decisionReason}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingOutcome(null)}>Go back</Button>
+          <Button
+            disabled={busy || decisionReason.trim().length < 8}
+            onClick={() => void decide()}
+            variant="contained"
+          >
+            Record audited decision
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog
-        aria-labelledby="decision-title"
         fullWidth
-        maxWidth="sm"
-        onClose={() => dispatch({ type: "cancel-decision" })}
-        open={state.pendingOutcome !== null}
+        maxWidth="xs"
+        onClose={() => setStepUpOpen(false)}
+        open={stepUpOpen}
       >
-        <DialogTitle id="decision-title">
-          Confirm{" "}
-          {state.pendingOutcome === "approve" ? "approval" : "rejection"}
-        </DialogTitle>
+        <DialogTitle>Confirm this sensitive access</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Typography>
-              Add a clear operator reason. This decision affects account access
-              and will be audited.
+              Request a fresh code, then enter it to unlock redacted evidence
+              for this short-lived session.
             </Typography>
+            <Button
+              disabled={busy}
+              onClick={() => void startStepUp()}
+              variant="outlined"
+            >
+              Send step-up code
+            </Button>
             <TextField
-              autoFocus
-              helperText="At least 8 characters, no raw identity data"
-              label="Decision reason"
-              multiline
+              label="Six-digit code"
               onChange={(event) =>
-                dispatch({ type: "set-reason", reason: event.target.value })
+                setStepUpCode(event.target.value.replace(/\D/g, "").slice(0, 6))
               }
-              rows={3}
-              value={state.decisionReason}
+              slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 6 } }}
+              value={stepUpCode}
             />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => dispatch({ type: "cancel-decision" })}>
-            Go back
-          </Button>
+          <Button onClick={() => setStepUpOpen(false)}>Cancel</Button>
           <Button
-            disabled={state.decisionReason.trim().length < 8}
-            onClick={() => dispatch({ type: "confirm-decision" })}
+            disabled={busy || stepUpCode.length !== 6}
+            onClick={() => void completeStepUp()}
             variant="contained"
           >
-            Record decision
+            Verify code
           </Button>
         </DialogActions>
       </Dialog>

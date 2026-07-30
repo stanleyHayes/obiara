@@ -1,170 +1,176 @@
 "use client";
 
 import Link from "next/link";
-import { useReducer } from "react";
+import { useEffect, useState } from "react";
 import { SafetySheet } from "../../safety-sheet";
-import {
-  activeReasons,
-  explanationReducer,
-  initialExplanationState,
-  type Feature,
-} from "./explanation-model";
 
-const features: readonly [Feature, string, string][] = [
-  [
-    "shared_intentions",
-    "Shared intentions",
-    "Uses choices you made in profile preferences.",
-  ],
-  [
-    "trust_context",
-    "Private trust context",
-    "Uses only the existence of a permitted path—not its people or shape.",
-  ],
-  [
-    "voice_reflections",
-    "Selected voice reflections",
-    "Off by default. Compares only reflections both people explicitly choose.",
-  ],
-];
+type ConsentBoard = {
+  purposes?: { matching_personalization?: boolean };
+  message?: string;
+};
 
 export function IntroductionExplanation({
   introId,
 }: Readonly<{ introId: string }>) {
-  const [state, dispatch] = useReducer(
-    explanationReducer,
-    initialExplanationState,
-  );
-  const reasons = activeReasons(state);
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    void fetch("/api/consent")
+      .then(async (response) => {
+        const payload = (await response.json()) as ConsentBoard;
+        if (
+          !response.ok ||
+          typeof payload.purposes?.matching_personalization !== "boolean"
+        ) {
+          throw new Error(
+            payload.message || "Your explanation controls could not be loaded.",
+          );
+        }
+        setEnabled(payload.purposes.matching_personalization);
+      })
+      .catch((error: unknown) =>
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Your explanation controls could not be loaded.",
+        ),
+      );
+  }, []);
+
+  async function allowPersonalization() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/consent", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          purpose: "matching_personalization",
+          enabled: true,
+        }),
+      });
+      const payload = (await response.json()) as {
+        enabled?: boolean;
+        message?: string;
+      };
+      if (!response.ok || payload.enabled !== true) {
+        throw new Error(
+          payload.message || "Your consent choice could not be saved.",
+        );
+      }
+      setEnabled(true);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Your consent choice could not be saved.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="intro-explanation">
       <header>
         <Link href="/fie/garden">← Garden</Link>
         <strong>Private introduction</strong>
-        <SafetySheet context="this introduction" />
+        <SafetySheet
+          context="this introduction"
+          contextRef={introId}
+          surface="doorway"
+        />
       </header>
+
       <section className="intro-hero">
         <div>
           <p className="fie-kicker">Why this introduction</p>
-          <h1>Grounded reasons. Your controls.</h1>
+          <h1>No invented reasons. No hidden score.</h1>
           <p>
-            Obiara can explain the permitted signals behind an introduction. It
-            cannot promise compatibility, destiny or an outcome.
+            Obiara will show an explanation only when a retained introduction
+            record can support it. This record is not available yet, so no
+            person, match reason, or decision has been manufactured here.
           </p>
         </div>
         <aside>
-          <span>Introduction {introId.slice(0, 8)}</span>
-          <strong>Ama K.</strong>
-          <small>Private · no public match score</small>
+          <span>Reference</span>
+          <strong>{introId.slice(0, 8)}</strong>
+          <small>Private · opaque · no public match score</small>
         </aside>
       </section>
+
       <section className="reason-panel" aria-labelledby="reasons-title">
         <div>
-          <p className="fie-kicker">What is active now</p>
-          <h2 id="reasons-title">
-            {reasons.length
-              ? "Why you may have something to explore."
-              : "No explanation features are active."}
-          </h2>
+          <p className="fie-kicker">Explanation status</p>
+          <h2 id="reasons-title">Waiting for verified introduction data.</h2>
           <p>
-            These are starting points for conversation, not judgments about
-            either person.
+            Your privacy and safety controls remain available while the
+            introduction lifecycle is completed.
           </p>
         </div>
-        <div className="reason-list" aria-live="polite">
-          {reasons.length ? (
-            reasons.map((reason, index) => (
-              <article key={reason}>
-                <span>0{index + 1}</span>
-                <p>{reason}</p>
-              </article>
-            ))
-          ) : (
-            <article>
-              <span>—</span>
-              <p>
-                This introduction can rest. Re-enable a feature only if you want
-                it considered.
-              </p>
-            </article>
-          )}
+        <div className="reason-list">
+          <article>
+            <span>—</span>
+            <p>
+              Candidate identity, reciprocal preferences, trust paths, and voice
+              comparisons are not inferred by this screen.
+            </p>
+          </article>
         </div>
       </section>
+
       <section className="feature-controls" aria-labelledby="features-title">
         <div>
-          <p className="fie-kicker">Feature consent</p>
-          <h2 id="features-title">Nothing hidden in the recipe.</h2>
+          <p className="fie-kicker">Your real control</p>
+          <h2 id="features-title">Introduction personalization</h2>
           <p>
-            Turn a feature off to remove it from future explanations.
-            Withdrawing consent does not punish or lower your visibility.
+            This purpose-bound choice is loaded from your consent record. It
+            does not create an introduction or imply that one exists.
           </p>
         </div>
-        <div className="feature-list">
-          {features.map(([id, label, detail]) => (
-            <article key={id}>
-              <div>
-                <strong>{label}</strong>
-                <p>{detail}</p>
-              </div>
-              <button
-                aria-pressed={state.enabled[id]}
-                onClick={() => dispatch({ type: "toggle", feature: id })}
-                type="button"
-              >
-                {state.enabled[id] ? "On · turn off" : "Off · allow"}
-              </button>
-            </article>
-          ))}
-          <button
-            className="details-toggle"
-            onClick={() => dispatch({ type: "toggle-details" })}
-            type="button"
-          >
-            {state.detailsOpen ? "Hide system details" : "Show system details"}
-          </button>
-          {state.detailsOpen ? (
-            <div className="system-details" role="status">
-              <strong>Rules first · AI wording only</strong>
+        <div className="feature-list" aria-busy={busy}>
+          <article>
+            <div>
+              <strong>Use preferences for private introductions</strong>
               <p>
-                Candidate selection came from reciprocal preferences and a
-                privacy-scoped trust-path rule. AI may phrase this explanation
-                through the consent-bound gateway; it did not choose or rank the
-                person.
+                Optional and one-way under the current consent policy. You can
+                review every purpose in the consent switchboard.
               </p>
-              <small>
-                Vendor/model audit metadata retained · prompt and response
-                content not retained.
-              </small>
+            </div>
+            <button
+              aria-pressed={enabled ?? false}
+              disabled={enabled !== false || busy}
+              onClick={() => void allowPersonalization()}
+              type="button"
+            >
+              {busy
+                ? "Saving…"
+                : enabled === null
+                  ? "Loading…"
+                  : enabled
+                    ? "Allowed"
+                    : "Allow"}
+            </button>
+          </article>
+          <Link className="details-toggle" href="/fie/settings/consent">
+            Open consent switchboard
+          </Link>
+          {message ? (
+            <div className="system-details" role="alert">
+              <strong>Could not load this control</strong>
+              <p>{message}</p>
             </div>
           ) : null}
         </div>
       </section>
+
       <footer>
-        {state.decision === "none" ? (
-          <div>
-            <button onClick={() => dispatch({ type: "rest" })} type="button">
-              Let this introduction rest
-            </button>
-            <button onClick={() => dispatch({ type: "open" })} type="button">
-              Open the introduction gently
-            </button>
-          </div>
-        ) : (
-          <div className="intro-decision" role="status">
-            <p>
-              {state.decision === "resting"
-                ? "This introduction rests. The other person is told gently, without reasons or blame."
-                : "The introduction is open. Continue at your own pace — nobody is notified of your speed."}
-            </p>
-            <button
-              onClick={() => dispatch({ type: "undo-decision" })}
-              type="button"
-            >
-              Change my mind
-            </button>
-          </div>
-        )}
-        <p>No urgency, read receipt or public activity signal.</p>
+        <p>
+          No urgency, read receipt, public activity signal, or fabricated
+          compatibility claim.
+        </p>
       </footer>
     </main>
   );

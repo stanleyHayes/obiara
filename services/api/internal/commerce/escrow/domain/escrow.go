@@ -51,29 +51,29 @@ type Event struct {
 	At                                      time.Time
 }
 type State struct {
-	ID, FundingRef string
-	FundedPesewas  uint64
-	TermsID        string
-	TermsVersion   uint64
-	Milestones     []MilestoneState
-	Dispute        *Dispute
-	SettledPesewas uint64
-	Revision       uint64
-	Events         []Event
-	AppliedIDs     []string
+	ID, OwnerKey, EngagementID, FundingRef string
+	FundedPesewas                          uint64
+	TermsID                                string
+	TermsVersion                           uint64
+	Milestones                             []MilestoneState
+	Dispute                                *Dispute
+	SettledPesewas                         uint64
+	Revision                               uint64
+	Events                                 []Event
+	AppliedIDs                             []string
 }
 type Escrow struct{ state State }
 
-func Fund(id, fundingRef string, amount uint64, terms Terms, command string, at time.Time) (Escrow, error) {
+func Fund(id, ownerKey, engagementID, fundingRef string, amount uint64, terms Terms, command string, at time.Time) (Escrow, error) {
 	terms.Milestones = append([]MilestoneTerm(nil), terms.Milestones...)
-	if !opaque.MatchString(id) || !opaque.MatchString(fundingRef) || amount == 0 || !validTerms(terms, amount) || !token.MatchString(command) || at.IsZero() {
+	if !opaque.MatchString(id) || !opaque.MatchString(ownerKey) || !opaque.MatchString(engagementID) || !opaque.MatchString(fundingRef) || amount == 0 || !validTerms(terms, amount) || !token.MatchString(command) || at.IsZero() {
 		return Escrow{}, ErrInvalid
 	}
 	m := make([]MilestoneState, len(terms.Milestones))
 	for i, x := range terms.Milestones {
 		m[i] = MilestoneState{Term: x}
 	}
-	s := State{ID: id, FundingRef: fundingRef, FundedPesewas: amount, TermsID: terms.ID, TermsVersion: terms.Version, Milestones: m, Revision: 1, AppliedIDs: []string{command}}
+	s := State{ID: id, OwnerKey: ownerKey, EngagementID: engagementID, FundingRef: fundingRef, FundedPesewas: amount, TermsID: terms.ID, TermsVersion: terms.Version, Milestones: m, Revision: 1, AppliedIDs: []string{command}}
 	s.Events = []Event{{Sequence: 1, Kind: "funded", CommandID: command, Reference: fundingRef, At: at.UTC()}}
 	return Escrow{s}, nil
 }
@@ -181,7 +181,7 @@ func validTerms(t Terms, amount uint64) bool {
 	return sum == amount
 }
 func validState(s State) bool {
-	if !opaque.MatchString(s.ID) || !opaque.MatchString(s.FundingRef) || s.FundedPesewas == 0 || !token.MatchString(s.TermsID) || s.TermsVersion == 0 || s.SettledPesewas > s.FundedPesewas || s.Revision == 0 || len(s.Events) != int(s.Revision) || len(s.AppliedIDs) != int(s.Revision) {
+	if !opaque.MatchString(s.ID) || !opaque.MatchString(s.OwnerKey) || !opaque.MatchString(s.EngagementID) || !opaque.MatchString(s.FundingRef) || s.FundedPesewas == 0 || !token.MatchString(s.TermsID) || s.TermsVersion == 0 || s.SettledPesewas > s.FundedPesewas || s.Revision == 0 || len(s.Events) != int(s.Revision) || len(s.AppliedIDs) != int(s.Revision) {
 		return false
 	}
 	for i, x := range s.Events {

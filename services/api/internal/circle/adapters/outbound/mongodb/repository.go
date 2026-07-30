@@ -81,6 +81,53 @@ func (repository *Repository) Find(ctx context.Context, id string) (domain.Circl
 	return toDomain(document)
 }
 
+func (repository *Repository) ListForMember(ctx context.Context, memberID string, limit int) ([]domain.Circle, error) {
+	return repository.list(ctx, bson.M{
+		"memberships": bson.M{"$elemMatch": bson.M{
+			"memberId": memberID,
+			"state": bson.M{"$in": bson.A{
+				domain.StateRequested, domain.StateMember, domain.StateHost, domain.StateOwner,
+			}},
+		}},
+	}, limit)
+}
+
+func (repository *Repository) ListDiscoverable(ctx context.Context, memberID string, limit int) ([]domain.Circle, error) {
+	return repository.list(ctx, bson.M{
+		"visibility": domain.VisibilityDiscoverable,
+		"memberships": bson.M{"$not": bson.M{"$elemMatch": bson.M{
+			"memberId": memberID,
+			"state": bson.M{"$in": bson.A{
+				domain.StateRequested, domain.StateMember, domain.StateHost, domain.StateOwner,
+			}},
+		}}},
+	}, limit)
+}
+
+func (repository *Repository) list(ctx context.Context, filter bson.M, limit int) ([]domain.Circle, error) {
+	cursor, err := repository.collection.Find(
+		ctx, filter,
+		options.Find().SetSort(bson.D{{Key: "updatedAt", Value: -1}, {Key: "_id", Value: 1}}).SetLimit(int64(limit)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var documents []circleDocument
+	if err := cursor.All(ctx, &documents); err != nil {
+		return nil, err
+	}
+	circles := make([]domain.Circle, 0, len(documents))
+	for _, document := range documents {
+		circle, err := toDomain(document)
+		if err != nil {
+			return nil, err
+		}
+		circles = append(circles, circle)
+	}
+	return circles, nil
+}
+
 func (repository *Repository) Save(ctx context.Context, circle domain.Circle, expectedRevision uint64, commandID string) error {
 	if !circle.HasCommand(commandID) || circle.Revision() != expectedRevision+1 {
 		return domain.ErrInvalidCircle

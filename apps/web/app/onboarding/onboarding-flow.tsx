@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useReducer, useRef } from "react";
+import { useReducer, useRef, useState } from "react";
 
 import { initialOnboardingState, onboardingReducer } from "./onboarding-model";
+import { captureLiveness } from "./liveness-capture";
 
 const stages = ["Phone", "Promise", "Identity", "Liveness"] as const;
 
@@ -34,13 +35,193 @@ export function OnboardingFlow() {
     initialOnboardingState,
   );
   const cardInput = useRef<HTMLInputElement>(null);
+  const birthDateInput = useRef<HTMLInputElement>(null);
+  const consentCommandId = useRef<string | null>(null);
+  const livenessCommandId = useRef<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
 
-  function submitCard() {
+  function e164Phone(phone: string) {
+    return `+233${phone.slice(1)}`;
+  }
+
+  async function submitPhoneStep() {
+    setSubmitting(true);
+    setRequestError(null);
+    try {
+      const endpoint =
+        state.stage === "phone" ? "/api/auth/otp" : "/api/auth/otp/verify";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: e164Phone(state.phone),
+          ...(state.stage === "otp" ? { code: state.otp } : {}),
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!response.ok) {
+        throw new Error(
+          payload?.message || "The service is unavailable. Please try again.",
+        );
+      }
+      dispatch({
+        type: state.stage === "phone" ? "request-code" : "verify-code",
+      });
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "The service is unavailable. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitCard() {
     const rawCard = cardInput.current?.value.trim() ?? "";
-    if (rawCard.length < 8) return;
-    const reference = `ref_${rawCard.replace(/\W/g, "").slice(-6).toLowerCase()}`;
-    if (cardInput.current) cardInput.current.value = "";
-    dispatch({ type: "card-result", outcome: "approved", reference });
+    const dateOfBirth = birthDateInput.current?.value ?? "";
+    if (rawCard.length < 8 || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+      setRequestError("Enter your Ghana Card number and date of birth.");
+      return;
+    }
+    setSubmitting(true);
+    setRequestError(null);
+    try {
+      const response = await fetch("/api/verification/ghana-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardNumber: rawCard, dateOfBirth }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        caseId?: string;
+        status?: string;
+        message?: string;
+      } | null;
+      if (!response.ok && response.status !== 202) {
+        throw new Error(
+          payload?.message ||
+            "We could not complete the identity check. Please try again.",
+        );
+      }
+      if (!payload?.caseId) {
+        throw new Error("The identity service returned an incomplete result.");
+      }
+      dispatch({
+        type: "card-result",
+        outcome: payload.status === "approved" ? "approved" : "uncertain",
+        reference: payload.caseId,
+      });
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "We could not complete the identity check. Please try again.",
+      );
+    } finally {
+      if (cardInput.current) cardInput.current.value = "";
+      if (birthDateInput.current) birthDateInput.current.value = "";
+      setSubmitting(false);
+    }
+  }
+
+  async function confirmConsent() {
+    consentCommandId.current ??= `onboarding-${crypto.randomUUID()}`;
+    setSubmitting(true);
+    setRequestError(null);
+    try {
+      const response = await fetch("/api/onboarding/consents", {
+        method: "POST",
+        headers: { "Idempotency-Key": consentCommandId.current },
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string;
+      } | null;
+      if (!response.ok) {
+        throw new Error(
+          payload?.message ||
+            "We could not record your choices. Please try again.",
+        );
+      }
+      dispatch({ type: "confirm-consent" });
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "We could not record your choices. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitLiveness() {
+    livenessCommandId.current ??= `liveness-${crypto.randomUUID()}`;
+    setSubmitting(true);
+    setRequestError(null);
+    try {
+      const capture = await captureLiveness();
+      const artifactResponse = await fetch(
+        "/api/verification/liveness/artifacts",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(capture),
+        },
+      );
+      const artifacts = (await artifactResponse.json().catch(() => null)) as {
+        voiceArtifactRef?: string;
+        faceArtifactRef?: string;
+        message?: string;
+      } | null;
+      if (
+        !artifactResponse.ok ||
+        !artifacts?.voiceArtifactRef ||
+        !artifacts.faceArtifactRef
+      ) {
+        throw new Error(
+          artifacts?.message ||
+            "The temporary secure capture could not be stored.",
+        );
+      }
+      const response = await fetch("/api/verification/liveness", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": livenessCommandId.current,
+        },
+        body: JSON.stringify({
+          voiceArtifactRef: artifacts.voiceArtifactRef,
+          faceArtifactRef: artifacts.faceArtifactRef,
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        status?: string;
+        message?: string;
+      } | null;
+      if (!response.ok && response.status !== 202) {
+        throw new Error(
+          result?.message || "The liveness check could not be completed.",
+        );
+      }
+      dispatch({
+        type: "complete-liveness",
+        outcome: result?.status === "passed" ? "live" : "uncertain",
+      });
+    } catch (error) {
+      const message =
+        error instanceof DOMException && error.name === "NotAllowedError"
+          ? "Camera and microphone permission are required for this check."
+          : error instanceof Error
+            ? error.message
+            : "The liveness check could not be completed.";
+      setRequestError(message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -99,20 +280,25 @@ export function OnboardingFlow() {
               </label>
               <button
                 disabled={
-                  state.stage === "phone"
+                  submitting ||
+                  (state.stage === "phone"
                     ? !/^0\d{9}$/.test(state.phone)
-                    : state.otp.length !== 6
+                    : state.otp.length !== 6)
                 }
-                onClick={() =>
-                  dispatch({
-                    type:
-                      state.stage === "phone" ? "request-code" : "verify-code",
-                  })
-                }
+                onClick={submitPhoneStep}
                 type="button"
               >
-                {state.stage === "phone" ? "Send my code" : "Verify code"}
+                {submitting
+                  ? "Please wait"
+                  : state.stage === "phone"
+                    ? "Send my code"
+                    : "Verify code"}
               </button>
+              {requestError && (
+                <p className="onboarding-error" role="alert">
+                  {requestError}
+                </p>
+              )}
             </section>
           )}
 
@@ -155,15 +341,21 @@ export function OnboardingFlow() {
               ))}
               <button
                 disabled={
+                  submitting ||
                   !state.acceptedPromise ||
                   !state.acceptedTerms ||
                   !state.affirmedAdult
                 }
-                onClick={() => dispatch({ type: "confirm-consent" })}
+                onClick={confirmConsent}
                 type="button"
               >
-                Accept and continue
+                {submitting ? "Recording your choices" : "Accept and continue"}
               </button>
+              {requestError && (
+                <p className="onboarding-error" role="alert">
+                  {requestError}
+                </p>
+              )}
             </section>
           )}
 
@@ -184,13 +376,27 @@ export function OnboardingFlow() {
                   ref={cardInput}
                 />
               </label>
+              <label>
+                Date of birth
+                <input
+                  autoComplete="bday"
+                  max={new Date().toISOString().slice(0, 10)}
+                  ref={birthDateInput}
+                  type="date"
+                />
+              </label>
               <div className="onboarding-note">
                 Raw card numbers and identity media are cleared after
                 submission.
               </div>
-              <button onClick={submitCard} type="button">
-                Submit securely
+              <button disabled={submitting} onClick={submitCard} type="button">
+                {submitting ? "Checking securely" : "Submit securely"}
               </button>
+              {requestError && (
+                <p className="onboarding-error" role="alert">
+                  {requestError}
+                </p>
+              )}
             </section>
           )}
 
@@ -231,14 +437,17 @@ export function OnboardingFlow() {
                 <span>I consent to this liveness check.</span>
               </label>
               <button
-                disabled={!state.livenessConsent}
-                onClick={() =>
-                  dispatch({ type: "complete-liveness", outcome: "live" })
-                }
+                disabled={!state.livenessConsent || submitting}
+                onClick={submitLiveness}
                 type="button"
               >
-                Begin check
+                {submitting ? "Camera check in progress" : "Begin check"}
               </button>
+              {requestError && (
+                <p className="onboarding-error" role="alert">
+                  {requestError}
+                </p>
+              )}
             </section>
           )}
 

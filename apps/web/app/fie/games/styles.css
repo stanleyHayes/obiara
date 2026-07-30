@@ -67,7 +67,31 @@
   gap: 10px;
   grid-template-columns: 1fr 1fr;
 }
-.games-list a {
+
+.competition-board {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.competition-board > div {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(52px, 1fr));
+  gap: 8px;
+}
+
+.competition-board > div button {
+  display: grid;
+  min-height: 64px;
+  place-content: center;
+}
+
+.competition-board small {
+  display: block;
+  font-size: 0.68rem;
+}
+.games-list a,
+.games-list article {
   background: #28161f;
   border-radius: 22px;
   color: #fff3e6;
@@ -76,6 +100,9 @@
   min-height: 230px;
   padding: 24px;
   text-decoration: none;
+}
+.games-list article {
+  background: #4b3942;
 }
 .games-list span {
   color: #ffb7c4;
@@ -193,6 +220,9 @@
   }
   .games-list {
     grid-template-columns: 1fr;
+  }
+  .competition-board > div {
+    grid-template-columns: repeat(3, 1fr);
   }
   .tournament {
     margin-inline: -10px;

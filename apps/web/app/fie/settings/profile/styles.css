@@ -131,6 +131,10 @@
   padding: clamp(1.4rem, 3vw, 2.2rem);
 }
 
+.profile-edit + .profile-edit {
+  margin-top: 1.5rem;
+}
+
 .profile-edit h2 {
   font-size: 1.55rem;
   letter-spacing: -0.025em;

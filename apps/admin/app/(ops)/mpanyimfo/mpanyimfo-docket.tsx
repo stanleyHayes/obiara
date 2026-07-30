@@ -6,25 +6,44 @@ import {
   Button,
   Card,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useReducer } from "react";
 
-import { docketReducer, initialDocketState } from "./docket-model";
+const dimensions = [
+  [
+    "Harassment response",
+    "Evidence that reports receive timely, proportionate human handling.",
+  ],
+  [
+    "Coercion resistance",
+    "Evidence that product and operations controls resist financial or relationship coercion.",
+  ],
+  [
+    "Privacy control",
+    "Evidence that members can understand and exercise purpose-bound privacy choices.",
+  ],
+  [
+    "Reporting access",
+    "Evidence that reporting remains reachable across supported journeys.",
+  ],
+  [
+    "Care access",
+    "Evidence that care remains separate from enforcement and offers approved resources.",
+  ],
+] as const;
+
+const gaps = [
+  "Cohort below reviewed minimum",
+  "Response rate below reviewed minimum",
+  "Configured dimension missing",
+  "Evidence count below dimension minimum",
+  "Women-reviewer coverage incomplete",
+  "Observed gap acknowledgement incomplete",
+] as const;
 
 export function MpanyimfoDocket() {
-  const [state, dispatch] = useReducer(docketReducer, initialDocketState);
-  const activeVotes = state.seats.filter(
-    (seat) => !seat.recused && seat.vote,
-  ).length;
-
   return (
     <main className="verification-shell mpanyimfo-shell">
       <header className="verification-header">
@@ -32,212 +51,142 @@ export function MpanyimfoDocket() {
           <Link href="/" className="verification-back">
             Return to command centre
           </Link>
-          <Typography className="section-kicker">Mpanyimfo docket</Typography>
+          <Typography className="section-kicker">
+            Mpanyimfo · evidence boundary
+          </Typography>
           <Typography component="h1">
-            A ruling needs more than one voice.
+            Women-led review without invented authority.
           </Typography>
           <Typography>
-            Redacted records, conflict recusal, quorum and separate appeals
-            protect the review process.
+            The implemented service evaluates redacted cohort evidence against a
+            current, versioned definition and substantive women-reviewer
+            approval. It is not a case docket.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Chip label={`Docket ${state.caseId}`} />
-          <Chip
-            color={state.status === "deliberating" ? "warning" : "success"}
-            label={state.status}
-          />
+          <Chip color="success" label="Cohort-level only" />
+          <Chip label="Neutral outcomes" variant="outlined" />
         </Stack>
       </header>
 
-      {state.appealReference ? (
-        <Alert severity="success" className="verification-alert">
-          Appeal docket {state.appealReference} opened for a different human
-          panel. The original ruling remains intact.
-        </Alert>
-      ) : null}
+      <Alert severity="info" className="verification-alert">
+        The only implemented outcomes are <strong>evidence incomplete</strong>{" "}
+        and
+        <strong> ready for release review</strong>. Neither outcome releases a
+        market, blocks a member, changes an account, scores a person, or decides
+        an appeal.
+      </Alert>
 
       <Card className="mpanyimfo-record">
         <Box className="verification-panel-heading">
           <Box>
-            <Typography className="section-kicker">Redacted record</Typography>
+            <Typography className="section-kicker">
+              Current policy shape
+            </Typography>
             <Typography component="h2">
-              Proportionality review for SAFE-8Q2M
+              Representative evidence needs complete coverage.
             </Typography>
           </Box>
-          <Chip label="Reporter hidden" />
+          <Chip label="Version-pinned" />
         </Box>
-        <Box className="verification-facts">
-          <Box>
-            <Typography>Original action</Typography>
-            <Typography component="strong">
-              Temporary messaging restriction
-            </Typography>
-          </Box>
-          <Box>
-            <Typography>Evidence scope</Typography>
-            <Typography component="strong">3 bounded references</Typography>
-          </Box>
-          <Box>
-            <Typography>Appeal window</Typography>
-            <Typography component="strong">Open for 7 days</Typography>
-          </Box>
-        </Box>
-        <Alert severity="info">
-          No raw messages, reporter identity, counsel content or device graph is
-          visible in this docket.
-        </Alert>
+        <Typography sx={{ color: "text.secondary", maxWidth: 820 }}>
+          Every assessment revalidates the current reviewed definition, exact
+          aggregate version, reviewer authority, configured dimensions, minimum
+          cohort and response thresholds, and acknowledgement of every observed
+          gap before recording a result.
+        </Typography>
       </Card>
 
-      <Box className="mpanyimfo-grid">
-        <Card>
-          <Box className="verification-panel-heading">
-            <Typography component="h2">Panel and recusal</Typography>
-            <Chip label={`${activeVotes} votes recorded`} />
-          </Box>
-          <Stack spacing={1.5}>
-            {state.seats.map((seat) => (
-              <Box className="elder-seat" key={seat.id}>
-                <Box>
-                  <Typography component="strong">{seat.label}</Typography>
-                  <Typography>
-                    {seat.recused
-                      ? "Recused from this docket"
-                      : seat.vote
-                        ? `Vote: ${seat.vote}`
-                        : "No vote recorded"}
-                  </Typography>
-                </Box>
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    disabled={state.status !== "deliberating"}
-                    onClick={() =>
-                      dispatch({ type: "toggle-recusal", elderId: seat.id })
-                    }
-                    variant="text"
-                  >
-                    {seat.recused ? "Restore seat" : "Recuse"}
-                  </Button>
-                  <Button
-                    disabled={seat.recused || state.status !== "deliberating"}
-                    onClick={() =>
-                      dispatch({
-                        type: "vote",
-                        elderId: seat.id,
-                        vote: "uphold",
-                      })
-                    }
-                    variant="outlined"
-                  >
-                    Uphold
-                  </Button>
-                  <Button
-                    disabled={seat.recused || state.status !== "deliberating"}
-                    onClick={() =>
-                      dispatch({
-                        type: "vote",
-                        elderId: seat.id,
-                        vote: "revise",
-                      })
-                    }
-                    variant="outlined"
-                  >
-                    Revise
-                  </Button>
-                </Stack>
+      <Box
+        sx={{
+          display: "grid",
+          gap: 1.5,
+          gridTemplateColumns: { xs: "1fr", md: "repeat(2,1fr)" },
+          mt: 3,
+        }}
+      >
+        <Card sx={{ p: 3 }}>
+          <Typography className="section-kicker">
+            Reviewed dimensions
+          </Typography>
+          <Typography
+            component="h2"
+            sx={{ fontSize: 24, fontWeight: 800, mb: 2 }}
+          >
+            What the aggregate may cover
+          </Typography>
+          <Stack spacing={1.25}>
+            {dimensions.map(([title, description]) => (
+              <Box
+                key={title}
+                sx={{
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                  pb: 1.25,
+                }}
+              >
+                <Typography sx={{ fontWeight: 800 }}>{title}</Typography>
+                <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+                  {description}
+                </Typography>
               </Box>
             ))}
           </Stack>
         </Card>
-
-        <Card>
-          <Box className="verification-panel-heading">
-            <Typography component="h2">Reasoned ruling</Typography>
-            <Chip label="Two matching votes required" />
-          </Box>
-          {state.status === "deliberating" ? (
-            <Stack spacing={2}>
-              <TextField
-                helperText="At least 20 characters. Explain proportionality and process."
-                label="Panel reason"
-                multiline
-                onChange={(event) =>
-                  dispatch({
-                    type: "ruling-reason",
-                    value: event.target.value,
-                  })
-                }
-                rows={5}
-                value={state.rulingReason}
-              />
-              <Button
-                disabled={state.rulingReason.trim().length < 20}
-                onClick={() => dispatch({ type: "confirm-ruling" })}
-                variant="contained"
+        <Card sx={{ p: 3 }}>
+          <Typography className="section-kicker">
+            Fail-closed gap codes
+          </Typography>
+          <Typography
+            component="h2"
+            sx={{ fontSize: 24, fontWeight: 800, mb: 2 }}
+          >
+            Why evidence remains incomplete
+          </Typography>
+          <Stack spacing={1}>
+            {gaps.map((gap) => (
+              <Box
+                key={gap}
+                sx={{ alignItems: "center", display: "flex", gap: 1.25 }}
               >
-                Record quorum ruling
-              </Button>
-            </Stack>
-          ) : (
-            <Stack spacing={2}>
-              <Alert severity="success">
-                Ruling recorded: {state.ruling}. The reason and panel votes are
-                immutable in this view.
-              </Alert>
-              <Typography>{state.rulingReason}</Typography>
-              <Button
-                disabled={state.status === "appealed"}
-                onClick={() => dispatch({ type: "request-appeal" })}
-                variant="outlined"
-              >
-                Open separate appeal
-              </Button>
-            </Stack>
-          )}
+                <Chip color="warning" label="gap" size="small" />
+                <Typography>{gap}</Typography>
+              </Box>
+            ))}
+          </Stack>
         </Card>
       </Box>
 
-      <Dialog
-        aria-labelledby="appeal-docket-title"
-        fullWidth
-        maxWidth="sm"
-        onClose={() => dispatch({ type: "cancel-appeal" })}
-        open={state.appealPending}
-      >
-        <DialogTitle id="appeal-docket-title">
-          Open a separate appeal docket
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <Alert severity="info">
-              The appeal goes to a different human panel. It does not erase or
-              overwrite the original ruling.
-            </Alert>
-            <TextField
-              helperText="At least 20 characters."
-              label="Appeal grounds"
-              multiline
-              onChange={(event) =>
-                dispatch({ type: "appeal-reason", value: event.target.value })
-              }
-              rows={4}
-              value={state.appealReason}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => dispatch({ type: "cancel-appeal" })}>
-            Go back
-          </Button>
-          <Button
-            disabled={state.appealReason.trim().length < 20}
-            onClick={() => dispatch({ type: "confirm-appeal" })}
-            variant="contained"
-          >
-            Confirm appeal docket
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <Box className="mpanyimfo-grid" sx={{ mt: 3 }}>
+        <Alert severity="success">
+          <strong>Representable:</strong> bounded aggregate counts, versioned
+          definitions, complete dimension coverage, opaque cohort/reviewer keys,
+          reviewed gaps, and a neutral readiness assessment.
+        </Alert>
+        <Alert severity="warning">
+          <strong>Never representable:</strong> raw content, identity, member
+          scores, subgroup microdata, hidden ranks, vendor/model decisions,
+          automatic enforcement, release authority, or adjudication.
+        </Alert>
+      </Box>
+
+      <Card className="mpanyimfo-record" sx={{ mt: 3 }}>
+        <Typography className="section-kicker">
+          Uncomposed panel authority
+        </Typography>
+        <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
+          Dockets and appeals need their own system of record.
+        </Typography>
+        <Typography sx={{ color: "text.secondary", my: 1.5 }}>
+          No persisted docket, conflict declaration, panel-seat authority, vote,
+          ruling, member appeal, separate appeal panel, or immutable ruling
+          record is composed. Those capabilities remain unavailable instead of
+          being simulated in this browser.
+        </Typography>
+        <Button component={Link} href="/safety" variant="outlined">
+          Open the real safety queue
+        </Button>
+      </Card>
     </main>
   );
 }

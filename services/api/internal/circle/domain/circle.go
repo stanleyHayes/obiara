@@ -306,11 +306,17 @@ func (circle Circle) transition(memberID string, target MembershipState, command
 	if creating && command.ActorID != memberID {
 		return Circle{}, ErrAccessDenied
 	}
-	if !creating && target != StateRequested && !circle.canManage(command.ActorID) && command.ActorID != memberID {
-		return Circle{}, ErrAccessDenied
-	}
-	if target == StateRequested && command.ActorID != memberID {
-		return Circle{}, ErrAccessDenied
+	if !creating {
+		switch target {
+		case StateRequested, StateLeft:
+			if command.ActorID != memberID {
+				return Circle{}, ErrAccessDenied
+			}
+		default:
+			if !circle.canManage(command.ActorID) {
+				return Circle{}, ErrAccessDenied
+			}
+		}
 	}
 	next := circle.clone()
 	revision := circle.revision + 1

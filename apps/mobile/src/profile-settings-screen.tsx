@@ -1,5 +1,5 @@
 import { type Href, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { apiRequest } from "./api";
 
 const palette = {
   plum: "#3A0E2E",
@@ -20,15 +21,6 @@ const palette = {
   green: "#12876B",
   muted: "#765F70",
   line: "rgba(58, 14, 46, 0.11)",
-};
-
-const account = {
-  memberRef: "member···92K",
-  displayName: "Ama Serwaa",
-  verification: "Ghana Card · verified",
-  tier: "Tier 2 · sowing",
-  host: "Active",
-  joined: "Mar 2026",
 };
 
 const displayNameLimit = 80;
@@ -46,14 +38,52 @@ type Visibility = (typeof visibilityOptions)[number]["value"];
 
 export function ProfileSettingsScreen() {
   const router = useRouter();
-  const [displayName, setDisplayName] = useState(account.displayName);
-  const [introduction, setIntroduction] = useState(
-    "Teacher in Accra. I cook groundnut soup for people I like.",
-  );
-  const [nameVisibility, setNameVisibility] = useState<Visibility>("circles");
+  const [memberRef, setMemberRef] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [introduction, setIntroduction] = useState("");
+  const [nameVisibility, setNameVisibility] = useState<Visibility>("private");
   const [introVisibility, setIntroVisibility] = useState<Visibility>("private");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const commandID = useRef<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void apiRequest<{
+      memberId: string;
+      displayName: string | null;
+      introduction: string | null;
+      displayNameVisibility: Visibility;
+      introductionVisibility: Visibility;
+      revision: number;
+    }>("/v1/profile")
+      .then((profile) => {
+        if (!active) return;
+        setMemberRef(profile.memberId);
+        setDisplayName(profile.displayName ?? "");
+        setIntroduction(profile.introduction ?? "");
+        setNameVisibility(profile.displayNameVisibility);
+        setIntroVisibility(profile.introductionVisibility);
+        setRevision(profile.revision);
+      })
+      .catch((loadError: unknown) => {
+        if (active)
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Your profile could not be loaded.",
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const initials =
     displayName
@@ -61,9 +91,9 @@ export function ProfileSettingsScreen() {
       .map((part) => part[0] ?? "")
       .join("")
       .slice(0, 2)
-      .toUpperCase() || "AS";
+      .toUpperCase() || "—";
 
-  function save() {
+  async function save() {
     const name = displayName.trim();
     if (name === "") {
       setError("A display name is required. It is how your circle knows you.");
@@ -89,8 +119,46 @@ export function ProfileSettingsScreen() {
       setSaved(false);
       return;
     }
+    commandID.current ??= `profile-${Date.now()}`;
+    setSaving(true);
     setError(null);
-    setSaved(true);
+    try {
+      const profile = await apiRequest<{
+        memberId: string;
+        displayName: string | null;
+        introduction: string | null;
+        displayNameVisibility: Visibility;
+        introductionVisibility: Visibility;
+        revision: number;
+      }>("/v1/profile", {
+        method: "PUT",
+        headers: { "Idempotency-Key": commandID.current },
+        body: JSON.stringify({
+          displayName: name,
+          introduction: introduction.trim(),
+          displayNameVisibility: nameVisibility,
+          introductionVisibility: introVisibility,
+          expectedRevision: revision,
+        }),
+      });
+      setMemberRef(profile.memberId);
+      setDisplayName(profile.displayName ?? "");
+      setIntroduction(profile.introduction ?? "");
+      setNameVisibility(profile.displayNameVisibility);
+      setIntroVisibility(profile.introductionVisibility);
+      setRevision(profile.revision);
+      commandID.current = null;
+      setSaved(true);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Your profile could not be saved.",
+      );
+      setSaved(false);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -111,24 +179,21 @@ export function ProfileSettingsScreen() {
             </View>
             <View>
               <Text style={styles.identityName}>
-                {displayName || account.displayName}
+                {displayName || (loading ? "Loading…" : "Create your profile")}
               </Text>
               <Text style={styles.identityMeta}>
-                {account.verification} · host
+                {revision ? `Revision ${revision}` : "Private until you save"}
               </Text>
             </View>
           </View>
-          {[
-            ["Member reference", account.memberRef],
-            ["Tier", account.tier],
-            ["Host capability", account.host],
-            ["Member since", account.joined],
-          ].map(([label, value]) => (
-            <View key={label} style={styles.fact}>
-              <Text style={styles.factLabel}>{label}</Text>
-              <Text style={styles.factValue}>{value}</Text>
-            </View>
-          ))}
+          {[["Member reference", memberRef || "Not created"]].map(
+            ([label, value]) => (
+              <View key={label} style={styles.fact}>
+                <Text style={styles.factLabel}>{label}</Text>
+                <Text style={styles.factValue}>{value}</Text>
+              </View>
+            ),
+          )}
         </View>
 
         <View style={styles.card}>
@@ -141,6 +206,7 @@ export function ProfileSettingsScreen() {
             onChangeText={(value) => {
               setDisplayName(value);
               setSaved(false);
+              commandID.current = null;
             }}
             style={styles.input}
             value={displayName}
@@ -154,7 +220,11 @@ export function ProfileSettingsScreen() {
                   selected: nameVisibility === option.value,
                 }}
                 key={option.value}
-                onPress={() => setNameVisibility(option.value)}
+                onPress={() => {
+                  setNameVisibility(option.value);
+                  setSaved(false);
+                  commandID.current = null;
+                }}
                 style={[
                   styles.choice,
                   nameVisibility === option.value && styles.choiceActive,
@@ -180,6 +250,7 @@ export function ProfileSettingsScreen() {
             onChangeText={(value) => {
               setIntroduction(value);
               setSaved(false);
+              commandID.current = null;
             }}
             style={[styles.input, styles.inputMultiline]}
             value={introduction}
@@ -193,7 +264,11 @@ export function ProfileSettingsScreen() {
                   selected: introVisibility === option.value,
                 }}
                 key={option.value}
-                onPress={() => setIntroVisibility(option.value)}
+                onPress={() => {
+                  setIntroVisibility(option.value);
+                  setSaved(false);
+                  commandID.current = null;
+                }}
                 style={[
                   styles.choice,
                   introVisibility === option.value && styles.choiceActive,
@@ -220,8 +295,14 @@ export function ProfileSettingsScreen() {
               Profile saved. Your circle sees the change on their next view.
             </Text>
           ) : null}
-          <Pressable onPress={save} style={styles.saveButton}>
-            <Text style={styles.saveButtonText}>Save changes</Text>
+          <Pressable
+            disabled={loading || saving}
+            onPress={() => void save()}
+            style={[styles.saveButton, (loading || saving) && styles.pressed]}
+          >
+            <Text style={styles.saveButtonText}>
+              {saving ? "Saving securely…" : "Save changes"}
+            </Text>
           </Pressable>
         </View>
 
@@ -242,6 +323,16 @@ export function ProfileSettingsScreen() {
               "Suban",
               "Your character marks and history",
               "/fie/settings/suban",
+            ],
+            [
+              "Privacy and data",
+              "Export, deletion and request status",
+              "/fie/settings/privacy",
+            ],
+            [
+              "Consent controls",
+              "Purpose-bound processing choices",
+              "/fie/settings/consent",
             ],
           ].map(([label, detail, href]) => (
             <Pressable

@@ -13,14 +13,44 @@ import {
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useReducer } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 
 import {
   analyticsReducer,
   initialAnalyticsState,
-  releaseBlocked,
   type GateMetric,
 } from "./analytics-model";
+
+type FunnelReport = {
+  windowDays: number;
+  podsHeardRate: number;
+  seedToSproutRate: number;
+  sproutToRoomRate: number;
+  fireAttendeeCount: number;
+  fireAttendanceRate: number;
+  regretCount: number;
+  regretTrend: string;
+  computedAt: string;
+};
+
+function percentMetric(
+  id: string,
+  label: string,
+  rate: number,
+  threshold: number,
+): GateMetric {
+  const percent = Math.round(rate * 1000) / 10;
+  return {
+    id,
+    label,
+    numerator: Math.round(rate * 1000),
+    denominator: 1000,
+    threshold: `≥ ${threshold}%`,
+    value: `${percent}%`,
+    complete: true,
+    passes: percent >= threshold,
+  };
+}
 
 function Metric({ metric }: Readonly<{ metric: GateMetric }>) {
   const progress =
@@ -74,7 +104,44 @@ function Metric({ metric }: Readonly<{ metric: GateMetric }>) {
 
 export function AnalyticsDashboard() {
   const [state, dispatch] = useReducer(analyticsReducer, initialAnalyticsState);
-  const blocked = releaseBlocked(state);
+  const [report, setReport] = useState<FunnelReport | null>(null);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/analytics?days=30", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as FunnelReport & {
+          message?: string;
+        };
+        if (!response.ok) throw new Error(payload.message);
+        setReport(payload);
+      })
+      .catch((error: unknown) => {
+        if ((error as Error).name !== "AbortError") {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : "Funnel evidence could not load.",
+          );
+        }
+      });
+    return () => controller.abort();
+  }, []);
+
+  const liveGates = useMemo<readonly GateMetric[]>(() => {
+    if (!report) return [];
+    return [
+      percentMetric("pods", "Pods heard", report.podsHeardRate, 65),
+      percentMetric("seed", "Seed to sprout", report.seedToSproutRate, 25),
+      percentMetric("room", "Sprout to room", report.sproutToRoomRate, 35),
+      percentMetric("fire", "Weekly fire", report.fireAttendanceRate, 40),
+    ];
+  }, [report]);
+  const blocked = !report || liveGates.some((metric) => !metric.passes);
   return (
     <Box
       sx={{
@@ -118,7 +185,9 @@ export function AnalyticsDashboard() {
               Evidence before expansion.
             </Typography>
             <Typography sx={{ color: "#69535d", mt: 2 }}>
-              {state.window} · {state.snapshotRef}
+              {report
+                ? `${report.windowDays}-day live window · computed ${new Date(report.computedAt).toLocaleString()}`
+                : "Loading live aggregate evidence…"}
             </Typography>
           </Box>
           <Link href="/">
@@ -136,6 +205,11 @@ export function AnalyticsDashboard() {
           Missing evidence and failed thresholds cannot be overridden from this
           dashboard.
         </Alert>
+        {loadError ? (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            {loadError}
+          </Alert>
+        ) : null}
 
         <Typography
           component="h2"
@@ -150,7 +224,7 @@ export function AnalyticsDashboard() {
             gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0,1fr))" },
           }}
         >
-          {state.gates.map((metric) => (
+          {liveGates.map((metric) => (
             <Metric key={metric.id} metric={metric} />
           ))}
         </Box>
@@ -159,7 +233,7 @@ export function AnalyticsDashboard() {
           component="h2"
           sx={{ fontSize: 30, fontWeight: 800, mb: 2, mt: 5 }}
         >
-          Quarterly fairness, regret and safety
+          Regret and unavailable release evidence
         </Typography>
         <Box
           sx={{
@@ -168,9 +242,31 @@ export function AnalyticsDashboard() {
             gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0,1fr))" },
           }}
         >
-          {state.fairness.map((metric) => (
-            <Metric key={metric.id} metric={metric} />
-          ))}
+          {report ? (
+            <Card variant="outlined" sx={{ borderRadius: 1, p: 2.5 }}>
+              <Typography
+                sx={{ color: "text.secondary", fontSize: 13, fontWeight: 700 }}
+              >
+                Regret reports
+              </Typography>
+              <Typography
+                component="strong"
+                sx={{ display: "block", fontSize: 30, fontWeight: 800 }}
+              >
+                {report.regretCount}
+              </Typography>
+              <Chip
+                color={report.regretTrend === "down" ? "success" : "warning"}
+                label={`Trend ${report.regretTrend}`}
+                size="small"
+              />
+            </Card>
+          ) : null}
+          <Alert severity="warning">
+            D30 retention, fairness drift and unresolved safety-tier evidence
+            are not composed into this runtime report. They remain release
+            blockers; this desk does not invent substitute values.
+          </Alert>
         </Box>
 
         <Card

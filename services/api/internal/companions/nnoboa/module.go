@@ -25,12 +25,12 @@ func (f SenderFunc) Send(ctx context.Context, msg whatsappdomain.Message) error 
 }
 
 // NewModule constructs the slice.
-func NewModule(ctx context.Context, db *mongo.Database, sender application.NotificationSender) (*Module, error) {
+func NewModule(ctx context.Context, db *mongo.Database, sender application.NotificationSender, inviteSecret string) (*Module, error) {
 	repo, err := mongodb.NewNominationRepository(ctx, db)
 	if err != nil {
 		return nil, err
 	}
 	return &Module{
-		Nominations: application.NewNominationService(repo, sender, func() time.Time { return time.Now().UTC() }),
+		Nominations: application.NewNominationService(repo, sender, func() time.Time { return time.Now().UTC() }, inviteSecret),
 	}, nil
 }

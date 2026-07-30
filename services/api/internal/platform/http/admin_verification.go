@@ -20,6 +20,10 @@ type AdminVerification interface {
 
 type AdminPrincipalResolver func(*http.Request) (admin.Principal, error)
 
+const adminOperationsScope = admin.ScopeOperations
+
+var errAdminOperationsForbidden = admin.ErrForbidden
+
 func RegisterAdminVerificationRoutes(mux *http.ServeMux, service AdminVerification, resolve AdminPrincipalResolver) {
 	mux.Handle("GET /v1/admin/verifications", adminVerificationQueueHandler(service, resolve))
 	mux.Handle("GET /v1/admin/verifications/{id}", adminVerificationDetailHandler(service, resolve))

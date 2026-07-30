@@ -17,10 +17,18 @@ func TestServiceRequestsMembershipAndMapsConflict(t *testing.T) {
 	now := testNow().Add(time.Minute)
 	service := NewService(repository, func() time.Time { return now })
 	circle := applicationCircle(t)
-	command := Command{ID: "request-1", CircleID: "circle-1", ActorID: "member-1", ExpectedRevision: 1}
+	circle, err := circle.SetVisibility(domain.VisibilityDiscoverable, domain.Command{
+		ID: "visibility-1", ActorID: "owner-1", Kind: "circle.visibility",
+		Payload: string(domain.VisibilityDiscoverable), ExpectedRevision: circle.Revision(),
+		RecordedAt: testNow().Add(30 * time.Second),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := Command{ID: "request-1", CircleID: "circle-1", ActorID: "member-1", ExpectedRevision: circle.Revision()}
 
 	repository.EXPECT().Find(gomock.Any(), "circle-1").Return(circle, nil)
-	repository.EXPECT().Save(gomock.Any(), gomock.Any(), uint64(1), "request-1").Return(nil)
+	repository.EXPECT().Save(gomock.Any(), gomock.Any(), circle.Revision(), "request-1").Return(nil)
 	result, err := service.Request(context.Background(), command)
 	if err != nil || result.Circle.Allows("member-1", domain.CapabilityView) {
 		t.Fatalf("result = %#v, error = %v", result, err)
@@ -29,7 +37,7 @@ func TestServiceRequestsMembershipAndMapsConflict(t *testing.T) {
 	command.ID = "request-2"
 	command.ActorID = "member-2"
 	repository.EXPECT().Find(gomock.Any(), "circle-1").Return(circle, nil)
-	repository.EXPECT().Save(gomock.Any(), gomock.Any(), uint64(1), "request-2").Return(ErrOptimisticConflict)
+	repository.EXPECT().Save(gomock.Any(), gomock.Any(), circle.Revision(), "request-2").Return(ErrOptimisticConflict)
 	if _, err := service.Request(context.Background(), command); !errors.Is(err, domain.ErrStaleRevision) {
 		t.Fatalf("error = %v, want %v", err, domain.ErrStaleRevision)
 	}
@@ -48,6 +56,21 @@ func TestServiceAccessIsDenyByDefault(t *testing.T) {
 	allowed, err = service.Allows(context.Background(), "circle-1", "owner-1", domain.CapabilityManage)
 	if err != nil || !allowed {
 		t.Fatalf("owner access = %v, error = %v", allowed, err)
+	}
+}
+
+func TestServiceDoesNotAcceptRequestsByPrivateReference(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	repository := NewMockRepository(ctrl)
+	service := NewService(repository, time.Now)
+	circle := applicationCircle(t)
+	repository.EXPECT().Find(gomock.Any(), "circle-1").Return(circle, nil)
+
+	_, err := service.Request(context.Background(), Command{
+		ID: "request-private", CircleID: "circle-1", ActorID: "member-1", ExpectedRevision: circle.Revision(),
+	})
+	if !errors.Is(err, domain.ErrAccessDenied) {
+		t.Fatalf("private request error = %v, want %v", err, domain.ErrAccessDenied)
 	}
 }
 

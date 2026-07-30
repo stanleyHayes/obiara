@@ -5,6 +5,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -12,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/suban/domain"
+	explanationapp "github.com/stanleyHayes/obiara/services/api/internal/suban/explanation/application"
 )
 
 type Store struct {
@@ -85,6 +87,22 @@ func (store *Store) ListForSubject(ctx context.Context, subjectID string) ([]dom
 		})
 	}
 	return events, cursor.Err()
+}
+
+func (store *Store) FindForSubject(ctx context.Context, subjectID, eventID string) (domain.Event, error) {
+	var doc document
+	err := store.collection().FindOne(ctx, bson.M{"_id": eventID, "subjectId": subjectID}).Decode(&doc)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return domain.Event{}, explanationapp.ErrNotFound
+	}
+	if err != nil {
+		return domain.Event{}, err
+	}
+	return domain.Event{
+		ID: doc.ID, SubjectID: doc.SubjectID, Kind: domain.Kind(doc.Kind),
+		Provenance: domain.Provenance{Source: doc.Source, Ref: doc.Ref},
+		OccurredAt: doc.OccurredAt,
+	}, nil
 }
 
 func (store *Store) CountForSubjectSince(ctx context.Context, subjectID string, kind domain.Kind, since time.Time) (int, error) {

@@ -19,6 +19,14 @@ func NewTierService(accounts AccountRepository, now func() time.Time) TierServic
 	return TierService{accounts: accounts, now: now}
 }
 
+func (service TierService) Tier(ctx context.Context, accountID string) (domain.Tier, error) {
+	account, err := service.accounts.FindByID(ctx, accountID)
+	if err != nil {
+		return domain.TierUnverified, err
+	}
+	return account.Tier(), nil
+}
+
 // Transition moves the account to the target tier and returns the recorded
 // audit transition.
 func (service TierService) Transition(ctx context.Context, accountID string, target domain.Tier, reason, actorID string) (domain.TierTransition, error) {
