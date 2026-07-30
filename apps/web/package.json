@@ -29,7 +29,7 @@
     "@obiara/ui-web": "workspace:*",
     "next": "16.2.12",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@obiara/config-eslint": "workspace:*",
