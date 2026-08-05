@@ -3,6 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["OBIARA_API_BASE_URL", "NEXT_PUBLIC_API_BASE_URL"],
       "outputs": [".next/**", "dist/**"]
     },
     "dev": {
