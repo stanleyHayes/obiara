@@ -5,11 +5,13 @@ import { createObiaraClient } from "@obiara/api-client";
 const fallbackApiBaseUrl = "http://127.0.0.1:8080";
 
 export function apiBaseUrl(): string {
-  return (
+  const configured =
     process.env.OBIARA_API_BASE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
-    fallbackApiBaseUrl
-  );
+    process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  if (process.env.NODE_ENV === "production" && !configured) {
+    throw new Error("OBIARA_API_BASE_URL is required in production");
+  }
+  return configured || fallbackApiBaseUrl;
 }
 
 export function apiClient() {

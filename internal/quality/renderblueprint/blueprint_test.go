@@ -74,7 +74,7 @@ func load(t *testing.T) (blueprint, string) {
 	return parsed, string(raw)
 }
 
-func TestProtectedSyntheticStagingTopology(t *testing.T) {
+func TestProtectedBackendOnlyProductionTopology(t *testing.T) {
 	parsed, _ := load(t)
 	if parsed.Previews.Generation != "manual" || parsed.Previews.ExpireAfterDays != 7 {
 		t.Fatalf("preview policy = %#v", parsed.Previews)
@@ -83,15 +83,15 @@ func TestProtectedSyntheticStagingTopology(t *testing.T) {
 		t.Fatalf("projects = %#v", parsed.Projects)
 	}
 	environments := parsed.Projects[0].Environments
-	if len(environments) != 1 || environments[0].Name != "staging" {
-		t.Fatalf("production must remain absent; environments = %#v", environments)
+	if len(environments) != 1 || environments[0].Name != "production" {
+		t.Fatalf("production environment = %#v", environments)
 	}
 	env := environments[0]
 	if env.Networking.Isolation != "enabled" || env.Permissions.Protection != "enabled" {
-		t.Fatal("staging must be network-isolated and protected")
+		t.Fatal("production must be network-isolated and protected")
 	}
-	if len(env.Services) != 4 {
-		t.Fatalf("services = %d, want api, worker, web and admin", len(env.Services))
+	if len(env.Services) != 2 {
+		t.Fatalf("services = %d, want backend api and worker only", len(env.Services))
 	}
 }
 
@@ -107,25 +107,24 @@ func TestServicesArePinnedStatelessAndCheckGated(t *testing.T) {
 		if candidate.Region != "frankfurt" {
 			t.Fatalf("%s region = %q", candidate.Name, candidate.Region)
 		}
-		if candidate.AutoDeployTrigger != "checksPass" {
+		if candidate.AutoDeployTrigger != "off" {
 			t.Fatalf("%s deploy trigger = %q", candidate.Name, candidate.AutoDeployTrigger)
 		}
 		if candidate.NumInstances != 1 || candidate.BuildCommand == "" || candidate.StartCommand == "" {
 			t.Fatalf("%s missing pinned build/start/scale", candidate.Name)
 		}
 	}
-	api := seen["obiara-api-staging"]
+	api := seen["obiara-api-production"]
 	if api.Type != "web" || api.Runtime != "go" || api.HealthCheckPath != "/live" {
 		t.Fatalf("api = %#v", api)
 	}
-	worker := seen["obiara-worker-staging"]
+	worker := seen["obiara-worker-production"]
 	if worker.Type != "worker" || worker.Runtime != "go" || worker.HealthCheckPath != "" {
 		t.Fatalf("worker = %#v", worker)
 	}
-	for _, name := range []string{"obiara-web-staging", "obiara-admin-staging"} {
-		service := seen[name]
-		if service.Type != "web" || service.Runtime != "node" || service.HealthCheckPath != "/" {
-			t.Fatalf("%s = %#v", name, service)
+	for name, service := range seen {
+		if service.Runtime == "node" {
+			t.Fatalf("frontend service %s remains in Render: %#v", name, service)
 		}
 	}
 }
@@ -148,8 +147,7 @@ func TestSecretsArePromptedAndNeverCommitted(t *testing.T) {
 				variable.Key == "LIVENESS_HMAC_SECRET" ||
 				variable.Key == "COMMERCE_HMAC_SECRET" ||
 				variable.Key == "ADMIN_HMAC_SECRET" ||
-				variable.Key == "OTEL_EXPORTER_OTLP_ENDPOINT" ||
-				variable.Key == "NEXT_PUBLIC_API_BASE_URL" {
+				variable.Key == "OTEL_EXPORTER_OTLP_ENDPOINT" {
 				if variable.Sync == nil || *variable.Sync {
 					t.Fatalf("%s %s must use sync:false", candidate.Name, variable.Key)
 				}
@@ -172,9 +170,9 @@ func TestApiAndWorkerUseIndependentCredentialSlots(t *testing.T) {
 				continue
 			}
 			switch candidate.Name {
-			case "obiara-api-staging":
+			case "obiara-api-production":
 				apiURI = variable.Sync
-			case "obiara-worker-staging":
+			case "obiara-worker-production":
 				workerURI = variable.Sync
 			}
 		}

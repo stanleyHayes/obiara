@@ -1,7 +1,7 @@
 # Release qualification, promotion and rollback
 
 - Owner: Platform engineering
-- Last reviewed: 2026-07-27
+- Last reviewed: 2026-08-05
 - Workflow: [Release evidence](../../.github/workflows/release-evidence.yml)
 - Production status: **blocked**
 
@@ -24,13 +24,15 @@ free-form release notes do not belong in workflow inputs or artifacts.
 | ---------- | ---------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Preview    | Manual Blueprint preview plus manual evidence run                | Seven-day, synthetic-data review boundary            | Successful evidence artifact and preview URL recorded in the change record                                                                        | Delete preview; no durable truth exists there                                      |
 | Staging    | Render `checksPass` from current `main` plus manual evidence run | Protected, network-isolated synthetic staging deploy | Evidence artifact, `/live`, dependency-aware `/ready`, UAT result and change record                                                               | Select the last known-good SHA in Render; re-run readiness and record the incident |
-| Production | None                                                             | Blocked before evidence generation or deployment     | Signed residency/DPIA/provider/recovery/cost gates, approved production topology ADR, founder approval and protected GitHub environment reviewers | Must be defined and rehearsed before production topology is added                  |
+| Production | Manual Render deploy only; Blueprint auto-deploy is `off`        | Configuration exists; traffic remains blocked        | Signed residency/DPIA/provider/recovery/cost gates, approved production topology ADR, founder approval and protected GitHub environment reviewers | Restore the recorded known-good SHA and re-run `/live` and `/ready`                |
 
 Production is intentionally present as a workflow choice so attempts are
 visible and fail closed. The qualification script exits before creating an
-artifact, and the repository has no production Render service to mutate.
+artifact. The repository has a backend-only production API/worker definition,
+but both services require an explicit manual deploy and complete secret input.
 GitHub environment protection is an additional approval boundary, not a
-substitute for the missing production gates.
+substitute for the remaining production gates. Vercel owns all frontend
+deployments; Render must not create a frontend service.
 
 ## Staging promotion
 

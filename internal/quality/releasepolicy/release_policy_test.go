@@ -75,14 +75,17 @@ func TestQualificationRequiresAllChecksAndBlocksProduction(t *testing.T) {
 	}
 }
 
-func TestBlueprintHasNoProductionMutationTarget(t *testing.T) {
+func TestBlueprintProductionTargetIsBackendOnlyAndManual(t *testing.T) {
 	raw := read(t, "render.yaml")
-	if strings.Contains(raw, "- name: production") ||
-		strings.Contains(raw, "obiara-api-production") {
-		t.Fatal("production topology must remain absent")
+	for _, required := range []string{"- name: production", "obiara-api-production", "obiara-worker-production", "autoDeployTrigger: off"} {
+		if !strings.Contains(raw, required) {
+			t.Fatalf("production backend blueprint missing %q", required)
+		}
 	}
-	if !strings.Contains(raw, "autoDeployTrigger: checksPass") {
-		t.Fatal("staging must remain checks-pass gated")
+	for _, forbidden := range []string{"obiara-web-", "obiara-admin-", "runtime: node"} {
+		if strings.Contains(raw, forbidden) {
+			t.Fatalf("Render must not host frontend resource %q", forbidden)
+		}
 	}
 }
 

@@ -1979,3 +1979,23 @@ production URLs, final privacy/legal attestations, physical-device screenshots
 and qualification, reviewer credentials, signed AAB/IPA uploads, console forms
 and store review remain external gates; the repository does not falsely mark
 the app as submitted or accepted.
+
+Production hosting-preparation evidence (2026-08-05): `render.yaml` is now a
+backend-only production Blueprint containing exactly the protected Go API and
+worker; all Node/member/admin/marketing hosting was removed. Both services use
+manual `autoDeployTrigger: off`, immutable Render commit identity, independent
+least-privilege Mongo credential slots, the shared `obiara_production` logical
+database, required rotating secret slots and optional OTLP/LiveKit bindings.
+Payments and AI fail closed until their external production gates are approved.
+Render CLI validation returned `valid: true` with four actions, one environment
+group and the two expected services. Gitignored `.env.production` worksheets
+now exist locally for marketing, member web, admin, API and worker; tracked
+`.env.production.example` counterparts provide safe deployment manifests.
+Vercel owns all three Next.js applications, with root-directory and Production
+environment instructions in `deploy/vercel/README.md`; production BFF/API
+bindings now fail closed instead of silently calling localhost. Marketing,
+member and admin Vercel-shaped production builds and stripped native Go API and
+worker builds pass, as do the focused Blueprint, release-policy, secret-policy
+and API-config tests. Configuration readiness does not claim deployed Render or
+Vercel resources, provider/legal approval, real credentials, database restore
+evidence, live health checks or traffic activation.

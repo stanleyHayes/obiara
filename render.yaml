@@ -6,16 +6,16 @@ previews:
 projects:
   - name: obiara
     environments:
-      - name: staging
+      - name: production
         networking:
           isolation: enabled
         permissions:
           protection: enabled
         envVarGroups:
-          - name: obiara-staging-runtime
+          - name: obiara-production-runtime
             envVars:
               - key: APP_ENV
-                value: staging
+                value: production
               - key: MONGO_CONNECT_TIMEOUT
                 value: 10s
               - key: SHUTDOWN_TIMEOUT
@@ -27,13 +27,13 @@ projects:
               - key: FEATURE_FIRES_ENABLED
                 value: "true"
               - key: FEATURE_PAYMENTS_ENABLED
-                value: "true"
+                value: "false"
               - key: FEATURE_GATE_ENABLED
                 value: "true"
               - key: FEATURE_AI_ENABLED
                 value: "false"
         services:
-          - name: obiara-api-staging
+          - name: obiara-api-production
             type: web
             runtime: go
             region: frankfurt
@@ -41,7 +41,7 @@ projects:
             buildCommand: go build -trimpath -ldflags="-s -w" -o bin/obiara-api ./services/api
             startCommand: SERVICE_VERSION="${RENDER_GIT_COMMIT:?missing commit}" ./bin/obiara-api
             healthCheckPath: /live
-            autoDeployTrigger: checksPass
+            autoDeployTrigger: off
             numInstances: 1
             buildFilter:
               paths:
@@ -50,11 +50,11 @@ projects:
                 - internal/**
                 - services/api/**
             envVars:
-              - fromGroup: obiara-staging-runtime
+              - fromGroup: obiara-production-runtime
               - key: GO_VERSION
                 value: 1.26.5
               - key: MONGODB_DATABASE
-                value: obiara_staging
+                value: obiara_production
               - key: MONGODB_URI
                 sync: false
               - key: MONGODB_URI_ROTATED_AT
@@ -89,15 +89,19 @@ projects:
                 sync: false
               - key: CIRCLE_HMAC_SECRET_ROTATED_AT
                 sync: false
+              - key: LIVEKIT_API_KEY
+                sync: false
+              - key: LIVEKIT_API_SECRET
+                sync: false
 
-          - name: obiara-worker-staging
+          - name: obiara-worker-production
             type: worker
             runtime: go
             region: frankfurt
             plan: starter
             buildCommand: go build -trimpath -ldflags="-s -w" -o bin/obiara-worker ./services/worker
             startCommand: SERVICE_VERSION="${RENDER_GIT_COMMIT:?missing commit}" ./bin/obiara-worker
-            autoDeployTrigger: checksPass
+            autoDeployTrigger: off
             numInstances: 1
             buildFilter:
               paths:
@@ -106,62 +110,14 @@ projects:
                 - internal/**
                 - services/worker/**
             envVars:
-              - fromGroup: obiara-staging-runtime
+              - fromGroup: obiara-production-runtime
               - key: GO_VERSION
                 value: 1.26.5
               - key: MONGODB_DATABASE
-                value: obiara_staging
+                value: obiara_production
               - key: MONGODB_URI
                 sync: false
               - key: MONGODB_URI_ROTATED_AT
                 sync: false
               - key: OTEL_EXPORTER_OTLP_ENDPOINT
-                sync: false
-
-          - name: obiara-web-staging
-            type: web
-            runtime: node
-            region: frankfurt
-            plan: starter
-            buildCommand: corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @obiara/web build
-            startCommand: pnpm --filter @obiara/web start -- --hostname 0.0.0.0 --port "$PORT"
-            healthCheckPath: /
-            autoDeployTrigger: checksPass
-            numInstances: 1
-            buildFilter:
-              paths:
-                - package.json
-                - pnpm-lock.yaml
-                - pnpm-workspace.yaml
-                - turbo.json
-                - apps/web/**
-                - packages/**
-            envVars:
-              - key: NODE_VERSION
-                value: 22.13.0
-              - key: NEXT_PUBLIC_API_BASE_URL
-                sync: false
-
-          - name: obiara-admin-staging
-            type: web
-            runtime: node
-            region: frankfurt
-            plan: starter
-            buildCommand: corepack enable && corepack prepare pnpm@11.17.0 --activate && pnpm install --frozen-lockfile && pnpm --filter @obiara/admin build
-            startCommand: pnpm --filter @obiara/admin start -- --hostname 0.0.0.0 --port "$PORT"
-            healthCheckPath: /
-            autoDeployTrigger: checksPass
-            numInstances: 1
-            buildFilter:
-              paths:
-                - package.json
-                - pnpm-lock.yaml
-                - pnpm-workspace.yaml
-                - turbo.json
-                - apps/admin/**
-                - packages/**
-            envVars:
-              - key: NODE_VERSION
-                value: 22.13.0
-              - key: NEXT_PUBLIC_API_BASE_URL
                 sync: false
