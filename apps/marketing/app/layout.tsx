@@ -77,6 +77,10 @@ export default function RootLayout({
               description:
                 "A trusted Ghanaian space to meet through voice, community and deliberate connection.",
               inLanguage: "en-GH",
+              sameAs: [
+                "https://www.instagram.com/obiara.app",
+                "https://www.tiktok.com/@obiara.app",
+              ],
             }).replaceAll("<", "\\u003c"),
           }}
           type="application/ld+json"

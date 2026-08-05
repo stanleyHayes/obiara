@@ -48,7 +48,7 @@ export default function MarketingHome() {
             than another perfect profile.
           </p>
         </div>
-        <figure className="voice-portrait reveal">
+        <figure className="voice-portrait media-reveal">
           <Image
             alt="A woman recording a voice introduction at home"
             fill
@@ -163,7 +163,7 @@ export default function MarketingHome() {
       </section>
 
       <section className="fires-section" id="fires">
-        <figure className="fires-media">
+        <figure className="fires-media media-drift">
           <Image
             alt="Friends sharing a hosted evening circle in an Accra courtyard"
             fill
@@ -182,7 +182,7 @@ export default function MarketingHome() {
       </section>
 
       <section className="closing-section" id="waitlist">
-        <div className="waitlist-copy">
+        <div className="waitlist-copy reveal">
           <p>Coming first to Accra</p>
           <h2>Be there when the doors open.</h2>
           <p className="waitlist-intro">
@@ -201,7 +201,9 @@ export default function MarketingHome() {
             </p>
           </div>
         </div>
-        <WaitlistForm />
+        <div className="waitlist-form-reveal">
+          <WaitlistForm />
+        </div>
       </section>
 
       <footer>
@@ -213,13 +215,31 @@ export default function MarketingHome() {
             src={footerLockup}
           />
         </a>
-        <p>Made in Ghana for meaningful connection.</p>
-        <nav aria-label="Legal and support links" className="footer-links">
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-          <a href="/support">Support</a>
-          <a href="/delete-account">Delete account</a>
-        </nav>
+        <div className="footer-center">
+          <p>Made in Ghana for meaningful connection.</p>
+          <nav aria-label="Obiara social profiles" className="social-links">
+            <a
+              href="https://www.instagram.com/obiara.app"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Instagram <Arrow />
+            </a>
+            <a
+              href="https://www.tiktok.com/@obiara.app"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              TikTok <Arrow />
+            </a>
+          </nav>
+          <nav aria-label="Legal and support links" className="footer-links">
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="/support">Support</a>
+            <a href="/delete-account">Delete account</a>
+          </nav>
+        </div>
         <p>© {new Date().getFullYear()} Obiara</p>
       </footer>
     </main>
