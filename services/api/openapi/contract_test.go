@@ -20,6 +20,7 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"  /live:",
 		"  /ready:",
 		"  /v1/members:",
+		"  /v1/waitlist:",
 		"  /v1/auth/otp:",
 		"  /v1/auth/otp/verify:",
 		"  /v1/verifications/ghana-card:",
@@ -70,6 +71,7 @@ func TestContractContainsImplementedSurface(t *testing.T) {
 		"  /v1/admin/care/cases/{id}/resolution:",
 		"  /v1/admin/controls:",
 		"  /v1/admin/members:",
+		"  /v1/admin/waitlist:",
 		"  /v1/admin/finance/reconciliation:",
 		"  /v1/admin/account:",
 		"  /v1/admin/controls/{id}/approval:",
@@ -203,7 +205,7 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 149 {
-		t.Errorf("operationId count = %d, want 149", len(seen))
+	if len(seen) != 151 {
+		t.Errorf("operationId count = %d, want 151", len(seen))
 	}
 }

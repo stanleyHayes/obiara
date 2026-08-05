@@ -83,6 +83,7 @@ import (
 	adminverificationprivacy "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/adapters/outbound/privacy"
 	adminverificationapp "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification/liveness"
+	"github.com/stanleyHayes/obiara/services/api/internal/waitlist"
 )
 
 func main() {
@@ -118,6 +119,10 @@ func run() error {
 	client, err := apimongo.Connect(connectCtx, cfg.MongoURI)
 	if err != nil {
 		return err
+	}
+	waitlistStore := waitlist.NewStore(client.Database(cfg.MongoDatabase), time.Now)
+	if err = waitlistStore.EnsureIndexes(connectCtx); err != nil {
+		return fmt.Errorf("ensure waitlist indexes: %w", err)
 	}
 	defer func() {
 		disconnectCtx, disconnectCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
@@ -412,6 +417,7 @@ func run() error {
 		return client.Ping(ctx, readpref.Primary())
 	}))
 	apihttp.RegisterMemberRoutes(mux, memberModule.Register.Handle)
+	apihttp.RegisterWaitlistRoutes(mux, waitlistStore, adminPrincipalResolver)
 	apihttp.RegisterAuthRoutes(mux, identityModule.Registration)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)

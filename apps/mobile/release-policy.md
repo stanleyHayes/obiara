@@ -2,26 +2,32 @@
 
 - Owner: Mobile and platform engineering
 - Last reviewed: 2026-07-27
-- Production status: **blocked**
+- Repository-controlled store readiness: **complete**
+- Production submission status: **blocked on external gates**
 
 ## Profiles and channels
 
-| Profile      | Distribution                                    | Channel      | Store destination                                                         | Data/API boundary                                   |
-| ------------ | ----------------------------------------------- | ------------ | ------------------------------------------------------------------------- | --------------------------------------------------- |
-| `preview`    | Internal APK and iOS simulator                  | `preview`    | None                                                                      | Synthetic preview API only                          |
-| `staging`    | Store-signed Android App Bundle and iOS archive | `staging`    | Google Play internal draft; TestFlight only after App Store Connect setup | Synthetic staging API only                          |
-| `production` | Store-signed release binary                     | `production` | Not configured                                                            | Blocked until the repository production gates close |
+| Profile      | Distribution                                    | Channel      | Store destination                                                         | Data/API boundary                                 |
+| ------------ | ----------------------------------------------- | ------------ | ------------------------------------------------------------------------- | ------------------------------------------------- |
+| `preview`    | Internal APK and iOS simulator                  | `preview`    | None                                                                      | Synthetic preview API only                        |
+| `staging`    | Store-signed Android App Bundle and iOS archive | `staging`    | Google Play internal draft; TestFlight only after App Store Connect setup | Synthetic staging API only                        |
+| `production` | Store-signed release binary                     | `production` | Google Play production draft and App Store Connect draft                  | Blocked until the external production gates close |
 
 Every EAS build must originate from a committed Git state. EAS CLI, Node and
 pnpm are pinned in `eas.json`; application version, Android version code and
 iOS build number remain repository-owned. `runtimeVersion` uses the
 `appVersion` policy so an update can run only on a compatible binary.
+Production builds use local `autoIncrement`; the release owner must commit the
+resulting version-code/build-number change before the next build so Git and the
+stores remain synchronized.
 
 The EAS environments selected by each profile must define
-`EXPO_PUBLIC_EAS_PROJECT_ID` and `EXPO_PUBLIC_API_BASE_URL`. They are public
+`EXPO_PUBLIC_EAS_PROJECT_ID`, `EXPO_PUBLIC_API_BASE_URL` and
+`EXPO_PUBLIC_SITE_URL`. They are public
 identifiers/configuration, not credentials, but release config still rejects a
 missing project identity, a missing API boundary or a non-HTTPS API URL.
-Signing credentials and store credentials live only in the approved EAS/store
+The public site must expose `/privacy`, `/terms`, `/support`, and
+`/delete-account`. Signing credentials and store credentials live only in the approved EAS/store
 credential boundary.
 
 ## Build and staging qualification
@@ -33,12 +39,13 @@ credential boundary.
 3. Confirm the binary reports the expected app version, runtime version,
    channel, commit and synthetic API environment.
 4. Submit staging explicitly. Android uses the internal track in draft state;
-   iOS submission remains manual until the App Store Connect application and
-   review ownership are approved.
+   iOS uploads to App Store Connect/TestFlight. Production submissions also
+   remain drafts until the mobile release owner completes review and rollout.
 5. Record build IDs, hashes, tester cohort, evidence artifact and UAT outcome in
    the opaque change record.
 
-No build command uses `--auto-submit`.
+No build command uses `--auto-submit`, and no profile automatically publishes
+a store release.
 
 ## OTA update law
 

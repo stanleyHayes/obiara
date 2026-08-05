@@ -1,6 +1,8 @@
 import { useRouter } from "expo-router";
+import Constants from "expo-constants";
 import { useState } from "react";
 import {
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,6 +38,8 @@ export function PrivacySettingsScreen() {
     null,
   );
   const [error, setError] = useState<string | null>(null);
+  const privacyPolicyUrl = Constants.expoConfig?.extra?.privacyPolicyUrl;
+  const supportUrl = Constants.expoConfig?.extra?.supportUrl;
 
   async function open(kind: "export" | "deletion") {
     setBusy(kind);
@@ -110,6 +114,34 @@ export function PrivacySettingsScreen() {
               {busy === "export" ? "Opening request…" : "Request my export"}
             </Text>
           </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Policy and help</Text>
+          <Text style={styles.copy}>
+            Read how Obiara handles personal data or contact support without
+            sharing a password or one-time code.
+          </Text>
+          {typeof privacyPolicyUrl === "string" ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => void Linking.openURL(privacyPolicyUrl)}
+              style={styles.textLink}
+            >
+              <Text style={styles.textLinkLabel}>
+                Read the privacy policy ↗
+              </Text>
+            </Pressable>
+          ) : null}
+          {typeof supportUrl === "string" ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => void Linking.openURL(supportUrl)}
+              style={styles.textLink}
+            >
+              <Text style={styles.textLinkLabel}>Open member support ↗</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.card}>
@@ -278,5 +310,11 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit_600SemiBold",
     fontSize: 11,
     marginTop: 8,
+  },
+  textLink: { alignSelf: "flex-start", marginTop: 14, minHeight: 32 },
+  textLinkLabel: {
+    color: palette.pink,
+    fontFamily: "Outfit_700Bold",
+    fontSize: 14,
   },
 });

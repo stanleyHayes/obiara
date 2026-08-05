@@ -4,6 +4,7 @@
     "slug": "obiara",
     "scheme": "obiara",
     "version": "0.1.0",
+    "icon": "./assets/app-icon.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "plugins": ["expo-router", "expo-font"],
@@ -11,19 +12,47 @@
       "typedRoutes": true
     },
     "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFF3E6",
+        "foregroundImage": "./assets/brand-mark.png",
+        "monochromeImage": "./assets/brand-mark-monochrome.png"
+      },
+      "blockedPermissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_CONTACTS",
+        "android.permission.RECORD_AUDIO"
+      ],
       "package": "com.obiara.mobile",
+      "permissions": [],
+      "predictiveBackGestureEnabled": true,
       "versionCode": 1
     },
     "ios": {
       "bundleIdentifier": "com.obiara.mobile",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ],
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": []
+      },
+      "supportsTablet": false
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/brand-mark.png"
+      "favicon": "./assets/app-icon.png"
     }
   }
 }

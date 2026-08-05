@@ -1,8 +1,13 @@
 import type { MetadataRoute } from "next";
+import { siteUrl } from "./site-url";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_MARKETING_URL ?? "https://obiara.example";
-
-  return [{ url: baseUrl, changeFrequency: "weekly", priority: 1 }];
+  return [
+    { url: siteUrl, changeFrequency: "weekly", priority: 1 },
+    ...["privacy", "terms", "support", "delete-account"].map((path) => ({
+      url: `${siteUrl}/${path}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
+    })),
+  ];
 }

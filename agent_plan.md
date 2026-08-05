@@ -1909,3 +1909,73 @@ cohort recruitment and the human go/no-go decision stay external gates.
 They must be closed by the task that first depends on them. Sprint 1 engineering
 may continue on independent stories; production provisioning and real-member
 data remain prohibited.
+
+Launch-waitlist runtime evidence (2026-08-04): the public marketing site now
+uses a conversion-focused, evidence-based journey with repeated waiting-list
+calls to action, clear product differentiation, no invented testimonials or
+launch metrics, and an explicit promise of one availability email. The form
+requires name, valid email and purpose-specific consent; the API normalizes
+email, idempotently upserts into the uniquely indexed `launch_waitlist` MongoDB
+collection, preserves the original consent/version/time, and tracks pending
+versus sent notification state for a future launch dispatch. An
+operations-scoped `/v1/admin/waitlist` projection is available through the
+authenticated admin BFF and the sidebar now opens a dedicated Waiting list desk
+with totals, pending count and subscriber rows. OpenAPI and the generated
+TypeScript client include both routes. Desktop and 390px browser QA showed no
+horizontal overflow and verified the form's accessible controls and graceful
+backend-unavailable message. Marketing/admin production builds, Redocly,
+generated-client drift, the full 62-task frontend matrix and the complete Go
+suite pass. Sending the availability email remains a deliberate launch-time
+operation: Resend production credentials, approved sender/domain, final email
+content and the authorized dispatch trigger are still external launch gates.
+
+Marketing production-shell evidence (2026-08-04): the public navbar and footer
+now render the supplied official Obiara lockups, including a measured 104px
+mobile navbar treatment, and the supplied app-tile artwork is exposed as the
+site favicon and manifest icon. SEO now includes a deployment-aware canonical
+origin, title/description/keywords, index/follow and large-preview directives,
+Open Graph/Twitter metadata, social-image alt text, sitemap, robots host,
+manifest, theme color and WebSite structured data. The marketing runtime also
+removes the framework disclosure header and emits nosniff, frame-denial,
+referrer and browser-permission headers. The environment example records the
+two production bindings required for the canonical website and server-side API
+proxy. Marketing lint, typecheck, tests, production build and `git diff
+--check` pass; the production server returned the expected routes, metadata,
+security headers, favicon and manifest, and 390px browser QA confirmed the
+official logo at 104px with no horizontal overflow.
+
+Marketing navigation-state evidence (2026-08-04): the public header now tracks
+the reader's current page section from measured scroll position, visually
+distinguishes the active information link with the brand rose rule, marks it
+with `aria-current="location"`, and promotes the waitlist button to its active
+rose state at the conversion section. Live browser QA confirmed the Trust to
+Waitlist transition and zero horizontal overflow; marketing lint, typecheck,
+production build and `git diff --check` pass.
+
+Mobile store-readiness evidence (2026-08-05): the Expo app now has stable iOS
+and Android identifiers and versions, an opaque 1024px production icon,
+adaptive and monochrome Android artwork, a minimal native-permission boundary,
+Apple encryption and privacy-manifest declarations, runtime-version isolation,
+automatic production build-number increments, and explicit staging and
+production submission profiles that remain drafts and never auto-submit. Every
+release environment fails closed unless it supplies an EAS project ID, HTTPS
+API origin and HTTPS public-site origin. The app links directly to its privacy
+policy and member support beside the already implemented authenticated export
+and full-account-deletion flow. The public marketing surface now provides
+static `/privacy`, `/terms`, `/support` and `/delete-account` routes and includes
+them in navigation and the sitemap; this closes the repository side of Apple
+privacy-policy access and Google Play's public account-deletion resource.
+`apps/mobile/store-submission.md` supplies review copy, reviewer paths, content
+and privacy declarations, creative requirements and the human closeout
+checklist; `store-data-safety.md` records the engineering data inventory without
+claiming legal attestation. Expo 57 dependencies were aligned to the exact
+compatible versions, including the shared native UI peer. Evidence: 8/8 mobile
+tests, mobile TypeScript and ESLint, Expo dependency check, Expo Doctor 20/20,
+resolved production config inspection, successful Android/iOS/web Expo export
+(1,322/1,204/895 modules), marketing static production build with all four
+public routes, the full 62-task frontend matrix and complete Go suite. Store
+accounts and agreements, reserved app records, EAS/store credentials, deployed
+production URLs, final privacy/legal attestations, physical-device screenshots
+and qualification, reviewer credentials, signed AAB/IPA uploads, console forms
+and store review remain external gates; the repository does not falsely mark
+the app as submitted or accepted.

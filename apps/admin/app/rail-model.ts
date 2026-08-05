@@ -30,6 +30,7 @@ export const railGroups: readonly RailGroup[] = [
     title: "Community",
     links: [
       { icon: "◈", label: "Members", href: "/members" },
+      { icon: "✦", label: "Waiting list", href: "/waitlist" },
       { icon: "♢", label: "Mpanyimfo", href: "/mpanyimfo" },
       { icon: "◌", label: "Circles & hosts", href: "/community" },
       { icon: "+", label: "Workforce", href: "/workforce" },

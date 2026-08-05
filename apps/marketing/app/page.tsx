@@ -1,26 +1,14 @@
 import Image from "next/image";
-
-const memberWebUrl =
-  process.env.NEXT_PUBLIC_MEMBER_WEB_URL ?? "http://localhost:3000/fie";
+import footerLockup from "../../../Obiara_Handover_Package/3_Brand/assets/logo/png/lockup-h-color-ondark_transparent.png";
+import { MarketingNav } from "./marketing-nav";
+import { WaitlistForm } from "./waitlist-form";
 
 const Arrow = () => <span aria-hidden="true">↗</span>;
 
 export default function MarketingHome() {
   return (
     <main>
-      <header className="site-header">
-        <a className="wordmark" href="#top" aria-label="Obiara home">
-          obiara
-        </a>
-        <nav aria-label="Primary navigation">
-          <a href="#compound">The compound</a>
-          <a href="#trust">Trust</a>
-          <a href="#fires">Fires</a>
-        </nav>
-        <a className="member-link" href={memberWebUrl}>
-          Enter Obiara <Arrow />
-        </a>
-      </header>
+      <MarketingNav />
 
       <section className="hero" id="top">
         <div className="hero-media" aria-hidden="true">
@@ -40,8 +28,11 @@ export default function MarketingHome() {
             Voice before performance. Trust before access. Community before
             chance.
           </p>
-          <a className="primary-action" href="#compound">
-            Step into the compound <Arrow />
+          <a className="primary-action" href="#waitlist">
+            Save my place <Arrow />
+          </a>
+          <a className="hero-text-link" href="#compound">
+            See why Obiara is different
           </a>
         </div>
         <p className="hero-place">Accra, Ghana</p>
@@ -121,6 +112,56 @@ export default function MarketingHome() {
         </div>
       </section>
 
+      <section
+        className="difference-section"
+        aria-labelledby="difference-heading"
+      >
+        <div className="difference-heading reveal">
+          <p className="eyebrow">Less swiping. More meaning.</p>
+          <h2 id="difference-heading">Designed for the part after “hello.”</h2>
+          <p>
+            Obiara slows down the rush, adds trusted context and gives every
+            connection a better place to begin.
+          </p>
+        </div>
+        <div className="difference-list" role="list">
+          <article role="listitem">
+            <span>01</span>
+            <h3>Voice before the verdict</h3>
+            <p>
+              Hear warmth, humour and intention before appearance takes over.
+            </p>
+          </article>
+          <article role="listitem">
+            <span>02</span>
+            <h3>Introductions with context</h3>
+            <p>
+              Meet through circles, hosts and community—not an endless public
+              catalogue.
+            </p>
+          </article>
+          <article role="listitem">
+            <span>03</span>
+            <h3>A pace that protects people</h3>
+            <p>
+              Boundaries, verification and deliberate steps are part of the
+              experience.
+            </p>
+          </article>
+          <article role="listitem">
+            <span>04</span>
+            <h3>Made from home</h3>
+            <p>
+              Built in Ghana around the ways trust and meaningful connection
+              already grow.
+            </p>
+          </article>
+        </div>
+        <a className="inline-cta" href="#waitlist">
+          Join before we open <Arrow />
+        </a>
+      </section>
+
       <section className="fires-section" id="fires">
         <figure className="fires-media">
           <Image
@@ -140,19 +181,45 @@ export default function MarketingHome() {
         </div>
       </section>
 
-      <section className="closing-section">
-        <p>Coming first to Accra</p>
-        <h2>Come as a whole person.</h2>
-        <a className="primary-action dark-action" href={memberWebUrl}>
-          Enter Obiara <Arrow />
-        </a>
+      <section className="closing-section" id="waitlist">
+        <div className="waitlist-copy">
+          <p>Coming first to Accra</p>
+          <h2>Be there when the doors open.</h2>
+          <p className="waitlist-intro">
+            Join the waiting list today. We’ll send one email when Obiara is
+            ready for you.
+          </p>
+          <div className="waitlist-promises" role="list">
+            <p role="listitem">
+              <span>01</span> Early notice when access opens
+            </p>
+            <p role="listitem">
+              <span>02</span> No payment needed to join
+            </p>
+            <p role="listitem">
+              <span>03</span> One launch email, no noise
+            </p>
+          </div>
+        </div>
+        <WaitlistForm />
       </section>
 
       <footer>
-        <a className="wordmark" href="#top">
-          obiara
+        <a className="wordmark" href="#top" aria-label="Back to top">
+          <Image
+            alt=""
+            className="footer-logo"
+            sizes="118px"
+            src={footerLockup}
+          />
         </a>
         <p>Made in Ghana for meaningful connection.</p>
+        <nav aria-label="Legal and support links" className="footer-links">
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <a href="/support">Support</a>
+          <a href="/delete-account">Delete account</a>
+        </nav>
         <p>© {new Date().getFullYear()} Obiara</p>
       </footer>
     </main>

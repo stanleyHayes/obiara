@@ -115,6 +115,38 @@ paths:
           $ref: "#/components/responses/InternalError"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /v1/waitlist:
+    post:
+      operationId: joinLaunchWaitlist
+      tags: [Members]
+      summary: Join the launch availability waiting list
+      security: []
+      description: Records purpose-specific consent for one launch availability email. Repeated submissions of the same normalized email are idempotent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinWaitlistRequest"
+      responses:
+        "200":
+          description: The address was already on the waiting list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinWaitlistEnvelope"
+        "201":
+          description: A new waiting-list place was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinWaitlistEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/auth/otp:
     post:
       operationId: requestOtp
@@ -2847,6 +2879,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminMemberListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "503":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/waitlist:
+    get:
+      operationId: listAdminWaitlist
+      tags: [Admin]
+      summary: List people who consented to the launch availability email
+      description: Requires operations scope. Data is purpose-limited and must not be reused for unrelated campaigns.
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 200
+      responses:
+        "200":
+          description: Newest waiting-list entries and notification state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminWaitlistEnvelope"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -6064,6 +6125,68 @@ components:
           type: string
           format: email
           maxLength: 254
+    JoinWaitlistRequest:
+      type: object
+      additionalProperties: false
+      required: [name, email, consent]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        consent:
+          type: boolean
+          const: true
+    JoinWaitlistData:
+      type: object
+      additionalProperties: false
+      required: [email, alreadyJoined]
+      properties:
+        email:
+          type: string
+          format: email
+        alreadyJoined:
+          type: boolean
+    JoinWaitlistEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/JoinWaitlistData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminWaitlistEntry:
+      type: object
+      additionalProperties: false
+      required: [name, email, consentVersion, signedUpAt, notificationState]
+      properties:
+        name: { type: string }
+        email: { type: string, format: email }
+        consentVersion: { type: string }
+        signedUpAt: { type: string, format: date-time }
+        notificationState: { type: string, enum: [pending, sent] }
+        notifiedAt: { type: string, format: date-time }
+    AdminWaitlistEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [entries]
+          properties:
+            entries:
+              type: array
+              items:
+                $ref: "#/components/schemas/AdminWaitlistEntry"
+        meta:
+          $ref: "#/components/schemas/Metadata"
     Member:
       type: object
       additionalProperties: false

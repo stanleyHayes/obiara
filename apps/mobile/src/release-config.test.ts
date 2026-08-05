@@ -43,22 +43,49 @@ describe("mobile release policy", () => {
     expect(eas.build.production.distribution).not.toBe("internal");
   });
 
-  it("keeps store submissions explicit and production absent", () => {
-    expect(eas.submit.production).toBeUndefined();
+  it("keeps store submissions explicit and draft-only", () => {
+    expect(eas.submit.production).toEqual({
+      android: { track: "production", releaseStatus: "draft" },
+      ios: {},
+    });
     expect(eas.submit.staging).toEqual({
       android: { track: "internal", releaseStatus: "draft" },
+      ios: {},
     });
     expect(JSON.stringify(eas)).not.toContain("autoSubmit");
+  });
+
+  it("declares store identity, minimal permissions, and Apple privacy metadata", () => {
+    const android = app.expo.android as Record<string, unknown>;
+    const ios = app.expo.ios as Record<string, unknown>;
+    expect(app.expo.icon).toBe("./assets/app-icon.png");
+    expect(android.package).toBe("com.obiara.mobile");
+    expect(android.permissions).toEqual([]);
+    expect(android.blockedPermissions).toContain("android.permission.CAMERA");
+    expect(android.adaptiveIcon).toEqual(
+      expect.objectContaining({
+        foregroundImage: "./assets/brand-mark.png",
+        monochromeImage: "./assets/brand-mark-monochrome.png",
+      }),
+    );
+    expect(ios.bundleIdentifier).toBe("com.obiara.mobile");
+    expect(ios.config).toEqual({ usesNonExemptEncryption: false });
+    expect(ios.privacyManifests).toEqual(
+      expect.objectContaining({ NSPrivacyTracking: false }),
+    );
   });
 
   it("fails closed when a release environment is incomplete", () => {
     const previousChannel = process.env.OBIARA_RELEASE_CHANNEL;
     const previousProject = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
     const previousApi = process.env.EXPO_PUBLIC_API_BASE_URL;
+    const previousSite = process.env.EXPO_PUBLIC_SITE_URL;
     try {
       process.env.OBIARA_RELEASE_CHANNEL = "production";
       delete process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
       delete process.env.EXPO_PUBLIC_API_BASE_URL;
+      if (previousSite === undefined) delete process.env.EXPO_PUBLIC_SITE_URL;
+      else process.env.EXPO_PUBLIC_SITE_URL = previousSite;
       expect(() =>
         appConfig({
           config: { name: "Obiara", slug: "obiara" },
@@ -77,6 +104,7 @@ describe("mobile release policy", () => {
       if (previousApi === undefined)
         delete process.env.EXPO_PUBLIC_API_BASE_URL;
       else process.env.EXPO_PUBLIC_API_BASE_URL = previousApi;
+      delete process.env.EXPO_PUBLIC_SITE_URL;
     }
   });
 

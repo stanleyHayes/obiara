@@ -789,6 +789,26 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/waitlist": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List people who consented to the launch availability email
+     * @description Requires operations scope. Data is purpose-limited and must not be reused for unrelated campaigns.
+     */
+    readonly get: operations["listAdminWaitlist"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/auth/otp": {
     readonly parameters: {
       readonly query?: never;
@@ -2573,6 +2593,26 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/waitlist": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Join the launch availability waiting list
+     * @description Records purpose-specific consent for one launch availability email. Repeated submissions of the same normalized email are idempotent.
+     */
+    readonly post: operations["joinLaunchWaitlist"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/webhooks/resend": {
     readonly parameters: {
       readonly query?: never;
@@ -2981,6 +3021,24 @@ export interface components {
     };
     readonly AdminVerificationQueueEnvelope: {
       readonly data: components["schemas"]["AdminVerificationQueueData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly AdminWaitlistEntry: {
+      readonly consentVersion: string;
+      /** Format: email */
+      readonly email: string;
+      readonly name: string;
+      /** @enum {string} */
+      readonly notificationState: "pending" | "sent";
+      /** Format: date-time */
+      readonly notifiedAt?: string;
+      /** Format: date-time */
+      readonly signedUpAt: string;
+    };
+    readonly AdminWaitlistEnvelope: {
+      readonly data: {
+        readonly entries: readonly components["schemas"]["AdminWaitlistEntry"][];
+      };
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly AmpeCommandInput: {
@@ -3560,6 +3618,22 @@ export interface components {
       /** Format: date-time */
       readonly expiresAt: string;
       readonly signed: string;
+    };
+    readonly JoinWaitlistData: {
+      readonly alreadyJoined: boolean;
+      /** Format: email */
+      readonly email: string;
+    };
+    readonly JoinWaitlistEnvelope: {
+      readonly data: components["schemas"]["JoinWaitlistData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly JoinWaitlistRequest: {
+      /** @constant */
+      readonly consent: true;
+      /** Format: email */
+      readonly email: string;
+      readonly name: string;
     };
     readonly LivenessArtifactData: {
       /** Format: date-time */
@@ -6568,6 +6642,31 @@ export interface operations {
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly listAdminWaitlist: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Newest waiting-list entries and notification state. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminWaitlistEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      readonly 503: components["responses"]["InternalError"];
     };
   };
   readonly requestOtp: {
@@ -10189,6 +10288,42 @@ export interface operations {
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly joinLaunchWaitlist: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["JoinWaitlistRequest"];
+      };
+    };
+    readonly responses: {
+      /** @description The address was already on the waiting list. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["JoinWaitlistEnvelope"];
+        };
+      };
+      /** @description A new waiting-list place was recorded. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["JoinWaitlistEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 422: components["responses"]["ValidationFailed"];
       readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
