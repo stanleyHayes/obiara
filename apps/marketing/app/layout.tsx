@@ -7,19 +7,20 @@ import { siteUrl } from "./site-url";
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   applicationName: "Obiara",
-  category: "social connection",
+  category: "dating",
   title: {
-    default: "Obiara | Meet properly",
+    default: "Obiara | Real people. Real love.",
     template: "%s | Obiara",
   },
   description:
-    "A trusted Ghanaian space to meet through voice, community and deliberate connection.",
+    "The African dating app where your voice speaks first and everyone is verified. No catfish, no games — just real people looking for real love. Coming first to Accra, Ghana.",
   keywords: [
     "Obiara",
-    "meaningful connections Ghana",
-    "meet people in Accra",
-    "voice introductions",
-    "trusted community Ghana",
+    "African dating app",
+    "dating app Ghana",
+    "dating in Accra",
+    "verified dating app",
+    "voice dating app",
   ],
   alternates: { canonical: "/" },
   robots: {
@@ -30,9 +31,9 @@ export const metadata: Metadata = {
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
   manifest: "/manifest.webmanifest",
   openGraph: {
-    title: "Obiara | Meet properly",
+    title: "Obiara | Real people. Real love.",
     description:
-      "A trusted Ghanaian space to meet through voice, community and deliberate connection.",
+      "The African dating app where your voice speaks first and everyone is verified. No catfish, no games — just real people looking for real love. Coming first to Accra, Ghana.",
     images: [
       {
         url: "/images/hero-courtyard.webp",
@@ -48,9 +49,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Obiara | Meet properly",
+    title: "Obiara | Real people. Real love.",
     description:
-      "A trusted Ghanaian space to meet through voice, community and deliberate connection.",
+      "The African dating app where your voice speaks first and everyone is verified. No catfish, no games — just real people looking for real love. Coming first to Accra, Ghana.",
     images: ["/images/hero-courtyard.webp"],
   },
 };
@@ -75,7 +76,7 @@ export default function RootLayout({
               name: "Obiara",
               url: siteUrl,
               description:
-                "A trusted Ghanaian space to meet through voice, community and deliberate connection.",
+                "The African dating app where your voice speaks first and everyone is verified. No catfish, no games — just real people looking for real love. Coming first to Accra, Ghana.",
               inLanguage: "en-GH",
               sameAs: [
                 "https://www.instagram.com/obiara.app",

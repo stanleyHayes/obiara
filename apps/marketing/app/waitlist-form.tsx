@@ -54,7 +54,7 @@ export function WaitlistForm() {
         <span>Email me once Obiara is available. No newsletters or unrelated messages.</span>
       </label>
       <button disabled={state === "submitting"} type="submit">
-        {state === "submitting" ? "Saving your place…" : "Join the waiting list"}
+        {state === "submitting" ? "Saving your place…" : "Join the waitlist"}
         <span aria-hidden="true">↗</span>
       </button>
       <p aria-live="polite" className={`form-message ${state}`} role="status">

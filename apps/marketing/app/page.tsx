@@ -22,30 +22,37 @@ export default function MarketingHome() {
         </div>
         <div className="hero-scrim" />
         <div className="hero-copy">
-          <p className="eyebrow">Made for how we meet</p>
-          <h1>Meet properly.</h1>
+          <p className="eyebrow">Dating, the African way</p>
+          <h1>
+            Real people.
+            <br />
+            Real love.
+          </h1>
           <p>
-            Voice before performance. Trust before access. Community before
-            chance.
+            The African dating app where your voice speaks first, every person
+            is verified, and love is the whole point. No catfish. No games. Just
+            real people, ready for something real.
           </p>
           <a className="primary-action" href="#waitlist">
-            Save my place <Arrow />
+            Join the waitlist <Arrow />
           </a>
           <a className="hero-text-link" href="#compound">
-            See why Obiara is different
+            See how Obiara works
           </a>
         </div>
-        <p className="hero-place">Accra, Ghana</p>
+        <p className="hero-place">Coming first to Accra, Ghana</p>
       </section>
 
       <section className="voice-section" id="compound">
         <div className="section-number">01</div>
         <div className="voice-copy reveal">
-          <p className="eyebrow">Your voice enters first</p>
-          <h2>Be heard before you are judged.</h2>
+          <p className="eyebrow">Your voice goes first</p>
+          <h2>Fall for a person, not a profile.</h2>
           <p>
-            A short voice introduction carries more warmth, character and truth
-            than another perfect profile.
+            Before a single photo, you hear them — a short voice note carrying
+            the warmth, humour and honesty no filter can fake. On Obiara, you
+            meet the human before you judge the picture. That’s how real
+            attraction actually starts.
           </p>
         </div>
         <figure className="voice-portrait media-reveal">
@@ -73,41 +80,69 @@ export default function MarketingHome() {
       <section className="compound-section">
         <div className="compound-heading reveal">
           <span className="section-number">02</span>
-          <h2>A compound, not a feed.</h2>
+          <div>
+            <h2>A community, not a catalogue.</h2>
+            <p>
+              Obiara isn’t an endless swipe pile of strangers. It’s built like
+              an African compound — a home of your own, trusted circles to meet
+              through, and room to let one person become someone.
+            </p>
+          </div>
         </div>
         <div className="compound-paths" role="list">
           <article role="listitem">
             <strong>Fie</strong>
-            <p>Your calm home inside Obiara.</p>
+            <p>Your calm home base inside Obiara. Your space, your pace.</p>
           </article>
           <article role="listitem">
             <strong>Circles</strong>
-            <p>Meet through places and people you can trust.</p>
+            <p>
+              Meet people through the places and communities you already trust,
+              not random faces from nowhere.
+            </p>
           </article>
           <article role="listitem">
             <strong>Rooms</strong>
-            <p>Take one connection forward with intention.</p>
+            <p>
+              When there’s a spark, take it somewhere real: one conversation,
+              with intention.
+            </p>
           </article>
         </div>
       </section>
 
       <section className="trust-section" id="trust">
         <div className="trust-statement reveal">
-          <p className="eyebrow">Trust is the product</p>
-          <h2>Not everyone gets immediate access to you.</h2>
+          <p className="eyebrow">Every person is real</p>
+          <h2>No catfish. No fakes. No games.</h2>
         </div>
         <div className="trust-principles">
           <div>
             <span>01</span>
-            <strong>People are verified.</strong>
+            <div>
+              <strong>Everyone is verified.</strong>
+              <p>
+                Real name, real face, real person — checked before they can ever
+                reach you.
+              </p>
+            </div>
           </div>
           <div>
             <span>02</span>
-            <strong>Boundaries are visible.</strong>
+            <div>
+              <strong>Boundaries are visible.</strong>
+              <p>You always know where you stand, and so do they.</p>
+            </div>
           </div>
           <div>
             <span>03</span>
-            <strong>Care is designed in.</strong>
+            <div>
+              <strong>Care is built in.</strong>
+              <p>
+                Safety and respect are designed into every step, not bolted on
+                after.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -117,11 +152,12 @@ export default function MarketingHome() {
         aria-labelledby="difference-heading"
       >
         <div className="difference-heading reveal">
-          <p className="eyebrow">Less swiping. More meaning.</p>
-          <h2 id="difference-heading">Designed for the part after “hello.”</h2>
+          <p className="eyebrow">Less swiping. More loving.</p>
+          <h2 id="difference-heading">Built for what happens after “hello.”</h2>
           <p>
-            Obiara slows down the rush, adds trusted context and gives every
-            connection a better place to begin.
+            Anyone can match. Obiara is designed for the part that actually
+            matters — turning a hello into something real, with trusted context
+            and a pace that protects your heart.
           </p>
         </div>
         <div className="difference-list" role="list">
@@ -129,31 +165,31 @@ export default function MarketingHome() {
             <span>01</span>
             <h3>Voice before the verdict</h3>
             <p>
-              Hear warmth, humour and intention before appearance takes over.
+              Hear their warmth, humour and intention before looks take over.
             </p>
           </article>
           <article role="listitem">
             <span>02</span>
             <h3>Introductions with context</h3>
             <p>
-              Meet through circles, hosts and community—not an endless public
-              catalogue.
+              Meet through circles, hosts and community — never an endless
+              public catalogue of strangers.
             </p>
           </article>
           <article role="listitem">
             <span>03</span>
-            <h3>A pace that protects people</h3>
+            <h3>A pace that protects you</h3>
             <p>
-              Boundaries, verification and deliberate steps are part of the
-              experience.
+              Verification, clear boundaries and deliberate steps keep dating
+              safe and kind.
             </p>
           </article>
           <article role="listitem">
             <span>04</span>
-            <h3>Made from home</h3>
+            <h3>Made at home</h3>
             <p>
-              Built in Ghana around the ways trust and meaningful connection
-              already grow.
+              Built in Ghana, around the way African love, family and trust
+              already work.
             </p>
           </article>
         </div>
@@ -173,10 +209,12 @@ export default function MarketingHome() {
         </figure>
         <div className="fires-card reveal">
           <span className="section-number">03</span>
-          <h2>Some meetings need a good host.</h2>
+          <p className="eyebrow">Meet through community</p>
+          <h2>Some love stories need a good host.</h2>
           <p>
-            Fires bring a trusted circle together around conversation, play and
-            real presence.
+            Fires bring a trusted circle together for an evening of
+            conversation, play and real presence — meeting someone the way we
+            always have, through community, now built for how we live today.
           </p>
         </div>
       </section>
@@ -184,20 +222,21 @@ export default function MarketingHome() {
       <section className="closing-section" id="waitlist">
         <div className="waitlist-copy reveal">
           <p>Coming first to Accra</p>
-          <h2>Be there when the doors open.</h2>
+          <h2>Be first through the doors.</h2>
           <p className="waitlist-intro">
-            Join the waiting list today. We’ll send one email when Obiara is
-            ready for you.
+            Obiara opens soon. Join the waitlist and we’ll send you one email
+            the moment it’s your turn to meet real people — and maybe, real
+            love.
           </p>
           <div className="waitlist-promises" role="list">
             <p role="listitem">
-              <span>01</span> Early notice when access opens
+              <span>01</span> Early access the moment we open.
             </p>
             <p role="listitem">
-              <span>02</span> No payment needed to join
+              <span>02</span> Free to join, no payment needed.
             </p>
             <p role="listitem">
-              <span>03</span> One launch email, no noise
+              <span>03</span> One launch email, no noise.
             </p>
           </div>
         </div>
@@ -216,7 +255,7 @@ export default function MarketingHome() {
           />
         </a>
         <div className="footer-center">
-          <p>Made in Ghana for meaningful connection.</p>
+          <p>Made in Ghana for real people and real love.</p>
           <nav aria-label="Obiara social profiles" className="social-links">
             <a
               href="https://www.instagram.com/obiara.app"

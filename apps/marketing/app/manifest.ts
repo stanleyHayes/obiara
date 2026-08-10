@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Obiara",
     short_name: "Obiara",
     description:
-      "Meet through voice, trusted community and deliberate connection.",
+      "The African dating app where your voice speaks first and everyone is verified.",
     start_url: "/",
     display: "standalone",
     background_color: "#f5ede6",

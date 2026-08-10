@@ -251,10 +251,10 @@ a {
 }
 
 .hero h1 {
-  font-size: clamp(4.8rem, 11vw, 10.8rem);
+  font-size: clamp(3.9rem, 8.6vw, 8.4rem);
   letter-spacing: -0.085em;
-  line-height: 0.78;
-  margin: 30px 0 34px;
+  line-height: 0.86;
+  margin: 24px 0 30px;
 }
 
 .hero-copy > p:not(.eyebrow) {
@@ -330,7 +330,7 @@ a {
 }
 
 .voice-copy > p:last-child,
-.fires-card p {
+.fires-card p:not(.eyebrow) {
   color: rgba(39, 16, 31, 0.64);
   font-size: 1.05rem;
   line-height: 1.7;
@@ -453,6 +453,14 @@ a {
   max-width: 900px;
 }
 
+.compound-heading p {
+  color: rgba(255, 247, 237, 0.62);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  margin: 26px 0 0;
+  max-width: 620px;
+}
+
 .compound-paths {
   border-top: 1px solid rgba(255, 247, 237, 0.18);
   display: grid;
@@ -467,7 +475,7 @@ a {
 }
 
 .compound-paths article,
-.trust-principles div,
+.trust-principles > div,
 .difference-list article,
 .waitlist-promises p {
   animation: story-step-in both var(--ease-out);
@@ -476,14 +484,14 @@ a {
 }
 
 .compound-paths article:nth-child(2),
-.trust-principles div:nth-child(2),
+.trust-principles > div:nth-child(2),
 .difference-list article:nth-child(2),
 .waitlist-promises p:nth-child(2) {
   animation-range: entry 10% cover 33%;
 }
 
 .compound-paths article:nth-child(3),
-.trust-principles div:nth-child(3),
+.trust-principles > div:nth-child(3),
 .difference-list article:nth-child(3),
 .waitlist-promises p:nth-child(3) {
   animation-range: entry 16% cover 39%;
@@ -521,7 +529,7 @@ a {
 .compound-paths p {
   color: rgba(255, 247, 237, 0.62);
   line-height: 1.6;
-  max-width: 260px;
+  max-width: 320px;
 }
 
 .trust-section {
@@ -539,7 +547,7 @@ a {
   align-self: end;
 }
 
-.trust-principles div {
+.trust-principles > div {
   align-items: baseline;
   border-top: 1px solid rgba(39, 16, 31, 0.18);
   display: grid;
@@ -556,6 +564,13 @@ a {
 
 .trust-principles strong {
   font-size: clamp(1.2rem, 2vw, 1.8rem);
+}
+
+.trust-principles p {
+  color: rgba(39, 16, 31, 0.62);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  margin: 10px 0 0;
 }
 
 .fires-section {
@@ -600,6 +615,10 @@ a {
   padding: clamp(32px, 5vw, 72px);
   position: relative;
   z-index: 2;
+}
+
+.fires-card .eyebrow {
+  margin: 18px 0 0;
 }
 
 .fires-card h2 {
@@ -924,7 +943,7 @@ footer p:last-child {
   }
 
   .hero h1 {
-    font-size: clamp(4.7rem, 24vw, 7.5rem);
+    font-size: clamp(3.2rem, 15vw, 5.6rem);
   }
 
   .hero-place {
@@ -1052,7 +1071,7 @@ footer p:last-child {
   .hero-copy > *,
   .hero-place,
   .compound-paths article,
-  .trust-principles div,
+  .trust-principles > div,
   .difference-list article,
   .waitlist-promises p {
     animation: none;
