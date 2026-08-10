@@ -201,10 +201,10 @@ export default function MarketingHome() {
       <section className="fires-section" id="fires">
         <figure className="fires-media media-drift">
           <Image
-            alt="Friends sharing a hosted evening circle in an Accra courtyard"
+            alt="Friends gathered in conversation at a hosted evening circle in a lantern-lit Accra courtyard"
             fill
             sizes="100vw"
-            src="/images/hosted-circle.webp"
+            src="/images/fires-gathering.webp"
           />
         </figure>
         <div className="fires-card reveal">
