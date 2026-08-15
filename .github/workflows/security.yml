@@ -64,7 +64,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: 1.26.5
+          go-version: 1.26.6
           cache: true
 
       - name: Install exact dependencies
@@ -73,9 +73,12 @@ jobs:
       - name: Audit JavaScript dependencies
         run: |
           pnpm audit --json > pnpm-audit.json || true
+          # Count from the advisories map, not metadata.vulnerabilities:
+          # pnpm keeps documented ignoreGhsas exceptions (pnpm-workspace.yaml)
+          # in the metadata totals but excludes them from the advisories map.
           jq -e '
-            (.metadata.vulnerabilities.high // 0) == 0 and
-            (.metadata.vulnerabilities.critical // 0) == 0
+            ([.advisories[] | select(.severity == "high")] | length == 0) and
+            ([.advisories[] | select(.severity == "critical")] | length == 0)
           ' pnpm-audit.json
 
       - name: Scan Go vulnerabilities
@@ -94,7 +97,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: 1.26.5
+          go-version: 1.26.6
           cache: true
 
       - name: Validate security policy and penetration evidence

@@ -67,3 +67,29 @@ packages: Next.js paths to `sharp` and `postcss`, plus ESLint paths to
 full lint/type/test/Go test suite, Go vet, and all client builds passed after
 remediation. The final audit reported zero high and zero critical findings; no
 waiver was used.
+
+## 2026-08-15 advisory wave and image-size exception
+
+A post-completion audit found five new high advisories in transitive packages.
+Exact root overrides remediated three of them (`brace-expansion@5.0.9`,
+`js-yaml@4.3.1`, `nanoid@3.3.18` in `pnpm-workspace.yaml`).
+
+The remaining two have no patched upstream release (vulnerable `<=2.0.2`;
+latest published is 2.0.2), so they are held as a temporary exception under
+the policy above:
+
+- Advisories: GHSA-w3rx-r6r6-pgpr and GHSA-5p2g-fcmc-qvqq (`image-size` ICNS
+  and JXL/HEIF parser infinite-loop DoS).
+- Owner: `/root/platform_scaffold`.
+- Rationale: no fix exists to upgrade to; both consumers are dev/CI tooling
+  only (`metro` bundler and `vite-plugin-storybook-nextjs`). The production
+  runtime (Next.js apps, Go services) never loads `image-size`.
+- Compensating controls: reachable only when a developer or CI builds with a
+  deliberately crafted image asset; all assets are repository-reviewed; CI
+  runners are ephemeral.
+- Mechanism: `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`; the CI gate
+  counts severities from the `advisories` map (which honors the ignore list)
+  rather than the stale `metadata.vulnerabilities` totals.
+- Expiry: 2026-11-15, or immediately when `image-size` 2.0.3+ publishes.
+- Remediation task: replace the exception with an exact override to
+  `image-size@>=2.0.3` once released; verify metro and Storybook still build.

@@ -52,7 +52,7 @@ projects:
             envVars:
               - fromGroup: obiara-production-runtime
               - key: GO_VERSION
-                value: 1.26.5
+                value: 1.26.6
               - key: MONGODB_DATABASE
                 value: obiara_production
               - key: MONGODB_URI
@@ -112,7 +112,7 @@ projects:
             envVars:
               - fromGroup: obiara-production-runtime
               - key: GO_VERSION
-                value: 1.26.5
+                value: 1.26.6
               - key: MONGODB_DATABASE
                 value: obiara_production
               - key: MONGODB_URI
