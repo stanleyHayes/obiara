@@ -24,16 +24,28 @@ export function WaitlistForm() {
           consent: form.get("consent") === "on",
         }),
       });
-      const body = (await response.json().catch(() => null)) as
-        | { alreadyJoined?: boolean; message?: string }
-        | null;
-      if (!response.ok) throw new Error(body?.message ?? "We could not save your place. Please try again.");
+      const body = (await response.json().catch(() => null)) as {
+        alreadyJoined?: boolean;
+        message?: string;
+      } | null;
+      if (!response.ok)
+        throw new Error(
+          body?.message ?? "We could not save your place. Please try again.",
+        );
       setState("success");
-      setMessage(body?.alreadyJoined ? "You’re already on the list. We’ll email you when Obiara opens." : "Your place is saved. We’ll email you when Obiara opens.");
+      setMessage(
+        body?.alreadyJoined
+          ? "You’re already on the list. We’ll email you when Obiara opens."
+          : "Your place is saved. We’ll email you when Obiara opens.",
+      );
       formElement.reset();
     } catch (cause) {
       setState("error");
-      setMessage(cause instanceof Error ? cause.message : "We could not save your place. Please try again.");
+      setMessage(
+        cause instanceof Error
+          ? cause.message
+          : "We could not save your place. Please try again.",
+      );
     }
   }
 
@@ -42,16 +54,32 @@ export function WaitlistForm() {
       <div className="waitlist-fields">
         <label>
           <span>Your name</span>
-          <input autoComplete="name" maxLength={100} name="name" placeholder="Ama Mensah" required />
+          <input
+            autoComplete="name"
+            maxLength={100}
+            name="name"
+            placeholder="Ama Mensah"
+            required
+          />
         </label>
         <label>
           <span>Email address</span>
-          <input autoComplete="email" inputMode="email" name="email" placeholder="ama@example.com" required type="email" />
+          <input
+            autoComplete="email"
+            inputMode="email"
+            name="email"
+            placeholder="ama@example.com"
+            required
+            type="email"
+          />
         </label>
       </div>
       <label className="consent-field">
         <input name="consent" required type="checkbox" />
-        <span>Email me once Obiara is available. No newsletters or unrelated messages.</span>
+        <span>
+          Email me once Obiara is available. No newsletters or unrelated
+          messages.
+        </span>
       </label>
       <button disabled={state === "submitting"} type="submit">
         {state === "submitting" ? "Saving your place…" : "Join the waitlist"}

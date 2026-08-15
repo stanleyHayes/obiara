@@ -9,6 +9,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+
+	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 )
 
 var ErrInvalidEntry = errors.New("invalid waitlist entry")
@@ -55,6 +57,15 @@ func (store *Store) Join(ctx context.Context, name, email, consentVersion string
 	}
 	result, err := store.collection.UpdateOne(ctx, bson.M{"email": email}, bson.M{"$setOnInsert": entry}, options.UpdateOne().SetUpsert(true))
 	if err != nil {
+		if apimongo.IsDuplicateKey(err) {
+			// A concurrent first-time submission of the same email won the
+			// insert; join stays idempotent by returning that record.
+			var existing Entry
+			if findErr := store.collection.FindOne(ctx, bson.M{"email": email}).Decode(&existing); findErr != nil {
+				return Entry{}, false, findErr
+			}
+			return existing, false, nil
+		}
 		return Entry{}, false, err
 	}
 	created := result.UpsertedCount == 1
@@ -75,7 +86,7 @@ func (store *Store) List(ctx context.Context, limit int) ([]Entry, error) {
 		return nil, err
 	}
 	defer cursor.Close(ctx)
-	var entries []Entry
+	entries := make([]Entry, 0)
 	if err = cursor.All(ctx, &entries); err != nil {
 		return nil, err
 	}

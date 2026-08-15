@@ -466,6 +466,10 @@ func resolveCompetitionReviewHandler(reviews CompetitionReviewDesk, resolve Admi
 		if !ok {
 			return
 		}
+		if !principal.MFAVerified {
+			writeError(w, r, http.StatusForbidden, APIError{Code: "admin_step_up_required", Message: "Complete a fresh MFA step-up before resolving competition reviews."})
+			return
+		}
 		commandID, ok := circleCommandID(w, r)
 		if !ok {
 			return

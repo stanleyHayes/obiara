@@ -38,7 +38,8 @@ func capabilityForPath(path string) (flags.Flag, bool) {
 		return flags.FlagFires, true
 	case strings.HasPrefix(path, "/v1/listening"), strings.HasPrefix(path, "/v1/garden"):
 		return flags.FlagSow, true
-	case strings.HasPrefix(path, "/v1/matchmakers"), strings.HasPrefix(path, "/v1/memberships"), strings.HasPrefix(path, "/v1/escrows"):
+	case strings.HasPrefix(path, "/v1/matchmakers"), strings.HasPrefix(path, "/v1/matchmaker-"),
+		strings.HasPrefix(path, "/v1/membership"), strings.HasPrefix(path, "/v1/escrows"):
 		return flags.FlagPayments, true
 	case strings.HasPrefix(path, "/v1/doorway-question"), strings.HasPrefix(path, "/v1/photo-vault"):
 		return flags.FlagGate, true

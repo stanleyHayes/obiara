@@ -36,6 +36,8 @@ export type ProfileSettingsAction =
       introduction: string;
       nameVisibility: FieldVisibility;
       introVisibility: FieldVisibility;
+      /** True only when hydrating from a successful save response. */
+      saved?: boolean;
     }
   | { type: "display-name"; value: string }
   | { type: "introduction"; value: string }
@@ -115,7 +117,7 @@ export function profileSettingsReducer(
         introduction: action.introduction,
         nameVisibility: action.nameVisibility,
         introVisibility: action.introVisibility,
-        saved: true,
+        saved: action.saved ?? false,
         error: null,
       };
     }

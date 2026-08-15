@@ -15,8 +15,9 @@ export interface Operator {
   email: string;
   roles: OperatorRole[];
   status: OperatorStatus;
-  mfa: "enrolled" | "pending";
-  lastActive: string;
+  // Enrollment date projected from the principal's createdAt. The backend
+  // does not project MFA state or last-active timestamps; do not invent them.
+  enrolled: string;
 }
 
 export const roleCatalog: Readonly<
@@ -235,8 +236,7 @@ export function operatorsReducer(
         email,
         roles: state.enrollRoles,
         status: "active",
-        mfa: "pending",
-        lastActive: "invite sent",
+        enrolled: "invite sent",
       };
       return {
         ...state,

@@ -1999,3 +1999,60 @@ worker builds pass, as do the focused Blueprint, release-policy, secret-policy
 and API-config tests. Configuration readiness does not claim deployed Render or
 Vercel resources, provider/legal approval, real credentials, database restore
 evidence, live health checks or traffic activation.
+
+Post-completion review and correction round (2026-08-15): an independent
+four-lane review covered commit `263abec` (backend, member web/admin, mobile)
+and `fb6444f..HEAD` (waitlist, store readiness, hosting, marketing). Twenty
+verified findings were corrected:
+
+- Mobile sign-in actually works now: OTP verify sends a stable SecureStore
+  device ID (`auth.go` hard-required `deviceId`, so every sign-in previously
+  failed with 422); authenticated 401s clear the session and return the gate
+  to the phone stage; a real sign-out control exists; the escrow screen no
+  longer calls `crypto.randomUUID()` (absent on Hermes); game screens reset
+  stale idempotency keys on input change and failure; the Suban appeal no
+  longer collects a reason it never sends.
+- Member web: the onboarding Ghana Card gate now accepts the server's `vc_…`
+  case IDs instead of silently dead-ending a successful submission; the
+  profile desk no longer shows a false "Profile saved" banner on first load;
+  the dead fabricated-sentinel guard and the dead `games-model` availability
+  constant were removed.
+- Admin: BFF routes now fail closed with 503 JSON instead of HTML 500s when
+  the Go API is unreachable; the analytics desk's fabricated "recorded review"
+  (invented `review•••2J8` reference) and dead fabricated seeds were removed;
+  the operators desk no longer invents MFA status or mislabels enrollment as
+  "last active"; the command centre and rail now render live
+  verification/safety/care/account data or honestly fail closed — the
+  fabricated greeting, metrics, named queues, SLA pulse, incident rows, nav
+  badges and operator identity were removed.
+- API: the payments kill switch now covers the actual
+  `/v1/matchmaker-engagements*` and `/v1/membership*` mutation routes;
+  admin enroll/status/role mutations commit with their audit records in one
+  Mongo transaction; the last-active-admin guard is enforced inside the
+  transaction instead of as a read-then-write race; admin login start always
+  returns 202 without enumerating unknown or suspended principals;
+  competition review/appeal resolution now requires the same MFA step-up as
+  comparable admin overturns; the waitlist upsert falls back to an idempotent
+  read on duplicate key, the admin waitlist handler no longer violates its
+  envelope on cancelled contexts, and public waitlist joins are per-IP
+  throttled (429 documented in OpenAPI).
+- Marketing emits a baseline Content-Security-Policy alongside its existing
+  security headers; the generated TS client was regenerated after the two
+  documentation-level OpenAPI edits and the drift gate passes.
+
+Verification: full Go suite (283 packages) green including the admin MongoDB
+Testcontainers integration over the new transactional paths; 62-task frontend
+lint/typecheck/test matrix green; marketing, web, admin and mobile checks and
+production builds pass; OpenAPI contract test, generated-client drift,
+repository Prettier and `git diff --check` all pass.
+
+Recorded follow-ups (not defects; owned by the first dependent task): the API
+has no token-refresh endpoint, so mobile members re-verify by OTP after the
+15-minute access token expires; admin sign-out clears the cookie but no
+server-side logout endpoint exists yet; liveness artifact references are not
+yet bound to their upload subject (safe today because no retrieval path
+exists — must be enforced before any reviewer-facing decryption is added);
+waitlist name/email are stored unkeyed as a documented exception to the
+privacy-keying convention because the operations desk must read them; consent
+on public waitlist joins is self-declared until a double-opt-in or launch-time
+verification authority is composed.

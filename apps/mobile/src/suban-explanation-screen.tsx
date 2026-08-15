@@ -1,13 +1,6 @@
 import { type Href, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest } from "./api";
 
@@ -41,7 +34,6 @@ export function SubanExplanationScreen() {
   const router = useRouter();
   const [record, setRecord] = useState<Explanation | null>(null);
   const [selectedID, setSelectedID] = useState("");
-  const [appealReason, setAppealReason] = useState("");
   const [appealRef, setAppealRef] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -74,12 +66,7 @@ export function SubanExplanationScreen() {
   }, []);
 
   async function appeal() {
-    if (
-      !selected ||
-      !adverseKinds.has(selected.kind) ||
-      appealReason.trim().length < 12
-    )
-      return;
+    if (!selected || !adverseKinds.has(selected.kind)) return;
     commandID.current ??= `suban-${Date.now()}`;
     setBusy(true);
     setMessage("");
@@ -146,7 +133,6 @@ export function SubanExplanationScreen() {
               key={event.id}
               onPress={() => {
                 setSelectedID(event.id);
-                setAppealReason("");
                 setAppealRef("");
                 commandID.current = null;
               }}
@@ -177,25 +163,15 @@ export function SubanExplanationScreen() {
           </Text>
           {!appealRef && selected && adverseKinds.has(selected.kind) ? (
             <>
-              <TextInput
-                accessibilityLabel="Why should this be reviewed?"
-                multiline
-                onChangeText={(value) => {
-                  setAppealReason(value.slice(0, 240));
-                  commandID.current = null;
-                }}
-                placeholder="Share context without names or private messages"
-                placeholderTextColor="#8A747D"
-                style={styles.input}
-                value={appealReason}
-              />
+              <Text style={styles.detailCopy}>
+                Filing an appeal marks this event as inaccurate. A separate
+                human panel reviews the original record, which stays visible and
+                unchanged.
+              </Text>
               <Pressable
-                disabled={busy || appealReason.trim().length < 12}
+                disabled={busy}
                 onPress={() => void appeal()}
-                style={[
-                  styles.primary,
-                  (busy || appealReason.trim().length < 12) && styles.disabled,
-                ]}
+                style={[styles.primary, busy && styles.disabled]}
               >
                 <Text style={styles.primaryText}>
                   Submit appeal for human review
@@ -347,16 +323,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   weight: { color: "#2B151F", fontFamily: "Outfit_700Bold", marginTop: 10 },
-  input: {
-    borderColor: "#BDA9B1",
-    borderRadius: 14,
-    borderWidth: 1,
-    color: "#2B151F",
-    fontFamily: "Outfit_400Regular",
-    minHeight: 110,
-    padding: 14,
-    textAlignVertical: "top",
-  },
   primary: {
     alignItems: "center",
     backgroundColor: "#38172C",

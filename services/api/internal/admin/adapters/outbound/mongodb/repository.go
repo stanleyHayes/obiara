@@ -164,6 +164,71 @@ func (repository *PrincipalRepository) Create(ctx context.Context, principal dom
 	return err
 }
 
+// appendAudit records one immutable admin-access entry; the caller owns the
+// transaction context.
+func (repository *PrincipalRepository) appendAudit(ctx context.Context, actorID, action, target string, at time.Time) error {
+	_, err := repository.database.Collection("admin_access").InsertOne(ctx, bson.M{
+		"actorId": actorID, "action": action, "target": target, "at": at.UTC(),
+	})
+	return err
+}
+
+// countActiveAdmins counts active principals holding the admin role.
+func (repository *PrincipalRepository) countActiveAdmins(ctx context.Context) (int64, error) {
+	return repository.principals().CountDocuments(ctx, bson.M{
+		"status": string(domain.StatusActive),
+		"roles":  string(domain.RoleAdmin),
+	})
+}
+
+// CreateWithAudit creates the principal and its enrollment audit entry in one
+// transaction so a privileged grant can never persist unaudited.
+func (repository *PrincipalRepository) CreateWithAudit(ctx context.Context, principal domain.Principal, actorID, action string, at time.Time) error {
+	return apimongo.WithTransaction(ctx, repository.database.Client(), func(tx context.Context) error {
+		if _, err := repository.principals().InsertOne(tx, toPrincipalDocument(principal)); err != nil {
+			if apimongo.IsDuplicateKey(err) {
+				return application.ErrPrincipalExists
+			}
+			return err
+		}
+		return repository.appendAudit(tx, actorID, action, principal.ID(), at)
+	})
+}
+
+// UpdateWithAudit persists the principal mutation and its audit entry in one
+// transaction. When guardLastAdmin is true the transaction re-counts active
+// admins and aborts with ErrLastAdmin if the mutation would suspend the last
+// one, closing the read-then-write race between concurrent stepped-up admins.
+func (repository *PrincipalRepository) UpdateWithAudit(ctx context.Context, principal domain.Principal, guardLastAdmin bool, actorID, action string, at time.Time) error {
+	return apimongo.WithTransaction(ctx, repository.database.Client(), func(tx context.Context) error {
+		if guardLastAdmin {
+			count, err := repository.countActiveAdmins(tx)
+			if err != nil {
+				return err
+			}
+			if count <= 1 {
+				return application.ErrLastAdmin
+			}
+		}
+		result, err := repository.principals().UpdateOne(
+			tx,
+			bson.M{"_id": principal.ID(), "version": principal.Version() - 1},
+			bson.M{"$set": bson.M{
+				"roles":   toPrincipalDocument(principal).Roles,
+				"status":  string(principal.Status()),
+				"version": principal.Version(),
+			}},
+		)
+		if err != nil {
+			return err
+		}
+		if result.MatchedCount == 0 {
+			return application.ErrPrincipalConflict
+		}
+		return repository.appendAudit(tx, actorID, action, principal.ID(), at)
+	})
+}
+
 func (repository *PrincipalRepository) FindByEmail(ctx context.Context, email string) (domain.Principal, error) {
 	var document principalDocument
 	if err := repository.principals().FindOne(ctx, bson.M{"email": email}).Decode(&document); err != nil {
@@ -203,43 +268,21 @@ func (repository *PrincipalRepository) List(ctx context.Context) ([]domain.Princ
 	return principals, nil
 }
 
-func (repository *PrincipalRepository) Update(ctx context.Context, principal domain.Principal) error {
-	result, err := repository.principals().UpdateOne(
-		ctx,
-		bson.M{"_id": principal.ID(), "version": principal.Version() - 1},
-		bson.M{"$set": bson.M{
-			"roles":   toPrincipalDocument(principal).Roles,
-			"status":  string(principal.Status()),
-			"version": principal.Version(),
-		}},
-	)
-	if err != nil {
-		return err
-	}
-	if result.MatchedCount == 0 {
-		return application.ErrPrincipalConflict
-	}
-	return nil
-}
-
-func (repository *PrincipalRepository) CountActiveAdmins(ctx context.Context) (int, error) {
-	count, err := repository.principals().CountDocuments(ctx, bson.M{
-		"status": string(domain.StatusActive),
-		"roles":  string(domain.RoleAdmin),
-	})
-	return int(count), err
-}
-
-func (repository *PrincipalRepository) CreateRoleChange(ctx context.Context, change domain.RoleChange) error {
+func (repository *PrincipalRepository) CreateRoleChange(ctx context.Context, change domain.RoleChange, guardLastAdmin bool) error {
 	return apimongo.WithTransaction(ctx, repository.database.Client(), func(tx context.Context) error {
+		if guardLastAdmin {
+			count, err := repository.countActiveAdmins(tx)
+			if err != nil {
+				return err
+			}
+			if count <= 1 {
+				return application.ErrLastAdmin
+			}
+		}
 		if _, err := repository.roleChanges().InsertOne(tx, toRoleChangeDocument(change)); err != nil {
 			return err
 		}
-		_, err := repository.database.Collection("admin_access").InsertOne(tx, bson.M{
-			"actorId": change.ProposerID(), "action": "admin.principal.roles.proposed",
-			"target": change.ID(), "at": change.CreatedAt(),
-		})
-		return err
+		return repository.appendAudit(tx, change.ProposerID(), "admin.principal.roles.proposed", change.ID(), change.CreatedAt())
 	})
 }
 

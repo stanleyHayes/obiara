@@ -121,7 +121,7 @@ paths:
       tags: [Members]
       summary: Join the launch availability waiting list
       security: []
-      description: Records purpose-specific consent for one launch availability email. Repeated submissions of the same normalized email are idempotent.
+      description: Records purpose-specific consent for one launch availability email. Repeated submissions of the same normalized email are idempotent. Submissions are throttled per client IP.
       requestBody:
         required: true
         content:
@@ -145,6 +145,8 @@ paths:
           $ref: "#/components/responses/InvalidJSON"
         "422":
           $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/WaitlistRateLimited"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
   /v1/auth/otp:
@@ -3253,7 +3255,7 @@ paths:
               $ref: "#/components/schemas/AdminEmailInput"
       responses:
         "202":
-          description: MFA code sent.
+          description: MFA code sent (accepted silently for unknown or suspended emails).
           headers:
             X-Correlation-ID:
               $ref: "#/components/headers/CorrelationId"
@@ -3263,8 +3265,6 @@ paths:
                 $ref: "#/components/schemas/AdminStatusEnvelope"
         "400":
           $ref: "#/components/responses/InvalidJSON"
-        "404":
-          $ref: "#/components/responses/PrincipalNotFound"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
         "422":
@@ -5555,6 +5555,23 @@ components:
                 error:
                   code: otp_rate_limited
                   message: Too many code requests. Please wait and try again.
+                meta:
+                  correlationId: 01J9EXAMPLE000000000000000
+    WaitlistRateLimited:
+      description: Too many waitlist join attempts from this client.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/CorrelationId"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          examples:
+            waitlistRateLimited:
+              value:
+                error:
+                  code: waitlist_rate_limited
+                  message: Too many join attempts. Please wait and try again.
                 meta:
                   correlationId: 01J9EXAMPLE000000000000000
     OtpInvalid:

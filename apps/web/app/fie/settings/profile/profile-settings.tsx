@@ -199,6 +199,7 @@ export function ProfileSettings() {
         introduction: payload.introduction || "",
         nameVisibility: payload.displayNameVisibility || "private",
         introVisibility: payload.introductionVisibility || "private",
+        saved: true,
       });
       setRevision(payload.revision);
       setUpdatedAt(payload.updatedAt || "");
@@ -271,9 +272,7 @@ export function ProfileSettings() {
 
   if (
     !initialized ||
-    (requestState === "error" &&
-      revision === 0 &&
-      account.memberRef === "member···92K")
+    (requestState === "error" && revision === 0 && account.memberRef === "")
   ) {
     return (
       <main className="fie-shell profile-shell">

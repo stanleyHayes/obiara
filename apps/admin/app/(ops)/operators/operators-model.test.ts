@@ -33,8 +33,7 @@ describe("operators model", () => {
       email: "live@obiara.com",
       roles: ["verifier"] as const,
       status: "active" as const,
-      mfa: "enrolled" as const,
-      lastActive: "enrolled today",
+      enrolled: "26 Jul 2026",
     };
     const state = operatorsReducer(initialOperatorsState, {
       type: "hydrate",

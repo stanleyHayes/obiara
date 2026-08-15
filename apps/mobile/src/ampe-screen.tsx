@@ -93,6 +93,7 @@ export function AmpeScreen({
           ? reason.message
           : "The command could not be accepted.",
       );
+      command.current = null;
       await load();
     } finally {
       setBusy(false);
@@ -180,7 +181,10 @@ export function AmpeScreen({
                       accessibilityRole="radio"
                       accessibilityState={{ checked: choice === gesture }}
                       key={gesture}
-                      onPress={() => setChoice(gesture)}
+                      onPress={() => {
+                        setChoice(gesture);
+                        command.current = null;
+                      }}
                       style={[s.choice, choice === gesture && s.selected]}
                     >
                       <Text style={s.choiceText}>

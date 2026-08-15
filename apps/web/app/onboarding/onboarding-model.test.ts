@@ -38,11 +38,41 @@ describe("identity onboarding", () => {
     const reviewed = onboardingReducer(state, {
       type: "card-result",
       outcome: "uncertain",
-      reference: "ref_72ca18",
+      reference: "vc_9fT3mQ2xZkL1pR8wN4yH-A",
     });
     expect(reviewed.stage).toBe("manual-review");
-    expect(reviewed.cardReference).toBe("ref_72ca18");
+    expect(reviewed.cardReference).toBe("vc_9fT3mQ2xZkL1pR8wN4yH-A");
     expect(JSON.stringify(reviewed)).not.toContain("GHA-");
+  });
+
+  it("accepts a server-issued approved case id and advances to liveness", () => {
+    const state: OnboardingState = {
+      ...initialOnboardingState,
+      stage: "card",
+    };
+    const approved = onboardingReducer(state, {
+      type: "card-result",
+      outcome: "approved",
+      reference: "vc_QWx0Z2ViZXJ0X21lbWJlcg",
+    });
+    expect(approved.stage).toBe("liveness");
+    expect(approved.cardReference).toBe("vc_QWx0Z2ViZXJ0X21lbWJlcg");
+  });
+
+  it("ignores card results with malformed references", () => {
+    const state: OnboardingState = {
+      ...initialOnboardingState,
+      stage: "card",
+    };
+    for (const reference of ["", "ref_72ca18", "vc_short", "GHA-123456789-0"]) {
+      expect(
+        onboardingReducer(state, {
+          type: "card-result",
+          outcome: "approved",
+          reference,
+        }),
+      ).toEqual(state);
+    }
   });
 
   it("allows completion only after explicit liveness consent", () => {

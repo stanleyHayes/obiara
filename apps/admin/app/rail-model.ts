@@ -2,7 +2,6 @@ export type RailLink = Readonly<{
   icon: string;
   label: string;
   href: string;
-  badge?: string;
 }>;
 
 export type RailGroup = Readonly<{
@@ -20,9 +19,9 @@ export const railGroups: readonly RailGroup[] = [
   {
     title: "Operations",
     links: [
-      { icon: "◇", label: "Verification", href: "/verification", badge: "18" },
-      { icon: "◉", label: "Trust & safety", href: "/safety", badge: "7" },
-      { icon: "◎", label: "Care queue", href: "/care", badge: "2" },
+      { icon: "◇", label: "Verification", href: "/verification" },
+      { icon: "◉", label: "Trust & safety", href: "/safety" },
+      { icon: "◎", label: "Care queue", href: "/care" },
       { icon: "!", label: "Incidents", href: "/incidents" },
     ],
   },

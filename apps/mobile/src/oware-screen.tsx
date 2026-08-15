@@ -110,6 +110,7 @@ export function OwareScreen({
           ? moveError.message
           : "The move could not be accepted.",
       );
+      command.current = null;
       await load();
     } finally {
       setMoving(false);
@@ -221,7 +222,10 @@ export function OwareScreen({
                         }}
                         disabled={disabled}
                         key={`you-${pit}`}
-                        onPress={() => setSelected(pit)}
+                        onPress={() => {
+                          setSelected(pit);
+                          command.current = null;
+                        }}
                         style={[
                           styles.pit,
                           selected === pit && styles.selectedPit,

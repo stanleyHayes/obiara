@@ -70,7 +70,9 @@ export function EscrowEngagementScreen() {
     try {
       await apiRequest<Escrow>(path, {
         method: "POST",
-        headers: { "Idempotency-Key": `${action}.${crypto.randomUUID()}` },
+        headers: {
+          "Idempotency-Key": `${action}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        },
         body: "{}",
       });
       await load();

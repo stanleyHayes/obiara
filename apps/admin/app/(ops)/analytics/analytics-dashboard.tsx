@@ -9,17 +9,12 @@ import {
   Container,
   LinearProgress,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import {
-  analyticsReducer,
-  initialAnalyticsState,
-  type GateMetric,
-} from "./analytics-model";
+import { type GateMetric } from "./analytics-model";
 
 type FunnelReport = {
   windowDays: number;
@@ -103,7 +98,6 @@ function Metric({ metric }: Readonly<{ metric: GateMetric }>) {
 }
 
 export function AnalyticsDashboard() {
-  const [state, dispatch] = useReducer(analyticsReducer, initialAnalyticsState);
   const [report, setReport] = useState<FunnelReport | null>(null);
   const [loadError, setLoadError] = useState("");
 
@@ -268,73 +262,6 @@ export function AnalyticsDashboard() {
             blockers; this desk does not invent substitute values.
           </Alert>
         </Box>
-
-        <Card
-          sx={{
-            borderRadius: 1,
-            display: "grid",
-            gap: 3,
-            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-            mt: 3,
-            p: 3,
-          }}
-        >
-          <Box>
-            <Typography
-              sx={{
-                color: "#8e3159",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 1.2,
-              }}
-            >
-              OPERATOR INTERPRETATION
-            </Typography>
-            <Typography
-              component="h2"
-              sx={{ fontSize: 30, fontWeight: 800, mt: 1 }}
-            >
-              Notes annotate; they never change facts.
-            </Typography>
-            <Typography
-              sx={{ color: "text.secondary", lineHeight: 1.6, mt: 1 }}
-            >
-              No member-level rows, content, protected-trait proxies or
-              micro-cohorts appear here. A review note cannot release, correct,
-              rank or enforce anything.
-            </Typography>
-          </Box>
-          {state.reviewState === "none" ? (
-            <Box>
-              <TextField
-                fullWidth
-                label="Bounded review note"
-                multiline
-                onChange={(event) =>
-                  dispatch({ type: "review-note", value: event.target.value })
-                }
-                rows={4}
-                value={state.reviewNote}
-              />
-              <Button
-                disabled={state.reviewNote.trim().length < 12}
-                fullWidth
-                onClick={() => dispatch({ type: "record-review" })}
-                sx={{ mt: 1.5 }}
-                variant="contained"
-              >
-                Record interpretation
-              </Button>
-            </Box>
-          ) : (
-            <Alert severity="info">
-              <strong>{state.reviewRef}</strong>
-              <br />
-              Review note recorded. Aggregate facts and the blocked release
-              state remain unchanged.
-            </Alert>
-          )}
-        </Card>
       </Container>
     </Box>
   );

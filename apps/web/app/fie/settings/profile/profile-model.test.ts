@@ -79,4 +79,31 @@ describe("profile settings model", () => {
     });
     expect(state.saved).toBe(false);
   });
+
+  it("does not mark the profile saved on initial hydrate", () => {
+    const state = profileSettingsReducer(initialProfileSettingsState, {
+      type: "hydrate",
+      memberRef: "mem_01HZX",
+      displayName: "Ama S.",
+      introduction: "",
+      nameVisibility: "circles",
+      introVisibility: "private",
+    });
+    expect(state.saved).toBe(false);
+    expect(state.error).toBeNull();
+    expect(state.account.memberRef).toBe("mem_01HZX");
+  });
+
+  it("marks the profile saved only when hydrating a save response", () => {
+    const state = profileSettingsReducer(initialProfileSettingsState, {
+      type: "hydrate",
+      memberRef: "mem_01HZX",
+      displayName: "Ama S.",
+      introduction: "",
+      nameVisibility: "circles",
+      introVisibility: "private",
+      saved: true,
+    });
+    expect(state.saved).toBe(true);
+  });
 });

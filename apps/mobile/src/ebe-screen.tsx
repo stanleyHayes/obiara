@@ -102,6 +102,7 @@ export function EbeScreen({
           ? reason.message
           : "The answer could not be retained.",
       );
+      command.current = null;
       await load();
     } finally {
       setBusy(false);
@@ -149,7 +150,10 @@ export function EbeScreen({
                   accessibilityLabel="Your private answer"
                   maxLength={280}
                   multiline
-                  onChangeText={setAnswer}
+                  onChangeText={(value) => {
+                    setAnswer(value);
+                    command.current = null;
+                  }}
                   placeholder="Write your reflection"
                   placeholderTextColor="#8B7780"
                   style={s.input}

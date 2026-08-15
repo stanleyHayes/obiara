@@ -4,7 +4,6 @@ import {
   Avatar,
   Box,
   Button,
-  Card,
   Divider,
   ListItemIcon,
   ListItemText,
@@ -14,10 +13,24 @@ import {
 } from "@mui/material";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import brandMark from "../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-ondark_transparent.png";
 import { isActiveLink, railGroups, type RailGroup } from "./rail-model";
+
+function readableRole(role: string) {
+  return (
+    (
+      {
+        verifier: "Verification",
+        ts_agent: "Trust & safety",
+        host: "Community host",
+        finance: "Finance",
+        admin: "Administrator",
+      } as Record<string, string>
+    )[role] ?? role
+  );
+}
 
 function RailGroupSection({
   group,
@@ -58,7 +71,6 @@ function RailGroupSection({
               >
                 <span aria-hidden="true">{link.icon}</span>
                 <span>{link.label}</span>
-                {link.badge ? <strong>{link.badge}</strong> : null}
               </Button>
             );
           })}
@@ -98,6 +110,43 @@ const accountMenuItems = [
 function RailUserMenu() {
   const router = useRouter();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [account, setAccount] = useState<{
+    email: string;
+    roles: string[];
+  } | null>(null);
+  const [accountFailed, setAccountFailed] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/account", { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const body = (await response.json().catch(() => null)) as {
+          email?: string;
+          roles?: string[];
+        } | null;
+        if (!response.ok || !body?.email) throw new Error("account");
+        setAccount({ email: body.email, roles: body.roles ?? [] });
+      })
+      .catch((error: unknown) => {
+        if ((error as Error).name !== "AbortError") setAccountFailed(true);
+      });
+    return () => controller.abort();
+  }, []);
+
+  const identity = account?.email ?? null;
+  const initials = identity
+    ? identity
+        .split("@")[0]
+        .split(/[._-]+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase() || "?"
+    : "–";
+  const roleSummary = account?.roles.length
+    ? account.roles.map(readableRole).join(" · ")
+    : null;
 
   return (
     <>
@@ -118,10 +167,12 @@ function RailUserMenu() {
         }}
         type="button"
       >
-        <Avatar className="operator-avatar">AE</Avatar>
+        <Avatar className="operator-avatar">{initials}</Avatar>
         <Box>
-          <Typography sx={{ fontWeight: 700 }}>Adwoa E.</Typography>
-          <Typography>T&amp;S lead · Accra</Typography>
+          <Typography sx={{ fontWeight: 700 }}>
+            {identity ?? (accountFailed ? "Account unavailable" : "Loading…")}
+          </Typography>
+          <Typography>{roleSummary ?? "Operator"}</Typography>
         </Box>
         <span aria-hidden="true">{anchor ? "▴" : "▾"}</span>
       </Box>
@@ -134,13 +185,20 @@ function RailUserMenu() {
         transformOrigin={{ horizontal: "left", vertical: "bottom" }}
       >
         <Box sx={{ px: 2, py: 1.5 }}>
-          <Typography sx={{ fontWeight: 800 }}>Adwoa E.</Typography>
-          <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-            adwoa@obiara.com
+          <Typography sx={{ fontWeight: 800 }}>
+            {identity ?? "Signed-in operator"}
           </Typography>
-          <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-            T&amp;S agent · Admin
-          </Typography>
+          {identity ? (
+            <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+              {roleSummary ?? "No roles assigned"}
+            </Typography>
+          ) : (
+            <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
+              {accountFailed
+                ? "Your operator account could not be loaded."
+                : "Loading your account…"}
+            </Typography>
+          )}
         </Box>
         <Divider />
         {accountMenuItems.map((item) => (
@@ -201,15 +259,6 @@ export function AdminRail() {
           />
         ))}
       </Box>
-
-      <Card className="safety-card">
-        <Box className="safety-pulse" />
-        <Typography className="safety-label">Safety desk</Typography>
-        <Typography className="safety-value">
-          All critical queues covered
-        </Typography>
-        <Typography>Last handover · 11:42 GMT</Typography>
-      </Card>
 
       <RailUserMenu />
     </Box>

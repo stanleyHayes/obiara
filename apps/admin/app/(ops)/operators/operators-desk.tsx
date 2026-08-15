@@ -101,8 +101,7 @@ export function OperatorsDesk() {
         email: item.email,
         roles: item.roles,
         status: item.status,
-        mfa: "enrolled",
-        lastActive: `enrolled ${new Date(item.createdAt).toLocaleDateString()}`,
+        enrolled: new Date(item.createdAt).toLocaleDateString(),
       })),
     });
   }, []);
@@ -317,8 +316,7 @@ export function OperatorsDesk() {
                     color: "inherit",
                     display: "grid",
                     gap: 1,
-                    gridTemplateColumns:
-                      "minmax(0,1.1fr) minmax(0,1.4fr) auto auto",
+                    gridTemplateColumns: "minmax(0,1.1fr) minmax(0,1.4fr) auto",
                     justifyContent: "stretch",
                     p: 1.5,
                     textAlign: "left",
@@ -340,12 +338,6 @@ export function OperatorsDesk() {
                     color={operator.status === "active" ? "success" : "default"}
                     label={operator.status}
                     size="small"
-                  />
-                  <Chip
-                    color={operator.mfa === "enrolled" ? "primary" : "warning"}
-                    label={operator.mfa === "enrolled" ? "MFA" : "MFA pending"}
-                    size="small"
-                    variant="outlined"
                   />
                 </Button>
               ))}
@@ -373,7 +365,7 @@ export function OperatorsDesk() {
                     {selected.name}
                   </Typography>
                   <Typography sx={{ color: "text.secondary" }}>
-                    {selected.email} · last active {selected.lastActive}
+                    {selected.email} · enrolled {selected.enrolled}
                   </Typography>
                 </Box>
                 <Box>

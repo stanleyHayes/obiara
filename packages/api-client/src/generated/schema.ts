@@ -2604,7 +2604,7 @@ export interface paths {
     readonly put?: never;
     /**
      * Join the launch availability waiting list
-     * @description Records purpose-specific consent for one launch availability email. Repeated submissions of the same normalized email are idempotent.
+     * @description Records purpose-specific consent for one launch availability email. Repeated submissions of the same normalized email are idempotent. Submissions are throttled per client IP.
      */
     readonly post: operations["joinLaunchWaitlist"];
     readonly delete?: never;
@@ -4900,6 +4900,16 @@ export interface components {
         readonly "application/json": components["schemas"]["ErrorEnvelope"];
       };
     };
+    /** @description Too many waitlist join attempts from this client. */
+    readonly WaitlistRateLimited: {
+      headers: {
+        readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+        readonly [name: string]: unknown;
+      };
+      content: {
+        readonly "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
   };
   parameters: {
     readonly AmpeRoundId: string;
@@ -5781,7 +5791,7 @@ export interface operations {
       };
     };
     readonly responses: {
-      /** @description MFA code sent. */
+      /** @description MFA code sent (accepted silently for unknown or suspended emails). */
       readonly 202: {
         headers: {
           readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
@@ -5792,7 +5802,6 @@ export interface operations {
         };
       };
       readonly 400: components["responses"]["InvalidJSON"];
-      readonly 404: components["responses"]["PrincipalNotFound"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
@@ -10324,6 +10333,7 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidJSON"];
       readonly 422: components["responses"]["ValidationFailed"];
+      readonly 429: components["responses"]["WaitlistRateLimited"];
       readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };

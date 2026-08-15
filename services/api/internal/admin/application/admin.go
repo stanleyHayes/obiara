@@ -25,15 +25,25 @@ var (
 	ErrRoleChangeNotFound = errors.New("admin role change not found")
 )
 
-// PrincipalRepository persists admin principals.
+// PrincipalRepository persists admin principals. Privileged mutations are
+// audit-atomic: the mutation and its immutable audit entry commit in one
+// transaction, and last-active-admin guards are enforced inside that same
+// transaction so concurrent stepped-up admins cannot race past them.
 type PrincipalRepository interface {
-	Create(context.Context, domain.Principal) error
 	FindByEmail(context.Context, string) (domain.Principal, error)
 	FindByID(context.Context, string) (domain.Principal, error)
 	List(context.Context) ([]domain.Principal, error)
-	Update(context.Context, domain.Principal) error
-	CountActiveAdmins(context.Context) (int, error)
-	CreateRoleChange(context.Context, domain.RoleChange) error
+	// CreateWithAudit creates the principal and appends the audit entry
+	// (actorID, action, at) atomically.
+	CreateWithAudit(ctx context.Context, principal domain.Principal, actorID, action string, at time.Time) error
+	// UpdateWithAudit persists the principal mutation and the audit entry
+	// atomically. When guardLastAdmin is true the transaction aborts with
+	// ErrLastAdmin if the mutation would remove the last active admin.
+	UpdateWithAudit(ctx context.Context, principal domain.Principal, guardLastAdmin bool, actorID, action string, at time.Time) error
+	// CreateRoleChange records the proposal and its audit entry atomically;
+	// guardLastAdmin enforces the last-active-admin invariant inside the
+	// same transaction.
+	CreateRoleChange(ctx context.Context, change domain.RoleChange, guardLastAdmin bool) error
 	FindRoleChange(context.Context, string) (domain.RoleChange, error)
 	ListPendingRoleChanges(context.Context) ([]domain.RoleChange, error)
 	ApproveRoleChange(context.Context, domain.RoleChange, domain.Principal) error
@@ -90,10 +100,7 @@ func (service AdminService) Enroll(ctx context.Context, sessionID, email string,
 	if err != nil {
 		return domain.Principal{}, err
 	}
-	if err := service.principals.Create(ctx, principal); err != nil {
-		return domain.Principal{}, err
-	}
-	if err := service.audit.Append(ctx, actor.ID(), "admin.enroll", principal.ID(), service.now().UTC()); err != nil {
+	if err := service.principals.CreateWithAudit(ctx, principal, actor.ID(), "admin.enroll", service.now().UTC()); err != nil {
 		return domain.Principal{}, err
 	}
 	return principal, nil
@@ -121,30 +128,22 @@ func (service AdminService) ChangeStatus(ctx context.Context, sessionID, targetI
 	if err != nil {
 		return domain.Principal{}, err
 	}
+	guardLastAdmin := false
 	switch status {
 	case domain.StatusSuspended:
 		if actor.ID() == target.ID() {
 			return domain.Principal{}, ErrSelfSuspension
 		}
-		if target.HasRole(domain.RoleAdmin) && target.Status() == domain.StatusActive {
-			count, countErr := service.principals.CountActiveAdmins(ctx)
-			if countErr != nil {
-				return domain.Principal{}, countErr
-			}
-			if count <= 1 {
-				return domain.Principal{}, ErrLastAdmin
-			}
-		}
+		// The last-active-admin check runs inside the mutation transaction so
+		// concurrent stepped-up admins cannot both suspend the last admins.
+		guardLastAdmin = target.HasRole(domain.RoleAdmin) && target.Status() == domain.StatusActive
 		target.Suspend()
 	case domain.StatusActive:
 		target.Reactivate()
 	default:
 		return domain.Principal{}, domain.ErrInvalidStatus
 	}
-	if err := service.principals.Update(ctx, target); err != nil {
-		return domain.Principal{}, err
-	}
-	if err := service.audit.Append(ctx, actor.ID(), "admin.principal.status."+string(status), target.ID(), service.now().UTC()); err != nil {
+	if err := service.principals.UpdateWithAudit(ctx, target, guardLastAdmin, actor.ID(), "admin.principal.status."+string(status), service.now().UTC()); err != nil {
 		return domain.Principal{}, err
 	}
 	return target, nil
@@ -171,10 +170,7 @@ func (service AdminService) ChangeRoles(ctx context.Context, sessionID, targetID
 	if err := target.ReplaceRoles(roles); err != nil {
 		return domain.Principal{}, err
 	}
-	if err := service.principals.Update(ctx, target); err != nil {
-		return domain.Principal{}, err
-	}
-	if err := service.audit.Append(ctx, actor.ID(), "admin.principal.roles", target.ID(), service.now().UTC()); err != nil {
+	if err := service.principals.UpdateWithAudit(ctx, target, false, actor.ID(), "admin.principal.roles", service.now().UTC()); err != nil {
 		return domain.Principal{}, err
 	}
 	return target, nil
@@ -196,20 +192,14 @@ func (service AdminService) ProposeAdminRoleChange(ctx context.Context, sessionI
 	if hasAdmin == target.HasRole(domain.RoleAdmin) {
 		return domain.RoleChange{}, ErrFourEyesRequired
 	}
-	if target.HasRole(domain.RoleAdmin) && !hasAdmin && target.Status() == domain.StatusActive {
-		count, countErr := service.principals.CountActiveAdmins(ctx)
-		if countErr != nil {
-			return domain.RoleChange{}, countErr
-		}
-		if count <= 1 {
-			return domain.RoleChange{}, ErrLastAdmin
-		}
-	}
+	// Revoking the admin role from an active admin enforces the
+	// last-active-admin invariant inside the proposal transaction.
+	guardLastAdmin := target.HasRole(domain.RoleAdmin) && !hasAdmin && target.Status() == domain.StatusActive
 	change, err := domain.NewRoleChange(service.newID(), target.ID(), target.Version(), roles, reason, actor.ID(), service.now())
 	if err != nil {
 		return domain.RoleChange{}, err
 	}
-	if err := service.principals.CreateRoleChange(ctx, change); err != nil {
+	if err := service.principals.CreateRoleChange(ctx, change, guardLastAdmin); err != nil {
 		return domain.RoleChange{}, err
 	}
 	return change, nil
@@ -268,14 +258,19 @@ func (service AdminService) requireSteppedUpAdmin(ctx context.Context, sessionID
 	return session, actor, nil
 }
 
-// StartLogin mints and sends an MFA code for an active principal.
+// StartLogin mints and sends an MFA code for an active principal. Unknown or
+// suspended emails no-op successfully so the unauthenticated endpoint cannot
+// enumerate valid principals; transport errors still surface.
 func (service AdminService) StartLogin(ctx context.Context, email string) error {
 	principal, err := service.principals.FindByEmail(ctx, email)
+	if errors.Is(err, ErrPrincipalNotFound) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
 	if principal.Status() != domain.StatusActive {
-		return ErrPrincipalNotFound
+		return nil
 	}
 	return service.mintAndSend(ctx, principal.ID(), principal.Email())
 }

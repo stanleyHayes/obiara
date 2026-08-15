@@ -90,9 +90,11 @@ export function onboardingReducer(
         ? { ...state, stage: "card" }
         : state;
     case "card-result":
+      // The API issues opaque case IDs as "vc_" + base64url(16 bytes)
+      // (services/api/internal/verification/module.go); accept that shape.
       if (
         state.stage !== "card" ||
-        !/^ref_[a-z0-9]{6,32}$/.test(action.reference)
+        !/^vc_[A-Za-z0-9_-]{10,64}$/.test(action.reference)
       ) {
         return state;
       }

@@ -56,47 +56,32 @@ func (mr *MockPrincipalRepositoryMockRecorder) ApproveRoleChange(arg0, arg1, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApproveRoleChange", reflect.TypeOf((*MockPrincipalRepository)(nil).ApproveRoleChange), arg0, arg1, arg2)
 }
 
-// CountActiveAdmins mocks base method.
-func (m *MockPrincipalRepository) CountActiveAdmins(arg0 context.Context) (int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CountActiveAdmins", arg0)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CountActiveAdmins indicates an expected call of CountActiveAdmins.
-func (mr *MockPrincipalRepositoryMockRecorder) CountActiveAdmins(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CountActiveAdmins", reflect.TypeOf((*MockPrincipalRepository)(nil).CountActiveAdmins), arg0)
-}
-
-// Create mocks base method.
-func (m *MockPrincipalRepository) Create(arg0 context.Context, arg1 domain.Principal) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockPrincipalRepositoryMockRecorder) Create(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockPrincipalRepository)(nil).Create), arg0, arg1)
-}
-
 // CreateRoleChange mocks base method.
-func (m *MockPrincipalRepository) CreateRoleChange(arg0 context.Context, arg1 domain.RoleChange) error {
+func (m *MockPrincipalRepository) CreateRoleChange(arg0 context.Context, arg1 domain.RoleChange, arg2 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateRoleChange", arg0, arg1)
+	ret := m.ctrl.Call(m, "CreateRoleChange", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateRoleChange indicates an expected call of CreateRoleChange.
-func (mr *MockPrincipalRepositoryMockRecorder) CreateRoleChange(arg0, arg1 any) *gomock.Call {
+func (mr *MockPrincipalRepositoryMockRecorder) CreateRoleChange(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoleChange", reflect.TypeOf((*MockPrincipalRepository)(nil).CreateRoleChange), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoleChange", reflect.TypeOf((*MockPrincipalRepository)(nil).CreateRoleChange), arg0, arg1, arg2)
+}
+
+// CreateWithAudit mocks base method.
+func (m *MockPrincipalRepository) CreateWithAudit(arg0 context.Context, arg1 domain.Principal, arg2, arg3 string, arg4 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateWithAudit", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateWithAudit indicates an expected call of CreateWithAudit.
+func (mr *MockPrincipalRepositoryMockRecorder) CreateWithAudit(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateWithAudit", reflect.TypeOf((*MockPrincipalRepository)(nil).CreateWithAudit), arg0, arg1, arg2, arg3, arg4)
 }
 
 // FindByEmail mocks base method.
@@ -174,18 +159,18 @@ func (mr *MockPrincipalRepositoryMockRecorder) ListPendingRoleChanges(arg0 any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPendingRoleChanges", reflect.TypeOf((*MockPrincipalRepository)(nil).ListPendingRoleChanges), arg0)
 }
 
-// Update mocks base method.
-func (m *MockPrincipalRepository) Update(arg0 context.Context, arg1 domain.Principal) error {
+// UpdateWithAudit mocks base method.
+func (m *MockPrincipalRepository) UpdateWithAudit(arg0 context.Context, arg1 domain.Principal, arg2 bool, arg3, arg4 string, arg5 time.Time) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateWithAudit", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Update indicates an expected call of Update.
-func (mr *MockPrincipalRepositoryMockRecorder) Update(arg0, arg1 any) *gomock.Call {
+// UpdateWithAudit indicates an expected call of UpdateWithAudit.
+func (mr *MockPrincipalRepositoryMockRecorder) UpdateWithAudit(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockPrincipalRepository)(nil).Update), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateWithAudit", reflect.TypeOf((*MockPrincipalRepository)(nil).UpdateWithAudit), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // MockChallengeRepository is a mock of ChallengeRepository interface.

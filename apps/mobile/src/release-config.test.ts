@@ -104,7 +104,8 @@ describe("mobile release policy", () => {
       if (previousApi === undefined)
         delete process.env.EXPO_PUBLIC_API_BASE_URL;
       else process.env.EXPO_PUBLIC_API_BASE_URL = previousApi;
-      delete process.env.EXPO_PUBLIC_SITE_URL;
+      if (previousSite === undefined) delete process.env.EXPO_PUBLIC_SITE_URL;
+      else process.env.EXPO_PUBLIC_SITE_URL = previousSite;
     }
   });
 

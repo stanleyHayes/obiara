@@ -12,12 +12,7 @@ import {
 } from "react-native";
 
 import brandMark from "../assets/brand-mark.png";
-import {
-  accessToken,
-  apiRequest,
-  saveSession,
-  type MobileSession,
-} from "./api";
+import { accessToken, apiRequest, onSessionCleared, verifyOtp } from "./api";
 
 type Stage = "checking" | "phone" | "code" | "signed-in";
 
@@ -33,8 +28,16 @@ export function SessionGate({ children }: Readonly<{ children: ReactNode }>) {
     void accessToken().then((token) => {
       if (active) setStage(token ? "signed-in" : "phone");
     });
+    const unsubscribe = onSessionCleared((expired) => {
+      setStage("phone");
+      setCode("");
+      setMessage(
+        expired ? "Your sign-in has expired. Please sign in again." : "",
+      );
+    });
     return () => {
       active = false;
+      unsubscribe();
     };
   }, []);
 
@@ -61,12 +64,7 @@ export function SessionGate({ children }: Readonly<{ children: ReactNode }>) {
     setBusy(true);
     setMessage("");
     try {
-      const session = await apiRequest<MobileSession>(
-        "/v1/auth/otp/verify",
-        { method: "POST", body: JSON.stringify({ phone: phone.trim(), code }) },
-        false,
-      );
-      await saveSession(session);
+      await verifyOtp(phone.trim(), code);
       setStage("signed-in");
     } catch (error) {
       setMessage(

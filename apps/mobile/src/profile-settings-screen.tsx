@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { apiRequest } from "./api";
+import { apiRequest, clearSession } from "./api";
 
 const palette = {
   plum: "#3A0E2E",
@@ -47,6 +47,7 @@ export function ProfileSettingsScreen() {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [revision, setRevision] = useState(0);
   const commandID = useRef<string | null>(null);
 
@@ -158,6 +159,15 @@ export function ProfileSettingsScreen() {
       setSaved(false);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function signOut() {
+    setSigningOut(true);
+    try {
+      await clearSession();
+    } finally {
+      setSigningOut(false);
     }
   }
 
@@ -353,6 +363,20 @@ export function ProfileSettingsScreen() {
             </Pressable>
           ))}
         </View>
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>SESSION</Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={signingOut}
+            onPress={() => void signOut()}
+            style={[styles.signOut, signingOut && styles.pressed]}
+          >
+            <Text style={styles.signOutText}>
+              {signingOut ? "Signing out…" : "Sign out of this device"}
+            </Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -511,5 +535,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   linkChevron: { color: palette.plum, fontSize: 20 },
+  signOut: {
+    alignItems: "center",
+    borderColor: palette.pink,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: "center",
+    marginTop: 12,
+    minHeight: 48,
+  },
+  signOutText: {
+    color: palette.pink,
+    fontFamily: "Outfit_700Bold",
+    fontSize: 15,
+  },
   pressed: { opacity: 0.7 },
 });
