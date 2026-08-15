@@ -2056,3 +2056,26 @@ waitlist name/email are stored unkeyed as a documented exception to the
 privacy-keying convention because the operations desk must read them; consent
 on public waitlist joins is self-declared until a double-opt-in or launch-time
 verification authority is composed.
+
+Launch-preparation hardening (2026-08-15): the supply chain and toolchain
+were brought to a clean launch state. Go was bumped to 1.26.6 and grpc to
+1.82.1 across `go.mod`, `go.work`, `render.yaml` and both CI workflows after
+govulncheck found seven reachable advisories; the rescan reports zero
+reachable vulnerabilities. Three new high JS advisories were remediated with
+exact overrides (`brace-expansion@5.0.9`, `js-yaml@4.3.1`, `nanoid@3.3.18`).
+The two `image-size` DoS advisories have no patched upstream release and are
+reachable only through metro/Storybook dev tooling, so they are held as a
+documented temporary exception in `internal/quality/ci-security-baseline.md`
+(owner, rationale, compensating controls, 2026-11-15 expiry); the CI audit
+gate now counts severities from the advisories map, which honors
+`auditConfig.ignoreGhsas`. Verification: full Go suite green in short mode
+under 1.26.6, vet/actionlint/Render Blueprint validation clean, the complete
+frontend lint/typecheck/test matrix and all 11 production builds pass, and
+the pnpm high/critical audit gate passes. The
+`TestMongoReplicaSetIsolatedRestorePreservesSourceAndDetectsCorruption` live
+run was skipped once more because Docker Desktop on the development machine
+is unresponsive (daemon API calls hang) — the same pre-existing environment
+limitation recorded at S1-001 and S4-005, not a code failure; the test passed
+live earlier the same day and CI executes it on a clean runner. Production
+remains blocked exclusively on the external gates in
+`internal/quality/external-gate-handoff.md`.
