@@ -8,6 +8,7 @@ import "./styles.css";
 export const metadata: Metadata = {
   title: "Obiara — Meet properly",
   description: "A trusted place to meet, speak and grow a true connection.",
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 
 export default function RootLayout({

@@ -67,6 +67,8 @@ func TestLoadOverrides(t *testing.T) {
 		"RESEND_API_KEY":                   "synthetic-test-only",
 		"RESEND_FROM_ADDRESS":              "no-reply@obiara.test",
 		"WHATSAPP_PROVIDER":                "disabled",
+		"IDENTITY_VERIFICATION_PROVIDER":   "manual",
+		"LIVENESS_PROVIDER":                "manual",
 	}))
 	if err != nil {
 		t.Fatalf("Load with overrides returned error: %v", err)
@@ -118,6 +120,8 @@ func TestLoadStagingRejectsMissingOrStaleSecretMetadata(t *testing.T) {
 		"RESEND_API_KEY":                   "synthetic-test-only",
 		"RESEND_FROM_ADDRESS":              "no-reply@obiara.test",
 		"WHATSAPP_PROVIDER":                "disabled",
+		"IDENTITY_VERIFICATION_PROVIDER":   "manual",
+		"LIVENESS_PROVIDER":                "manual",
 	}
 	if _, err := loadAt(envWith(base), now); err != nil {
 		t.Fatal(err)

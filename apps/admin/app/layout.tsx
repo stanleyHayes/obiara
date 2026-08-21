@@ -8,6 +8,7 @@ import "./styles.css";
 export const metadata: Metadata = {
   title: "Obiara Admin",
   description: "Obiara operations platform",
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 
 export default function RootLayout({

@@ -1333,34 +1333,146 @@ body {
   background: #ffc66e !important;
   color: #26101f !important;
 }
-/* Authentication is intentionally visually distinct from the member app:
-   a quiet, bounded entry point before any operational data is mounted. */
-.admin-login-page {
+/* Authentication is the threshold to the operations desk: the dark brand
+   field holds the institution, while the quiet shea panel holds the task. */
+.admin-auth-shell {
+  background: #f4eee7;
+  display: grid;
+  grid-template-columns: minmax(25rem, 0.92fr) minmax(31rem, 1.08fr);
+  min-height: 100dvh;
+}
+
+.admin-auth-brand {
+  background:
+    radial-gradient(circle at 16% 10%, rgba(255, 159, 28, 0.16), transparent 24rem),
+    linear-gradient(145deg, #3a0e2e 0%, #22091b 72%);
+  color: var(--admin-cream);
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(2rem, 4vw, 4.5rem);
+  position: relative;
+}
+
+.admin-auth-weave {
+  background-image:
+    linear-gradient(30deg, transparent 45%, rgba(255, 243, 230, 0.07) 46%, rgba(255, 243, 230, 0.07) 48%, transparent 49%),
+    linear-gradient(150deg, transparent 45%, rgba(255, 159, 28, 0.08) 46%, rgba(255, 159, 28, 0.08) 48%, transparent 49%);
+  background-size: 82px 48px;
+  bottom: -8rem;
+  height: 32rem;
+  left: -5rem;
+  mask-image: linear-gradient(to top, #000 30%, transparent 92%);
+  opacity: 0.9;
+  pointer-events: none;
+  position: absolute;
+  right: -5rem;
+  transform: rotate(-5deg);
+  z-index: -1;
+}
+
+.admin-auth-brand-top {
+  align-items: center;
+  display: flex;
+  gap: 0.9rem;
+}
+
+.admin-auth-mark {
+  height: 3.25rem;
+  object-fit: contain;
+  width: 3.25rem;
+}
+
+.admin-auth-wordmark {
+  font-size: 1.55rem !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.055em !important;
+  line-height: 1 !important;
+}
+
+.admin-auth-brand-label {
+  color: rgba(255, 243, 230, 0.5);
+  font-size: 0.64rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.15em !important;
+  margin-top: 0.4rem !important;
+  text-transform: uppercase;
+}
+
+.admin-auth-statement {
+  margin: auto 0;
+  max-width: 35rem;
+  padding: 6rem 0;
+}
+
+.admin-auth-eyebrow {
+  color: #ffb64f;
+  font-size: 0.69rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.15em !important;
+  margin-bottom: 1.5rem !important;
+  text-transform: uppercase;
+}
+
+.admin-auth-quote {
+  font-size: clamp(2.6rem, 4.7vw, 5.2rem) !important;
+  font-weight: 780 !important;
+  letter-spacing: -0.065em !important;
+  line-height: 0.95 !important;
+}
+
+.admin-auth-supporting-copy {
+  color: rgba(255, 243, 230, 0.61);
+  font-size: 1rem !important;
+  line-height: 1.7 !important;
+  margin-top: 2rem !important;
+  max-width: 31rem;
+}
+
+.admin-auth-trust-line {
+  align-items: center;
+  color: rgba(255, 243, 230, 0.55);
+  display: flex;
+  font-size: 0.72rem;
+  font-weight: 650;
+  gap: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.admin-auth-live-dot {
+  background: #31d4a5;
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgba(49, 212, 165, 0.1);
+  height: 0.45rem;
+  width: 0.45rem;
+}
+
+.admin-auth-workspace {
   align-items: center;
   background:
-    radial-gradient(
-      circle at 15% 10%,
-      rgba(142, 49, 89, 0.12),
-      transparent 32rem
-    ),
-    #f4f0ec;
+    linear-gradient(rgba(58, 14, 46, 0.035) 1px, transparent 1px),
+    #f8f4ef;
+  background-size: 100% 5.5rem;
   display: flex;
-  min-height: 100vh;
-  padding: 2rem 0;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: clamp(2rem, 7vw, 7rem);
 }
 
-.admin-login-card {
-  border: 1px solid rgba(58, 14, 46, 0.14);
-  border-radius: 12px !important;
-  padding: clamp(2rem, 6vw, 3rem);
+.admin-auth-panel {
+  max-width: 29rem;
+  width: 100%;
 }
 
-.admin-login-card h1 {
-  font-size: clamp(2rem, 7vw, 3.25rem);
+.admin-auth-panel h1 {
+  color: #2e0c25;
+  font-size: clamp(2.7rem, 5vw, 4.6rem);
   font-weight: 850;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.065em;
   line-height: 0.98;
-  margin-top: 0.65rem;
+  margin-top: 0.7rem;
 }
 
 .admin-login-kicker {
@@ -1372,12 +1484,225 @@ body {
 }
 
 .admin-login-copy {
-  color: #665b61;
-  line-height: 1.6 !important;
-  margin: 1.25rem 0 2rem !important;
+  color: #6f6068;
+  line-height: 1.65 !important;
+  margin: 1.35rem 0 2.35rem !important;
 }
 
 .admin-login-form {
   display: grid;
-  gap: 1rem;
+  gap: 1.05rem;
+}
+
+.admin-password-icon {
+  color: #6e3d5b;
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.admin-login-help {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.35rem;
+}
+
+.admin-login-help a {
+  color: #7c315c;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-decoration-color: rgba(124, 49, 92, 0.28);
+  text-underline-offset: 0.22rem;
+}
+
+.admin-login-help a:hover {
+  color: #3a0e2e;
+  text-decoration-color: currentColor;
+}
+
+.admin-login-help a:focus-visible {
+  border-radius: 3px;
+  outline: 3px solid rgba(255, 159, 28, 0.42);
+  outline-offset: 4px;
+}
+
+.admin-login-progress {
+  align-items: center;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: 1.75rem 2.25rem 1.75rem 1fr;
+  margin-bottom: 0.35rem;
+}
+
+.admin-login-progress > span {
+  align-items: center;
+  border: 1px solid rgba(58, 14, 46, 0.16);
+  border-radius: 50%;
+  color: #8a7781;
+  display: flex;
+  font-size: 0.7rem;
+  font-weight: 800;
+  height: 1.75rem;
+  justify-content: center;
+}
+
+.admin-login-progress > span.is-active {
+  background: #3a0e2e;
+  border-color: #3a0e2e;
+  color: #fff3e6;
+}
+
+.admin-login-progress > i {
+  background: rgba(58, 14, 46, 0.14);
+  height: 1px;
+}
+
+.admin-login-progress > i.is-active {
+  background: #3a0e2e;
+}
+
+.admin-login-progress > p {
+  color: #7b6972;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-align: right;
+}
+
+.admin-code-intro {
+  background: rgba(58, 14, 46, 0.045);
+  border-left: 3px solid #ff9f1c;
+  padding: 1rem 1.1rem;
+}
+
+.admin-code-intro h2 {
+  color: #3a0e2e;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.admin-code-intro p:last-child {
+  color: #75636d;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin-top: 0.25rem;
+}
+
+.admin-auth-primary-action {
+  background: #3a0e2e !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(58, 14, 46, 0.18) !important;
+  min-height: 3.35rem !important;
+}
+
+.admin-auth-primary-action:hover {
+  background: #50153f !important;
+  box-shadow: 0 14px 28px rgba(58, 14, 46, 0.24) !important;
+}
+
+.admin-auth-primary-action.Mui-disabled {
+  background: #6e4c62 !important;
+  box-shadow: none !important;
+  color: rgba(255, 243, 230, 0.72) !important;
+}
+
+.admin-auth-action-link {
+  display: block;
+  text-decoration: none;
+}
+
+.admin-auth-secondary-action {
+  color: #6c405b !important;
+}
+
+.admin-auth-footnote {
+  color: #94848c;
+  font-size: 0.66rem !important;
+  letter-spacing: 0.06em !important;
+  margin-top: 3.5rem !important;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.admin-auth-success-mark {
+  align-items: center;
+  background: rgba(18, 166, 124, 0.1);
+  border: 1px solid rgba(18, 166, 124, 0.22);
+  border-radius: 50%;
+  color: #087858;
+  display: flex;
+  font-size: 1.25rem;
+  font-weight: 850;
+  height: 3.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  width: 3.5rem;
+}
+
+@media (max-width: 900px) {
+  .admin-auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-auth-brand {
+    min-height: 16rem;
+    padding: 1.75rem clamp(1.5rem, 7vw, 4rem);
+  }
+
+  .admin-auth-statement {
+    padding: 3rem 0 2rem;
+  }
+
+  .admin-auth-quote {
+    font-size: clamp(2rem, 8vw, 3.25rem) !important;
+    max-width: 24rem;
+  }
+
+  .admin-auth-supporting-copy,
+  .admin-auth-trust-line {
+    display: none;
+  }
+
+  .admin-auth-workspace {
+    justify-content: flex-start;
+    min-height: calc(100dvh - 16rem);
+    padding: 3.5rem clamp(1.4rem, 8vw, 5rem) 2rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-auth-brand {
+    min-height: 12rem;
+  }
+
+  .admin-auth-statement {
+    padding: 2rem 0 0.25rem;
+  }
+
+  .admin-auth-eyebrow {
+    display: none;
+  }
+
+  .admin-auth-quote {
+    font-size: 2rem !important;
+  }
+
+  .admin-auth-workspace {
+    min-height: calc(100dvh - 12rem);
+    padding-top: 2.75rem;
+  }
+
+  .admin-auth-panel h1 {
+    font-size: 2.75rem;
+  }
+
+  .admin-auth-footnote {
+    margin-top: 2.5rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-auth-primary-action {
+    transition: none !important;
+  }
 }

@@ -1,23 +1,18 @@
-import { Box, Card, Container, Typography } from "@mui/material";
+import { Typography } from "@mui/material";
 
+import { AuthShell } from "../auth-shell";
 import { AdminLogin } from "./admin-login";
 
 export default function LoginPage() {
   return (
-    <Box className="admin-login-page">
-      <Container maxWidth="xs">
-        <Card className="admin-login-card">
-          <Typography className="admin-login-kicker">
-            Restricted operations
-          </Typography>
-          <Typography component="h1">Enter the Obiara desk.</Typography>
-          <Typography className="admin-login-copy">
-            Admin access is separate from member access. Every session is
-            short-lived, role-bounded and protected by an emailed code.
-          </Typography>
-          <AdminLogin />
-        </Card>
-      </Container>
-    </Box>
+    <AuthShell>
+      <Typography className="admin-login-kicker">Restricted access</Typography>
+      <Typography component="h1">Welcome back.</Typography>
+      <Typography className="admin-login-copy">
+        Sign in with your operator account. We&apos;ll confirm it&apos;s you with
+        a one-time code before opening the desk.
+      </Typography>
+      <AdminLogin />
+    </AuthShell>
   );
 }

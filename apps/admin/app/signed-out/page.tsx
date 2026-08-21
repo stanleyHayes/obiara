@@ -1,33 +1,29 @@
-import { Box, Button, Card, Container, Typography } from "@mui/material";
+import { Button, Typography } from "@mui/material";
 import Link from "next/link";
+
+import { AuthShell } from "../auth-shell";
 
 export default function SignedOutPage() {
   return (
-    <Box
-      sx={{
-        alignItems: "center",
-        bgcolor: "background.default",
-        color: "text.primary",
-        display: "flex",
-        minHeight: "100vh",
-      }}
-    >
-      <Container maxWidth="xs">
-        <Card sx={{ borderRadius: 1, p: 4, textAlign: "center" }}>
-          <Typography component="h1" sx={{ fontSize: 28, fontWeight: 800 }}>
-            Signed out.
-          </Typography>
-          <Typography sx={{ color: "text.secondary", mt: 1.5, mb: 3 }}>
-            Your session on this device has ended. Sessions on other devices are
-            untouched.
-          </Typography>
-          <Link href="/">
-            <Button fullWidth variant="contained">
-              Sign back in
-            </Button>
-          </Link>
-        </Card>
-      </Container>
-    </Box>
+    <AuthShell>
+      <div className="admin-auth-success-mark" aria-hidden="true">
+        ✓
+      </div>
+      <Typography className="admin-login-kicker">Session closed</Typography>
+      <Typography component="h1">You&apos;re signed out.</Typography>
+      <Typography className="admin-login-copy">
+        This device no longer has access to the operations desk. Sessions on
+        your other devices are unchanged.
+      </Typography>
+      <Link className="admin-auth-action-link" href="/">
+        <Button
+          className="admin-auth-primary-action"
+          fullWidth
+          variant="contained"
+        >
+          Return to sign in
+        </Button>
+      </Link>
+    </AuthShell>
   );
 }

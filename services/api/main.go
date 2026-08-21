@@ -170,11 +170,19 @@ func run() error {
 	}
 	// Verification (E03-S03) promotes accounts through the identity tier
 	// state machine via the composition-time bridge.
-	verificationModule, err := verification.NewModule(ctx, client.Database(cfg.MongoDatabase), tierBridge{tiers: identityModule.Tiers})
+	identityProvider, err := delivery.IdentityProvider(cfg.Verification)
+	if err != nil {
+		return err
+	}
+	verificationModule, err := verification.NewModule(ctx, client.Database(cfg.MongoDatabase), identityProvider, tierBridge{tiers: identityModule.Tiers})
 	if err != nil {
 		return fmt.Errorf("build verification module: %w", err)
 	}
-	livenessModule, err := liveness.NewModule(ctx, client.Database(cfg.MongoDatabase), cfg.LivenessHMACSecret)
+	livenessProvider, err := delivery.LivenessProvider(cfg.Verification)
+	if err != nil {
+		return err
+	}
+	livenessModule, err := liveness.NewModule(ctx, client.Database(cfg.MongoDatabase), livenessProvider, cfg.LivenessHMACSecret)
 	if err != nil {
 		return fmt.Errorf("build liveness module: %w", err)
 	}

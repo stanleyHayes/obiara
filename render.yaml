@@ -32,16 +32,35 @@ projects:
                 value: "true"
               - key: FEATURE_AI_ENABLED
                 value: "false"
-              # Outbound delivery providers. The API refuses to start in
-              # production if any channel is left on the simulator, which is
-              # what previously let OTP registration accept sign-ups while
-              # silently delivering nothing.
+              # ---------------------------------------------------------
+              # PROVIDER SELECTION (non-secret; safe to keep in the repo)
+              #
+              # The API validates every one of these at startup and REFUSES
+              # TO BOOT if any is left on "simulator" outside development.
+              # Simulators report success while doing nothing, which is what
+              # let sign-ups accept members who never received an OTP and
+              # would have let every identity check auto-approve.
+              # ---------------------------------------------------------
+              # OTP delivery ladder, tried in order. e.g. "arkesel,twilio".
               - key: OTP_PROVIDERS
                 value: arkesel
+              # Transactional email. Admin sign-in codes ride this channel,
+              # so "simulator" here locks every operator out of the console.
               - key: EMAIL_PROVIDER
                 value: resend
+              # "disabled" fails WhatsApp sends loudly and delivery-logs
+              # them. Switch to "meta" once the Cloud API is provisioned.
               - key: WHATSAPP_PROVIDER
                 value: disabled
+              # "manual" routes every Ghana Card case to the admin review
+              # desk. There is no automated vendor contracted, and the
+              # alternative auto-approved fabricated cards and promoted the
+              # account a tier.
+              - key: IDENTITY_VERIFICATION_PROVIDER
+                value: manual
+              # "manual" routes every liveness attempt to human review.
+              - key: LIVENESS_PROVIDER
+                value: manual
         services:
           - name: obiara-api-production
             type: web
@@ -103,15 +122,40 @@ projects:
                 sync: false
               - key: LIVEKIT_API_SECRET
                 sync: false
+              # --- Arkesel (SMS / OTP) -- REQUIRED, API will not boot without
+              # Dashboard: https://sms.arkesel.com  ->  Settings -> API Keys
               - key: ARKESEL_API_KEY
                 sync: false
+              # Pre-approved alphanumeric sender id, max 11 characters.
               - key: ARKESEL_SENDER_ID
                 sync: false
+              # Optional. Exactly one %s, replaced by the code. Blank uses
+              # the built-in Obiara wording.
+              - key: OTP_SMS_TEMPLATE
+                sync: false
+              # --- Resend (email / admin MFA) -- REQUIRED, API will not boot
+              # Dashboard: https://resend.com/api-keys
               - key: RESEND_API_KEY
                 sync: false
+              # Must be an address on a domain verified in Resend.
               - key: RESEND_FROM_ADDRESS
                 sync: false
+              # Optional operator reply-to address.
               - key: RESEND_REPLY_TO
+                sync: false
+              # --- Meta WhatsApp Cloud API -- OPTIONAL
+              # Only needed if WHATSAPP_PROVIDER is set to "meta".
+              - key: META_WHATSAPP_PHONE_NUMBER_ID
+                sync: false
+              - key: META_WHATSAPP_ACCESS_TOKEN
+                sync: false
+              # --- Twilio (secondary SMS) -- OPTIONAL
+              # Only needed if OTP_PROVIDERS includes "twilio".
+              - key: TWILIO_ACCOUNT_SID
+                sync: false
+              - key: TWILIO_AUTH_TOKEN
+                sync: false
+              - key: TWILIO_MESSAGING_SERVICE_SID
                 sync: false
 
           - name: obiara-worker-production

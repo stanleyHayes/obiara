@@ -31,6 +31,8 @@ type Config struct {
 	CircleHMACSecret    string
 	// Notifications selects the outbound OTP, WhatsApp and email adapters.
 	Notifications NotificationsConfig
+	// Verification selects the identity and liveness provider adapters.
+	Verification VerificationConfig
 }
 
 // simulatorsAllowed reports whether the environment may run without real
@@ -128,9 +130,14 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 		return Config{}, fmt.Errorf("runtime secret policy: %w", err)
 	}
 
+	allowSimulators := simulatorsAllowed(cfg.Environment)
 	cfg.Notifications = loadNotifications(getenv)
-	if err := validateNotifications(cfg.Notifications, simulatorsAllowed(cfg.Environment)); err != nil {
+	if err := validateNotifications(cfg.Notifications, allowSimulators); err != nil {
 		return Config{}, fmt.Errorf("notification providers: %w", err)
+	}
+	cfg.Verification = loadVerification(getenv)
+	if err := validateVerification(cfg.Verification, allowSimulators); err != nil {
+		return Config{}, fmt.Errorf("verification providers: %w", err)
 	}
 
 	return cfg, nil
