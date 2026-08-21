@@ -13,9 +13,21 @@ export interface MobileSession {
 
 export function apiBaseURL(): string {
   const configured = Constants.expoConfig?.extra?.apiBaseUrl;
-  return typeof configured === "string" && configured.trim()
-    ? configured.replace(/\/$/, "")
-    : "http://127.0.0.1:8080";
+  if (typeof configured === "string" && configured.trim()) {
+    return configured.replace(/\/$/, "");
+  }
+  // app.config.ts already requires EXPO_PUBLIC_API_BASE_URL for any release
+  // channel, so reaching here off "local" means a build slipped through
+  // without one. Fail loudly rather than falling back to the loopback
+  // address, which on a handset is the phone itself and turns a missing
+  // build variable into every request failing for no visible reason.
+  const channel = Constants.expoConfig?.extra?.releaseChannel;
+  if (channel && channel !== "local") {
+    throw new Error(
+      `EXPO_PUBLIC_API_BASE_URL is required for ${String(channel)} builds`,
+    );
+  }
+  return "http://127.0.0.1:8080";
 }
 
 async function storeValue(key: string, value: string | null) {

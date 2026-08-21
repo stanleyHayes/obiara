@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const store = new Map<string, string>();
@@ -20,8 +20,11 @@ vi.mock("expo-secure-store", () => ({
   },
 }));
 
+import Constants from "expo-constants";
+
 import {
   accessToken,
+  apiBaseURL,
   apiRequest,
   clearSession,
   deviceId,
@@ -133,5 +136,38 @@ describe("expired sessions", () => {
     expect(await accessToken()).toBeNull();
     expect(events).toEqual([false]);
     unsubscribe();
+  });
+});
+
+describe("apiBaseURL", () => {
+  const original = Constants.expoConfig;
+
+  afterEach(() => {
+    (Constants as { expoConfig: unknown }).expoConfig = original;
+  });
+
+  function withExtra(extra: Record<string, unknown>) {
+    (Constants as { expoConfig: unknown }).expoConfig = { extra };
+  }
+
+  it("uses the configured base url without a trailing slash", () => {
+    withExtra({
+      releaseChannel: "production",
+      apiBaseUrl: "https://api.obiara.com/",
+    });
+    expect(apiBaseURL()).toBe("https://api.obiara.com");
+  });
+
+  it("falls back to the loopback address for local builds", () => {
+    withExtra({ releaseChannel: "local", apiBaseUrl: null });
+    expect(apiBaseURL()).toBe("http://127.0.0.1:8080");
+  });
+
+  // On a handset the loopback address is the phone itself, so silently
+  // falling back would turn a missing build variable into every request
+  // failing for no visible reason.
+  it("throws for a release build with no base url", () => {
+    withExtra({ releaseChannel: "production", apiBaseUrl: null });
+    expect(() => apiBaseURL()).toThrow(/EXPO_PUBLIC_API_BASE_URL/);
   });
 });
