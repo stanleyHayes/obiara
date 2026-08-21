@@ -32,6 +32,16 @@ projects:
                 value: "true"
               - key: FEATURE_AI_ENABLED
                 value: "false"
+              # Outbound delivery providers. The API refuses to start in
+              # production if any channel is left on the simulator, which is
+              # what previously let OTP registration accept sign-ups while
+              # silently delivering nothing.
+              - key: OTP_PROVIDERS
+                value: arkesel
+              - key: EMAIL_PROVIDER
+                value: resend
+              - key: WHATSAPP_PROVIDER
+                value: disabled
         services:
           - name: obiara-api-production
             type: web
@@ -92,6 +102,16 @@ projects:
               - key: LIVEKIT_API_KEY
                 sync: false
               - key: LIVEKIT_API_SECRET
+                sync: false
+              - key: ARKESEL_API_KEY
+                sync: false
+              - key: ARKESEL_SENDER_ID
+                sync: false
+              - key: RESEND_API_KEY
+                sync: false
+              - key: RESEND_FROM_ADDRESS
+                sync: false
+              - key: RESEND_REPLY_TO
                 sync: false
 
           - name: obiara-worker-production

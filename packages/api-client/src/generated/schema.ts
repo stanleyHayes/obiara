@@ -2708,6 +2708,11 @@ export interface components {
     readonly AdminEmailInput: {
       /** Format: email */
       readonly email: string;
+      /**
+       * Format: password
+       * @description Required for operators enrolled with a password. Omitted only by principals enrolled before password support, who authenticate on the emailed code alone. A wrong password is reported as a normal 202 so the endpoint cannot be used as a password oracle.
+       */
+      readonly password?: string;
     };
     readonly AdminEnrollInput: {
       /** Format: email */

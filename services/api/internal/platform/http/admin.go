@@ -21,7 +21,7 @@ type Admin interface {
 	ProposeAdminRoleChange(ctx context.Context, sessionID, targetID string, roles []domain.Role, reason string) (domain.RoleChange, error)
 	ListPendingRoleChanges(ctx context.Context, sessionID string) ([]domain.RoleChange, error)
 	ApproveAdminRoleChange(ctx context.Context, sessionID, changeID string) (domain.Principal, error)
-	StartLogin(ctx context.Context, email string) error
+	StartLogin(ctx context.Context, email, password string) error
 	CompleteLogin(ctx context.Context, email, code string) (domain.Session, error)
 	StepUpStart(ctx context.Context, sessionID string) error
 	StepUpComplete(ctx context.Context, sessionID, code string) (domain.Session, error)
@@ -315,6 +315,10 @@ func approveRoleChangeHandler(admin Admin) http.Handler {
 
 type emailRequest struct {
 	Email string `json:"email"`
+	// Password is optional on the wire so operators enrolled before
+	// password support can still sign in on the code alone. The service
+	// decides whether it is required for the named principal.
+	Password string `json:"password"`
 }
 
 func loginStartHandler(admin Admin) http.Handler {
@@ -331,7 +335,9 @@ func loginStartHandler(admin Admin) http.Handler {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{Code: "validation_failed", Message: "One or more fields are invalid."})
 			return
 		}
-		if err := admin.StartLogin(r.Context(), strings.TrimSpace(body.Email)); err != nil {
+		// The password is deliberately not trimmed: leading and trailing
+		// whitespace are legitimate characters the operator chose.
+		if err := admin.StartLogin(r.Context(), strings.TrimSpace(body.Email), body.Password); err != nil {
 			writeAdminError(w, r, err)
 			return
 		}

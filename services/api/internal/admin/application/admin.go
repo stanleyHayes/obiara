@@ -258,10 +258,19 @@ func (service AdminService) requireSteppedUpAdmin(ctx context.Context, sessionID
 	return session, actor, nil
 }
 
-// StartLogin mints and sends an MFA code for an active principal. Unknown or
-// suspended emails no-op successfully so the unauthenticated endpoint cannot
-// enumerate valid principals; transport errors still surface.
-func (service AdminService) StartLogin(ctx context.Context, email string) error {
+// StartLogin mints and sends an MFA code for an active principal that has
+// presented the correct password.
+//
+// Unknown emails, suspended principals and wrong passwords all no-op
+// successfully: the endpoint is unauthenticated, so distinguishing them
+// would turn it into an operator directory and a password oracle. Transport
+// errors still surface. Callers therefore learn nothing from a success
+// beyond "if that was a real operator with the right password, a code is on
+// its way".
+//
+// A principal with no password digest keeps the code-only flow, so
+// operators enrolled before passwords existed are not locked out.
+func (service AdminService) StartLogin(ctx context.Context, email, password string) error {
 	principal, err := service.principals.FindByEmail(ctx, email)
 	if errors.Is(err, ErrPrincipalNotFound) {
 		return nil
@@ -270,6 +279,9 @@ func (service AdminService) StartLogin(ctx context.Context, email string) error 
 		return err
 	}
 	if principal.Status() != domain.StatusActive {
+		return nil
+	}
+	if principal.HasPassword() && !principal.VerifyPassword(password) {
 		return nil
 	}
 	return service.mintAndSend(ctx, principal.ID(), principal.Email())

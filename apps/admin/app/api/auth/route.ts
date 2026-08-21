@@ -10,13 +10,21 @@ export async function POST(request: Request) {
     action?: unknown;
     email?: unknown;
     code?: unknown;
+    password?: unknown;
   } | null;
 
   if (body?.action === "start" && typeof body.email === "string") {
     const { data, error, response } = await apiClient().POST(
       "/v1/admin/login/start",
       {
-        body: { email: body.email.trim() },
+        // The password is passed through untrimmed: leading and trailing
+        // whitespace are characters the operator deliberately chose.
+        body: {
+          email: body.email.trim(),
+          ...(typeof body.password === "string"
+            ? { password: body.password }
+            : {}),
+        },
       },
     );
     return data

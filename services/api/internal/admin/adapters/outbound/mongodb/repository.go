@@ -76,12 +76,15 @@ func (repository *AuditStore) audit() *mongo.Collection {
 }
 
 type principalDocument struct {
-	ID        string    `bson:"_id"`
-	Email     string    `bson:"email"`
-	Roles     []string  `bson:"roles"`
-	Status    string    `bson:"status"`
-	Version   int64     `bson:"version"`
-	CreatedAt time.Time `bson:"createdAt"`
+	ID     string   `bson:"_id"`
+	Email  string   `bson:"email"`
+	Roles  []string `bson:"roles"`
+	Status string   `bson:"status"`
+	// PasswordHash is the argon2id PHC digest. It is omitted for principals
+	// enrolled before passwords existed, who stay on the code-only flow.
+	PasswordHash string    `bson:"passwordHash,omitempty"`
+	Version      int64     `bson:"version"`
+	CreatedAt    time.Time `bson:"createdAt"`
 }
 
 type roleChangeDocument struct {
@@ -436,7 +439,8 @@ func toPrincipalDocument(principal domain.Principal) principalDocument {
 	}
 	return principalDocument{
 		ID: principal.ID(), Email: principal.Email(), Roles: roles,
-		Status: string(principal.Status()), Version: principal.Version(), CreatedAt: principal.CreatedAt(),
+		Status: string(principal.Status()), PasswordHash: principal.PasswordHash(),
+		Version: principal.Version(), CreatedAt: principal.CreatedAt(),
 	}
 }
 
@@ -445,7 +449,9 @@ func toPrincipalDomain(document principalDocument) domain.Principal {
 	for _, role := range document.Roles {
 		roles = append(roles, domain.Role(role))
 	}
-	return domain.ReconstitutePrincipal(document.ID, document.Email, roles, domain.Status(document.Status), document.Version, document.CreatedAt)
+	return domain.ReconstitutePrincipalWithPassword(
+		document.ID, document.Email, roles, domain.Status(document.Status),
+		document.PasswordHash, document.Version, document.CreatedAt)
 }
 
 func toSessionDocument(session domain.Session) sessionDocument {

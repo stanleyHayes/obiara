@@ -143,10 +143,10 @@ func TestStartLoginNoOpsForUnknownOrSuspendedEmails(t *testing.T) {
 
 	// No challenge is minted and no code is sent (gomock fails on unexpected
 	// calls), so the endpoint cannot enumerate valid principals.
-	if err := service.StartLogin(context.Background(), "ghost@example.test"); err != nil {
+	if err := service.StartLogin(context.Background(), "ghost@example.test", ""); err != nil {
 		t.Fatalf("unknown email: StartLogin = %v, want nil", err)
 	}
-	if err := service.StartLogin(context.Background(), "s@example.test"); err != nil {
+	if err := service.StartLogin(context.Background(), "s@example.test", ""); err != nil {
 		t.Fatalf("suspended email: StartLogin = %v, want nil", err)
 	}
 }
@@ -156,7 +156,7 @@ func TestStartLoginPropagatesStoreErrors(t *testing.T) {
 	storeErr := errors.New("mongodb unavailable")
 	principals.EXPECT().FindByEmail(gomock.Any(), "root@example.test").Return(domain.Principal{}, storeErr)
 
-	if err := service.StartLogin(context.Background(), "root@example.test"); !errors.Is(err, storeErr) {
+	if err := service.StartLogin(context.Background(), "root@example.test", ""); !errors.Is(err, storeErr) {
 		t.Fatalf("StartLogin = %v, want store error", err)
 	}
 }
@@ -167,7 +167,7 @@ func TestLoginFlow(t *testing.T) {
 	challenges.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
 	sender.EXPECT().SendMfaCode(gomock.Any(), "root@example.test", gomock.Any()).Return(nil)
 
-	if err := service.StartLogin(context.Background(), "root@example.test"); err != nil {
+	if err := service.StartLogin(context.Background(), "root@example.test", ""); err != nil {
 		t.Fatal(err)
 	}
 

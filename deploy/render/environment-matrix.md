@@ -46,6 +46,12 @@ source of truth.
 | `SEED_HMAC_SECRET` and rotation time       |           yes |       no | `sync: false`; at least 32 random bytes                               |
 | `CIRCLE_HMAC_SECRET` and rotation time     |           yes |       no | `sync: false`; at least 32 random bytes                               |
 | `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`    | optional pair |       no | Both or neither; `sync: false`                                        |
+| `OTP_PROVIDERS=arkesel`                    |           yes |       no | Ordered OTP ladder; the simulator is rejected outside development     |
+| `ARKESEL_API_KEY`, `ARKESEL_SENDER_ID`     |           yes |       no | `sync: false`; sender id must be pre-approved and at most 11 chars    |
+| `EMAIL_PROVIDER=resend`                    |           yes |       no | Non-secret selection; the simulator is rejected outside development   |
+| `RESEND_API_KEY`, `RESEND_FROM_ADDRESS`    |           yes |       no | `sync: false`; the from address must be a verified Resend domain      |
+| `RESEND_REPLY_TO`                          |      optional |       no | `sync: false`; optional operator reply address                        |
+| `WHATSAPP_PROVIDER=disabled`               |           yes |       no | `disabled` until Cloud API provisioning; never `simulator`            |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`              |      optional | optional | Credential-free HTTPS URL; `sync: false`                              |
 | `SERVICE_VERSION`                          |           yes |      yes | Derived from immutable `RENDER_GIT_COMMIT` at start                   |
 
@@ -70,3 +76,44 @@ counterparts document every field without carrying a credential.
 A successful Blueprint validation or build proves configuration only. It does
 not prove provider contracts, residency approval, credentials, live database
 readiness, store acceptance, or production launch approval.
+
+## Outbound delivery providers
+
+Delivery adapters are selected explicitly and validated at startup. The API
+**refuses to boot** when a channel is left on the simulator outside
+development, because the simulator reports every message as delivered while
+transmitting nothing. That combination previously shipped to production and
+was the cause of members completing sign-up without ever receiving an OTP.
+
+| Channel  | Production value | Effect                                                                      |
+| -------- | ---------------- | --------------------------------------------------------------------------- |
+| OTP      | `arkesel`        | SMS over Arkesel, the primary Ghanaian transport                            |
+| Email    | `resend`         | Admin MFA codes and operational mail over Resend                            |
+| WhatsApp | `disabled`       | Every send fails loudly and is delivery-logged; nothing is silently dropped |
+
+`OTP_PROVIDERS` accepts a comma-separated ladder tried in order, for example
+`arkesel,twilio`. Each rung is attempted only if the previous one fails, and
+every attempt is reported through the redacting logger without the code or the
+recipient. To add WhatsApp as an OTP fallback later, provision the Cloud API,
+set `WHATSAPP_PROVIDER=meta` with `META_WHATSAPP_PHONE_NUMBER_ID` and
+`META_WHATSAPP_ACCESS_TOKEN`, then set `OTP_PROVIDERS=arkesel,whatsapp`.
+
+## Bootstrapping the first admin
+
+Admin enrollment requires an existing stepped-up admin session, so an empty
+database has no way to create its first operator. Run the one-off bootstrap
+job against the production database instead:
+
+```
+MONGODB_URI=...            \
+MONGODB_DATABASE=obiara_production \
+BOOTSTRAP_ADMIN_EMAIL=...  \
+BOOTSTRAP_ADMIN_PASSWORD=... \
+go run ./services/api/cmd/bootstrap
+```
+
+The command is idempotent: re-running it resets the named operator's roles,
+status and password, which also makes it the recovery path for a locked-out
+super admin. Credentials are read only from the environment, never from
+flags, so they do not appear in process listings or shell history. Every run
+appends an `admin.bootstrap.*` entry to the immutable `admin_access` audit.

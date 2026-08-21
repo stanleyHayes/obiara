@@ -7,6 +7,7 @@ import { useState } from "react";
 export function AdminLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [stage, setStage] = useState<"email" | "code">("email");
   const [busy, setBusy] = useState(false);
@@ -19,7 +20,7 @@ export function AdminLogin() {
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, email, code }),
+        body: JSON.stringify({ action, email, password, code }),
       });
       const payload = (await response.json().catch(() => null)) as {
         message?: string;
@@ -63,6 +64,16 @@ export function AdminLogin() {
         type="email"
         value={email}
       />
+      <TextField
+        autoComplete="current-password"
+        disabled={stage === "code"}
+        fullWidth
+        label="Password"
+        onChange={(event) => setPassword(event.target.value)}
+        required
+        type="password"
+        value={password}
+      />
       {stage === "code" ? (
         <TextField
           autoComplete="one-time-code"
@@ -85,7 +96,11 @@ export function AdminLogin() {
       ) : null}
       {message ? <Alert severity="error">{message}</Alert> : null}
       <Button
-        disabled={busy || (stage === "code" && code.length !== 6)}
+        disabled={
+          busy ||
+          (stage === "email" && password.length === 0) ||
+          (stage === "code" && code.length !== 6)
+        }
         fullWidth
         type="submit"
         variant="contained"
@@ -103,6 +118,7 @@ export function AdminLogin() {
           onClick={() => {
             setStage("email");
             setCode("");
+            setPassword("");
             setMessage("");
           }}
           type="button"

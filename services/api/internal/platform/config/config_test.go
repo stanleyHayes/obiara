@@ -60,6 +60,13 @@ func TestLoadOverrides(t *testing.T) {
 		"SEED_HMAC_SECRET_ROTATED_AT":      now.Format(time.RFC3339),
 		"CIRCLE_HMAC_SECRET":               "synthetic-circle-secret-at-least-32-bytes",
 		"CIRCLE_HMAC_SECRET_ROTATED_AT":    now.Format(time.RFC3339),
+		"OTP_PROVIDERS":                    "arkesel",
+		"ARKESEL_API_KEY":                  "synthetic-test-only",
+		"ARKESEL_SENDER_ID":                "Obiara",
+		"EMAIL_PROVIDER":                   "resend",
+		"RESEND_API_KEY":                   "synthetic-test-only",
+		"RESEND_FROM_ADDRESS":              "no-reply@obiara.test",
+		"WHATSAPP_PROVIDER":                "disabled",
 	}))
 	if err != nil {
 		t.Fatalf("Load with overrides returned error: %v", err)
@@ -104,6 +111,13 @@ func TestLoadStagingRejectsMissingOrStaleSecretMetadata(t *testing.T) {
 		"SEED_HMAC_SECRET_ROTATED_AT":      now.Format(time.RFC3339),
 		"CIRCLE_HMAC_SECRET":               "synthetic-circle-secret-at-least-32-bytes",
 		"CIRCLE_HMAC_SECRET_ROTATED_AT":    now.Format(time.RFC3339),
+		"OTP_PROVIDERS":                    "arkesel",
+		"ARKESEL_API_KEY":                  "synthetic-test-only",
+		"ARKESEL_SENDER_ID":                "Obiara",
+		"EMAIL_PROVIDER":                   "resend",
+		"RESEND_API_KEY":                   "synthetic-test-only",
+		"RESEND_FROM_ADDRESS":              "no-reply@obiara.test",
+		"WHATSAPP_PROVIDER":                "disabled",
 	}
 	if _, err := loadAt(envWith(base), now); err != nil {
 		t.Fatal(err)

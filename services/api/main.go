@@ -23,7 +23,6 @@ import (
 	deliverystatsapp "github.com/stanleyHayes/obiara/internal/notifications/deliverystats/application"
 	"github.com/stanleyHayes/obiara/internal/notifications/email"
 	whatsappmongodb "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/adapters/outbound/mongodb"
-	wasimulator "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/adapters/outbound/simulator"
 	whatsappapp "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/application"
 	whatsappdomain "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/domain"
 	"github.com/stanleyHayes/obiara/internal/platform/inbox"
@@ -63,6 +62,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/marketpack"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
+	"github.com/stanleyHayes/obiara/services/api/internal/platform/delivery"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/flagcontrol"
 	flagcontroldomain "github.com/stanleyHayes/obiara/services/api/internal/platform/flagcontrol/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/health"
@@ -130,6 +130,29 @@ func run() error {
 		_ = client.Disconnect(disconnectCtx)
 	}()
 
+	// Outbound delivery adapters are built before the modules that depend on
+	// them, so a channel that cannot reach its provider stops the deploy
+	// here rather than accepting messages and dropping them (agent_plan.md
+	// §11). Configuration has already rejected simulators outside
+	// development.
+	whatsappSender, err := delivery.WhatsAppSender(cfg.Notifications)
+	if err != nil {
+		return err
+	}
+	whatsappLog := whatsappmongodb.NewDeliveryLog(client.Database(cfg.MongoDatabase))
+	if err := whatsappLog.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("ensure whatsapp delivery indexes: %w", err)
+	}
+	whatsappChannel := whatsappapp.NewChannelService(whatsappSender, whatsappLog, nil, time.Now)
+	emailSender, err := delivery.EmailSender(cfg.Notifications)
+	if err != nil {
+		return err
+	}
+	otpSender, err := delivery.OtpSender(cfg.Notifications, whatsappChannel, telemetryRuntime.Logger)
+	if err != nil {
+		return err
+	}
+
 	// Modules are composed here at startup (agent_plan.md §7.2).
 	memberModule, err := member.NewModule(ctx, client.Database(cfg.MongoDatabase))
 	if err != nil {
@@ -137,7 +160,7 @@ func run() error {
 	}
 	// The identity module provides session issuance and phone OTP
 	// registration (E03-S01).
-	identityModule, err := identity.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	identityModule, err := identity.NewModule(ctx, client.Database(cfg.MongoDatabase), otpSender)
 	if err != nil {
 		return fmt.Errorf("build identity module: %w", err)
 	}
@@ -276,7 +299,7 @@ func run() error {
 	}
 	// Transactional email (E13-S04): Resend channel with signed delivery
 	// webhooks.
-	emailModule, err := email.NewModule(ctx, client.Database(cfg.MongoDatabase), os.Getenv("RESEND_WEBHOOK_SECRET"))
+	emailModule, err := email.NewModule(ctx, client.Database(cfg.MongoDatabase), emailSender, os.Getenv("RESEND_WEBHOOK_SECRET"))
 	if err != nil {
 		return fmt.Errorf("build email module: %w", err)
 	}
@@ -393,12 +416,7 @@ func run() error {
 		return fmt.Errorf("build safety module: %w", err)
 	}
 	// Nnoboa kin nominations (E13-S06): consent invites ride the WhatsApp
-	// channel over the simulator sender until a scored provider is selected.
-	whatsappLog := whatsappmongodb.NewDeliveryLog(client.Database(cfg.MongoDatabase))
-	if err := whatsappLog.EnsureIndexes(ctx); err != nil {
-		return fmt.Errorf("ensure whatsapp delivery indexes: %w", err)
-	}
-	whatsappChannel := whatsappapp.NewChannelService(wasimulator.NewSender(), whatsappLog, nil, time.Now)
+	// channel composed above.
 	nnoboaModule, err := nnoboa.NewModule(ctx, client.Database(cfg.MongoDatabase), nnoboa.SenderFunc(
 		func(ctx context.Context, msg whatsappdomain.Message) error {
 			_, err := whatsappChannel.SendNnoboaConsent(

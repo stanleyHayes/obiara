@@ -29,6 +29,19 @@ type Config struct {
 	NnoboaInviteSecret  string
 	SeedHMACSecret      string
 	CircleHMACSecret    string
+	// Notifications selects the outbound OTP, WhatsApp and email adapters.
+	Notifications NotificationsConfig
+}
+
+// simulatorsAllowed reports whether the environment may run without real
+// delivery providers. Only local development and automated tests may.
+func simulatorsAllowed(environment string) bool {
+	switch strings.ToLower(strings.TrimSpace(environment)) {
+	case "development", "test", "local":
+		return true
+	default:
+		return false
+	}
 }
 
 // Load reads configuration using getenv (os.Getenv in production) and
@@ -113,6 +126,11 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 	}
 	if err := secrets.ValidateRuntime(secrets.API, cfg.Environment, getenv, now); err != nil {
 		return Config{}, fmt.Errorf("runtime secret policy: %w", err)
+	}
+
+	cfg.Notifications = loadNotifications(getenv)
+	if err := validateNotifications(cfg.Notifications, simulatorsAllowed(cfg.Environment)); err != nil {
+		return Config{}, fmt.Errorf("notification providers: %w", err)
 	}
 
 	return cfg, nil

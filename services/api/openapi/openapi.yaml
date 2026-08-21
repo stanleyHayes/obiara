@@ -8978,6 +8978,16 @@ components:
         email:
           type: string
           format: email
+        password:
+          type: string
+          format: password
+          minLength: 12
+          maxLength: 256
+          description: >-
+            Required for operators enrolled with a password. Omitted only by
+            principals enrolled before password support, who authenticate on
+            the emailed code alone. A wrong password is reported as a normal
+            202 so the endpoint cannot be used as a password oracle.
     AdminLoginInput:
       type: object
       additionalProperties: false

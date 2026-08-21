@@ -7,12 +7,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/mongodb"
-	"github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/simulator"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 )
 
@@ -20,12 +20,22 @@ type Module struct {
 	Sessions     application.SessionService
 	Registration application.RegistrationService
 	Tiers        application.TierService
-	// Sender is the active OTP delivery adapter (simulator until a scored
-	// SMS/WhatsApp provider is selected).
+	// Sender is the active OTP delivery adapter, chosen by the composition
+	// root from OTP_PROVIDERS.
 	Sender application.OtpSender
 }
 
-func NewModule(ctx context.Context, database *mongo.Database) (Module, error) {
+// ErrSenderRequired reports a module built without an OTP transport.
+// Registration would mint codes that reach nobody, so this fails at startup
+// instead of at the member's first sign-up.
+var ErrSenderRequired = errors.New("identity module requires an otp sender")
+
+// NewModule builds the identity slice. sender is the OTP delivery ladder the
+// composition root assembled from configuration; it must not be nil.
+func NewModule(ctx context.Context, database *mongo.Database, sender application.OtpSender) (Module, error) {
+	if sender == nil {
+		return Module{}, ErrSenderRequired
+	}
 	sessionRepository := mongodb.NewRepository(database)
 	if err := sessionRepository.EnsureIndexes(ctx); err != nil {
 		return Module{}, err
@@ -40,7 +50,6 @@ func NewModule(ctx context.Context, database *mongo.Database) (Module, error) {
 	}
 
 	sessions := application.NewSessionService(sessionRepository, time.Now, newID)
-	sender := simulator.NewSender()
 	return Module{
 		Sessions:     sessions,
 		Registration: application.NewRegistrationService(challengeRepository, accountRepository, sender, sessions, time.Now, newID),

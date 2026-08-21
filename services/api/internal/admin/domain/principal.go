@@ -32,12 +32,13 @@ var (
 
 // Principal is one admin user.
 type Principal struct {
-	id        string
-	email     string
-	roles     []Role
-	status    Status
-	version   int64
-	createdAt time.Time
+	id           string
+	email        string
+	roles        []Role
+	status       Status
+	passwordHash string
+	version      int64
+	createdAt    time.Time
 }
 
 // Status is the principal lifecycle.
@@ -74,6 +75,43 @@ func NewPrincipal(id, email string, roles []Role, now time.Time) (Principal, err
 func ReconstitutePrincipal(id, email string, roles []Role, status Status, version int64, createdAt time.Time) Principal {
 	return Principal{id: id, email: email, roles: roles, status: status, version: version, createdAt: createdAt}
 }
+
+// ReconstitutePrincipalWithPassword rebuilds a stored principal including its
+// password digest. Principals enrolled before password support have an empty
+// digest and keep authenticating on the emailed code alone.
+func ReconstitutePrincipalWithPassword(id, email string, roles []Role, status Status, passwordHash string, version int64, createdAt time.Time) Principal {
+	principal := ReconstitutePrincipal(id, email, roles, status, version, createdAt)
+	principal.passwordHash = passwordHash
+	return principal
+}
+
+// SetPassword validates and stores a new password digest.
+func (principal *Principal) SetPassword(plain string) error {
+	hash, err := HashPassword(plain)
+	if err != nil {
+		return err
+	}
+	principal.passwordHash = hash
+	principal.version++
+	return nil
+}
+
+// HasPassword reports whether this principal must present a password before
+// an MFA code is minted.
+func (principal Principal) HasPassword() bool { return principal.passwordHash != "" }
+
+// VerifyPassword checks a presented password against the stored digest.
+// It returns false when no password is set, so callers cannot accidentally
+// treat "no password configured" as "any password accepted".
+func (principal Principal) VerifyPassword(plain string) bool {
+	if principal.passwordHash == "" {
+		return false
+	}
+	return VerifyPassword(principal.passwordHash, plain)
+}
+
+// PasswordHash exposes the stored digest for persistence only.
+func (principal Principal) PasswordHash() string { return principal.passwordHash }
 
 func (principal Principal) HasRole(role Role) bool {
 	for _, assigned := range principal.roles {

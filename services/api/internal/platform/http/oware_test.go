@@ -28,10 +28,10 @@ func (capture *owareCapture) Create(
 	return sessiondomain.Projection{
 		ID: "oware-1", RoomRef: strings.Repeat("a", 64),
 		Players: []string{strings.Repeat("b", 64), strings.Repeat("c", 64)},
-		Houses: [12]int{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
-		Status: sessiondomain.StatusActive, Revision: 1,
+		Houses:  [12]int{4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4},
+		Status:  sessiondomain.StatusActive, Revision: 1,
 		MoveDeadline: time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC),
-		ServerTime: time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC),
+		ServerTime:   time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC),
 	}, nil
 }
 
