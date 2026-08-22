@@ -241,6 +241,15 @@ func e164(phone string) bool {
 
 func writeAuthError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, application.ErrCodeDeliveryFailed):
+		// Minted but undeliverable. Retrying cannot help until the SMS
+		// provider is fixed, so this is reported as an unavailable
+		// dependency and the real cause goes to the logs.
+		logServerError(r.Context(), r, http.StatusServiceUnavailable, "otp_delivery_failed", err)
+		writeError(w, r, http.StatusServiceUnavailable, APIError{
+			Code:    "otp_delivery_failed",
+			Message: "We could not send your code right now. Please try again shortly.",
+		})
 	case errors.Is(err, domain.ErrOtpRateLimited):
 		writeError(w, r, http.StatusTooManyRequests, APIError{
 			Code:    "otp_rate_limited",
@@ -270,6 +279,9 @@ func writeAuthError(w http.ResponseWriter, r *http.Request, err error) {
 			Message: "This account is not active.",
 		})
 	default:
+		// Unmapped errors are genuine faults. The envelope stays opaque; the
+		// cause goes to the logs so a 500 is never a dead end during triage.
+		logServerError(r.Context(), r, http.StatusInternalServerError, "internal_error", err)
 		writeError(w, r, http.StatusInternalServerError, APIError{
 			Code:    "internal_error",
 			Message: "The request could not be completed.",

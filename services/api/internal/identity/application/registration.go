@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
@@ -15,6 +16,12 @@ var (
 	// racing registration); transport layers map it to a conflict without
 	// importing persistence types.
 	ErrAccountExists = errors.New("account already exists")
+	// ErrCodeDeliveryFailed reports that an OTP was minted but no transport
+	// in the ladder could deliver it. It is distinct from an internal fault:
+	// the member did nothing wrong and retrying will not help until the SMS
+	// provider is fixed, so transport layers surface it as an actionable
+	// service error rather than a bare 500.
+	ErrCodeDeliveryFailed = errors.New("otp code could not be delivered")
 )
 
 // OtpChallengeRepository persists OTP challenges.
@@ -115,7 +122,11 @@ func (service RegistrationService) RequestOtp(ctx context.Context, phone string)
 		return OtpRequest{}, err
 	}
 	if err := service.sender.Send(ctx, phone, code); err != nil {
-		return OtpRequest{}, err
+		// The provider cause is kept in the chain so operators can read the
+		// real reason in the logs, while callers match on the sentinel. The
+		// challenge is deliberately not persisted: a member must never be
+		// asked for a code that was never sent.
+		return OtpRequest{}, fmt.Errorf("%w: %w", ErrCodeDeliveryFailed, err)
 	}
 	if err := service.challenges.Create(ctx, challenge); err != nil {
 		return OtpRequest{}, err
