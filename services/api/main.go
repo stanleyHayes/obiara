@@ -170,6 +170,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// Ask the email provider whether it will accept us, before any operator
+	// needs a sign-in code. Non-fatal: it logs the answer and carries on.
+	delivery.PreflightEmail(ctx, emailSender, telemetryRuntime.Logger)
+
 	pushSender, err := delivery.PushSender(cfg.Notifications)
 	if err != nil {
 		return err

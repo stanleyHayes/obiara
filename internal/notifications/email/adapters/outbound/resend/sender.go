@@ -235,3 +235,78 @@ func describe(status int, body []byte, readErr error) string {
 	}
 	return rendered
 }
+
+// DomainStatus is one sending domain as Resend sees it.
+type DomainStatus struct {
+	Name   string
+	Status string
+}
+
+// Preflight validates the credentials without sending anything.
+//
+// It exists because a rejected key and an unverified domain both surface at
+// send time as the same failed notification, and finding out which meant
+// searching request logs for one correlation id. This asks Resend directly,
+// at startup, using a read-only endpoint: no email is sent and no member is
+// involved.
+//
+// The returned slice is every domain this key can send from, so a caller can
+// say whether the configured sender is among them.
+func (sender *Sender) Preflight(ctx context.Context) ([]DomainStatus, error) {
+	endpoint := strings.TrimSuffix(sender.endpoint, "/emails") + "/domains"
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("resend: build preflight request: %w", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+sender.apiKey)
+	request.Header.Set("Accept", "application/json")
+
+	response, err := sender.client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("resend preflight: %w: transport", ErrDeliveryFailed)
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, maxResponseBytes))
+		_ = response.Body.Close()
+	}()
+
+	body, readErr := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes))
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, fmt.Errorf("resend preflight: %w: %s",
+			ErrNotConfigured, describe(response.StatusCode, body, readErr))
+	}
+	if readErr != nil {
+		return nil, fmt.Errorf("resend preflight: %w: receipt unreadable", ErrDeliveryFailed)
+	}
+
+	var payload struct {
+		Data []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("resend preflight: %w: receipt was not json", ErrDeliveryFailed)
+	}
+	domains := make([]DomainStatus, 0, len(payload.Data))
+	for _, entry := range payload.Data {
+		domains = append(domains, DomainStatus{Name: entry.Name, Status: entry.Status})
+	}
+	return domains, nil
+}
+
+// SenderDomain returns the domain part of the configured from address, for
+// comparison against what Preflight reports.
+func (sender *Sender) SenderDomain() string {
+	address := sender.from
+	// "Name <user@domain>" or bare "user@domain".
+	if open := strings.LastIndex(address, "<"); open >= 0 {
+		if close := strings.LastIndex(address, ">"); close > open {
+			address = address[open+1 : close]
+		}
+	}
+	if at := strings.LastIndex(address, "@"); at >= 0 {
+		return strings.ToLower(strings.TrimSpace(address[at+1:]))
+	}
+	return ""
+}

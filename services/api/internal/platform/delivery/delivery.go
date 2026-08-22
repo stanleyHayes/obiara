@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	emailresend "github.com/stanleyHayes/obiara/internal/notifications/email/adapters/outbound/resend"
@@ -114,6 +115,63 @@ func EmailSender(cfg config.NotificationsConfig) (emailapp.Sender, error) {
 	default:
 		return nil, fmt.Errorf("unknown email provider %q", cfg.EmailProvider)
 	}
+}
+
+// PreflightEmail checks the email credentials at startup without sending
+// anything.
+//
+// A rejected key and an unverified sending domain both surface at send time
+// as the same failed notification, which previously meant hunting one
+// correlation id through request logs to tell them apart. This asks the
+// provider directly, on boot, so the answer is at the top of the deploy log
+// instead.
+//
+// It never fails startup. Email being misconfigured must not take the API
+// down for everyone; it has to be loud, not fatal.
+func PreflightEmail(ctx context.Context, sender emailapp.Sender, logger *slog.Logger) {
+	if logger == nil {
+		return
+	}
+	preflight, ok := sender.(interface {
+		Preflight(context.Context) ([]emailresend.DomainStatus, error)
+		SenderDomain() string
+	})
+	if !ok {
+		// The simulator and any future provider without a preflight.
+		return
+	}
+
+	domains, err := preflight.Preflight(ctx)
+	if err != nil {
+		logger.ErrorContext(ctx, "email provider preflight failed",
+			slog.String("provider", "resend"),
+			slog.String("fault", err.Error()),
+			slog.String("hint", "the API key was rejected; check RESEND_API_KEY"))
+		return
+	}
+
+	configured := preflight.SenderDomain()
+	verified := make([]string, 0, len(domains))
+	matched := false
+	for _, entry := range domains {
+		verified = append(verified, entry.Name+"="+entry.Status)
+		if strings.EqualFold(entry.Name, configured) && strings.EqualFold(entry.Status, "verified") {
+			matched = true
+		}
+	}
+
+	if matched {
+		logger.InfoContext(ctx, "email provider ready",
+			slog.String("provider", "resend"), slog.String("senderDomain", configured))
+		return
+	}
+	// The key works, so the sender domain is the problem. Naming both sides
+	// turns this from "delivery failed" into one obvious mismatch.
+	logger.ErrorContext(ctx, "email sender domain is not verified for this key",
+		slog.String("provider", "resend"),
+		slog.String("senderDomain", configured),
+		slog.String("verifiedDomains", strings.Join(verified, ", ")),
+		slog.String("hint", "RESEND_FROM_ADDRESS must use a domain listed as verified above"))
 }
 
 // OtpSender builds the OTP delivery ladder named by OTP_PROVIDERS.

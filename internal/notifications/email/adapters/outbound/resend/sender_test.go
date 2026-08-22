@@ -174,3 +174,60 @@ func TestNewSenderFailsClosed(t *testing.T) {
 		})
 	}
 }
+
+func TestPreflightReportsVerifiedDomains(t *testing.T) {
+	sender, _ := newTestSender(t, Config{From: "Obiara <no-reply@obiara.app>"},
+		func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/domains" || r.Method != http.MethodGet {
+				t.Errorf("preflight hit %s %s, want GET /domains", r.Method, r.URL.Path)
+			}
+			_, _ = w.Write([]byte(`{"data":[
+				{"name":"obiara.app","status":"verified"},
+				{"name":"staging.obiara.app","status":"pending"}]}`))
+		})
+
+	domains, err := sender.Preflight(context.Background())
+	if err != nil {
+		t.Fatalf("Preflight: %v", err)
+	}
+	if len(domains) != 2 || domains[0].Name != "obiara.app" || domains[0].Status != "verified" {
+		t.Errorf("domains = %+v", domains)
+	}
+}
+
+// TestPreflightSurfacesARejectedKey is the point of the check: a bad key and
+// an unverified domain are indistinguishable at send time.
+func TestPreflightSurfacesARejectedKey(t *testing.T) {
+	sender, _ := newTestSender(t, Config{}, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"name":"validation_error"}`))
+	})
+
+	_, err := sender.Preflight(context.Background())
+	if err == nil {
+		t.Fatal("Preflight accepted a rejected key")
+	}
+	if !errors.Is(err, ErrNotConfigured) {
+		t.Errorf("error %v should wrap ErrNotConfigured", err)
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("error %v should carry the provider status", err)
+	}
+}
+
+// TestSenderDomainParsesBothFormats matters because the mismatch warning
+// compares this against what Resend reports.
+func TestSenderDomainParsesBothFormats(t *testing.T) {
+	cases := map[string]string{
+		"Obiara <no-reply@obiara.app>": "obiara.app",
+		"no-reply@obiara.app":          "obiara.app",
+		"No Reply <a@b.example>":       "b.example",
+		"Obiara <NO-REPLY@Obiara.App>": "obiara.app",
+	}
+	for from, want := range cases {
+		sender, _ := newTestSender(t, Config{From: from}, ok)
+		if got := sender.SenderDomain(); got != want {
+			t.Errorf("SenderDomain(%q) = %q, want %q", from, got, want)
+		}
+	}
+}
