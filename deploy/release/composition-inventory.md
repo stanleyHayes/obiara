@@ -13,7 +13,7 @@ tree but nothing routes to them.
 Nothing here is a defect. It is the scope boundary, written down so it is a
 decision rather than a surprise.
 
-## Composed and reachable (44)
+## Composed and reachable (45)
 
 - `internal/notifications`
 - `internal/notifications/deliverystats`
@@ -36,6 +36,7 @@ decision rather than a surprise.
 - `services/api/internal/companions/nnoboa`
 - `services/api/internal/consent`
 - `services/api/internal/consent/consentmap`
+- `services/api/internal/courtship/proposal`
 - `services/api/internal/fire`
 - `services/api/internal/fire/ember`
 - `services/api/internal/games/ampe`
@@ -60,7 +61,7 @@ decision rather than a surprise.
 - `services/api/internal/verification`
 - `services/api/internal/verification/liveness`
 
-## Built but not composed (65)
+## Built but not composed (64)
 
 These have no route, job, or consumer. Calling them impossible today is
 accurate; calling them unimplemented is not.
@@ -93,7 +94,6 @@ accurate; calling them unimplemented is not.
 - `services/api/internal/courtship/honesty`
 - `services/api/internal/courtship/pace`
 - `services/api/internal/courtship/pause`
-- `services/api/internal/courtship/proposal`
 - `services/api/internal/courtship/queue`
 - `services/api/internal/courtship/room`
 - `services/api/internal/courtship/safety`
@@ -138,6 +138,21 @@ comm -23 \
   <(find services/api/internal internal -type d -name application | sed 's|^|github.com/stanleyHayes/obiara/|' | sort -u) \
   <(go list -deps ./services/api ./services/worker | grep obiara | grep '/application$' | sort -u)
 ```
+
+## What composing one actually costs
+
+Measured on `courtship/proposal`, taken from dark to live end to end: a
+composition root, an HTTP adapter with validation and error mapping, route
+registration, OpenAPI paths and schemas, regenerated client types, handler
+tests, and a step in the smoke walk. Roughly 700 lines across seven files for
+a slice with four service methods.
+
+None of the remaining contexts has a composition root, and eleven have no
+persistence adapter either, so the figure above is the floor rather than the
+average. Eleven are additionally blocked on infrastructure that does not
+exist yet — object storage and speech-to-text for `introduction`, an AI
+runtime for `ai/gateway` — and cannot be composed at any effort until those
+are procured.
 
 ## Reading this before launch
 

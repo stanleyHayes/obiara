@@ -344,6 +344,249 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/courtship/proposals:
+    post:
+      operationId: createCourtshipProposal
+      tags: [Courtship]
+      summary: Propose a call, a meeting or exclusivity
+      security:
+        - MemberBearer: []
+      description: |
+        Creates a private proposal from the authenticated member to another.
+        The sender is taken from the session and never from the body.
+
+        `commandId` makes the write idempotent: a retried request returns the
+        original proposal with `replayed` set rather than creating a second
+        one. The detail is keyed before storage and is never readable at rest.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourtshipProposalInput"
+      responses:
+        "201":
+          description: Proposal created.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourtshipProposalEnvelope"
+        "200":
+          description: The command had already been applied; the original proposal is returned.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourtshipProposalEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: The command id was used for a different request.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/courtship/proposals/{id}/accept:
+    post:
+      operationId: acceptCourtshipProposal
+      tags: [Courtship]
+      summary: Accept a courtship proposal
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalDecisionInput"
+      responses:
+        "200":
+          description: Proposal updated.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourtshipProposalEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The proposal is not available to this member.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The proposal was already decided, expired, or changed.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/courtship/proposals/{id}/reject:
+    post:
+      operationId: rejectCourtshipProposal
+      tags: [Courtship]
+      summary: Decline a courtship proposal
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalDecisionInput"
+      responses:
+        "200":
+          description: Proposal updated.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourtshipProposalEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The proposal is not available to this member.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The proposal was already decided, expired, or changed.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/courtship/proposals/{id}/withdraw:
+    post:
+      operationId: withdrawCourtshipProposal
+      tags: [Courtship]
+      summary: Withdraw a courtship proposal
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalDecisionInput"
+      responses:
+        "200":
+          description: Proposal updated.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourtshipProposalEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The proposal is not available to this member.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The proposal was already decided, expired, or changed.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/verifications/ghana-card:
     post:
       operationId: submitGhanaCard
@@ -9085,6 +9328,78 @@ components:
           items:
             type: string
             enum: [verifier, ts_agent, host, finance, admin]
+    CourtshipProposalInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, recipientId, kind, detail, expiresAt]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        recipientId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        kind:
+          type: string
+          enum: [call, meeting, exclusivity]
+        detail:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Keyed before storage; never readable at rest.
+        expiresAt:
+          type: string
+          format: date-time
+    ProposalDecisionInput:
+      type: object
+      additionalProperties: false
+      required: [commandId]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        expectedRevision:
+          type: integer
+          format: int64
+          minimum: 0
+          description: >-
+            The revision the caller believes it is acting on. Two devices
+            racing a decision are rejected with a conflict rather than the
+            later one silently winning.
+    CourtshipProposalData:
+      type: object
+      additionalProperties: false
+      required: [proposalId, status, revision, replayed]
+      properties:
+        proposalId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        status:
+          type: string
+          enum: [pending, accepted, rejected, withdrawn]
+        revision:
+          type: integer
+          format: int64
+        replayed:
+          type: boolean
+          description: True when this command had already been applied.
+    CourtshipProposalEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CourtshipProposalData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
     PushDeviceData:
       type: object
       additionalProperties: false

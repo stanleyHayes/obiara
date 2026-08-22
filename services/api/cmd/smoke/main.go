@@ -39,13 +39,14 @@ import (
 const smokePhone = "+233555000901"
 
 type journey struct {
-	base     string
-	client   *http.Client
-	database *mongo.Database
-	memberID string
-	access   string
-	refresh  string
-	failures int
+	base       string
+	client     *http.Client
+	database   *mongo.Database
+	memberID   string
+	access     string
+	refresh    string
+	proposalID string
+	failures   int
 }
 
 func main() {
@@ -77,6 +78,7 @@ func main() {
 	run.registerDevice(ctx)
 	run.readProfile(ctx)
 	run.readPreferences(ctx)
+	run.proposeCourtship(ctx)
 	run.rejectsUnauthenticated(ctx)
 
 	fmt.Println()
@@ -244,6 +246,59 @@ func (run *journey) readPreferences(ctx context.Context) {
 	run.step("GET /v1/notification-preferences", status == 200 || status == 404, fmt.Sprintf("%d", status))
 }
 
+// proposeCourtship exercises the core loop: one member proposing to another
+// and the proposal being decided.
+func (run *journey) proposeCourtship(ctx context.Context) {
+	fmt.Println("\nCourtship")
+	if run.access == "" {
+		run.step("POST /v1/courtship/proposals", false, "no session")
+		return
+	}
+	expires := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
+	commandID := "smoke-proposal-" + fmt.Sprint(time.Now().UnixNano())
+
+	status, body := run.do(ctx, http.MethodPost, "/v1/courtship/proposals", map[string]any{
+		"commandId": commandID, "recipientId": "smoke-recipient",
+		"kind": "call", "detail": "a call this evening", "expiresAt": expires,
+	}, run.access)
+	run.step("POST /v1/courtship/proposals", status == 201,
+		fmt.Sprintf("%d %s", status, truncate(body, 44)))
+
+	var envelope struct {
+		Data struct {
+			ProposalID string `json:"proposalId"`
+			Status     string `json:"status"`
+			Replayed   bool   `json:"replayed"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal([]byte(body), &envelope)
+	run.proposalID = envelope.Data.ProposalID
+	run.step("proposal is pending", envelope.Data.Status == "pending", envelope.Data.Status)
+
+	// A retried tap on a flaky network must not create a second proposal.
+	status, body = run.do(ctx, http.MethodPost, "/v1/courtship/proposals", map[string]any{
+		"commandId": commandID, "recipientId": "smoke-recipient",
+		"kind": "call", "detail": "a call this evening", "expiresAt": expires,
+	}, run.access)
+	_ = json.Unmarshal([]byte(body), &envelope)
+	run.step("retry replays, does not duplicate", status == 200 && envelope.Data.Replayed,
+		fmt.Sprintf("%d replayed=%v", status, envelope.Data.Replayed))
+
+	// The sender may withdraw their own proposal.
+	if run.proposalID != "" {
+		status, body = run.do(ctx, http.MethodPost,
+			"/v1/courtship/proposals/"+run.proposalID+"/withdraw",
+			map[string]any{"commandId": commandID + "-withdraw", "expectedRevision": 1}, run.access)
+		run.step("POST .../withdraw", status == 200, fmt.Sprintf("%d %s", status, truncate(body, 40)))
+	}
+
+	// A proposal that does not exist must not be distinguishable from
+	// somebody else's.
+	status, _ = run.do(ctx, http.MethodPost, "/v1/courtship/proposals/prop_nonexistent/accept",
+		map[string]any{"commandId": "smoke-missing"}, run.access)
+	run.step("unknown proposal is 404", status == 404, fmt.Sprintf("%d", status))
+}
+
 func (run *journey) rejectsUnauthenticated(ctx context.Context) {
 	fmt.Println("\nAuthentication boundary")
 	for _, probe := range []struct{ method, path string }{
@@ -324,6 +379,11 @@ func (run *journey) cleanup(ctx context.Context) {
 		run.database.Collection("tier_transitions").DeleteMany(ctx, bson.M{"accountId": run.memberID})
 	}
 	run.database.Collection("accounts").DeleteMany(ctx, bson.M{"phone": smokePhone})
+	// Proposals are keyed, so they are removed by the id this run captured.
+	if run.proposalID != "" {
+		run.database.Collection("courtship_proposals").DeleteMany(ctx, bson.M{"_id": run.proposalID})
+		run.database.Collection("courtship_proposal_events").DeleteMany(ctx, bson.M{"proposalId": run.proposalID})
+	}
 }
 
 type capturingSender struct{ code string }

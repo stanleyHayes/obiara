@@ -1449,6 +1449,82 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/courtship/proposals": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Propose a call, a meeting or exclusivity
+     * @description Creates a private proposal from the authenticated member to another.
+     *     The sender is taken from the session and never from the body.
+     *
+     *     `commandId` makes the write idempotent: a retried request returns the
+     *     original proposal with `replayed` set rather than creating a second
+     *     one. The detail is keyed before storage and is never readable at rest.
+     */
+    readonly post: operations["createCourtshipProposal"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/courtship/proposals/{id}/accept": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Accept a courtship proposal */
+    readonly post: operations["acceptCourtshipProposal"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/courtship/proposals/{id}/reject": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Decline a courtship proposal */
+    readonly post: operations["rejectCourtshipProposal"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/courtship/proposals/{id}/withdraw": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Withdraw a courtship proposal */
+    readonly post: operations["withdrawCourtshipProposal"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/doorway-question": {
     readonly parameters: {
       readonly query?: never;
@@ -3390,6 +3466,29 @@ export interface components {
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly CorrelationId: string;
+    readonly CourtshipProposalData: {
+      readonly proposalId: string;
+      /** @description True when this command had already been applied. */
+      readonly replayed: boolean;
+      /** Format: int64 */
+      readonly revision: number;
+      /** @enum {string} */
+      readonly status: "pending" | "accepted" | "rejected" | "withdrawn";
+    };
+    readonly CourtshipProposalEnvelope: {
+      readonly data: components["schemas"]["CourtshipProposalData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly CourtshipProposalInput: {
+      readonly commandId: string;
+      /** @description Keyed before storage; never readable at rest. */
+      readonly detail: string;
+      /** Format: date-time */
+      readonly expiresAt: string;
+      /** @enum {string} */
+      readonly kind: "call" | "meeting" | "exclusivity";
+      readonly recipientId: string;
+    };
     readonly DeliveryStatsData: {
       readonly channels: {
         readonly [key: string]: components["schemas"]["ChannelStatsData"];
@@ -4069,6 +4168,14 @@ export interface components {
       readonly introduction: string;
       /** @enum {string} */
       readonly introductionVisibility: "private" | "circles" | "community";
+    };
+    readonly ProposalDecisionInput: {
+      readonly commandId: string;
+      /**
+       * Format: int64
+       * @description The revision the caller believes it is acting on. Two devices racing a decision are rejected with a conflict rather than the later one silently winning.
+       */
+      readonly expectedRevision?: number;
     };
     readonly PushDeviceData: {
       /** @enum {string} */
@@ -8017,6 +8124,224 @@ export interface operations {
       readonly 409: components["responses"]["PurposeLocked"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["UnknownPurpose"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly createCourtshipProposal: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CourtshipProposalInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The command had already been applied; the original proposal is returned. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CourtshipProposalEnvelope"];
+        };
+      };
+      /** @description Proposal created. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CourtshipProposalEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The command id was used for a different request. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly acceptCourtshipProposal: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ProposalDecisionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Proposal updated. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CourtshipProposalEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The proposal is not available to this member. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The proposal was already decided, expired, or changed. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly rejectCourtshipProposal: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ProposalDecisionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Proposal updated. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CourtshipProposalEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The proposal is not available to this member. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The proposal was already decided, expired, or changed. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly withdrawCourtshipProposal: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["ProposalDecisionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Proposal updated. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CourtshipProposalEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The proposal is not available to this member. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The proposal was already decided, expired, or changed. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };
   };
