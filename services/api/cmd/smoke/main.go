@@ -292,6 +292,13 @@ func (run *journey) proposeCourtship(ctx context.Context) {
 		run.step("POST .../withdraw", status == 200, fmt.Sprintf("%d %s", status, truncate(body, 40)))
 	}
 
+	// Without a read side the slice would be write-only: a member could be
+	// proposed to and never see it.
+	status, body = run.do(ctx, http.MethodGet, "/v1/courtship/proposals", nil, run.access)
+	listed := strings.Contains(body, run.proposalID) && run.proposalID != ""
+	run.step("GET /v1/courtship/proposals", status == 200 && listed,
+		fmt.Sprintf("%d, own proposal listed=%v", status, listed))
+
 	// A proposal that does not exist must not be distinguishable from
 	// somebody else's.
 	status, _ = run.do(ctx, http.MethodPost, "/v1/courtship/proposals/prop_nonexistent/accept",

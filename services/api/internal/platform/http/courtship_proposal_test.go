@@ -15,16 +15,23 @@ import (
 )
 
 type proposalsStub struct {
-	created  application.CreateCommand
-	decided  application.DecisionCommand
-	result   application.Result
-	err      error
-	lastCall string
+	created   application.CreateCommand
+	decided   application.DecisionCommand
+	result    application.Result
+	err       error
+	lastCall  string
+	summaries []application.Summary
+	listedFor string
+	listLimit int
 }
 
 func (stub *proposalsStub) Create(_ context.Context, c application.CreateCommand) (application.Result, error) {
 	stub.created, stub.lastCall = c, "create"
 	return stub.result, stub.err
+}
+func (stub *proposalsStub) List(_ context.Context, memberID string, limit int) ([]application.Summary, error) {
+	stub.listedFor, stub.listLimit, stub.lastCall = memberID, limit, "list"
+	return stub.summaries, stub.err
 }
 func (stub *proposalsStub) Accept(_ context.Context, c application.DecisionCommand) (application.Result, error) {
 	stub.decided, stub.lastCall = c, "accept"
@@ -227,5 +234,61 @@ func TestProposalRoutesRequireASession(t *testing.T) {
 		if response.Code != http.StatusUnauthorized {
 			t.Errorf("%s status = %d, want 401", path, response.Code)
 		}
+	}
+}
+
+func TestListReturnsOnlyTheCallersProposals(t *testing.T) {
+	stub := &proposalsStub{summaries: []application.Summary{
+		{ID: "prop_1", Kind: domain.TypeCall, Status: domain.StatusPending, Revision: 1,
+			ExpiresAt: time.Now().Add(time.Hour), Outgoing: true},
+		{ID: "prop_2", Kind: domain.TypeMeeting, Status: domain.StatusAccepted, Revision: 2},
+	}}
+	request := httptest.NewRequest(http.MethodGet, "/v1/courtship/proposals", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	proposalHandler(stub, "mem_reader").ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", response.Code, response.Body.String())
+	}
+	// The member comes from the session, so one member can never read
+	// another's list.
+	if stub.listedFor != "mem_reader" {
+		t.Errorf("listed for %q, want the session's member", stub.listedFor)
+	}
+	var envelope struct {
+		Data proposalListResponse `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(envelope.Data.Proposals) != 2 {
+		t.Fatalf("returned %d proposals, want 2", len(envelope.Data.Proposals))
+	}
+	// Direction decides whether the member may withdraw or decide.
+	if !envelope.Data.Proposals[0].Outgoing || envelope.Data.Proposals[1].Outgoing {
+		t.Error("outgoing direction was not reported")
+	}
+}
+
+func TestListRejectsAnOutOfRangeLimit(t *testing.T) {
+	for _, raw := range []string{"0", "101", "-1", "many"} {
+		stub := &proposalsStub{}
+		request := httptest.NewRequest(http.MethodGet, "/v1/courtship/proposals?limit="+raw, nil)
+		request.Header.Set("Authorization", "Bearer token")
+		response := httptest.NewRecorder()
+		proposalHandler(stub, "mem_reader").ServeHTTP(response, request)
+		if response.Code != http.StatusUnprocessableEntity {
+			t.Errorf("limit=%s status = %d, want 422", raw, response.Code)
+		}
+	}
+}
+
+func TestListRequiresASession(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/v1/courtship/proposals", nil)
+	response := httptest.NewRecorder()
+	proposalHandler(&proposalsStub{}, "").ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", response.Code)
 	}
 }

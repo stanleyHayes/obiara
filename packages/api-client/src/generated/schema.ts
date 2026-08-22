@@ -1456,7 +1456,14 @@ export interface paths {
       readonly path?: never;
       readonly cookie?: never;
     };
-    readonly get?: never;
+    /**
+     * List the caller's courtship proposals
+     * @description Returns the proposals the authenticated member sent or received,
+     *     newest expiry first. The member comes from the session, so there is no
+     *     way to read another member's list. The detail is never returned; it is
+     *     keyed at rest and only the two parties' own devices hold it.
+     */
+    readonly get: operations["listCourtshipProposals"];
     readonly put?: never;
     /**
      * Propose a call, a meeting or exclusivity
@@ -3488,6 +3495,26 @@ export interface components {
       /** @enum {string} */
       readonly kind: "call" | "meeting" | "exclusivity";
       readonly recipientId: string;
+    };
+    readonly CourtshipProposalListData: {
+      readonly proposals: readonly components["schemas"]["CourtshipProposalSummary"][];
+    };
+    readonly CourtshipProposalListEnvelope: {
+      readonly data: components["schemas"]["CourtshipProposalListData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly CourtshipProposalSummary: {
+      /** Format: date-time */
+      readonly expiresAt: string;
+      /** @enum {string} */
+      readonly kind: "call" | "meeting" | "exclusivity";
+      /** @description True when this member sent the proposal. */
+      readonly outgoing: boolean;
+      readonly proposalId: string;
+      /** Format: int64 */
+      readonly revision: number;
+      /** @enum {string} */
+      readonly status: "pending" | "accepted" | "rejected" | "withdrawn";
     };
     readonly DeliveryStatsData: {
       readonly channels: {
@@ -8124,6 +8151,35 @@ export interface operations {
       readonly 409: components["responses"]["PurposeLocked"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["UnknownPurpose"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly listCourtshipProposals: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The caller's proposals. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CourtshipProposalListEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };
   };

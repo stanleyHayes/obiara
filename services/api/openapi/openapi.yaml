@@ -345,6 +345,43 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
   /v1/courtship/proposals:
+    get:
+      operationId: listCourtshipProposals
+      tags: [Courtship]
+      summary: List the caller's courtship proposals
+      security:
+        - MemberBearer: []
+      description: |
+        Returns the proposals the authenticated member sent or received,
+        newest expiry first. The member comes from the session, so there is no
+        way to read another member's list. The detail is never returned; it is
+        keyed at rest and only the two parties' own devices hold it.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: The caller's proposals.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourtshipProposalListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
     post:
       operationId: createCourtshipProposal
       tags: [Courtship]
@@ -9372,6 +9409,49 @@ components:
             The revision the caller believes it is acting on. Two devices
             racing a decision are rejected with a conflict rather than the
             later one silently winning.
+    CourtshipProposalSummary:
+      type: object
+      additionalProperties: false
+      required: [proposalId, kind, status, revision, expiresAt, outgoing]
+      properties:
+        proposalId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        kind:
+          type: string
+          enum: [call, meeting, exclusivity]
+        status:
+          type: string
+          enum: [pending, accepted, rejected, withdrawn]
+        revision:
+          type: integer
+          format: int64
+        expiresAt:
+          type: string
+          format: date-time
+        outgoing:
+          type: boolean
+          description: True when this member sent the proposal.
+    CourtshipProposalListData:
+      type: object
+      additionalProperties: false
+      required: [proposals]
+      properties:
+        proposals:
+          type: array
+          items:
+            $ref: "#/components/schemas/CourtshipProposalSummary"
+    CourtshipProposalListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CourtshipProposalListData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
     CourtshipProposalData:
       type: object
       additionalProperties: false

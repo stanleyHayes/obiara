@@ -5,6 +5,7 @@ import (
 	"errors"
 	"mime"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 // a call, a meeting or exclusivity, and the other deciding.
 type Proposals interface {
 	Create(context.Context, application.CreateCommand) (application.Result, error)
+	List(ctx context.Context, memberID string, limit int) ([]application.Summary, error)
 	Accept(context.Context, application.DecisionCommand) (application.Result, error)
 	Reject(context.Context, application.DecisionCommand) (application.Result, error)
 	Withdraw(context.Context, application.DecisionCommand) (application.Result, error)
@@ -28,6 +30,7 @@ type Proposals interface {
 // an unreliable mobile network: without those, a retried tap could create a
 // second proposal, and two devices could race a decision.
 func RegisterCourtshipProposalRoutes(mux *http.ServeMux, proposals Proposals, sessions SessionAuthenticator) {
+	mux.Handle("GET /v1/courtship/proposals", listProposalsHandler(proposals, sessions))
 	mux.Handle("POST /v1/courtship/proposals", createProposalHandler(proposals, sessions))
 	mux.Handle("POST /v1/courtship/proposals/{id}/accept", decideProposalHandler(proposals, sessions, "accept"))
 	mux.Handle("POST /v1/courtship/proposals/{id}/reject", decideProposalHandler(proposals, sessions, "reject"))
@@ -63,6 +66,58 @@ func toProposalResponse(result application.Result) proposalResponse {
 		Revision:   result.Proposal.Revision(),
 		Replayed:   result.Replayed,
 	}
+}
+
+type proposalSummaryResponse struct {
+	ProposalID string `json:"proposalId"`
+	Kind       string `json:"kind"`
+	Status     string `json:"status"`
+	Revision   uint64 `json:"revision"`
+	ExpiresAt  string `json:"expiresAt"`
+	Outgoing   bool   `json:"outgoing"`
+}
+
+type proposalListResponse struct {
+	Proposals []proposalSummaryResponse `json:"proposals"`
+}
+
+// listProposalsHandler returns the caller's own proposals. The member comes
+// from the session, so there is no path by which one member can read
+// another's list.
+func listProposalsHandler(proposals Proposals, sessions SessionAuthenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := authenticatedMember(w, r, sessions)
+		if !ok {
+			return
+		}
+		limit := 50
+		if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil || parsed < 1 || parsed > 100 {
+				writeError(w, r, http.StatusUnprocessableEntity, APIError{
+					Code: "validation_failed", Message: "One or more fields are invalid.",
+					Details: []FieldError{{Field: "limit", Reason: "must be between 1 and 100"}},
+				})
+				return
+			}
+			limit = parsed
+		}
+
+		summaries, err := proposals.List(r.Context(), memberID, limit)
+		if err != nil {
+			writeProposalError(w, r, err)
+			return
+		}
+		response := proposalListResponse{Proposals: make([]proposalSummaryResponse, 0, len(summaries))}
+		for _, summary := range summaries {
+			response.Proposals = append(response.Proposals, proposalSummaryResponse{
+				ProposalID: summary.ID, Kind: string(summary.Kind), Status: string(summary.Status),
+				Revision: summary.Revision, ExpiresAt: summary.ExpiresAt.UTC().Format(time.RFC3339),
+				Outgoing: summary.Outgoing,
+			})
+		}
+		writeSuccess(w, r, http.StatusOK, response)
+	})
 }
 
 func createProposalHandler(proposals Proposals, sessions SessionAuthenticator) http.Handler {

@@ -45,9 +45,51 @@ type eventDocument struct {
 
 func (r *Repository) EnsureIndexes(ctx context.Context) error {
 	models := []mongo.IndexModel{{Keys: bson.D{{Key: "commandId", Value: 1}}, Options: options.Index().SetUnique(true).SetName("proposal_command_unique")}, {Keys: bson.D{{Key: "proposalId", Value: 1}, {Key: "sequence", Value: 1}}, Options: options.Index().SetUnique(true).SetName("proposal_sequence_unique")}}
-	_, err := r.events().Indexes().CreateMany(ctx, models)
+	if _, err := r.events().Indexes().CreateMany(ctx, models); err != nil {
+		return err
+	}
+	// A member reads their own proposals by their keyed identity. Both
+	// directions are indexed: a proposal is equally theirs whether they sent
+	// it or received it.
+	_, err := r.proposals().Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "recipientKey", Value: 1}, {Key: "expiresAt", Value: -1}},
+			Options: options.Index().SetName("proposal_recipient")},
+		{Keys: bson.D{{Key: "senderKey", Value: 1}, {Key: "expiresAt", Value: -1}},
+			Options: options.Index().SetName("proposal_sender")},
+	})
 	return err
 }
+
+// ListForMember returns the proposals a member sent or received, newest
+// expiry first. The member arrives already keyed, so no raw identity reaches
+// the query.
+func (r *Repository) ListForMember(ctx context.Context, memberKey string, limit int) ([]application.Summary, error) {
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	cursor, err := r.proposals().Find(ctx,
+		bson.M{"$or": []bson.M{{"recipientKey": memberKey}, {"senderKey": memberKey}}},
+		options.Find().SetSort(bson.D{{Key: "expiresAt", Value: -1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var summaries []application.Summary
+	for cursor.Next(ctx) {
+		var stored proposalDocument
+		if err := cursor.Decode(&stored); err != nil {
+			return nil, err
+		}
+		summaries = append(summaries, application.Summary{
+			ID: stored.ID, Kind: domain.Type(stored.Kind),
+			Status: domain.Status(stored.Status), ExpiresAt: stored.ExpiresAt,
+			Revision: stored.Revision, Outgoing: stored.SenderKey == memberKey,
+		})
+	}
+	return summaries, cursor.Err()
+}
+
 func (r *Repository) Create(ctx context.Context, p domain.Proposal) error {
 	s := p.State()
 	return apimongo.WithTransaction(ctx, r.database.Client(), func(tx context.Context) error {

@@ -77,6 +77,21 @@ func (s Service) Create(ctx context.Context, c CreateCommand) (Result, error) {
 	}
 	return Result{}, domain.ErrCommandMismatch
 }
+
+// List returns the proposals a member sent or received, newest expiry first.
+// Without it the slice is write-only: a member could be proposed to and never
+// see it.
+func (s Service) List(ctx context.Context, memberID string, limit int) ([]Summary, error) {
+	if !s.ready() {
+		return nil, ErrUnavailable
+	}
+	member, err := s.key("member", memberID)
+	if err != nil {
+		return nil, err
+	}
+	return s.repository.ListForMember(ctx, member, limit)
+}
+
 func (s Service) Accept(ctx context.Context, c DecisionCommand) (Result, error) {
 	return s.decide(ctx, c, domain.ActionAccepted)
 }
