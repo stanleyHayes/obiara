@@ -293,6 +293,81 @@ Of the contexts still dark, measured rather than guessed:
   `introduction`, an AI runtime for `ai/gateway`. No amount of effort
   composes those until the services are procured.
 
+## The twenty-seven that are neither grant-blocked nor storeless
+
+Each was examined port by port. What every one needs is written down, so the
+next person starts from the answer rather than the question:
+
+- `services/api/internal/admin/communityops`
+  needs: `Authority`, `DensitySource`, `HostSource`, `NoticeCatalog`
+- `services/api/internal/analytics/fairness`
+  needs: `DefinitionCatalog`, `AggregateSource`, `Authority`
+- `services/api/internal/analytics/p0gate`
+  needs: `DefinitionCatalog`, `AggregateSource`
+- `services/api/internal/analytics/retention`
+  needs: `PolicyCatalog`, `Pseudonymizer`
+- `services/api/internal/cloth/ceremony`
+  needs: `PublishRevalidator`, `CirclePublisher`
+- `services/api/internal/cloth/gate`
+  needs: none beyond a repository and keyer
+- `services/api/internal/cloth/grammar`
+  needs: none beyond a repository and keyer
+- `services/api/internal/cloth/lifecycle`
+  needs: `LegalHold`
+- `services/api/internal/cloth/relay`
+  needs: `ReviewerAuthorization`, `ConsentRevalidator`
+- `services/api/internal/cloth/thread`
+  needs: `RevealEvidence`
+- `services/api/internal/commerce/diaspora`
+  needs: `Authority`, `Catalog`, `ConfirmationVerifier`, `SettlementLedger`
+- `services/api/internal/commerce/momo`
+  needs: `Provider`
+- `services/api/internal/companions/p2gate`
+  needs: `ConsentSource`, `CompanionSource`, `SessionAuthenticator`
+- `services/api/internal/compliance/retention`
+  needs: `PolicyCatalog`, `Authority`, `ErasureVerifier`
+- `services/api/internal/fire/control`
+  needs: `Revalidator`, `RealtimeControl`
+- `services/api/internal/fire/incident`
+  needs: `ParticipantAuthority`, `SafetyAction`, `TrustSafetyRouter`
+- `services/api/internal/fire/recording`
+  needs: `Authority`, `Membership`, `Recorder`
+- `services/api/internal/games/conduct`
+  needs: `Authority`, `EventVerifier`
+- `services/api/internal/governance/marketpack`
+  needs: `MasterCatalog`, `Authority`
+- `services/api/internal/host`
+  needs: `InstitutionalProvider`, `ManualReviewQueue`
+- `services/api/internal/identity/collision`
+  needs: none beyond a repository and keyer
+- `services/api/internal/launch/readiness`
+  needs: `Authority`, `FamilyProjection`, `HostProjection`, `LicenseProjection`
+- `services/api/internal/matching/evaluation`
+  needs: `SnapshotVerifier`, `SlicePolicy`, `Authority`
+- `services/api/internal/matching/features`
+  needs: `Catalog`, `GrantRepository`, `DecisionRepository`, `Authority`
+- `services/api/internal/safeguarding`
+  needs: `RestrictionStore`, `ArtifactPurger`
+- `services/api/internal/safety/victimexport`
+  needs: `Authority`, `Allowlist`, `Redactor`
+- `services/api/internal/seed/sow`
+  needs: `Screening`, `Acceptance`
+
+Three patterns recur, and only the first is adapter work:
+
+- **A bridge.** The port asks something an already-composed context knows.
+  Five turned out to be this — the fire run sheet's host check, the catalog
+  and ledger's finance roles, the audit desk's role and MFA gates. Check for
+  this first; it was right more often than the initial triage was.
+- **Missing content.** `DefinitionCatalog`, `PolicyCatalog`, `NoticeCatalog`
+  and `MasterCatalog` all want a body of definitions that nobody has written.
+  The adapter is trivial; the content is the work.
+- **Real verification.** `EventVerifier`, `ErasureVerifier`,
+  `ConfirmationVerifier` and `SnapshotVerifier` must prove something actually
+  happened. `games/conduct` is the clearest: without a real verifier a member
+  could self-report a favourable conduct record, so a permissive stub is
+  worse than leaving the context dark.
+
 ## Reading this before launch
 
 A dark context is not a broken one, but it is also not a shipped one. Before
