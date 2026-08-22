@@ -154,6 +154,21 @@ exist yet — object storage and speech-to-text for `introduction`, an AI
 runtime for `ai/gateway` — and cannot be composed at any effort until those
 are procured.
 
+## What the remaining work divides into
+
+Of the contexts still dark, measured rather than guessed:
+
+- **12 are purely mechanical.** Their only ports are a repository, a keyer
+  and an id source, so composing them invents no policy.
+- **~29 are self-contained but carry a policy port** — an `Authority`, a
+  `StakePolicy`, an `Allowlist`, a `Redactor`. The adapter is small; deciding
+  what the policy _is_ belongs to whoever owns the product rule, not to
+  whoever writes the adapter.
+- **11 have no persistence adapter**, and several of those wait on
+  infrastructure that does not exist: object storage and speech-to-text for
+  `introduction`, an AI runtime for `ai/gateway`. No amount of effort
+  composes those until the services are procured.
+
 ## Reading this before launch
 
 A dark context is not a broken one, but it is also not a shipped one. Before
