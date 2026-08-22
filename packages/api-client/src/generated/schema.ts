@@ -107,6 +107,62 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/catalog/skus": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Create a catalog SKU
+     * @description Operator surface. Requires the finance or admin role — the two that
+     *     already carry commercial responsibility. Prices are minor units;
+     *     a SKU is a draft until it is published.
+     */
+    readonly post: operations["createCatalogSKU"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/catalog/skus/{id}/publish": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Publish a SKU */
+    readonly post: operations["publishCatalogSKU"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/catalog/skus/{id}/retire": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Retire a SKU */
+    readonly post: operations["retireCatalogSKU"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/controls": {
     readonly parameters: {
       readonly query?: never;
@@ -928,6 +984,27 @@ export interface paths {
      * @description Only a call participant may end it.
      */
     readonly post: operations["endCall"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/catalog/skus/{skuKey}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read a published SKU
+     * @description Member surface. Only published SKUs are returned, so a draft price or
+     *     a retired one can never be quoted.
+     */
+    readonly get: operations["readCatalogSKU"];
+    readonly put?: never;
+    readonly post?: never;
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -3564,6 +3641,33 @@ export interface components {
       readonly data: components["schemas"]["CancelRsvpData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly CatalogChangeInput: {
+      readonly commandId: string;
+      /** Format: int64 */
+      readonly expectedRevision?: number;
+      /** Format: int64 */
+      readonly version?: number;
+    };
+    readonly CatalogSKUData: {
+      /** Format: int64 */
+      readonly amountMinor: number;
+      /** @enum {string} */
+      readonly currency: "GHS" | "USD";
+      /** @enum {string} */
+      readonly kind: "physical_good" | "event_ticket" | "digital_service";
+      /** Format: int64 */
+      readonly revision: number;
+      readonly skuId: string;
+      readonly skuKey: string;
+      /** @enum {string} */
+      readonly status: "draft" | "published" | "retired";
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly CatalogSKUEnvelope: {
+      readonly data: components["schemas"]["CatalogSKUData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly ChannelStatsData: {
       readonly attempted: number;
       readonly delivered: number;
@@ -3834,6 +3938,20 @@ export interface components {
       readonly deviceRef: string;
       /** @description Opaque; the turn's content never crosses this boundary. */
       readonly payloadRef: string;
+    };
+    readonly CreateCatalogSKUInput: {
+      /**
+       * Format: int64
+       * @description Minor units. Money is never carried as a float.
+       */
+      readonly amountMinor: number;
+      readonly commandId: string;
+      /** @enum {string} */
+      readonly currency: "GHS" | "USD";
+      /** @enum {string} */
+      readonly kind: "physical_good" | "event_ticket" | "digital_service";
+      readonly skuKey: string;
+      readonly title: string;
     };
     readonly CreateRunSheetInput: {
       readonly commandId: string;
@@ -5756,6 +5874,196 @@ export interface operations {
       readonly 503: components["responses"]["InternalError"];
     };
   };
+  readonly createCatalogSKU: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CreateCatalogSKUInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The SKU. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CatalogSKUEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator may not edit the catalog. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Not available. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The SKU changed, or the command id was reused. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly publishCatalogSKU: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CatalogChangeInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The SKU. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CatalogSKUEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator may not edit the catalog. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Not available. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The SKU changed, or the command id was reused. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly retireCatalogSKU: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CatalogChangeInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The SKU. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CatalogSKUEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator may not edit the catalog. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Not available. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The SKU changed, or the command id was reused. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
   readonly listAdminRuntimeControls: {
     readonly parameters: {
       readonly query?: never;
@@ -7494,6 +7802,68 @@ export interface operations {
       readonly 404: components["responses"]["CallNotFound"];
       readonly 409: components["responses"]["CallNotOpen"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly readCatalogSKU: {
+    readonly parameters: {
+      readonly query?: {
+        readonly version?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly skuKey: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The SKU. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CatalogSKUEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator may not edit the catalog. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Not available. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The SKU changed, or the command id was reused. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };

@@ -41,6 +41,8 @@ import (
 	circledomain "github.com/stanleyHayes/obiara/services/api/internal/circle/domain"
 	circleroom "github.com/stanleyHayes/obiara/services/api/internal/circle/room"
 	circleroomapp "github.com/stanleyHayes/obiara/services/api/internal/circle/room/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/catalog"
+	catalogauthority "github.com/stanleyHayes/obiara/services/api/internal/commerce/catalog/adapters/outbound/adminauthority"
 	commerceescrow "github.com/stanleyHayes/obiara/services/api/internal/commerce/escrow"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/matchmaker"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/membership"
@@ -361,6 +363,15 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build admin module: %w", err)
 	}
+	// The commerce catalog: operators curate it, members read what is
+	// published. Curation authority comes from the admin roles that already
+	// carry commercial responsibility.
+	catalogModule, err := catalog.NewModule(ctx, client.Database(cfg.MongoDatabase),
+		catalogauthority.New(adminModule.Admin), cfg.CommerceHMACSecret)
+	if err != nil {
+		return fmt.Errorf("build catalog module: %w", err)
+	}
+
 	adminSubjectKeyer, err := adminverificationprivacy.NewHMACKeyer([]byte(cfg.AdminHMACSecret))
 	if err != nil {
 		return fmt.Errorf("configure admin subject references: %w", err)
@@ -495,6 +506,7 @@ func run() error {
 	apihttp.RegisterCourtshipRoomRoutes(mux, courtship.NewRoom(courtshipRoomModule), identityModule.Sessions)
 	apihttp.RegisterSeedStageRoutes(mux, seedstage.NewStage(seedStageModule), identityModule.Sessions)
 	apihttp.RegisterFireRunSheetRoutes(mux, runSheetModule.RunSheets, identityModule.Sessions)
+	apihttp.RegisterCatalogRoutes(mux, catalogModule.Catalog, identityModule.Sessions)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)

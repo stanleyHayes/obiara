@@ -1550,6 +1550,278 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/catalog/skus:
+    post:
+      operationId: createCatalogSKU
+      tags: [Commerce]
+      summary: Create a catalog SKU
+      security:
+        - AdminBearer: []
+      description: |
+        Operator surface. Requires the finance or admin role — the two that
+        already carry commercial responsibility. Prices are minor units;
+        a SKU is a draft until it is published.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCatalogSKUInput"
+      responses:
+        "200":
+          description: The SKU.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogSKUEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator may not edit the catalog.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not available.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The SKU changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/catalog/skus/{id}/publish:
+    post:
+      operationId: publishCatalogSKU
+      tags: [Commerce]
+      summary: Publish a SKU
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatalogChangeInput"
+      responses:
+        "200":
+          description: The SKU.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogSKUEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator may not edit the catalog.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not available.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The SKU changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/catalog/skus/{id}/retire:
+    post:
+      operationId: retireCatalogSKU
+      tags: [Commerce]
+      summary: Retire a SKU
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatalogChangeInput"
+      responses:
+        "200":
+          description: The SKU.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogSKUEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator may not edit the catalog.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not available.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The SKU changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/catalog/skus/{skuKey}:
+    get:
+      operationId: readCatalogSKU
+      tags: [Commerce]
+      summary: Read a published SKU
+      security:
+        - MemberBearer: []
+      description: |
+        Member surface. Only published SKUs are returned, so a draft price or
+        a retired one can never be quoted.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: skuKey
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        "200":
+          description: The SKU.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogSKUEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator may not edit the catalog.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: Not available.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The SKU changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/verifications/ghana-card:
     post:
       operationId: submitGhanaCard
@@ -10404,6 +10676,90 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/CourtshipTimelineData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    CreateCatalogSKUInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, skuKey, title, kind, currency, amountMinor]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        skuKey:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        kind:
+          type: string
+          enum: [physical_good, event_ticket, digital_service]
+        currency:
+          type: string
+          enum: [GHS, USD]
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Minor units. Money is never carried as a float.
+    CatalogChangeInput:
+      type: object
+      additionalProperties: false
+      required: [commandId]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        expectedRevision:
+          type: integer
+          format: int64
+          minimum: 0
+    CatalogSKUData:
+      type: object
+      additionalProperties: false
+      required: [skuId, skuKey, version, kind, currency, amountMinor, status, revision]
+      properties:
+        skuId:
+          type: string
+        skuKey:
+          type: string
+        version:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum: [physical_good, event_ticket, digital_service]
+        currency:
+          type: string
+          enum: [GHS, USD]
+        amountMinor:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [draft, published, retired]
+        revision:
+          type: integer
+          format: int64
+    CatalogSKUEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CatalogSKUData"
         meta:
           $ref: "#/components/schemas/Metadata"
     RunSheetSegmentInput:
