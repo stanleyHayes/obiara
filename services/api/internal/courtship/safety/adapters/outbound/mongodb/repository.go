@@ -43,6 +43,13 @@ func (r *Repository) Find(ctx context.Context, id string) (domain.Safety, error)
 }
 func (r *Repository) Save(ctx context.Context, s domain.Safety, expected uint64, commandID string) error {
 	events, commands := s.Events(), s.Commands()
+	// An aggregate with no events has never been acted on, so there is
+	// nothing to append and the caller wanted Create. Returning an error
+	// beats indexing past the end of an empty slice, which in an HTTP
+	// handler is a panic rather than a rejected request.
+	if len(events) == 0 || len(commands) == 0 {
+		return domain.ErrInvalid
+	}
 	update := bson.M{"$set": bson.M{"blocked": s.Blocked(), "blockedAt": s.BlockedAt(), "revision": s.Revision()}, "$push": bson.M{"events": events[len(events)-1], "commands": commands[len(commands)-1]}}
 	if events[len(events)-1].Action == domain.ActionReport {
 		reviews := s.Reviews()

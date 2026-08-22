@@ -40,6 +40,13 @@ func (r *Repository) Find(ctx context.Context, id string) (domain.Ribbon, error)
 }
 func (r *Repository) Save(ctx context.Context, x domain.Ribbon, expected uint64, commandID string) error {
 	events, commands := x.Events(), x.Commands()
+	// An aggregate with no events has never been acted on, so there is
+	// nothing to append and the caller wanted Create. Returning an error
+	// beats indexing past the end of an empty slice, which in an HTTP
+	// handler is a panic rather than a rejected request.
+	if len(events) == 0 || len(commands) == 0 {
+		return domain.ErrInvalid
+	}
 	result, e := r.collection.UpdateOne(ctx, bson.M{"_id": x.ID(), "revision": expected}, bson.M{"$set": bson.M{"grants": x.Grants(), "revision": x.Revision()}, "$push": bson.M{"events": events[len(events)-1], "commands": commands[len(commands)-1]}})
 	if mongo.IsDuplicateKeyError(e) {
 		return nil
@@ -53,5 +60,16 @@ func (r *Repository) Save(ctx context.Context, x domain.Ribbon, expected uint64,
 	return nil
 }
 func toDoc(x domain.Ribbon) document {
-	return document{x.ID(), x.Members(), x.Grants(), x.Revision(), x.Events(), x.Commands()}
+	// A freshly opened ribbon has no events or commands yet. Nil slices
+	// marshal to null, and $push cannot append to null, so the first action
+	// on the room would fail with a write exception. Empty arrays keep the
+	// document shape stable from the moment it is created.
+	events, commands := x.Events(), x.Commands()
+	if events == nil {
+		events = []domain.Event{}
+	}
+	if commands == nil {
+		commands = []domain.Applied{}
+	}
+	return document{x.ID(), x.Members(), x.Grants(), x.Revision(), events, commands}
 }

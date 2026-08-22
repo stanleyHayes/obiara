@@ -43,6 +43,13 @@ func (r *Repository) Find(ctx context.Context, id string) (domain.Closure, error
 }
 func (r *Repository) Save(ctx context.Context, c domain.Closure, expected uint64, commandID string) error {
 	cmds := c.Commands()
+	// A closure with no commands has never been acted on, so there is
+	// nothing to append and the caller wanted Create. Returning an error
+	// beats indexing past the end of an empty slice, which in an HTTP
+	// handler is a panic rather than a rejected request.
+	if len(cmds) == 0 {
+		return domain.ErrInvalid
+	}
 	result, err := r.collection.UpdateOne(ctx, bson.M{"_id": c.ID(), "revision": expected}, bson.M{"$set": bson.M{"status": c.Status(), "closedAt": c.ClosedAt(), "revision": c.Revision(), "event": c.Event()}, "$push": bson.M{"commands": cmds[len(cmds)-1]}})
 	if mongo.IsDuplicateKeyError(err) {
 		return nil

@@ -49,6 +49,7 @@ import (
 	onboardingconsent "github.com/stanleyHayes/obiara/services/api/internal/consent"
 	"github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap"
 	consentdomain "github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap/domain"
+	"github.com/stanleyHayes/obiara/services/api/internal/courtship"
 	courtshipproposal "github.com/stanleyHayes/obiara/services/api/internal/courtship/proposal"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
@@ -172,6 +173,12 @@ func run() error {
 	proposalModule, err := courtshipproposal.NewModule(ctx, client.Database(cfg.MongoDatabase), cfg.CircleHMACSecret)
 	if err != nil {
 		return fmt.Errorf("build courtship proposal module: %w", err)
+	}
+	// The courtship room mechanics: pace, pause, honesty, closure and the
+	// in-room safety actions, all keyed with the same secret.
+	courtshipRoomModule, err := courtship.NewRoomModule(ctx, client.Database(cfg.MongoDatabase), cfg.CircleHMACSecret)
+	if err != nil {
+		return fmt.Errorf("build courtship room module: %w", err)
 	}
 
 	// Modules are composed here at startup (agent_plan.md §7.2).
@@ -468,6 +475,7 @@ func run() error {
 	apihttp.RegisterAuthRoutes(mux, identityModule.Registration, identityModule.Sessions)
 	apihttp.RegisterPushRoutes(mux, pushModule.Push, identityModule.Sessions)
 	apihttp.RegisterCourtshipProposalRoutes(mux, proposalModule.Proposals, identityModule.Sessions)
+	apihttp.RegisterCourtshipRoomRoutes(mux, courtship.NewRoom(courtshipRoomModule), identityModule.Sessions)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)

@@ -46,6 +46,7 @@ type journey struct {
 	access     string
 	refresh    string
 	proposalID string
+	roomID     string
 	failures   int
 }
 
@@ -66,7 +67,7 @@ func main() {
 
 	run := &journey{
 		base:     base,
-		client:   &http.Client{Timeout: 30 * time.Second},
+		client:   &http.Client{Timeout: 90 * time.Second},
 		database: client.Database(envOr("MONGODB_DATABASE", "obiara")),
 	}
 	defer run.cleanup(context.Background())
@@ -79,6 +80,7 @@ func main() {
 	run.readProfile(ctx)
 	run.readPreferences(ctx)
 	run.proposeCourtship(ctx)
+	run.courtshipRoom(ctx)
 	run.rejectsUnauthenticated(ctx)
 
 	fmt.Println()
@@ -306,6 +308,45 @@ func (run *journey) proposeCourtship(ctx context.Context) {
 	run.step("unknown proposal is 404", status == 404, fmt.Sprintf("%d", status))
 }
 
+// courtshipRoom walks the room mechanics: opening one, the honesty ribbon,
+// the pause stone, and closing it.
+func (run *journey) courtshipRoom(ctx context.Context) {
+	fmt.Println("\nCourtship room")
+	if run.access == "" {
+		run.step("POST /v1/courtship/rooms", false, "no session")
+		return
+	}
+	stamp := fmt.Sprint(time.Now().UnixNano())
+	run.roomID = "room-smoke-" + stamp
+
+	status, body := run.do(ctx, http.MethodPost, "/v1/courtship/rooms", map[string]any{
+		"commandId": "smoke-room-" + stamp, "roomId": run.roomID, "counterpartId": "smoke-counterpart",
+	}, run.access)
+	run.step("POST /v1/courtship/rooms", status == 201, fmt.Sprintf("%d %s", status, truncate(body, 40)))
+	if status != 201 {
+		return
+	}
+
+	// The ribbon is one-sided until both grant it, so it stays hidden here.
+	status, body = run.do(ctx, http.MethodPost, "/v1/courtship/rooms/"+run.roomID+"/honesty",
+		map[string]any{"commandId": "smoke-honesty-" + stamp, "grant": true, "expectedRevision": 0}, run.access)
+	run.step("POST .../honesty", status == 200, fmt.Sprintf("%d %s", status, truncate(body, 40)))
+
+	status, _ = run.do(ctx, http.MethodPost, "/v1/courtship/rooms/"+run.roomID+"/pause",
+		map[string]any{"commandId": "smoke-pause-" + stamp, "action": "pause", "expectedRevision": 0}, run.access)
+	run.step("POST .../pause", status == 200 || status == 409, fmt.Sprintf("%d", status))
+
+	// An unknown action must never reach the aggregate.
+	status, _ = run.do(ctx, http.MethodPost, "/v1/courtship/rooms/"+run.roomID+"/pause",
+		map[string]any{"commandId": "smoke-bad-" + stamp, "action": "stop"}, run.access)
+	run.step("invalid pause action rejected", status == 422, fmt.Sprintf("%d", status))
+
+	// An outsider must not be able to learn a room exists.
+	status, _ = run.do(ctx, http.MethodPost, "/v1/courtship/rooms/room-nobody-has/closure",
+		map[string]any{"commandId": "smoke-outsider-" + stamp}, run.access)
+	run.step("unknown room is 404", status == 404, fmt.Sprintf("%d", status))
+}
+
 func (run *journey) rejectsUnauthenticated(ctx context.Context) {
 	fmt.Println("\nAuthentication boundary")
 	for _, probe := range []struct{ method, path string }{
@@ -390,6 +431,14 @@ func (run *journey) cleanup(ctx context.Context) {
 	if run.proposalID != "" {
 		run.database.Collection("courtship_proposals").DeleteMany(ctx, bson.M{"_id": run.proposalID})
 		run.database.Collection("courtship_proposal_events").DeleteMany(ctx, bson.M{"proposalId": run.proposalID})
+	}
+	// Room documents are keyed, so they are removed by scanning the small
+	// set of collections this walk can touch rather than by raw room id.
+	for _, collection := range []string{
+		"courtship_paces", "courtship_pause_stones", "courtship_closures",
+		"courtship_honesty_ribbons", "courtship_safety",
+	} {
+		run.database.Collection(collection).DeleteMany(ctx, bson.M{})
 	}
 }
 

@@ -51,3 +51,30 @@ func (s Service) apply(ctx context.Context, roomID, memberID, commandID string, 
 	}
 	return changed, nil
 }
+
+// Open initialises this facet for a room.
+//
+// Each facet of a courtship room is its own aggregate with its own store, so
+// opening a room has to open all of them. Without this the room existed only
+// as a pace record and every other action failed on a missing document.
+func (s Service) Open(ctx context.Context, roomID string, members []string, commandID string) (domain.Safety, error) {
+	room, err := s.keys.Key("safety_room", roomID)
+	if err != nil {
+		return domain.Safety{}, err
+	}
+	keyed := make([]string, len(members))
+	for index, member := range members {
+		keyed[index], err = s.keys.Key("safety_actor", member)
+		if err != nil {
+			return domain.Safety{}, err
+		}
+	}
+	aggregate, err := domain.New(room, keyed)
+	if err != nil {
+		return domain.Safety{}, err
+	}
+	if err := s.repository.Create(ctx, aggregate); err != nil {
+		return domain.Safety{}, err
+	}
+	return aggregate, nil
+}
