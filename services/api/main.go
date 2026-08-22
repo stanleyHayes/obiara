@@ -80,6 +80,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit"
 	livekitapp "github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit/application"
 	seedstage "github.com/stanleyHayes/obiara/services/api/internal/seed"
+	"github.com/stanleyHayes/obiara/services/api/internal/seed/allowance"
 	gardenmongodb "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/mongodb"
 	gardenprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/privacy"
 	gardenapp "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/application"
@@ -190,6 +191,13 @@ func run() error {
 	seedStageModule, err := seedstage.NewStageModule(ctx, client.Database(cfg.MongoDatabase), cfg.SeedHMACSecret)
 	if err != nil {
 		return fmt.Errorf("build seed stage module: %w", err)
+	}
+	// The weekly seed allowance: server-authoritative and non-purchasable,
+	// renewed on the Monday of the member's own week.
+	allowanceModule, err := allowance.NewModule(ctx, client.Database(cfg.MongoDatabase),
+		cfg.SeedHMACSecret, cfg.SeedWeekTimezone, cfg.SeedWeeklyAllowance)
+	if err != nil {
+		return fmt.Errorf("build seed allowance module: %w", err)
 	}
 	// The run sheet a host works through while running a fire. Authority
 	// comes from the fire aggregate itself, which owns who hosts what.
@@ -507,6 +515,7 @@ func run() error {
 	apihttp.RegisterSeedStageRoutes(mux, seedstage.NewStage(seedStageModule), identityModule.Sessions)
 	apihttp.RegisterFireRunSheetRoutes(mux, runSheetModule.RunSheets, identityModule.Sessions)
 	apihttp.RegisterCatalogRoutes(mux, catalogModule.Catalog, identityModule.Sessions)
+	apihttp.RegisterSeedAllowanceRoutes(mux, allowanceModule.Allowances, identityModule.Sessions)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)

@@ -65,6 +65,14 @@ projects:
               # "manual" routes every liveness attempt to human review.
               - key: LIVENESS_PROVIDER
                 value: manual
+              # The weekly seed allowance. Non-purchasable and
+              # server-authoritative; this is the main lever on how much
+              # reaching-out the platform permits, so review it before
+              # sowing is switched on.
+              - key: SEED_WEEKLY_ALLOWANCE
+                value: "3"
+              - key: SEED_WEEK_TIMEZONE
+                value: Africa/Accra
               # Device push. "expo" delivers through exp.host; "disabled"
               # fails every push loudly so the ladder falls through to the
               # in-app inbox, which always works.

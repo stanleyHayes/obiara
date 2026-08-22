@@ -246,6 +246,12 @@ func (run *journey) readPreferences(ctx context.Context) {
 	}
 	status, _ := run.do(ctx, http.MethodGet, "/v1/notification-preferences", nil, run.access)
 	run.step("GET /v1/notification-preferences", status == 200 || status == 404, fmt.Sprintf("%d", status))
+
+	// The allowance is issued lazily, so a first read must produce the full
+	// weekly budget rather than a 404.
+	status, body := run.do(ctx, http.MethodGet, "/v1/seed/allowance", nil, run.access)
+	run.step("GET /v1/seed/allowance", status == 200 && strings.Contains(body, "weeklyAllowance"),
+		fmt.Sprintf("%d %s", status, truncate(body, 44)))
 }
 
 // proposeCourtship exercises the core loop: one member proposing to another
@@ -460,6 +466,7 @@ func (run *journey) cleanup(ctx context.Context) {
 		"courtship_paces", "courtship_pause_stones", "courtship_closures",
 		"courtship_honesty_ribbons", "courtship_safety",
 		"courtship_queue_heads", "courtship_queue_events",
+		"seed_allowance_ledgers", "seed_allowance_entries",
 	} {
 		run.database.Collection(collection).DeleteMany(ctx, bson.M{})
 	}

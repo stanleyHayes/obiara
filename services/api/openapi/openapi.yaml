@@ -1822,6 +1822,48 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/seed/allowance:
+    get:
+      operationId: readSeedAllowance
+      tags: [Seed]
+      summary: Read your weekly seed allowance
+      security:
+        - MemberBearer: []
+      description: |
+        Returns the caller's own budget. The subject comes from the session,
+        so one member can never read another's. The allowance is
+        server-authoritative and non-purchasable, and renews on the Monday of
+        the member's own week.
+
+        The ledger is issued lazily on first read, which grants exactly the
+        configured weekly allowance and never more.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: The caller's allowance.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeedAllowanceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: The allowance changed concurrently.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/verifications/ghana-card:
     post:
       operationId: submitGhanaCard
@@ -10676,6 +10718,31 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/CourtshipTimelineData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    SeedAllowanceData:
+      type: object
+      additionalProperties: false
+      required: [balance, weeklyAllowance, weekStart]
+      properties:
+        balance:
+          type: integer
+          format: int64
+          minimum: 0
+        weeklyAllowance:
+          type: integer
+          format: int64
+          minimum: 1
+        weekStart:
+          type: string
+          format: date-time
+    SeedAllowanceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SeedAllowanceData"
         meta:
           $ref: "#/components/schemas/Metadata"
     CreateCatalogSKUInput:

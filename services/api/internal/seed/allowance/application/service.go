@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -89,4 +90,27 @@ func (s *Service) Renew(ctx context.Context, subjectID, commandID string) (domai
 func fingerprint(parts ...string) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%q", parts)))
 	return hex.EncodeToString(sum[:])
+}
+
+// CurrentOrIssue returns a member's ledger, issuing this week's allowance
+// the first time they ask for it.
+//
+// The ledger is created lazily rather than at sign-up because most accounts
+// never reach the sowing stage, and a row per account per week for people
+// who never sow is cost without a reader. Issuing grants exactly the
+// configured weekly allowance and never more, so a first read can only ever
+// produce the same balance a scheduled issuance would have.
+func (s *Service) CurrentOrIssue(ctx context.Context, subjectID, commandID string) (domain.Ledger, error) {
+	key, err := s.keyer.Key(subjectID)
+	if err != nil {
+		return domain.Ledger{}, err
+	}
+	ledger, err := s.repository.Find(ctx, key)
+	if err == nil {
+		return ledger, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return domain.Ledger{}, err
+	}
+	return s.Issue(ctx, subjectID, commandID)
 }

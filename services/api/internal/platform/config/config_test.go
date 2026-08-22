@@ -150,3 +150,39 @@ func TestLoadInvalid(t *testing.T) {
 		})
 	}
 }
+
+// TestSeedWeeklyAllowance covers the one product parameter this config
+// carries. A zero or negative allowance would silently forbid sowing rather
+// than gating it, so it is validated rather than accepted.
+func TestSeedWeeklyAllowance(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		cfg, err := Load(envWith(nil))
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if cfg.SeedWeeklyAllowance < 1 {
+			t.Errorf("SeedWeeklyAllowance = %d, want a positive default", cfg.SeedWeeklyAllowance)
+		}
+		if cfg.SeedWeekTimezone != "Africa/Accra" {
+			t.Errorf("SeedWeekTimezone = %q, want the Ghana-first default", cfg.SeedWeekTimezone)
+		}
+	})
+
+	t.Run("override", func(t *testing.T) {
+		cfg, err := Load(envWith(map[string]string{"SEED_WEEKLY_ALLOWANCE": "7"}))
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if cfg.SeedWeeklyAllowance != 7 {
+			t.Errorf("SeedWeeklyAllowance = %d, want 7", cfg.SeedWeeklyAllowance)
+		}
+	})
+
+	t.Run("rejects nonsense", func(t *testing.T) {
+		for _, raw := range []string{"0", "-1", "many", "100000"} {
+			if _, err := Load(envWith(map[string]string{"SEED_WEEKLY_ALLOWANCE": raw})); err == nil {
+				t.Errorf("Load accepted SEED_WEEKLY_ALLOWANCE=%q", raw)
+			}
+		}
+	})
+}

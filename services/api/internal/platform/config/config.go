@@ -33,6 +33,12 @@ type Config struct {
 	Notifications NotificationsConfig
 	// Verification selects the identity and liveness provider adapters.
 	Verification VerificationConfig
+	// SeedWeeklyAllowance is how many seeds a member may sow each week, and
+	// SeedWeekTimezone is the IANA zone whose Monday starts that week. The
+	// allowance is a product parameter rather than a constant: it is the
+	// main lever on how much reaching-out the platform permits.
+	SeedWeeklyAllowance int64
+	SeedWeekTimezone    string
 }
 
 // simulatorsAllowed reports whether the environment may run without real
@@ -135,6 +141,16 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 	if err := validateNotifications(cfg.Notifications, allowSimulators); err != nil {
 		return Config{}, fmt.Errorf("notification providers: %w", err)
 	}
+	cfg.SeedWeekTimezone = valueOrDefault(getenv("SEED_WEEK_TIMEZONE"), "Africa/Accra")
+	cfg.SeedWeeklyAllowance = 3
+	if raw := strings.TrimSpace(getenv("SEED_WEEKLY_ALLOWANCE")); raw != "" {
+		parsed, convErr := strconv.ParseInt(raw, 10, 64)
+		if convErr != nil || parsed < 1 || parsed > 1000 {
+			return Config{}, fmt.Errorf("SEED_WEEKLY_ALLOWANCE must be a number between 1 and 1000, got %q", raw)
+		}
+		cfg.SeedWeeklyAllowance = parsed
+	}
+
 	cfg.Verification = loadVerification(getenv)
 	if err := validateVerification(cfg.Verification, allowSimulators); err != nil {
 		return Config{}, fmt.Errorf("verification providers: %w", err)

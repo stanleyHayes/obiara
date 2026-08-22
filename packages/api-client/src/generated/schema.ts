@@ -2947,6 +2947,32 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/seed/allowance": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read your weekly seed allowance
+     * @description Returns the caller's own budget. The subject comes from the session,
+     *     so one member can never read another's. The allowance is
+     *     server-authoritative and non-purchasable, and renews on the Monday of
+     *     the member's own week.
+     *
+     *     The ledger is issued lazily on first read, which grants exactly the
+     *     configured weekly allowance and never more.
+     */
+    readonly get: operations["readSeedAllowance"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/suban/appeals": {
     readonly parameters: {
       readonly query?: never;
@@ -4797,6 +4823,18 @@ export interface components {
     };
     readonly ScamArcStateEnvelope: {
       readonly data: components["schemas"]["ScamArcStateData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly SeedAllowanceData: {
+      /** Format: int64 */
+      readonly balance: number;
+      /** Format: int64 */
+      readonly weeklyAllowance: number;
+      /** Format: date-time */
+      readonly weekStart: string;
+    };
+    readonly SeedAllowanceEnvelope: {
+      readonly data: components["schemas"]["SeedAllowanceData"];
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly SessionData: {
@@ -12110,6 +12148,43 @@ export interface operations {
       readonly 400: components["responses"]["InvalidJSON"];
       readonly 409: components["responses"]["MonitoringOptedOut"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly readSeedAllowance: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The caller's allowance. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SeedAllowanceEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The allowance changed concurrently. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };
