@@ -117,3 +117,31 @@ status and password, which also makes it the recovery path for a locked-out
 super admin. Credentials are read only from the environment, never from
 flags, so they do not appear in process listings or shell history. Every run
 appends an `admin.bootstrap.*` entry to the immutable `admin_access` audit.
+
+## Verifying a deployment
+
+Run the member journey against the deployment before opening it to traffic:
+
+```
+API_BASE=https://obiara-api-production.onrender.com \
+MONGODB_URI=... MONGODB_DATABASE=obiara_production \
+go run ./services/api/cmd/smoke
+```
+
+It walks health, OTP sign-up, session rotation and its theft check, device
+registration, the member surface and the authentication boundary, then
+removes everything it created. `MONGODB_URI` is needed for the two things the
+API deliberately does not expose: reading back the code a member would
+receive by SMS, and cleaning up afterwards.
+
+A capability whose feature flag is off answers `503 feature_unavailable`.
+That is the route working, and the walk reports it as such.
+
+## When a channel goes dark
+
+Delivery failures are reported as `503` with a code naming the channel —
+`otp_delivery_failed`, `mfa_delivery_failed` — rather than a generic 500, and
+the cause is logged under `fault` against the same correlation id the caller
+was shown. Searching the logs for that id gives the provider status directly,
+for example `status 401, provider error validation_error` for a rejected
+Resend key.
