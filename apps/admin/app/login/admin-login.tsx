@@ -128,9 +128,7 @@ export function AdminLogin() {
       />
       {stage === "email" ? (
         <div className="admin-login-help">
-          <a
-            href="mailto:support@obiara.app?subject=Admin%20access%20recovery&body=I%20need%20help%20recovering%20access%20to%20the%20Obiara%20operations%20desk.%20Please%20send%20me%20the%20secure%20recovery%20steps."
-          >
+          <a href="mailto:support@obiara.app?subject=Admin%20access%20recovery&body=I%20need%20help%20recovering%20access%20to%20the%20Obiara%20operations%20desk.%20Please%20send%20me%20the%20secure%20recovery%20steps.">
             Forgot password?
           </a>
         </div>

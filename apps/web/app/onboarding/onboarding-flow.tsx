@@ -268,256 +268,277 @@ export function OnboardingFlow() {
         <div className="onboarding-workspace">
           <div className="onboarding-mobile-brand">
             <Link href="/">obiara</Link>
-            <span>Step {state.stage === "phone" || state.stage === "otp" ? 1 : state.stage === "promise" ? 2 : state.stage === "card" || state.stage === "manual-review" ? 3 : 4} of 4</span>
+            <span>
+              Step{" "}
+              {state.stage === "phone" || state.stage === "otp"
+                ? 1
+                : state.stage === "promise"
+                  ? 2
+                  : state.stage === "card" || state.stage === "manual-review"
+                    ? 3
+                    : 4}{" "}
+              of 4
+            </span>
           </div>
           <div className="onboarding-card">
-          {(state.stage === "phone" || state.stage === "otp") && (
-            <section
-              aria-labelledby="phone-title"
-              className="onboarding-phone-step"
-            >
-              <div className="onboarding-step-number" aria-hidden="true">
-                01
-              </div>
-              <p className="onboarding-kicker">Phone verification</p>
-              <h2 id="phone-title">
-                {state.stage === "phone"
-                  ? "Begin with your number."
-                  : "Check your messages."}
-              </h2>
-              <p>
-                {state.stage === "phone"
-                  ? "This becomes your private key to sign in and recover your account. Other members never see it."
-                  : `Enter the short-lived code sent to ${state.phone}.`}
-              </p>
-              <div className="onboarding-privacy-note">
-                <span aria-hidden="true">⌁</span>
-                <div>
-                  <strong>Private means private</strong>
-                  <small>Never shown on your profile or used for discovery.</small>
-                </div>
-              </div>
-              <label>
-                <span>
-                  {state.stage === "phone"
-                    ? "Ghana phone number"
-                    : "One-time code"}
-                </span>
-                <div className="onboarding-phone-input">
-                  <span aria-hidden="true">
-                    {state.stage === "phone" ? "GH" : "#"}
-                  </span>
-                  <input
-                    aria-describedby="phone-format"
-                    autoComplete={
-                      state.stage === "phone" ? "tel" : "one-time-code"
-                    }
-                    inputMode="numeric"
-                    onChange={(event) =>
-                      dispatch(
-                        state.stage === "phone"
-                          ? { type: "phone-changed", phone: event.target.value }
-                          : { type: "otp-changed", otp: event.target.value },
-                      )
-                    }
-                    placeholder={
-                      state.stage === "phone" ? "024 123 4567" : "000 000"
-                    }
-                    value={state.stage === "phone" ? state.phone : state.otp}
-                  />
-                </div>
-                <small id="phone-format">
-                  {state.stage === "phone"
-                    ? "Use the 10-digit number registered to you."
-                    : "The code expires shortly for your protection."}
-                </small>
-              </label>
-              <button
-                disabled={
-                  submitting ||
-                  (state.stage === "phone"
-                    ? !/^0\d{9}$/.test(state.phone)
-                    : state.otp.length !== 6)
-                }
-                onClick={submitPhoneStep}
-                type="button"
+            {(state.stage === "phone" || state.stage === "otp") && (
+              <section
+                aria-labelledby="phone-title"
+                className="onboarding-phone-step"
               >
-                {submitting
-                  ? "Sending securely…"
-                  : state.stage === "phone"
-                    ? "Continue with this number  →"
-                    : "Verify and continue  →"}
-              </button>
-              {requestError && (
-                <p className="onboarding-error" role="alert">
-                  {requestError}
+                <div className="onboarding-step-number" aria-hidden="true">
+                  01
+                </div>
+                <p className="onboarding-kicker">Phone verification</p>
+                <h2 id="phone-title">
+                  {state.stage === "phone"
+                    ? "Begin with your number."
+                    : "Check your messages."}
+                </h2>
+                <p>
+                  {state.stage === "phone"
+                    ? "This becomes your private key to sign in and recover your account. Other members never see it."
+                    : `Enter the short-lived code sent to ${state.phone}.`}
                 </p>
-              )}
-            </section>
-          )}
+                <div className="onboarding-privacy-note">
+                  <span aria-hidden="true">⌁</span>
+                  <div>
+                    <strong>Private means private</strong>
+                    <small>
+                      Never shown on your profile or used for discovery.
+                    </small>
+                  </div>
+                </div>
+                <label>
+                  <span>
+                    {state.stage === "phone"
+                      ? "Ghana phone number"
+                      : "One-time code"}
+                  </span>
+                  <div className="onboarding-phone-input">
+                    <span aria-hidden="true">
+                      {state.stage === "phone" ? "GH" : "#"}
+                    </span>
+                    <input
+                      aria-describedby="phone-format"
+                      autoComplete={
+                        state.stage === "phone" ? "tel" : "one-time-code"
+                      }
+                      inputMode="numeric"
+                      onChange={(event) =>
+                        dispatch(
+                          state.stage === "phone"
+                            ? {
+                                type: "phone-changed",
+                                phone: event.target.value,
+                              }
+                            : { type: "otp-changed", otp: event.target.value },
+                        )
+                      }
+                      placeholder={
+                        state.stage === "phone" ? "024 123 4567" : "000 000"
+                      }
+                      value={state.stage === "phone" ? state.phone : state.otp}
+                    />
+                  </div>
+                  <small id="phone-format">
+                    {state.stage === "phone"
+                      ? "Use the 10-digit number registered to you."
+                      : "The code expires shortly for your protection."}
+                  </small>
+                </label>
+                <button
+                  disabled={
+                    submitting ||
+                    (state.stage === "phone"
+                      ? !/^0\d{9}$/.test(state.phone)
+                      : state.otp.length !== 6)
+                  }
+                  onClick={submitPhoneStep}
+                  type="button"
+                >
+                  {submitting
+                    ? "Sending securely…"
+                    : state.stage === "phone"
+                      ? "Continue with this number  →"
+                      : "Verify and continue  →"}
+                </button>
+                {requestError && (
+                  <p className="onboarding-error" role="alert">
+                    {requestError}
+                  </p>
+                )}
+              </section>
+            )}
 
-          {state.stage === "promise" && (
-            <section aria-labelledby="promise-title">
-              <p className="onboarding-kicker">The Promise</p>
-              <h2 id="promise-title">Know the room before entering.</h2>
-              <p>
-                Each choice is recorded against the version shown. You can
-                withdraw optional purposes later.
-              </p>
-              {[
-                [
-                  "promise",
-                  "I accept the community Promise and conduct rules.",
-                ],
-                ["terms", "I accept the current terms and privacy notice."],
-                ["adult", "I affirm that I am at least 18 years old."],
-              ].map(([field, label]) => (
-                <label className="onboarding-check" key={field}>
+            {state.stage === "promise" && (
+              <section aria-labelledby="promise-title">
+                <p className="onboarding-kicker">The Promise</p>
+                <h2 id="promise-title">Know the room before entering.</h2>
+                <p>
+                  Each choice is recorded against the version shown. You can
+                  withdraw optional purposes later.
+                </p>
+                {[
+                  [
+                    "promise",
+                    "I accept the community Promise and conduct rules.",
+                  ],
+                  ["terms", "I accept the current terms and privacy notice."],
+                  ["adult", "I affirm that I am at least 18 years old."],
+                ].map(([field, label]) => (
+                  <label className="onboarding-check" key={field}>
+                    <input
+                      checked={
+                        field === "promise"
+                          ? state.acceptedPromise
+                          : field === "terms"
+                            ? state.acceptedTerms
+                            : state.affirmedAdult
+                      }
+                      onChange={(event) =>
+                        dispatch({
+                          type: "consent-changed",
+                          field: field as "promise" | "terms" | "adult",
+                          checked: event.target.checked,
+                        })
+                      }
+                      type="checkbox"
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+                <button
+                  disabled={
+                    submitting ||
+                    !state.acceptedPromise ||
+                    !state.acceptedTerms ||
+                    !state.affirmedAdult
+                  }
+                  onClick={confirmConsent}
+                  type="button"
+                >
+                  {submitting
+                    ? "Recording your choices"
+                    : "Accept and continue"}
+                </button>
+                {requestError && (
+                  <p className="onboarding-error" role="alert">
+                    {requestError}
+                  </p>
+                )}
+              </section>
+            )}
+
+            {state.stage === "card" && (
+              <section aria-labelledby="card-title">
+                <p className="onboarding-kicker">Identity check</p>
+                <h2 id="card-title">Confirm without leaving a copy here.</h2>
+                <p>
+                  Your Ghana Card value is sent directly to the secure
+                  verification service. Client state keeps only an opaque
+                  reference.
+                </p>
+                <label>
+                  Ghana Card number
                   <input
-                    checked={
-                      field === "promise"
-                        ? state.acceptedPromise
-                        : field === "terms"
-                          ? state.acceptedTerms
-                          : state.affirmedAdult
-                    }
+                    autoComplete="off"
+                    placeholder="GHA-000000000-0"
+                    ref={cardInput}
+                  />
+                </label>
+                <label>
+                  Date of birth
+                  <input
+                    autoComplete="bday"
+                    max={new Date().toISOString().slice(0, 10)}
+                    ref={birthDateInput}
+                    type="date"
+                  />
+                </label>
+                <div className="onboarding-note">
+                  Raw card numbers and identity media are cleared after
+                  submission.
+                </div>
+                <button
+                  disabled={submitting}
+                  onClick={submitCard}
+                  type="button"
+                >
+                  {submitting ? "Checking securely" : "Submit securely"}
+                </button>
+                {requestError && (
+                  <p className="onboarding-error" role="alert">
+                    {requestError}
+                  </p>
+                )}
+              </section>
+            )}
+
+            {state.stage === "manual-review" && (
+              <section aria-labelledby="review-title" role="status">
+                <p className="onboarding-kicker">Human review</p>
+                <h2 id="review-title">We paused instead of guessing.</h2>
+                <p>
+                  The provider could not reach a certain result. A trained
+                  reviewer sees bounded proof, never a silent approval.
+                </p>
+                <div className="onboarding-note">
+                  You can close this page. We will notify you when the review
+                  changes.
+                </div>
+              </section>
+            )}
+
+            {state.stage === "liveness" && (
+              <section aria-labelledby="liveness-title">
+                <p className="onboarding-kicker">Liveness</p>
+                <h2 id="liveness-title">A brief voice and face check.</h2>
+                <p>
+                  Temporary capture is used only for this check and removed
+                  after the result or manual review.
+                </p>
+                <label className="onboarding-check">
+                  <input
+                    checked={state.livenessConsent}
                     onChange={(event) =>
                       dispatch({
-                        type: "consent-changed",
-                        field: field as "promise" | "terms" | "adult",
+                        type: "liveness-consent",
                         checked: event.target.checked,
                       })
                     }
                     type="checkbox"
                   />
-                  <span>{label}</span>
+                  <span>I consent to this liveness check.</span>
                 </label>
-              ))}
-              <button
-                disabled={
-                  submitting ||
-                  !state.acceptedPromise ||
-                  !state.acceptedTerms ||
-                  !state.affirmedAdult
-                }
-                onClick={confirmConsent}
-                type="button"
-              >
-                {submitting ? "Recording your choices" : "Accept and continue"}
-              </button>
-              {requestError && (
-                <p className="onboarding-error" role="alert">
-                  {requestError}
+                <button
+                  disabled={!state.livenessConsent || submitting}
+                  onClick={submitLiveness}
+                  type="button"
+                >
+                  {submitting ? "Camera check in progress" : "Begin check"}
+                </button>
+                {requestError && (
+                  <p className="onboarding-error" role="alert">
+                    {requestError}
+                  </p>
+                )}
+              </section>
+            )}
+
+            {state.stage === "complete" && (
+              <section aria-labelledby="complete-title" role="status">
+                <p className="onboarding-kicker">Doorway open</p>
+                <h2 id="complete-title">You are ready to enter.</h2>
+                <p>
+                  Identity checks passed. Your profile and privacy choices come
+                  next, with the same careful boundaries.
                 </p>
-              )}
-            </section>
-          )}
-
-          {state.stage === "card" && (
-            <section aria-labelledby="card-title">
-              <p className="onboarding-kicker">Identity check</p>
-              <h2 id="card-title">Confirm without leaving a copy here.</h2>
-              <p>
-                Your Ghana Card value is sent directly to the secure
-                verification service. Client state keeps only an opaque
-                reference.
-              </p>
-              <label>
-                Ghana Card number
-                <input
-                  autoComplete="off"
-                  placeholder="GHA-000000000-0"
-                  ref={cardInput}
-                />
-              </label>
-              <label>
-                Date of birth
-                <input
-                  autoComplete="bday"
-                  max={new Date().toISOString().slice(0, 10)}
-                  ref={birthDateInput}
-                  type="date"
-                />
-              </label>
-              <div className="onboarding-note">
-                Raw card numbers and identity media are cleared after
-                submission.
-              </div>
-              <button disabled={submitting} onClick={submitCard} type="button">
-                {submitting ? "Checking securely" : "Submit securely"}
-              </button>
-              {requestError && (
-                <p className="onboarding-error" role="alert">
-                  {requestError}
-                </p>
-              )}
-            </section>
-          )}
-
-          {state.stage === "manual-review" && (
-            <section aria-labelledby="review-title" role="status">
-              <p className="onboarding-kicker">Human review</p>
-              <h2 id="review-title">We paused instead of guessing.</h2>
-              <p>
-                The provider could not reach a certain result. A trained
-                reviewer sees bounded proof, never a silent approval.
-              </p>
-              <div className="onboarding-note">
-                You can close this page. We will notify you when the review
-                changes.
-              </div>
-            </section>
-          )}
-
-          {state.stage === "liveness" && (
-            <section aria-labelledby="liveness-title">
-              <p className="onboarding-kicker">Liveness</p>
-              <h2 id="liveness-title">A brief voice and face check.</h2>
-              <p>
-                Temporary capture is used only for this check and removed after
-                the result or manual review.
-              </p>
-              <label className="onboarding-check">
-                <input
-                  checked={state.livenessConsent}
-                  onChange={(event) =>
-                    dispatch({
-                      type: "liveness-consent",
-                      checked: event.target.checked,
-                    })
-                  }
-                  type="checkbox"
-                />
-                <span>I consent to this liveness check.</span>
-              </label>
-              <button
-                disabled={!state.livenessConsent || submitting}
-                onClick={submitLiveness}
-                type="button"
-              >
-                {submitting ? "Camera check in progress" : "Begin check"}
-              </button>
-              {requestError && (
-                <p className="onboarding-error" role="alert">
-                  {requestError}
-                </p>
-              )}
-            </section>
-          )}
-
-          {state.stage === "complete" && (
-            <section aria-labelledby="complete-title" role="status">
-              <p className="onboarding-kicker">Doorway open</p>
-              <h2 id="complete-title">You are ready to enter.</h2>
-              <p>
-                Identity checks passed. Your profile and privacy choices come
-                next, with the same careful boundaries.
-              </p>
-              <Link className="onboarding-link-button" href="/">
-                Enter Obiara
-              </Link>
-            </section>
-          )}
+                <Link className="onboarding-link-button" href="/">
+                  Enter Obiara
+                </Link>
+              </section>
+            )}
           </div>
           <footer className="onboarding-footer">
             <span>© Obiara</span>

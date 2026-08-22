@@ -12,7 +12,11 @@
 
 .onboarding-guide {
   background:
-    radial-gradient(circle at 12% 8%, rgba(255, 159, 28, 0.17), transparent 22rem),
+    radial-gradient(
+      circle at 12% 8%,
+      rgba(255, 159, 28, 0.17),
+      transparent 22rem
+    ),
     linear-gradient(150deg, #471139 0%, #2a0a21 72%, #200719 100%);
   color: #fff3e6;
   display: flex;
@@ -25,8 +29,20 @@
 
 .onboarding-guide::after {
   background-image:
-    linear-gradient(35deg, transparent 45%, rgba(255, 243, 230, 0.055) 46%, rgba(255, 243, 230, 0.055) 48%, transparent 49%),
-    linear-gradient(145deg, transparent 45%, rgba(255, 159, 28, 0.06) 46%, rgba(255, 159, 28, 0.06) 48%, transparent 49%);
+    linear-gradient(
+      35deg,
+      transparent 45%,
+      rgba(255, 243, 230, 0.055) 46%,
+      rgba(255, 243, 230, 0.055) 48%,
+      transparent 49%
+    ),
+    linear-gradient(
+      145deg,
+      transparent 45%,
+      rgba(255, 159, 28, 0.06) 46%,
+      rgba(255, 159, 28, 0.06) 48%,
+      transparent 49%
+    );
   background-size: 88px 52px;
   bottom: -10rem;
   content: "";
@@ -88,7 +104,9 @@
   text-transform: uppercase;
 }
 
-.onboarding-guide .onboarding-kicker { color: #ffb64f; }
+.onboarding-guide .onboarding-kicker {
+  color: #ffb64f;
+}
 
 .onboarding-intro h1 {
   color: #fff3e6;
@@ -149,7 +167,9 @@
   width: 2.35rem;
 }
 
-.onboarding-progress li[aria-current="step"] { color: #fff3e6; }
+.onboarding-progress li[aria-current="step"] {
+  color: #fff3e6;
+}
 .onboarding-progress li[aria-current="step"] > span {
   background: #ff9f1c;
   border-color: #ff9f1c;
@@ -164,9 +184,17 @@
 }
 
 .onboarding-progress strong,
-.onboarding-progress small { display: block; }
-.onboarding-progress strong { font-size: 0.84rem; letter-spacing: 0.01em; }
-.onboarding-progress small { font-size: 0.69rem; margin-top: 0.18rem; }
+.onboarding-progress small {
+  display: block;
+}
+.onboarding-progress strong {
+  font-size: 0.84rem;
+  letter-spacing: 0.01em;
+}
+.onboarding-progress small {
+  font-size: 0.69rem;
+  margin-top: 0.18rem;
+}
 
 .onboarding-trust-note {
   align-items: center;
@@ -180,13 +208,14 @@
   z-index: 1;
 }
 
-.onboarding-trust-note > span { color: #ffb64f; }
+.onboarding-trust-note > span {
+  color: #ffb64f;
+}
 
 .onboarding-workspace {
   align-items: center;
   background:
-    linear-gradient(rgba(58, 14, 46, 0.035) 1px, transparent 1px),
-    #f8f3ed;
+    linear-gradient(rgba(58, 14, 46, 0.035) 1px, transparent 1px), #f8f3ed;
   background-size: 100% 5.5rem;
   display: flex;
   flex-direction: column;
@@ -195,9 +224,18 @@
   padding: clamp(2.5rem, 6vw, 7.5rem);
 }
 
-.onboarding-mobile-brand { display: none; }
-.onboarding-card { max-width: 36rem; position: relative; width: 100%; }
-.onboarding-card section { display: flex; flex-direction: column; }
+.onboarding-mobile-brand {
+  display: none;
+}
+.onboarding-card {
+  max-width: 36rem;
+  position: relative;
+  width: 100%;
+}
+.onboarding-card section {
+  display: flex;
+  flex-direction: column;
+}
 
 .onboarding-step-number {
   color: rgba(58, 14, 46, 0.08);
@@ -254,9 +292,18 @@
 }
 
 .onboarding-privacy-note strong,
-.onboarding-privacy-note small { display: block; }
-.onboarding-privacy-note strong { color: #3a0e2e; font-size: 0.77rem; }
-.onboarding-privacy-note small { color: #816d79; font-size: 0.7rem; margin-top: 0.15rem; }
+.onboarding-privacy-note small {
+  display: block;
+}
+.onboarding-privacy-note strong {
+  color: #3a0e2e;
+  font-size: 0.77rem;
+}
+.onboarding-privacy-note small {
+  color: #816d79;
+  font-size: 0.7rem;
+  margin-top: 0.15rem;
+}
 
 .onboarding-card label:not(.onboarding-check) {
   color: #3a0e2e;
@@ -282,7 +329,9 @@
   grid-template-columns: 4.4rem 1fr;
   min-height: 4.25rem;
   overflow: hidden;
-  transition: border-color 180ms ease, box-shadow 180ms ease;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .onboarding-phone-input:focus-within {
@@ -322,7 +371,9 @@
   outline: none;
 }
 
-.onboarding-card input::placeholder { color: #ad9ba5; }
+.onboarding-card input::placeholder {
+  color: #ad9ba5;
+}
 
 .onboarding-card input:focus-visible,
 .onboarding-card button:focus-visible,
@@ -353,7 +404,10 @@
   min-height: 3.7rem;
   padding: 0 1.5rem;
   text-decoration: none;
-  transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  transition:
+    background 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
 }
 
 .onboarding-card > section > button:hover,
@@ -364,7 +418,9 @@
 }
 
 .onboarding-card > section > button:active,
-.onboarding-link-button:active { transform: translateY(1px); }
+.onboarding-link-button:active {
+  transform: translateY(1px);
+}
 
 .onboarding-card > section > button:disabled {
   background: #ded3d9;
@@ -421,11 +477,18 @@
   margin-top: 3.5rem;
 }
 
-.onboarding-footer a { color: inherit; text-underline-offset: 0.2rem; }
+.onboarding-footer a {
+  color: inherit;
+  text-underline-offset: 0.2rem;
+}
 
 @media (max-width: 960px) {
-  .onboarding-layout { grid-template-columns: 1fr; }
-  .onboarding-guide { display: none; }
+  .onboarding-layout {
+    grid-template-columns: 1fr;
+  }
+  .onboarding-guide {
+    display: none;
+  }
   .onboarding-workspace {
     justify-content: flex-start;
     min-height: 100dvh;
@@ -456,16 +519,30 @@
 }
 
 @media (max-width: 520px) {
-  .onboarding-workspace { padding-inline: 1.25rem; }
-  .onboarding-mobile-brand { margin-bottom: 4rem; }
-  .onboarding-step-number { font-size: 5.2rem; }
-  .onboarding-card h2 { font-size: 3rem; }
-  .onboarding-privacy-note { align-items: start; }
-  .onboarding-footer { margin-top: 2.75rem; }
+  .onboarding-workspace {
+    padding-inline: 1.25rem;
+  }
+  .onboarding-mobile-brand {
+    margin-bottom: 4rem;
+  }
+  .onboarding-step-number {
+    font-size: 5.2rem;
+  }
+  .onboarding-card h2 {
+    font-size: 3rem;
+  }
+  .onboarding-privacy-note {
+    align-items: start;
+  }
+  .onboarding-footer {
+    margin-top: 2.75rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .onboarding-card > section > button,
   .onboarding-link-button,
-  .onboarding-phone-input { transition: none; }
+  .onboarding-phone-input {
+    transition: none;
+  }
 }

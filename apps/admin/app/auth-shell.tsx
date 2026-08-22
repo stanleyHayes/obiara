@@ -10,12 +10,7 @@ export function AuthShell({ children }: Readonly<{ children: ReactNode }>) {
       <Box className="admin-auth-brand" component="aside">
         <div className="admin-auth-weave" aria-hidden="true" />
         <div className="admin-auth-brand-top">
-          <Image
-            alt=""
-            className="admin-auth-mark"
-            priority
-            src={brandMark}
-          />
+          <Image alt="" className="admin-auth-mark" priority src={brandMark} />
           <div>
             <Typography className="admin-auth-wordmark">obiara</Typography>
             <Typography className="admin-auth-brand-label">
