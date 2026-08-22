@@ -1694,6 +1694,34 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/courtship/rooms/{id}/turns": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read the room's ordered turn log
+     * @description Returns the sequence both devices reconcile against. Only sequence
+     *     numbers and times are returned; the turns themselves stay in the room.
+     */
+    readonly get: operations["readCourtshipRoomTimeline"];
+    readonly put?: never;
+    /**
+     * Take a turn in the room
+     * @description Appends a turn. `baseSequence` is the last event this device has seen;
+     *     a device that has fallen behind is rejected with a conflict rather
+     *     than writing over turns it has not read. The payload reference is
+     *     opaque — the turn's content never crosses this boundary.
+     */
+    readonly post: operations["submitCourtshipTurn"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/doorway-question": {
     readonly parameters: {
       readonly query?: never;
@@ -3687,6 +3715,35 @@ export interface components {
     readonly CourtshipRoomEnvelope: {
       readonly data: components["schemas"]["CourtshipRoomData"];
       readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly CourtshipTimelineData: {
+      readonly events: readonly {
+        /** Format: date-time */
+        readonly acceptedAt: string;
+        /** Format: int64 */
+        readonly sequence: number;
+      }[];
+    };
+    readonly CourtshipTimelineEnvelope: {
+      readonly data: components["schemas"]["CourtshipTimelineData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly CourtshipTurnData: {
+      readonly replayed: boolean;
+      /** Format: int64 */
+      readonly sequence: number;
+    };
+    readonly CourtshipTurnEnvelope: {
+      readonly data: components["schemas"]["CourtshipTurnData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly CourtshipTurnInput: {
+      /** Format: int64 */
+      readonly baseSequence?: number;
+      readonly commandId: string;
+      readonly deviceRef: string;
+      /** @description Opaque; the turn's content never crosses this boundary. */
+      readonly payloadRef: string;
     };
     readonly DeliveryStatsData: {
       readonly channels: {
@@ -9022,6 +9079,93 @@ export interface operations {
         };
       };
       /** @description The room changed, is paused, or the command id was reused. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly readCourtshipRoomTimeline: {
+    readonly parameters: {
+      readonly query?: {
+        readonly after?: number;
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The room's turn log. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CourtshipTimelineEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly submitCourtshipTurn: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CourtshipTurnInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The command had already been applied. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CourtshipTurnEnvelope"];
+        };
+      };
+      /** @description Turn accepted. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CourtshipTurnEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description This device is behind, or the command id was reused. */
       readonly 409: {
         headers: {
           readonly "X-Correlation-ID": components["headers"]["CorrelationId"];

@@ -13,7 +13,7 @@ tree but nothing routes to them.
 Nothing here is a defect. It is the scope boundary, written down so it is a
 decision rather than a surprise.
 
-## Composed and reachable (50)
+## Composed and reachable (51)
 
 - `internal/notifications`
 - `internal/notifications/deliverystats`
@@ -41,6 +41,7 @@ decision rather than a surprise.
 - `services/api/internal/courtship/pace`
 - `services/api/internal/courtship/pause`
 - `services/api/internal/courtship/proposal`
+- `services/api/internal/courtship/queue`
 - `services/api/internal/courtship/safety`
 - `services/api/internal/fire`
 - `services/api/internal/fire/ember`
@@ -66,7 +67,7 @@ decision rather than a surprise.
 - `services/api/internal/verification`
 - `services/api/internal/verification/liveness`
 
-## Built but not composed (59)
+## Built but not composed (58)
 
 These have no route, job, or consumer. Calling them impossible today is
 accurate; calling them unimplemented is not.
@@ -95,7 +96,6 @@ accurate; calling them unimplemented is not.
 - `services/api/internal/compliance/retention`
 - `services/api/internal/counsel/isolation`
 - `services/api/internal/courtship/drum`
-- `services/api/internal/courtship/queue`
 - `services/api/internal/courtship/room`
 - `services/api/internal/courtship/theme`
 - `services/api/internal/courtship/themeprogression`

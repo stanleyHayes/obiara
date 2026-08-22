@@ -6,6 +6,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	queueapp "github.com/stanleyHayes/obiara/services/api/internal/courtship/queue/application"
+	queuedomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/queue/domain"
 
 	closuredomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/closure/domain"
 	honestydomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/honesty/domain"
@@ -23,9 +27,22 @@ type roomStub struct {
 	category  safetydomain.Category
 	grant     bool
 	members   []string
+	device    string
+	payload   string
+	base      uint64
+	after     uint64
+	limit     int
 	err       error
 }
 
+func (stub *roomStub) Submit(_ context.Context, _, deviceRef, actorID, payloadRef, commandID string, base uint64) (queueapp.Result, error) {
+	stub.called, stub.actor, stub.commandID, stub.device, stub.payload, stub.base = "submit", actorID, commandID, deviceRef, payloadRef, base
+	return queueapp.Result{Event: queuedomain.Event{Sequence: base + 1}}, stub.err
+}
+func (stub *roomStub) Timeline(_ context.Context, _ string, after uint64, limit int) ([]queuedomain.Event, error) {
+	stub.called, stub.after, stub.limit = "timeline", after, limit
+	return []queuedomain.Event{{Sequence: after + 1, AcceptedAt: time.Now()}}, stub.err
+}
 func (stub *roomStub) Start(_ context.Context, _ string, members []string, commandID, actorID string) (pacedomain.Pace, error) {
 	stub.called, stub.actor, stub.commandID, stub.members = "start", actorID, commandID, members
 	return pacedomain.Pace{}, stub.err
@@ -211,5 +228,85 @@ func TestStartRoomRejectsSelfPairing(t *testing.T) {
 	}
 	if stub.called != "" {
 		t.Error("a self-paired room reached the service")
+	}
+}
+
+// TestSubmitTurnCarriesTheDeviceCursor is what keeps two handsets in one room
+// consistent: a device that has fallen behind must be told to catch up rather
+// than writing over turns it has not read.
+func TestSubmitTurnCarriesTheDeviceCursor(t *testing.T) {
+	stub := &roomStub{}
+	response := postRoom(t, roomHandler(stub, "mem_actor"), "/v1/courtship/rooms/room_1/turns",
+		`{"commandId":"c1","deviceRef":"dev_1","payloadRef":"pay_1","baseSequence":7}`)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201: %s", response.Code, response.Body.String())
+	}
+	if stub.actor != "mem_actor" {
+		t.Errorf("actor = %q, want the session's member", stub.actor)
+	}
+	if stub.device != "dev_1" || stub.payload != "pay_1" || stub.base != 7 {
+		t.Errorf("submit = device %q payload %q base %d", stub.device, stub.payload, stub.base)
+	}
+}
+
+func TestStaleDeviceIsToldToCatchUp(t *testing.T) {
+	stub := &roomStub{err: queuedomain.ErrStaleDevice}
+	response := postRoom(t, roomHandler(stub, "mem_actor"), "/v1/courtship/rooms/room_1/turns",
+		`{"commandId":"c1","deviceRef":"dev_1","payloadRef":"pay_1","baseSequence":1}`)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", response.Code)
+	}
+}
+
+func TestSubmitTurnValidatesItsReferences(t *testing.T) {
+	for _, body := range []string{
+		`{"commandId":"","deviceRef":"d","payloadRef":"p"}`,
+		`{"commandId":"c","deviceRef":"","payloadRef":"p"}`,
+		`{"commandId":"c","deviceRef":"d","payloadRef":""}`,
+	} {
+		stub := &roomStub{}
+		response := postRoom(t, roomHandler(stub, "mem_actor"), "/v1/courtship/rooms/room_1/turns", body)
+		if response.Code != http.StatusUnprocessableEntity {
+			t.Errorf("body %s status = %d, want 422", body, response.Code)
+		}
+		if stub.called != "" {
+			t.Errorf("body %s reached the service", body)
+		}
+	}
+}
+
+// TestTimelineReturnsOnlySequenceAndTime keeps room content out of the log a
+// device reconciles against.
+func TestTimelineReturnsOnlySequenceAndTime(t *testing.T) {
+	stub := &roomStub{}
+	request := httptest.NewRequest(http.MethodGet, "/v1/courtship/rooms/room_1/turns?after=4&limit=10", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	roomHandler(stub, "mem_actor").ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", response.Code, response.Body.String())
+	}
+	if stub.after != 4 || stub.limit != 10 {
+		t.Errorf("after = %d limit = %d", stub.after, stub.limit)
+	}
+	body := response.Body.String()
+	for _, leaked := range []string{"payload", "actorKey", "deviceKey", "fingerprint"} {
+		if strings.Contains(body, leaked) {
+			t.Errorf("timeline leaked %q: %s", leaked, body)
+		}
+	}
+}
+
+func TestTimelineRejectsBadPaging(t *testing.T) {
+	for _, query := range []string{"?after=soon", "?limit=0", "?limit=101"} {
+		request := httptest.NewRequest(http.MethodGet, "/v1/courtship/rooms/room_1/turns"+query, nil)
+		request.Header.Set("Authorization", "Bearer token")
+		response := httptest.NewRecorder()
+		roomHandler(&roomStub{}, "mem_actor").ServeHTTP(response, request)
+		if response.Code != http.StatusUnprocessableEntity {
+			t.Errorf("%s status = %d, want 422", query, response.Code)
+		}
 	}
 }

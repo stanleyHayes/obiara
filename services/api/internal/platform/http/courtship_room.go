@@ -4,12 +4,16 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	closuredomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/closure/domain"
 	honestydomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/honesty/domain"
 	pacedomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/pace/domain"
 	pausedomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/pause/domain"
+	queueapp "github.com/stanleyHayes/obiara/services/api/internal/courtship/queue/application"
+	queuedomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/queue/domain"
 	safetydomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/safety/domain"
 )
 
@@ -17,6 +21,8 @@ import (
 // the rhythm the pair keeps, the pause either may call, the honesty ribbon,
 // closure, and the in-room safety actions.
 type CourtshipRoom interface {
+	Submit(ctx context.Context, roomID, deviceRef, actorID, payloadRef, commandID string, baseSequence uint64) (queueapp.Result, error)
+	Timeline(ctx context.Context, roomID string, after uint64, limit int) ([]queuedomain.Event, error)
 	Start(ctx context.Context, roomID string, members []string, commandID, actorID string) (pacedomain.Pace, error)
 	Advance(ctx context.Context, roomID, commandID string, expectedRevision uint64) (pacedomain.Pace, error)
 	Relight(ctx context.Context, roomID, memberID, commandID string, expectedRevision uint64) (pacedomain.Pace, error)
@@ -35,6 +41,8 @@ type CourtshipRoom interface {
 // conflict rather than let the later write win silently.
 func RegisterCourtshipRoomRoutes(mux *http.ServeMux, room CourtshipRoom, sessions SessionAuthenticator) {
 	mux.Handle("POST /v1/courtship/rooms", startRoomHandler(room, sessions))
+	mux.Handle("POST /v1/courtship/rooms/{id}/turns", submitTurnHandler(room, sessions))
+	mux.Handle("GET /v1/courtship/rooms/{id}/turns", roomTimelineHandler(room, sessions))
 	mux.Handle("POST /v1/courtship/rooms/{id}/pace/advance", paceAdvanceHandler(room, sessions))
 	mux.Handle("POST /v1/courtship/rooms/{id}/pace/relight", paceRelightHandler(room, sessions))
 	mux.Handle("POST /v1/courtship/rooms/{id}/pause", pauseHandler(room, sessions))
@@ -154,6 +162,143 @@ func startRoomHandler(room CourtshipRoom, sessions SessionAuthenticator) http.Ha
 		writeSuccess(w, r, http.StatusCreated, roomStateResponse{
 			RoomID: body.RoomID, Revision: pace.Revision(), Status: string(pace.Status()),
 		})
+	})
+}
+
+type submitTurnRequest struct {
+	CommandID string `json:"commandId"`
+	DeviceRef string `json:"deviceRef"`
+	// PayloadRef is opaque. The turn itself is content the room holds; only
+	// its reference crosses this boundary.
+	PayloadRef string `json:"payloadRef"`
+	// BaseSequence is the last event this device has seen. A device that has
+	// fallen behind is told to catch up rather than writing over what it has
+	// not read.
+	BaseSequence uint64 `json:"baseSequence"`
+}
+
+type turnResponse struct {
+	Sequence uint64 `json:"sequence"`
+	Replayed bool   `json:"replayed"`
+}
+
+type timelineEntry struct {
+	Sequence   uint64 `json:"sequence"`
+	AcceptedAt string `json:"acceptedAt"`
+}
+
+type timelineResponse struct {
+	Events []timelineEntry `json:"events"`
+}
+
+func submitTurnHandler(room CourtshipRoom, sessions SessionAuthenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !proposalJSONGuard(w, r) {
+			return
+		}
+		memberID, ok := authenticatedMember(w, r, sessions)
+		if !ok {
+			return
+		}
+		roomID := r.PathValue("id")
+		if !validOpaqueID(roomID) {
+			writeError(w, r, http.StatusUnprocessableEntity, APIError{
+				Code: "validation_failed", Message: "One or more fields are invalid.",
+			})
+			return
+		}
+		var body submitTurnRequest
+		if err := decodeJSON(w, r, &body); err != nil {
+			writeError(w, r, http.StatusBadRequest, APIError{
+				Code: "invalid_json", Message: "The request body must be one valid JSON object.",
+			})
+			return
+		}
+		body.CommandID = strings.TrimSpace(body.CommandID)
+		body.DeviceRef = strings.TrimSpace(body.DeviceRef)
+		body.PayloadRef = strings.TrimSpace(body.PayloadRef)
+
+		var details []FieldError
+		for field, value := range map[string]string{
+			"commandId": body.CommandID, "deviceRef": body.DeviceRef, "payloadRef": body.PayloadRef,
+		} {
+			if !validOpaqueID(value) {
+				details = append(details, FieldError{Field: field, Reason: "must be an opaque identifier"})
+			}
+		}
+		if len(details) > 0 {
+			writeError(w, r, http.StatusUnprocessableEntity, APIError{
+				Code: "validation_failed", Message: "One or more fields are invalid.", Details: details,
+			})
+			return
+		}
+
+		result, err := room.Submit(r.Context(), roomID, body.DeviceRef, memberID,
+			body.PayloadRef, body.CommandID, body.BaseSequence)
+		if err != nil {
+			writeCourtshipRoomError(w, r, err)
+			return
+		}
+		status := http.StatusCreated
+		if result.Replayed {
+			status = http.StatusOK
+		}
+		writeSuccess(w, r, status, turnResponse{
+			Sequence: result.Event.Sequence, Replayed: result.Replayed,
+		})
+	})
+}
+
+// roomTimelineHandler returns the ordered log both devices reconcile against.
+// Only sequence and time are returned: the turn content stays in the room.
+func roomTimelineHandler(room CourtshipRoom, sessions SessionAuthenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := authenticatedMember(w, r, sessions); !ok {
+			return
+		}
+		roomID := r.PathValue("id")
+		if !validOpaqueID(roomID) {
+			writeError(w, r, http.StatusUnprocessableEntity, APIError{
+				Code: "validation_failed", Message: "One or more fields are invalid.",
+			})
+			return
+		}
+		after, limit := uint64(0), 50
+		if raw := strings.TrimSpace(r.URL.Query().Get("after")); raw != "" {
+			parsed, err := strconv.ParseUint(raw, 10, 64)
+			if err != nil {
+				writeError(w, r, http.StatusUnprocessableEntity, APIError{
+					Code: "validation_failed", Message: "One or more fields are invalid.",
+					Details: []FieldError{{Field: "after", Reason: "must be a sequence number"}},
+				})
+				return
+			}
+			after = parsed
+		}
+		if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil || parsed < 1 || parsed > 100 {
+				writeError(w, r, http.StatusUnprocessableEntity, APIError{
+					Code: "validation_failed", Message: "One or more fields are invalid.",
+					Details: []FieldError{{Field: "limit", Reason: "must be between 1 and 100"}},
+				})
+				return
+			}
+			limit = parsed
+		}
+
+		events, err := room.Timeline(r.Context(), roomID, after, limit)
+		if err != nil {
+			writeCourtshipRoomError(w, r, err)
+			return
+		}
+		response := timelineResponse{Events: make([]timelineEntry, 0, len(events))}
+		for _, event := range events {
+			response.Events = append(response.Events, timelineEntry{
+				Sequence: event.Sequence, AcceptedAt: event.AcceptedAt.UTC().Format(time.RFC3339),
+			})
+		}
+		writeSuccess(w, r, http.StatusOK, response)
 	})
 }
 
@@ -337,7 +482,16 @@ func writeCourtshipRoomError(w http.ResponseWriter, r *http.Request, err error) 
 		writeError(w, r, http.StatusConflict, APIError{
 			Code: "command_mismatch", Message: "That command id was already used for a different request.",
 		})
-	case errors.Is(err, pacedomain.ErrInvalid), errors.Is(err, pausedomain.ErrInvalid),
+	case errors.Is(err, queuedomain.ErrStaleDevice):
+		writeError(w, r, http.StatusConflict, APIError{
+			Code: "device_behind", Message: "This device is behind. Catch up and try again.",
+		})
+	case errors.Is(err, queuedomain.ErrCommandMismatch):
+		writeError(w, r, http.StatusConflict, APIError{
+			Code: "command_mismatch", Message: "That command id was already used for a different request.",
+		})
+	case errors.Is(err, queuedomain.ErrInvalid),
+		errors.Is(err, pacedomain.ErrInvalid), errors.Is(err, pausedomain.ErrInvalid),
 		errors.Is(err, closuredomain.ErrInvalid), errors.Is(err, honestydomain.ErrInvalid),
 		errors.Is(err, safetydomain.ErrInvalid):
 		writeError(w, r, http.StatusUnprocessableEntity, APIError{

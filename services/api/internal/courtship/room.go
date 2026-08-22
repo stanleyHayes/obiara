@@ -31,6 +31,10 @@ import (
 	pauseprivacy "github.com/stanleyHayes/obiara/services/api/internal/courtship/pause/adapters/outbound/privacy"
 	pauseapp "github.com/stanleyHayes/obiara/services/api/internal/courtship/pause/application"
 	pausedomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/pause/domain"
+	queuemongo "github.com/stanleyHayes/obiara/services/api/internal/courtship/queue/adapters/outbound/mongodb"
+	queueprivacy "github.com/stanleyHayes/obiara/services/api/internal/courtship/queue/adapters/outbound/privacy"
+	queueapp "github.com/stanleyHayes/obiara/services/api/internal/courtship/queue/application"
+	queuedomain "github.com/stanleyHayes/obiara/services/api/internal/courtship/queue/domain"
 	safetymongo "github.com/stanleyHayes/obiara/services/api/internal/courtship/safety/adapters/outbound/mongodb"
 	safetyprivacy "github.com/stanleyHayes/obiara/services/api/internal/courtship/safety/adapters/outbound/privacy"
 	safetyapp "github.com/stanleyHayes/obiara/services/api/internal/courtship/safety/application"
@@ -52,6 +56,9 @@ type RoomModule struct {
 	Closure closureapp.Service
 	Honesty honestyapp.Service
 	Safety  safetyapp.Service
+	// Queue is the room's turn-taking: which device may send next, and the
+	// ordered log both devices reconcile against.
+	Queue queueapp.Service
 }
 
 // NewRoomModule builds every room slice against one database and secret.
@@ -106,7 +113,17 @@ func NewRoomModule(ctx context.Context, database *mongo.Database, secret string)
 		return RoomModule{}, err
 	}
 
+	queueRepository := queuemongo.NewRepository(database)
+	if err := queueRepository.EnsureIndexes(ctx); err != nil {
+		return RoomModule{}, err
+	}
+	queueKeyer, err := queueprivacy.New(key)
+	if err != nil {
+		return RoomModule{}, err
+	}
+
 	return RoomModule{
+		Queue:   queueapp.New(queueRepository, queueKeyer, time.Now),
 		Pace:    paceapp.NewService(paceRepository, paceKeyer, time.Now),
 		Pause:   pauseapp.NewService(pauseRepository, pauseKeyer, time.Now),
 		Closure: closureapp.NewService(closureRepository, closureKeyer, time.Now, inactivityThreshold),
@@ -159,6 +176,29 @@ func (room Room) Start(ctx context.Context, roomID string, members []string, com
 		return pacedomain.Pace{}, err
 	}
 	return pace, nil
+}
+
+// Submit takes a turn in the room. The base sequence is the last event the
+// caller's device has seen, so a device that has fallen behind is told to
+// catch up rather than writing over what it has not read.
+func (room Room) Submit(ctx context.Context, roomID, deviceRef, actorID, payloadRef, commandID string, baseSequence uint64) (queueapp.Result, error) {
+	result, err := room.module.Queue.Submit(ctx, queueapp.SubmitCommand{
+		ID: commandID, RoomRef: roomID, DeviceRef: deviceRef,
+		ActorID: actorID, PayloadRef: payloadRef, BaseSequence: baseSequence,
+	})
+	if notFound(err) {
+		return queueapp.Result{}, queuedomain.ErrInvalid
+	}
+	return result, err
+}
+
+// Timeline returns the room's ordered event log after a sequence.
+func (room Room) Timeline(ctx context.Context, roomID string, after uint64, limit int) ([]queuedomain.Event, error) {
+	events, err := room.module.Queue.Events(ctx, roomID, after, limit)
+	if notFound(err) {
+		return nil, queuedomain.ErrInvalid
+	}
+	return events, err
 }
 
 func (room Room) Advance(ctx context.Context, roomID, commandID string, expected uint64) (pacedomain.Pace, error) {

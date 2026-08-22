@@ -341,6 +341,24 @@ func (run *journey) courtshipRoom(ctx context.Context) {
 		map[string]any{"commandId": "smoke-bad-" + stamp, "action": "stop"}, run.access)
 	run.step("invalid pause action rejected", status == 422, fmt.Sprintf("%d", status))
 
+	// Turn-taking: the log both devices reconcile against.
+	status, body = run.do(ctx, http.MethodPost, "/v1/courtship/rooms/"+run.roomID+"/turns",
+		map[string]any{"commandId": "smoke-turn-" + stamp, "deviceRef": "smoke-device",
+			"payloadRef": "smoke-payload", "baseSequence": 0}, run.access)
+	run.step("POST .../turns", status == 201, fmt.Sprintf("%d %s", status, truncate(body, 36)))
+
+	// A device that has fallen behind must be told to catch up, not allowed
+	// to write over turns it has not read.
+	status, _ = run.do(ctx, http.MethodPost, "/v1/courtship/rooms/"+run.roomID+"/turns",
+		map[string]any{"commandId": "smoke-stale-" + stamp, "deviceRef": "smoke-device",
+			"payloadRef": "smoke-payload-2", "baseSequence": 0}, run.access)
+	run.step("stale device rejected", status == 409, fmt.Sprintf("%d", status))
+
+	status, body = run.do(ctx, http.MethodGet, "/v1/courtship/rooms/"+run.roomID+"/turns", nil, run.access)
+	leaked := strings.Contains(body, "payload") || strings.Contains(body, "actorKey")
+	run.step("GET .../turns", status == 200 && !leaked,
+		fmt.Sprintf("%d, content withheld=%v", status, !leaked))
+
 	// An outsider must not be able to learn a room exists.
 	status, _ = run.do(ctx, http.MethodPost, "/v1/courtship/rooms/room-nobody-has/closure",
 		map[string]any{"commandId": "smoke-outsider-" + stamp}, run.access)
@@ -437,6 +455,7 @@ func (run *journey) cleanup(ctx context.Context) {
 	for _, collection := range []string{
 		"courtship_paces", "courtship_pause_stones", "courtship_closures",
 		"courtship_honesty_ribbons", "courtship_safety",
+		"courtship_queue_heads", "courtship_queue_events",
 	} {
 		run.database.Collection(collection).DeleteMany(ctx, bson.M{})
 	}

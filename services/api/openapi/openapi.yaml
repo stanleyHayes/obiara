@@ -672,6 +672,122 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/courtship/rooms/{id}/turns:
+    get:
+      operationId: readCourtshipRoomTimeline
+      tags: [Courtship]
+      summary: Read the room's ordered turn log
+      security:
+        - MemberBearer: []
+      description: |
+        Returns the sequence both devices reconcile against. Only sequence
+        numbers and times are returned; the turns themselves stay in the room.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        - name: after
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: The room's turn log.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourtshipTimelineEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: submitCourtshipTurn
+      tags: [Courtship]
+      summary: Take a turn in the room
+      security:
+        - MemberBearer: []
+      description: |
+        Appends a turn. `baseSequence` is the last event this device has seen;
+        a device that has fallen behind is rejected with a conflict rather
+        than writing over turns it has not read. The payload reference is
+        opaque — the turn's content never crosses this boundary.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CourtshipTurnInput"
+      responses:
+        "201":
+          description: Turn accepted.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourtshipTurnEnvelope"
+        "200":
+          description: The command had already been applied.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourtshipTurnEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: This device is behind, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/courtship/rooms/{id}/pace/advance:
     post:
       operationId: advanceCourtshipPace
@@ -9898,6 +10014,77 @@ components:
             The revision the caller believes it is acting on. Two devices
             racing a decision are rejected with a conflict rather than the
             later one silently winning.
+    CourtshipTurnInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, deviceRef, payloadRef]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        deviceRef:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        payloadRef:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          description: Opaque; the turn's content never crosses this boundary.
+        baseSequence:
+          type: integer
+          format: int64
+          minimum: 0
+    CourtshipTurnData:
+      type: object
+      additionalProperties: false
+      required: [sequence, replayed]
+      properties:
+        sequence:
+          type: integer
+          format: int64
+        replayed:
+          type: boolean
+    CourtshipTurnEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CourtshipTurnData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    CourtshipTimelineData:
+      type: object
+      additionalProperties: false
+      required: [events]
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [sequence, acceptedAt]
+            properties:
+              sequence:
+                type: integer
+                format: int64
+              acceptedAt:
+                type: string
+                format: date-time
+    CourtshipTimelineEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CourtshipTimelineData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
     StartCourtshipRoomInput:
       type: object
       additionalProperties: false
