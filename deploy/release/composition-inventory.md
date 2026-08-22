@@ -175,45 +175,103 @@ first, or a vendor that has not been bought.
 
 ## The decision that blocks the next batch
 
-Nine dark contexts route their authorization through the `authz` kernel, and
-between them they ask for fourteen capabilities:
+Twelve dark contexts route authorization through the `authz` kernel. Between
+them they ask for **thirty-nine** distinct capabilities, and the grant table
+in `services/api/internal/authz/domain/policy.go` contains **none of them**:
 
 ```
-cloth.harvest.create              seed.pod.create
-cloth.reviewer.create             seed.pod.playback
-courtship.drum.open               seed.source.open
-courtship.drum.turn               seed.water.mutual
-courtship.room.open               seed.water.start
-courtship.theme.open
-courtship.theme.submit
-courtship.themeprogression.open
-courtship.themeprogression.submit
+`services/api/internal/circle/workflow`
+  invite.create
+  membership.approve
+  membership.decline
+  membership.expel
+  membership.request
+
+`services/api/internal/cloth/harvest`
+  cloth.harvest.approve
+  cloth.harvest.cancel
+  cloth.harvest.create
+  cloth.harvest.handoff
+  cloth.harvest.revise
+
+`services/api/internal/cloth/reviewer`
+  cloth.reviewer.create
+  cloth.reviewer.redeem
+  cloth.reviewer.revoke
+  cloth.reviewer.view
+
+`services/api/internal/courtship/drum`
+  courtship.drum.open
+  courtship.drum.turn
+
+`services/api/internal/courtship/room`
+  courtship.room.close
+  courtship.room.message
+  courtship.room.open
+
+`services/api/internal/courtship/theme`
+  courtship.theme.open
+  courtship.theme.submit
+
+`services/api/internal/courtship/themeprogression`
+  courtship.themeprogression.open
+  courtship.themeprogression.submit
+
+`services/api/internal/seed/pod`
+  seed.pod.create
+  seed.pod.playback
+
+`services/api/internal/seed/source`
+  seed.source.expire
+  seed.source.open
+  seed.source.withdraw
+
+`services/api/internal/seed/water`
+  seed.water.mutual
+  seed.water.start
+
+`services/api/internal/vouch/assisted`
+  vouch.consent
+  vouch.decide
+  vouch.expire
+  vouch.request
+  vouch.withdraw
+
+`services/api/internal/vouch/attestation`
+  vouch.attestation.consent
+  vouch.attestation.expire
+  vouch.attestation.propose
+  vouch.attestation.revoke
 ```
 
-The grant table in `services/api/internal/authz/domain/policy.go` currently
-grants nine capabilities, and **none of these fourteen is among them**. The
-table is deny-by-default by design — "any single grant allows; absence of a
-grant denies" — so composing any of these nine contexts today would ship a
-feature that refuses every request.
+The table grants nine capabilities today — `read`, `write`,
+`introductions.view`, `rooms.participate`, `fires.attend`, `seeds.sow`,
+`verification.review`, `safety.review`, `circles.host` — and is
+deny-by-default by design: "any single grant allows; absence of a grant
+denies." Composing any of these twelve contexts today would therefore ship a
+feature that refuses every request it receives.
 
-Adding the grants is the decision, and it is not the adapter author's.
-FR-101 gives the principle (romantic surfaces require Tier 1, sowing
-requires Tier 2) but each of the fourteen still has to be placed:
+Writing those thirty-nine rows is the decision, and it is not the adapter
+author's. FR-101 gives the principle — romantic surfaces require Tier 1,
+sowing requires Tier 2 — but each capability still has to be placed, and the
+placements are not mechanical:
 
-- Is opening a courtship room a Tier 1 romantic surface, like
-  `rooms.participate` already is?
-- Does taking a turn need the same tier as opening, or less?
-- Is `seed.water.mutual` sowing (Tier 2) or a lighter Tier 1 action?
-- Do the `cloth.*` capabilities gate on a tier at all, or on a role?
+- Does `courtship.room.message` need the same tier as `courtship.room.open`,
+  or should entering and speaking differ?
+- Is `seed.water.mutual` sowing (Tier 2), or a lighter Tier 1 action?
+- Are the `cloth.*` and `vouch.*` families tier-gated at all, or role-gated
+  like the operational desks?
+- `membership.expel` removes somebody from a circle. Host role, admin, or
+  both?
 
 Getting one wrong fails in one of two bad directions: locking members out of
 a surface they have earned, or opening a romantic surface to unverified
 accounts. The table's own comment is explicit that new capabilities are
 "added here deliberately — never by widening an existing grant."
 
-Once those fourteen rows exist, the nine contexts are bridges rather than
-decisions: the identity context already supplies the tier, the admin context
-already supplies roles, and the kernel already evaluates them.
+Once those rows exist, all twelve are bridges rather than decisions: the
+identity context already supplies the tier, the admin context already
+supplies roles, and the kernel already evaluates them.
 
 ## What the remaining work divides into
 
