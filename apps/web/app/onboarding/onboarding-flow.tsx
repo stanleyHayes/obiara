@@ -1,12 +1,19 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useReducer, useRef, useState } from "react";
 
+import brandMark from "../../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-ondark_transparent.png";
 import { initialOnboardingState, onboardingReducer } from "./onboarding-model";
 import { captureLiveness } from "./liveness-capture";
 
-const stages = ["Phone", "Promise", "Identity", "Liveness"] as const;
+const stages = [
+  ["Phone", "Secure your sign-in"],
+  ["Promise", "Choose your boundaries"],
+  ["Identity", "Confirm it is you"],
+  ["Liveness", "Complete the doorway"],
+] as const;
 
 function Progress({ stage }: Readonly<{ stage: string }>) {
   const active =
@@ -19,10 +26,17 @@ function Progress({ stage }: Readonly<{ stage: string }>) {
           : 3;
   return (
     <ol className="onboarding-progress" aria-label="Onboarding progress">
-      {stages.map((label, index) => (
-        <li aria-current={index === active ? "step" : undefined} key={label}>
-          <span>{index + 1}</span>
-          {label}
+      {stages.map(([label, detail], index) => (
+        <li
+          aria-current={index === active ? "step" : undefined}
+          className={index < active ? "is-complete" : undefined}
+          key={label}
+        >
+          <span>{index < active ? "✓" : index + 1}</span>
+          <div>
+            <strong>{label}</strong>
+            <small>{detail}</small>
+          </div>
         </li>
       ))}
     </ol>
@@ -226,57 +240,97 @@ export function OnboardingFlow() {
 
   return (
     <main className="onboarding-shell">
-      <header className="onboarding-brand">
-        <Link href="/">obiara</Link>
-        <span>Private by default</span>
-      </header>
-
       <section className="onboarding-layout">
-        <aside>
-          <p className="onboarding-kicker">Welcome practice</p>
-          <h1>A careful doorway, one choice at a time.</h1>
-          <p>
-            We explain what is needed, keep raw identity details out of this
-            browser flow, and pause whenever a provider is uncertain.
-          </p>
+        <aside className="onboarding-guide">
+          <header className="onboarding-brand">
+            <Link href="/" aria-label="Obiara home">
+              <Image alt="" priority src={brandMark} />
+              <span>obiara</span>
+            </Link>
+            <span>Private by default</span>
+          </header>
+
+          <div className="onboarding-intro">
+            <p className="onboarding-kicker">Welcome practice</p>
+            <h1>A careful doorway, one choice at a time.</h1>
+            <p>
+              Four small steps protect your place in the community. Nothing is
+              made public until you choose it.
+            </p>
+          </div>
           <Progress stage={state.stage} />
+          <p className="onboarding-trust-note">
+            <span aria-hidden="true">✦</span>
+            Your progress is encrypted in transit
+          </p>
         </aside>
 
-        <div className="onboarding-card">
+        <div className="onboarding-workspace">
+          <div className="onboarding-mobile-brand">
+            <Link href="/">obiara</Link>
+            <span>Step {state.stage === "phone" || state.stage === "otp" ? 1 : state.stage === "promise" ? 2 : state.stage === "card" || state.stage === "manual-review" ? 3 : 4} of 4</span>
+          </div>
+          <div className="onboarding-card">
           {(state.stage === "phone" || state.stage === "otp") && (
-            <section aria-labelledby="phone-title">
-              <p className="onboarding-kicker">Your phone</p>
+            <section
+              aria-labelledby="phone-title"
+              className="onboarding-phone-step"
+            >
+              <div className="onboarding-step-number" aria-hidden="true">
+                01
+              </div>
+              <p className="onboarding-kicker">Phone verification</p>
               <h2 id="phone-title">
                 {state.stage === "phone"
-                  ? "Start with a number you control."
-                  : "Enter the six-digit code."}
+                  ? "Begin with your number."
+                  : "Check your messages."}
               </h2>
               <p>
                 {state.stage === "phone"
-                  ? "We use it for sign-in and account recovery, never public discovery."
-                  : `A short-lived code was sent to ${state.phone}.`}
+                  ? "This becomes your private key to sign in and recover your account. Other members never see it."
+                  : `Enter the short-lived code sent to ${state.phone}.`}
               </p>
+              <div className="onboarding-privacy-note">
+                <span aria-hidden="true">⌁</span>
+                <div>
+                  <strong>Private means private</strong>
+                  <small>Never shown on your profile or used for discovery.</small>
+                </div>
+              </div>
               <label>
-                {state.stage === "phone"
-                  ? "Ghana phone number"
-                  : "One-time code"}
-                <input
-                  autoComplete={
-                    state.stage === "phone" ? "tel" : "one-time-code"
-                  }
-                  inputMode="numeric"
-                  onChange={(event) =>
-                    dispatch(
-                      state.stage === "phone"
-                        ? { type: "phone-changed", phone: event.target.value }
-                        : { type: "otp-changed", otp: event.target.value },
-                    )
-                  }
-                  placeholder={
-                    state.stage === "phone" ? "024 123 4567" : "000000"
-                  }
-                  value={state.stage === "phone" ? state.phone : state.otp}
-                />
+                <span>
+                  {state.stage === "phone"
+                    ? "Ghana phone number"
+                    : "One-time code"}
+                </span>
+                <div className="onboarding-phone-input">
+                  <span aria-hidden="true">
+                    {state.stage === "phone" ? "GH" : "#"}
+                  </span>
+                  <input
+                    aria-describedby="phone-format"
+                    autoComplete={
+                      state.stage === "phone" ? "tel" : "one-time-code"
+                    }
+                    inputMode="numeric"
+                    onChange={(event) =>
+                      dispatch(
+                        state.stage === "phone"
+                          ? { type: "phone-changed", phone: event.target.value }
+                          : { type: "otp-changed", otp: event.target.value },
+                      )
+                    }
+                    placeholder={
+                      state.stage === "phone" ? "024 123 4567" : "000 000"
+                    }
+                    value={state.stage === "phone" ? state.phone : state.otp}
+                  />
+                </div>
+                <small id="phone-format">
+                  {state.stage === "phone"
+                    ? "Use the 10-digit number registered to you."
+                    : "The code expires shortly for your protection."}
+                </small>
               </label>
               <button
                 disabled={
@@ -289,10 +343,10 @@ export function OnboardingFlow() {
                 type="button"
               >
                 {submitting
-                  ? "Please wait"
+                  ? "Sending securely…"
                   : state.stage === "phone"
-                    ? "Send my code"
-                    : "Verify code"}
+                    ? "Continue with this number  →"
+                    : "Verify and continue  →"}
               </button>
               {requestError && (
                 <p className="onboarding-error" role="alert">
@@ -464,6 +518,12 @@ export function OnboardingFlow() {
               </Link>
             </section>
           )}
+          </div>
+          <footer className="onboarding-footer">
+            <span>© Obiara</span>
+            <a href="https://obiara.app/privacy">Privacy</a>
+            <a href="https://obiara.app/terms">Terms</a>
+          </footer>
         </div>
       </section>
     </main>

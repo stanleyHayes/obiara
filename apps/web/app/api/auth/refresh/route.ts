@@ -65,7 +65,11 @@ export async function POST() {
     httpOnly: true,
     sameSite: "strict",
     secure,
-    path: "/api/auth",
+    // Scoped to the whole site rather than /api/auth: the session-refresh
+    // middleware runs on page and API requests and cannot rotate a token the
+    // browser never sends it. httpOnly, sameSite=strict and secure remain, so
+    // the token is still unreadable by scripts and never sent cross-site.
+    path: "/",
     expires: new Date(data.data.refreshExpiresAt),
   });
   result.cookies.set("obiara_member", data.data.memberId, {
