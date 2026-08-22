@@ -163,6 +163,87 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/community-audit/cases": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List community audit cases
+     * @description Trust-and-safety desk. Summaries carry a code rather than prose, so a
+     *     case listing holds no free text about a member.
+     */
+    readonly get: operations["listCommunityAuditCases"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/community-audit/cases/{id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Read one community audit case */
+    readonly get: operations["readCommunityAuditCase"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/community-audit/cases/{id}/decision": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Decide a community audit case
+     * @description Requires a recent MFA step-up and a stated reason: a decision about a
+     *     member is auditable, and an audit entry with no reason is not one.
+     */
+    readonly post: operations["decideCommunityAuditCase"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/community-audit/cases/{id}/evidence": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Open evidence for a case
+     * @description Requires a recent MFA step-up. A POST rather than a GET because it is
+     *     not a safe read: every access is recorded against the operator and
+     *     the stated purpose.
+     */
+    readonly post: operations["openCommunityAuditEvidence"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/controls": {
     readonly parameters: {
       readonly query?: never;
@@ -3857,6 +3938,56 @@ export interface components {
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly CloseFireInput: Record<string, never>;
+    readonly CommunityAuditCaseData: {
+      readonly caseId: string;
+      /** Format: date-time */
+      readonly createdAt: string;
+      /** @enum {string} */
+      readonly kind: "circle_legitimacy" | "vouch";
+      /** @enum {string} */
+      readonly status: "queued" | "approved" | "rejected";
+      /** @description A localization code, never prose about a member. */
+      readonly summaryCode: string;
+    };
+    readonly CommunityAuditCaseEnvelope: {
+      readonly data: components["schemas"]["CommunityAuditCaseData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly CommunityAuditDecisionData: {
+      readonly caseId: string;
+      /** @enum {string} */
+      readonly status: "queued" | "approved" | "rejected";
+    };
+    readonly CommunityAuditDecisionEnvelope: {
+      readonly data: components["schemas"]["CommunityAuditDecisionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly CommunityAuditDecisionInput: {
+      readonly approve: boolean;
+      readonly commandId: string;
+      /** Format: int64 */
+      readonly expectedRevision?: number;
+      readonly reason: string;
+    };
+    readonly CommunityAuditEvidenceData: {
+      readonly kind: string;
+      /** @description Opaque; evidence content never crosses this boundary. */
+      readonly reference: string;
+    };
+    readonly CommunityAuditEvidenceEnvelope: {
+      readonly data: components["schemas"]["CommunityAuditEvidenceData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly CommunityAuditEvidenceInput: {
+      readonly purpose: string;
+    };
+    readonly CommunityAuditQueueData: {
+      readonly cases: readonly components["schemas"]["CommunityAuditCaseData"][];
+    };
+    readonly CommunityAuditQueueEnvelope: {
+      readonly data: components["schemas"]["CommunityAuditQueueData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly CompetitionCohortCreateInput: {
       /** @enum {integer} */
       readonly capacity: 4 | 8 | 16;
@@ -6171,6 +6302,222 @@ export interface operations {
       };
       /** @description The SKU changed, or the command id was reused. */
       readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly listCommunityAuditCases: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The queue. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CommunityAuditQueueEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator lacks the role, or a fresh MFA step-up. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The case is not available. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly readCommunityAuditCase: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The case. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CommunityAuditCaseEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator lacks the role, or a fresh MFA step-up. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The case is not available. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly decideCommunityAuditCase: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CommunityAuditDecisionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The decided case. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CommunityAuditDecisionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator lacks the role, or a fresh MFA step-up. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The case is not available. */
+      readonly 404: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The case changed or is already closed. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly openCommunityAuditEvidence: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["CommunityAuditEvidenceInput"];
+      };
+    };
+    readonly responses: {
+      /** @description An opaque evidence reference. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["CommunityAuditEvidenceEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator lacks the role, or a fresh MFA step-up. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The case is not available. */
+      readonly 404: {
         headers: {
           readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
           readonly [name: string]: unknown;

@@ -1974,6 +1974,245 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/community-audit/cases:
+    get:
+      operationId: listCommunityAuditCases
+      tags: [Admin]
+      summary: List community audit cases
+      security:
+        - AdminBearer: []
+      description: |
+        Trust-and-safety desk. Summaries carry a code rather than prose, so a
+        case listing holds no free text about a member.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: The queue.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityAuditQueueEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator lacks the role, or a fresh MFA step-up.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: The case is not available.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/community-audit/cases/{id}:
+    get:
+      operationId: readCommunityAuditCase
+      tags: [Admin]
+      summary: Read one community audit case
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      responses:
+        "200":
+          description: The case.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityAuditCaseEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator lacks the role, or a fresh MFA step-up.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: The case is not available.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/community-audit/cases/{id}/evidence:
+    post:
+      operationId: openCommunityAuditEvidence
+      tags: [Admin]
+      summary: Open evidence for a case
+      security:
+        - AdminBearer: []
+      description: |
+        Requires a recent MFA step-up. A POST rather than a GET because it is
+        not a safe read: every access is recorded against the operator and
+        the stated purpose.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommunityAuditEvidenceInput"
+      responses:
+        "200":
+          description: An opaque evidence reference.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityAuditEvidenceEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator lacks the role, or a fresh MFA step-up.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: The case is not available.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/community-audit/cases/{id}/decision:
+    post:
+      operationId: decideCommunityAuditCase
+      tags: [Admin]
+      summary: Decide a community audit case
+      security:
+        - AdminBearer: []
+      description: |
+        Requires a recent MFA step-up and a stated reason: a decision about a
+        member is auditable, and an audit entry with no reason is not one.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommunityAuditDecisionInput"
+      responses:
+        "200":
+          description: The decided case.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommunityAuditDecisionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "409":
+          description: The case changed or is already closed.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator lacks the role, or a fresh MFA step-up.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: The case is not available.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/verifications/ghana-card:
     post:
       operationId: submitGhanaCard
@@ -10828,6 +11067,119 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/CourtshipTimelineData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    CommunityAuditCaseData:
+      type: object
+      additionalProperties: false
+      required: [caseId, kind, status, summaryCode, createdAt]
+      properties:
+        caseId:
+          type: string
+        kind:
+          type: string
+          enum: [circle_legitimacy, vouch]
+        status:
+          type: string
+          enum: [queued, approved, rejected]
+        summaryCode:
+          type: string
+          description: A localization code, never prose about a member.
+        createdAt:
+          type: string
+          format: date-time
+    CommunityAuditQueueData:
+      type: object
+      additionalProperties: false
+      required: [cases]
+      properties:
+        cases:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommunityAuditCaseData"
+    CommunityAuditQueueEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CommunityAuditQueueData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    CommunityAuditCaseEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CommunityAuditCaseData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    CommunityAuditEvidenceInput:
+      type: object
+      additionalProperties: false
+      required: [purpose]
+      properties:
+        purpose:
+          type: string
+          minLength: 1
+          maxLength: 200
+    CommunityAuditEvidenceData:
+      type: object
+      additionalProperties: false
+      required: [reference, kind]
+      properties:
+        reference:
+          type: string
+          description: Opaque; evidence content never crosses this boundary.
+        kind:
+          type: string
+    CommunityAuditEvidenceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CommunityAuditEvidenceData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    CommunityAuditDecisionInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, reason, approve]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        approve:
+          type: boolean
+        expectedRevision:
+          type: integer
+          format: int64
+          minimum: 0
+    CommunityAuditDecisionData:
+      type: object
+      additionalProperties: false
+      required: [caseId, status]
+      properties:
+        caseId:
+          type: string
+        status:
+          type: string
+          enum: [queued, approved, rejected]
+    CommunityAuditDecisionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/CommunityAuditDecisionData"
         meta:
           $ref: "#/components/schemas/Metadata"
     LedgerLineInput:

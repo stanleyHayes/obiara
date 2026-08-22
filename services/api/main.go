@@ -49,6 +49,8 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/matchmaker"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/membership"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/reconciliation"
+	"github.com/stanleyHayes/obiara/services/api/internal/communityaudit"
+	communityauditauthority "github.com/stanleyHayes/obiara/services/api/internal/communityaudit/adapters/outbound/adminauthority"
 	"github.com/stanleyHayes/obiara/services/api/internal/companions/nnoboa"
 	onboardingconsent "github.com/stanleyHayes/obiara/services/api/internal/consent"
 	"github.com/stanleyHayes/obiara/services/api/internal/consent/consentmap"
@@ -388,6 +390,15 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build ledger module: %w", err)
 	}
+	// The community audit desk: conduct cases an operator reviews. Gated on
+	// the trust-and-safety roles, with evidence access and decisions behind
+	// the same MFA step-up the rest of the console uses.
+	communityAuditModule, err := communityaudit.NewModule(ctx, client.Database(cfg.MongoDatabase),
+		communityauditauthority.NewAuthority(adminModule.Admin),
+		communityauditauthority.NewMFAGate(adminModule.Admin), cfg.AdminHMACSecret)
+	if err != nil {
+		return fmt.Errorf("build community audit module: %w", err)
+	}
 
 	adminSubjectKeyer, err := adminverificationprivacy.NewHMACKeyer([]byte(cfg.AdminHMACSecret))
 	if err != nil {
@@ -526,6 +537,7 @@ func run() error {
 	apihttp.RegisterCatalogRoutes(mux, catalogModule.Catalog, identityModule.Sessions)
 	apihttp.RegisterSeedAllowanceRoutes(mux, allowanceModule.Allowances, identityModule.Sessions)
 	apihttp.RegisterLedgerRoutes(mux, ledgerModule.Ledger)
+	apihttp.RegisterCommunityAuditRoutes(mux, communityAuditModule.Audit)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)
