@@ -154,12 +154,32 @@ exist yet — object storage and speech-to-text for `introduction`, an AI
 runtime for `ai/gateway` — and cannot be composed at any effort until those
 are procured.
 
+## Why the mechanical list is now empty
+
+Three contexts remained whose ports were purely mechanical — a repository, a
+keyer, an id source, and nothing else. None of them can be composed
+correctly without a decision that is not the adapter author's to make:
+
+- `identity/collision` detects two accounts presenting the same identity
+  signal and queues a case for review. Nothing calls its `Assess`, so
+  composing it means choosing where in the verification flow a collision is
+  checked, and what happens to the member while a case is open. That is a
+  safety policy, not a wiring detail.
+- `cloth/gate` and `cloth/grammar` are two of eight `cloth/*` slices, none of
+  which is composed. A permission gate with nothing behind it and a recipe
+  compiler with no recipes are surface without a feature.
+
+The distinction matters when reading the list below: what is left is not
+work that was skipped for effort. It is work that needs a product decision
+first, or a vendor that has not been bought.
+
 ## What the remaining work divides into
 
 Of the contexts still dark, measured rather than guessed:
 
-- **12 are purely mechanical.** Their only ports are a repository, a keyer
-  and an id source, so composing them invents no policy.
+- **0 are purely mechanical.** Every context whose ports were mechanical has
+  either been composed or, as above, turns out to need an integration
+  decision before it can be composed correctly.
 - **~29 are self-contained but carry a policy port** — an `Authority`, a
   `StakePolicy`, an `Allowlist`, a `Redactor`. The adapter is small; deciding
   what the policy _is_ belongs to whoever owns the product rule, not to
