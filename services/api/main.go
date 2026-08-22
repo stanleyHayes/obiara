@@ -448,7 +448,7 @@ func run() error {
 	}))
 	apihttp.RegisterMemberRoutes(mux, memberModule.Register.Handle)
 	apihttp.RegisterWaitlistRoutes(mux, waitlistStore, adminPrincipalResolver)
-	apihttp.RegisterAuthRoutes(mux, identityModule.Registration)
+	apihttp.RegisterAuthRoutes(mux, identityModule.Registration, identityModule.Sessions)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)

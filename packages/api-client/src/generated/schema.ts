@@ -853,6 +853,33 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/auth/refresh": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Rotate a refresh token into a new session
+     * @description Exchanges a valid refresh token for a fresh access/refresh pair.
+     *     Access tokens live fifteen minutes, so clients call this instead of
+     *     sending the member back through the SMS OTP flow.
+     *
+     *     Rotation is single use. Presenting a token that has already been
+     *     rotated out is treated as theft: the session is revoked. Every
+     *     rejection returns the same `refresh_invalid` envelope so a caller
+     *     cannot tell an expired token from a stolen one.
+     */
+    readonly post: operations["refreshSession"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/blocks": {
     readonly parameters: {
       readonly query?: never;
@@ -4098,6 +4125,10 @@ export interface components {
       readonly data: components["schemas"]["SessionData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly SessionRefreshInput: {
+      /** @description The refresh token issued by the previous session response. */
+      readonly refreshToken: string;
+    };
     readonly SubanAppealData: {
       readonly appealId: string;
       readonly eventId: string;
@@ -6748,6 +6779,48 @@ export interface operations {
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 429: components["responses"]["OtpRateLimited"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly refreshSession: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["SessionRefreshInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Session rotated. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SessionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      /** @description The refresh token is not usable; sign in again. */
+      readonly 401: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };
   };

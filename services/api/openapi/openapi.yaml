@@ -229,6 +229,56 @@ paths:
           $ref: "#/components/responses/OtpRateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/auth/refresh:
+    post:
+      operationId: refreshSession
+      tags: [Auth]
+      summary: Rotate a refresh token into a new session
+      security: []
+      description: |
+        Exchanges a valid refresh token for a fresh access/refresh pair.
+        Access tokens live fifteen minutes, so clients call this instead of
+        sending the member back through the SMS OTP flow.
+
+        Rotation is single use. Presenting a token that has already been
+        rotated out is treated as theft: the session is revoked. Every
+        rejection returns the same `refresh_invalid` envelope so a caller
+        cannot tell an expired token from a stolen one.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionRefreshInput"
+      responses:
+        "200":
+          description: Session rotated.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          description: The refresh token is not usable; sign in again.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/verifications/ghana-card:
     post:
       operationId: submitGhanaCard
@@ -8970,6 +9020,16 @@ components:
           items:
             type: string
             enum: [verifier, ts_agent, host, finance, admin]
+    SessionRefreshInput:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: The refresh token issued by the previous session response.
     AdminEmailInput:
       type: object
       additionalProperties: false

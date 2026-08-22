@@ -26,9 +26,26 @@ func (stub registrationStub) VerifyOtp(ctx context.Context, phone, code, deviceI
 	return stub.verifyOtp(ctx, phone, code, deviceID)
 }
 
+// sessionsStub drives the refresh route. Existing OTP tests pass a zero
+// value, which is never called on those paths.
+type sessionsStub struct {
+	refresh func(context.Context, string) (application.IssuedSession, error)
+}
+
+func (stub sessionsStub) Refresh(ctx context.Context, token string) (application.IssuedSession, error) {
+	if stub.refresh == nil {
+		return application.IssuedSession{}, errors.New("refresh not stubbed")
+	}
+	return stub.refresh(ctx, token)
+}
+
 func authHandler(registration Registration) http.Handler {
+	return authHandlerWith(registration, sessionsStub{})
+}
+
+func authHandlerWith(registration Registration, sessions Sessions) http.Handler {
 	mux := http.NewServeMux()
-	RegisterAuthRoutes(mux, registration)
+	RegisterAuthRoutes(mux, registration, sessions)
 	return Correlation(mux)
 }
 

@@ -171,3 +171,96 @@ describe("apiBaseURL", () => {
     expect(() => apiBaseURL()).toThrow(/EXPO_PUBLIC_API_BASE_URL/);
   });
 });
+
+describe("session rotation", () => {
+  beforeEach(async () => {
+    mocks.store.clear();
+    vi.mocked(fetch).mockReset();
+  });
+
+  // Access tokens live fifteen minutes. Without rotation the member was sent
+  // back through the SMS OTP flow four times an hour.
+  it("rotates and replays the request after a 401", async () => {
+    await saveSession({ accessToken: "stale", refreshToken: "rt_1" });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        jsonResponse(401, { error: { message: "expired" } }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          data: { accessToken: "fresh", refreshToken: "rt_2" },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(200, { data: { ok: true } }));
+
+    await expect(apiRequest("/v1/fie")).resolves.toEqual({ ok: true });
+
+    const calls = vi.mocked(fetch).mock.calls;
+    expect(calls).toHaveLength(3);
+    expect(calls[1]?.[0]).toBe("http://api.test/v1/auth/refresh");
+    // The replay must carry the new token, not the stale one.
+    const replayHeaders = (calls[2]?.[1] as RequestInit)?.headers as Record<
+      string,
+      string
+    >;
+    expect(replayHeaders.Authorization).toBe("Bearer fresh");
+    // Rotation is single use, so the new refresh token must be stored.
+    await expect(accessToken()).resolves.toBe("fresh");
+  });
+
+  it("clears the session when the refresh token is rejected", async () => {
+    await saveSession({ accessToken: "stale", refreshToken: "rt_dead" });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        jsonResponse(401, { error: { message: "expired" } }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(401, { error: { message: "refresh_invalid" } }),
+      );
+
+    await expect(apiRequest("/v1/fie")).rejects.toThrow();
+    await expect(accessToken()).resolves.toBeNull();
+  });
+
+  it("does not loop when the replayed request is still unauthorized", async () => {
+    await saveSession({ accessToken: "stale", refreshToken: "rt_1" });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        jsonResponse(401, { error: { message: "expired" } }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          data: { accessToken: "fresh", refreshToken: "rt_2" },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(401, { error: { message: "nope" } }));
+
+    await expect(apiRequest("/v1/fie")).rejects.toThrow();
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(3);
+  });
+
+  // Two concurrent 401s must not both present the same refresh token: the
+  // server treats a replayed token as theft and revokes the whole session.
+  it("shares one rotation between concurrent requests", async () => {
+    await saveSession({ accessToken: "stale", refreshToken: "rt_1" });
+    let refreshCount = 0;
+    vi.mocked(fetch).mockImplementation(async (url, init) => {
+      const target = String(url);
+      if (target.endsWith("/v1/auth/refresh")) {
+        refreshCount += 1;
+        return jsonResponse(200, {
+          data: { accessToken: "fresh", refreshToken: "rt_2" },
+        });
+      }
+      const headers = (init as RequestInit)?.headers as Record<string, string>;
+      // Only the rotated token is accepted, so both callers must replay.
+      return headers?.Authorization === "Bearer fresh"
+        ? jsonResponse(200, { data: { ok: true } })
+        : jsonResponse(401, { error: { message: "expired" } });
+    });
+
+    await Promise.all([apiRequest("/v1/first"), apiRequest("/v1/second")]);
+
+    expect(refreshCount).toBe(1);
+  });
+});

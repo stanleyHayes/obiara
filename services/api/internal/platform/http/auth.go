@@ -19,10 +19,96 @@ type Registration interface {
 	VerifyOtp(ctx context.Context, phone, code, deviceID string) (application.IssuedSession, error)
 }
 
+// Sessions is the inbound port for session rotation. Access tokens live
+// fifteen minutes; without this port a member would have to complete the SMS
+// OTP flow again every fifteen minutes, at the cost of one SMS each time.
+type Sessions interface {
+	Refresh(ctx context.Context, refreshToken string) (application.IssuedSession, error)
+}
+
 // RegisterAuthRoutes adds the authentication baseline routes to mux.
-func RegisterAuthRoutes(mux *http.ServeMux, registration Registration) {
+func RegisterAuthRoutes(mux *http.ServeMux, registration Registration, sessions Sessions) {
 	mux.Handle("POST /v1/auth/otp", requestOtpHandler(registration))
 	mux.Handle("POST /v1/auth/otp/verify", verifyOtpHandler(registration))
+	mux.Handle("POST /v1/auth/refresh", refreshHandler(sessions))
+}
+
+type refreshBody struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
+// refreshHandler rotates a refresh token into a fresh token pair.
+//
+// Rotation is single-use: presenting a token that has already been rotated
+// out is treated as theft by the session service, which revokes the whole
+// session. That is why every failure here answers with the same
+// unauthorized envelope — distinguishing "expired" from "stolen" would tell
+// an attacker which of the two they hold.
+func refreshHandler(sessions Sessions) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mediaType != "application/json" {
+			writeError(w, r, http.StatusUnsupportedMediaType, APIError{
+				Code:    "unsupported_media_type",
+				Message: "Content-Type must be application/json.",
+			})
+			return
+		}
+
+		var body refreshBody
+		if err := decodeJSON(w, r, &body); err != nil {
+			writeError(w, r, http.StatusBadRequest, APIError{
+				Code:    "invalid_json",
+				Message: "The request body must be one valid JSON object.",
+			})
+			return
+		}
+		body.RefreshToken = strings.TrimSpace(body.RefreshToken)
+		if body.RefreshToken == "" {
+			writeError(w, r, http.StatusUnprocessableEntity, APIError{
+				Code:    "validation_failed",
+				Message: "One or more fields are invalid.",
+				Details: []FieldError{{Field: "refreshToken", Reason: "is required"}},
+			})
+			return
+		}
+
+		issued, err := sessions.Refresh(r.Context(), body.RefreshToken)
+		if err != nil {
+			writeRefreshError(w, r, err)
+			return
+		}
+		writeSuccess(w, r, http.StatusOK, sessionResponse{
+			SessionID:        issued.Session.ID(),
+			MemberID:         issued.Session.MemberID(),
+			AccessToken:      issued.AccessToken,
+			AccessExpiresAt:  issued.Session.AccessExpiresAt(),
+			RefreshToken:     issued.RefreshToken,
+			RefreshExpiresAt: issued.Session.RefreshExpiresAt(),
+		})
+	})
+}
+
+// writeRefreshError answers every rejected rotation identically. Only a
+// genuine fault is separated out, so it can be logged and investigated.
+func writeRefreshError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, domain.ErrRefreshReuse),
+		errors.Is(err, domain.ErrRefreshTokenMismatch),
+		errors.Is(err, domain.ErrSessionExpired),
+		errors.Is(err, domain.ErrSessionNotActive),
+		errors.Is(err, domain.ErrTokenMalformed),
+		errors.Is(err, application.ErrSessionNotFound):
+		writeError(w, r, http.StatusUnauthorized, APIError{
+			Code:    "refresh_invalid",
+			Message: "Your sign-in has expired. Please sign in again.",
+		})
+	default:
+		logServerError(r.Context(), r, http.StatusInternalServerError, "internal_error", err)
+		writeError(w, r, http.StatusInternalServerError, APIError{
+			Code:    "internal_error",
+			Message: "The request could not be completed.",
+		})
+	}
 }
 
 type requestOtpBody struct {

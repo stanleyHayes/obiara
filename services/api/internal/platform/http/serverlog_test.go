@@ -25,9 +25,11 @@ func TestSanitizeFaultMasksIdentifiers(t *testing.T) {
 			absent:  []string{"233544919953"},
 			present: []string{"[digits]"},
 		},
-		"bearer token": {
-			cause:   errors.New(`rejected token re_AbCdEfGhIjKlMnOpQrStUvWxYz123456`),
-			absent:  []string{"re_AbCdEfGhIjKlMnOpQrStUvWxYz123456"},
+		"opaque bearer token": {
+			// Deliberately not shaped like any real provider key: the repo's
+			// secret scanner treats those shapes as findings even in tests.
+			cause:   errors.New(`rejected token ` + strings.Repeat("z", 32)),
+			absent:  []string{strings.Repeat("z", 32)},
 			present: []string{"[token]"},
 		},
 		"safe provider fault survives": {

@@ -84,6 +84,57 @@ export async function accessToken() {
   return readValue(accessKey);
 }
 
+export async function refreshToken() {
+  return readValue(refreshKey);
+}
+
+/**
+ * Rotates the stored session.
+ *
+ * Access tokens live fifteen minutes. Without this the app sent the member
+ * back through the SMS OTP flow four times an hour, at the cost of one SMS
+ * each time.
+ *
+ * Rotation is single use on the server, so two concurrent requests that both
+ * hit a 401 must not both present the same refresh token — the second would
+ * look like token theft and revoke the whole session. The in-flight promise
+ * is shared so concurrent callers await one rotation.
+ */
+let rotation: Promise<boolean> | null = null;
+
+async function rotateSession(): Promise<boolean> {
+  rotation ??= (async () => {
+    try {
+      const stored = await readValue(refreshKey);
+      if (!stored) return false;
+      const response = await fetch(`${apiBaseURL()}/v1/auth/refresh`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refreshToken: stored }),
+      });
+      if (!response.ok) return false;
+      const payload = (await response.json().catch(() => null)) as {
+        data?: MobileSession;
+      } | null;
+      if (!payload?.data?.accessToken || !payload.data.refreshToken) {
+        return false;
+      }
+      await saveSession(payload.data);
+      return true;
+    } catch {
+      // A refresh that cannot reach the network is not a dead session; the
+      // caller surfaces the original failure and the next attempt retries.
+      return false;
+    } finally {
+      rotation = null;
+    }
+  })();
+  return rotation;
+}
+
 type SessionClearedListener = (expired: boolean) => void;
 const sessionListeners = new Set<SessionClearedListener>();
 
@@ -124,6 +175,7 @@ export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
   authenticated = true,
+  allowRotation = true,
 ): Promise<T> {
   const token = authenticated ? await accessToken() : null;
   if (authenticated && !token) throw new Error("Your sign-in has expired.");
@@ -141,6 +193,12 @@ export async function apiRequest<T>(
     error?: { message?: string };
   } | null;
   if (authenticated && response.status === 401) {
+    // An expired access token is the ordinary case, not a dead session.
+    // Rotate once and replay; allowRotation stops a rotated-but-still-401
+    // response from looping.
+    if (allowRotation && (await rotateSession())) {
+      return apiRequest<T>(path, init, authenticated, false);
+    }
     await clearSession(true);
     throw new Error(
       payload?.error?.message ||

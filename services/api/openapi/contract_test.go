@@ -205,7 +205,7 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 151 {
-		t.Errorf("operationId count = %d, want 151", len(seen))
+	if len(seen) != 152 {
+		t.Errorf("operationId count = %d, want 152", len(seen))
 	}
 }
