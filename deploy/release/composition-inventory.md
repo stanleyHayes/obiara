@@ -173,6 +173,48 @@ The distinction matters when reading the list below: what is left is not
 work that was skipped for effort. It is work that needs a product decision
 first, or a vendor that has not been bought.
 
+## The decision that blocks the next batch
+
+Nine dark contexts route their authorization through the `authz` kernel, and
+between them they ask for fourteen capabilities:
+
+```
+cloth.harvest.create              seed.pod.create
+cloth.reviewer.create             seed.pod.playback
+courtship.drum.open               seed.source.open
+courtship.drum.turn               seed.water.mutual
+courtship.room.open               seed.water.start
+courtship.theme.open
+courtship.theme.submit
+courtship.themeprogression.open
+courtship.themeprogression.submit
+```
+
+The grant table in `services/api/internal/authz/domain/policy.go` currently
+grants nine capabilities, and **none of these fourteen is among them**. The
+table is deny-by-default by design — "any single grant allows; absence of a
+grant denies" — so composing any of these nine contexts today would ship a
+feature that refuses every request.
+
+Adding the grants is the decision, and it is not the adapter author's.
+FR-101 gives the principle (romantic surfaces require Tier 1, sowing
+requires Tier 2) but each of the fourteen still has to be placed:
+
+- Is opening a courtship room a Tier 1 romantic surface, like
+  `rooms.participate` already is?
+- Does taking a turn need the same tier as opening, or less?
+- Is `seed.water.mutual` sowing (Tier 2) or a lighter Tier 1 action?
+- Do the `cloth.*` capabilities gate on a tier at all, or on a role?
+
+Getting one wrong fails in one of two bad directions: locking members out of
+a surface they have earned, or opening a romantic surface to unverified
+accounts. The table's own comment is explicit that new capabilities are
+"added here deliberately — never by widening an existing grant."
+
+Once those fourteen rows exist, the nine contexts are bridges rather than
+decisions: the identity context already supplies the tier, the admin context
+already supplies roles, and the kernel already evaluates them.
+
 ## What the remaining work divides into
 
 Of the contexts still dark, measured rather than guessed:
