@@ -23,6 +23,8 @@ const (
 	ProviderMeta Provider = "meta"
 	// ProviderResend is the transactional email adapter.
 	ProviderResend Provider = "resend"
+	// ProviderExpo is the device push adapter.
+	ProviderExpo Provider = "expo"
 	// ProviderDisabled marks a channel as deliberately out of service. Unlike
 	// the simulator it fails every send loudly, so a dark channel is visible
 	// instead of silently swallowing messages.
@@ -64,6 +66,10 @@ type NotificationsConfig struct {
 	MetaNnoboaTemplate string
 	MetaBaseURL        string
 
+	PushProvider    Provider
+	ExpoAccessToken string
+	ExpoBaseURL     string
+
 	EmailProvider Provider
 	ResendAPIKey  string
 	ResendFrom    string
@@ -100,6 +106,10 @@ func loadNotifications(getenv func(string) string) NotificationsConfig {
 		MetaPodTemplate:    strings.TrimSpace(getenv("META_WHATSAPP_TEMPLATE_POD_ALERT")),
 		MetaNnoboaTemplate: strings.TrimSpace(getenv("META_WHATSAPP_TEMPLATE_NNOBOA_CONSENT")),
 		MetaBaseURL:        strings.TrimSpace(getenv("META_WHATSAPP_BASE_URL")),
+
+		PushProvider:    provider(getenv("PUSH_PROVIDER"), ProviderDisabled),
+		ExpoAccessToken: strings.TrimSpace(getenv("EXPO_ACCESS_TOKEN")),
+		ExpoBaseURL:     strings.TrimSpace(getenv("EXPO_BASE_URL")),
 
 		EmailProvider: provider(getenv("EMAIL_PROVIDER"), ProviderSimulator),
 		ResendAPIKey:  strings.TrimSpace(getenv("RESEND_API_KEY")),
@@ -216,6 +226,21 @@ func validateNotifications(config NotificationsConfig, simulatorsAllowed bool) e
 	default:
 		return fmt.Errorf("WHATSAPP_PROVIDER must be %q, %q or %q, got %q",
 			ProviderMeta, ProviderDisabled, ProviderSimulator, config.WhatsAppProvider)
+	}
+
+	switch config.PushProvider {
+	case ProviderExpo, ProviderDisabled:
+		// Expo needs no mandatory credential: an access token is required
+		// only when the project enables enhanced security.
+	case ProviderSimulator:
+		if !simulatorsAllowed {
+			return fmt.Errorf(
+				"PUSH_PROVIDER may not be %q outside development: notifications would be reported as delivered and reach nobody. Use %q to take the channel out of service",
+				ProviderSimulator, ProviderDisabled)
+		}
+	default:
+		return fmt.Errorf("PUSH_PROVIDER must be %q, %q or %q, got %q",
+			ProviderExpo, ProviderDisabled, ProviderSimulator, config.PushProvider)
 	}
 
 	switch config.EmailProvider {

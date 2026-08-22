@@ -13,6 +13,7 @@ import {
 
 import brandMark from "../assets/brand-mark.png";
 import { accessToken, apiRequest, onSessionCleared, verifyOtp } from "./api";
+import { registerForPush } from "./push";
 
 type Stage = "checking" | "phone" | "code" | "signed-in";
 
@@ -26,7 +27,11 @@ export function SessionGate({ children }: Readonly<{ children: ReactNode }>) {
   useEffect(() => {
     let active = true;
     void accessToken().then((token) => {
-      if (active) setStage(token ? "signed-in" : "phone");
+      if (!active) return;
+      setStage(token ? "signed-in" : "phone");
+      // Re-register on every launch: Expo rotates tokens, and a stale one is
+      // a device that silently stops receiving notifications.
+      if (token) void registerForPush();
     });
     const unsubscribe = onSessionCleared((expired) => {
       setStage("phone");
@@ -66,6 +71,9 @@ export function SessionGate({ children }: Readonly<{ children: ReactNode }>) {
     try {
       await verifyOtp(phone.trim(), code);
       setStage("signed-in");
+      // Fire and forget: push is the first rung of the ladder, and the
+      // in-app inbox below it works whether or not this succeeds.
+      void registerForPush();
     } catch (error) {
       setMessage(
         error instanceof Error

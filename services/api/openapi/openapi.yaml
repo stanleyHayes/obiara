@@ -279,6 +279,71 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/push-devices:
+    put:
+      operationId: registerPushDevice
+      tags: [Notifications]
+      summary: Register this device for push notifications
+      security:
+        - MemberBearer: []
+      description: |
+        Registers the caller's device against their own member id, which is
+        taken from the session and never from the body. Registering by token
+        replaces any prior owner of that token, so a shared handset stops
+        receiving the previous member's notifications.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushDeviceInput"
+      responses:
+        "200":
+          description: Device registered.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushDeviceEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: forgetPushDevices
+      tags: [Notifications]
+      summary: Stop push notifications for this member's devices
+      security:
+        - MemberBearer: []
+      description: |
+        Removes every registered device for the caller. Called at sign-out so
+        a shared handset stops receiving their notifications.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: Devices forgotten.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushDeviceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/verifications/ghana-card:
     post:
       operationId: submitGhanaCard
@@ -9020,6 +9085,35 @@ components:
           items:
             type: string
             enum: [verifier, ts_agent, host, finance, admin]
+    PushDeviceData:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [registered, forgotten]
+    PushDeviceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/PushDeviceData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    PushDeviceInput:
+      type: object
+      additionalProperties: false
+      required: [token, platform]
+      properties:
+        token:
+          type: string
+          description: An Expo push token, "ExponentPushToken[...]".
+          maxLength: 160
+        platform:
+          type: string
+          enum: [ios, android, web]
     SessionRefreshInput:
       type: object
       additionalProperties: false

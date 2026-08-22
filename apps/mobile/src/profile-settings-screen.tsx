@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiRequest, clearSession } from "./api";
+import { forgetPushDevices } from "./push";
 
 const palette = {
   plum: "#3A0E2E",
@@ -165,6 +166,10 @@ export function ProfileSettingsScreen() {
   async function signOut() {
     setSigningOut(true);
     try {
+      // Deregister before the tokens are cleared: afterwards the request
+      // cannot authenticate, and this handset would keep showing the
+      // member's notifications on its lock screen.
+      await forgetPushDevices();
       await clearSession();
     } finally {
       setSigningOut(false);

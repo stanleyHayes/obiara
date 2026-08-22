@@ -197,3 +197,42 @@ func TestDisabledWhatsAppCannotBackAnOtpRung(t *testing.T) {
 		t.Fatal("accepted an OTP ladder resting on a disabled channel")
 	}
 }
+
+func TestPushProviderSelection(t *testing.T) {
+	t.Run("defaults to disabled", func(t *testing.T) {
+		cfg := loadNotificationsFor(nil)
+		if cfg.PushProvider != ProviderDisabled {
+			t.Errorf("PushProvider = %q, want disabled", cfg.PushProvider)
+		}
+	})
+
+	t.Run("expo is accepted without a token", func(t *testing.T) {
+		values := productionBase()
+		values["PUSH_PROVIDER"] = "expo"
+		if err := validateNotifications(loadNotificationsFor(values), false); err != nil {
+			t.Fatalf("production rejected expo: %v", err)
+		}
+	})
+
+	// A push simulator reports delivery without delivering, which is the
+	// failure this codebase has already paid for once.
+	t.Run("simulator is rejected in production", func(t *testing.T) {
+		values := productionBase()
+		values["PUSH_PROVIDER"] = "simulator"
+		err := validateNotifications(loadNotificationsFor(values), false)
+		if err == nil {
+			t.Fatal("production accepted the push simulator")
+		}
+		if !strings.Contains(err.Error(), "disabled") {
+			t.Errorf("error should point at the disabled provider: %v", err)
+		}
+	})
+
+	t.Run("unknown provider is rejected", func(t *testing.T) {
+		values := productionBase()
+		values["PUSH_PROVIDER"] = "firebase"
+		if err := validateNotifications(loadNotificationsFor(values), false); err == nil {
+			t.Fatal("accepted an unknown push provider")
+		}
+	})
+}

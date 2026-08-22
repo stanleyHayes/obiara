@@ -13,11 +13,12 @@ tree but nothing routes to them.
 Nothing here is a defect. It is the scope boundary, written down so it is a
 decision rather than a surprise.
 
-## Composed and reachable ( 43)
+## Composed and reachable (44)
 
 - `internal/notifications`
 - `internal/notifications/deliverystats`
 - `internal/notifications/email`
+- `internal/notifications/push`
 - `internal/notifications/ritual`
 - `internal/notifications/routing`
 - `internal/notifications/whatsapp`
@@ -59,7 +60,7 @@ decision rather than a surprise.
 - `services/api/internal/verification`
 - `services/api/internal/verification/liveness`
 
-## Built but not composed ( 65)
+## Built but not composed (65)
 
 These have no route, job, or consumer. Calling them impossible today is
 accurate; calling them unimplemented is not.

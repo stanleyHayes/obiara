@@ -22,6 +22,7 @@ import (
 	deliverystats "github.com/stanleyHayes/obiara/internal/notifications/deliverystats/adapters/outbound/mongodb"
 	deliverystatsapp "github.com/stanleyHayes/obiara/internal/notifications/deliverystats/application"
 	"github.com/stanleyHayes/obiara/internal/notifications/email"
+	"github.com/stanleyHayes/obiara/internal/notifications/push"
 	whatsappmongodb "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/adapters/outbound/mongodb"
 	whatsappapp "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/application"
 	whatsappdomain "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/domain"
@@ -155,6 +156,14 @@ func run() error {
 	otpSender, err := delivery.OtpSender(cfg.Notifications, whatsappChannel, telemetryRuntime.Logger)
 	if err != nil {
 		return err
+	}
+	pushSender, err := delivery.PushSender(cfg.Notifications)
+	if err != nil {
+		return err
+	}
+	pushModule, err := push.NewModule(ctx, client.Database(cfg.MongoDatabase), pushSender)
+	if err != nil {
+		return fmt.Errorf("build push module: %w", err)
 	}
 
 	// Modules are composed here at startup (agent_plan.md §7.2).
@@ -449,6 +458,7 @@ func run() error {
 	apihttp.RegisterMemberRoutes(mux, memberModule.Register.Handle)
 	apihttp.RegisterWaitlistRoutes(mux, waitlistStore, adminPrincipalResolver)
 	apihttp.RegisterAuthRoutes(mux, identityModule.Registration, identityModule.Sessions)
+	apihttp.RegisterPushRoutes(mux, pushModule.Push, identityModule.Sessions)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)

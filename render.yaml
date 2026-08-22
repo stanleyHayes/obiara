@@ -65,6 +65,11 @@ projects:
               # "manual" routes every liveness attempt to human review.
               - key: LIVENESS_PROVIDER
                 value: manual
+              # Device push. "expo" delivers through exp.host; "disabled"
+              # fails every push loudly so the ladder falls through to the
+              # in-app inbox, which always works.
+              - key: PUSH_PROVIDER
+                value: expo
         services:
           - name: obiara-api-production
             type: web
@@ -153,6 +158,10 @@ projects:
                 sync: false
               - key: META_WHATSAPP_ACCESS_TOKEN
                 sync: false
+              # --- Expo push -- OPTIONAL
+              # Only needed when the Expo project enables enhanced security.
+              - key: EXPO_ACCESS_TOKEN
+                sync: false
               # --- Twilio (secondary SMS) -- OPTIONAL
               # Only needed if OTP_PROVIDERS includes "twilio".
               - key: TWILIO_ACCOUNT_SID
@@ -188,4 +197,6 @@ projects:
               - key: MONGODB_URI_ROTATED_AT
                 sync: false
               - key: OTEL_EXPORTER_OTLP_ENDPOINT
+                sync: false
+              - key: EXPO_ACCESS_TOKEN
                 sync: false

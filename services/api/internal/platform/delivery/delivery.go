@@ -19,6 +19,9 @@ import (
 	emailresend "github.com/stanleyHayes/obiara/internal/notifications/email/adapters/outbound/resend"
 	emailsimulator "github.com/stanleyHayes/obiara/internal/notifications/email/adapters/outbound/simulator"
 	emailapp "github.com/stanleyHayes/obiara/internal/notifications/email/application"
+	pushdisabled "github.com/stanleyHayes/obiara/internal/notifications/push/adapters/outbound/disabled"
+	pushexpo "github.com/stanleyHayes/obiara/internal/notifications/push/adapters/outbound/expo"
+	pushapp "github.com/stanleyHayes/obiara/internal/notifications/push/application"
 	whatsappdisabled "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/adapters/outbound/disabled"
 	whatsappmeta "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/adapters/outbound/meta"
 	whatsappsimulator "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/adapters/outbound/simulator"
@@ -68,6 +71,27 @@ func WhatsAppSender(cfg config.NotificationsConfig) (whatsappapp.Sender, error) 
 		return whatsappsimulator.NewSender(), nil
 	default:
 		return nil, fmt.Errorf("unknown whatsapp provider %q", cfg.WhatsAppProvider)
+	}
+}
+
+// PushSender builds the device push provider adapter.
+func PushSender(cfg config.NotificationsConfig) (pushapp.Sender, error) {
+	switch cfg.PushProvider {
+	case config.ProviderExpo:
+		sender, err := pushexpo.NewSender(pushexpo.Config{
+			AccessToken: cfg.ExpoAccessToken,
+			BaseURL:     cfg.ExpoBaseURL,
+		}, newHTTPClient())
+		if err != nil {
+			return nil, fmt.Errorf("build push sender: %w", err)
+		}
+		return sender, nil
+	case config.ProviderDisabled:
+		return pushdisabled.NewSender(), nil
+	case config.ProviderSimulator:
+		return pushdisabled.NewSender(), nil
+	default:
+		return nil, fmt.Errorf("unknown push provider %q", cfg.PushProvider)
 	}
 }
 

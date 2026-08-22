@@ -2413,6 +2413,34 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/push-devices": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    /**
+     * Register this device for push notifications
+     * @description Registers the caller's device against their own member id, which is
+     *     taken from the session and never from the body. Registering by token
+     *     replaces any prior owner of that token, so a shared handset stops
+     *     receiving the previous member's notifications.
+     */
+    readonly put: operations["registerPushDevice"];
+    readonly post?: never;
+    /**
+     * Stop push notifications for this member's devices
+     * @description Removes every registered device for the caller. Called at sign-out so
+     *     a shared handset stops receiving their notifications.
+     */
+    readonly delete: operations["forgetPushDevices"];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/reports": {
     readonly parameters: {
       readonly query?: never;
@@ -4041,6 +4069,20 @@ export interface components {
       readonly introduction: string;
       /** @enum {string} */
       readonly introductionVisibility: "private" | "circles" | "community";
+    };
+    readonly PushDeviceData: {
+      /** @enum {string} */
+      readonly status: "registered" | "forgotten";
+    };
+    readonly PushDeviceEnvelope: {
+      readonly data: components["schemas"]["PushDeviceData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly PushDeviceInput: {
+      /** @enum {string} */
+      readonly platform: "ios" | "android" | "web";
+      /** @description An Expo push token, "ExponentPushToken[...]". */
+      readonly token: string;
     };
     readonly RegisterMemberRequest: {
       /** Format: email */
@@ -9981,6 +10023,65 @@ export interface operations {
       };
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
+    };
+  };
+  readonly registerPushDevice: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PushDeviceInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Device registered. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PushDeviceEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly forgetPushDevices: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Devices forgotten. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PushDeviceEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly fileReport: {

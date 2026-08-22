@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -18,8 +19,13 @@ import (
 	notificationmongodb "github.com/stanleyHayes/obiara/internal/notifications/adapters/outbound/mongodb"
 	notificationapplication "github.com/stanleyHayes/obiara/internal/notifications/application"
 	inappmongodb "github.com/stanleyHayes/obiara/internal/notifications/inapp/adapters/outbound/mongodb"
+	"github.com/stanleyHayes/obiara/internal/notifications/push"
+	pushdisabled "github.com/stanleyHayes/obiara/internal/notifications/push/adapters/outbound/disabled"
+	pushexpo "github.com/stanleyHayes/obiara/internal/notifications/push/adapters/outbound/expo"
+	pushapp "github.com/stanleyHayes/obiara/internal/notifications/push/application"
 	ritualapplication "github.com/stanleyHayes/obiara/internal/notifications/ritual/application"
 	"github.com/stanleyHayes/obiara/internal/notifications/routing/adapters/outbound/inappsender"
+	"github.com/stanleyHayes/obiara/internal/notifications/routing/adapters/outbound/pushsender"
 	routingapplication "github.com/stanleyHayes/obiara/internal/notifications/routing/application"
 	"github.com/stanleyHayes/obiara/internal/platform/inbox"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
@@ -149,8 +155,22 @@ func run() error {
 	if err := inAppStore.EnsureIndexes(ctx); err != nil {
 		return fmt.Errorf("ensure in-app notification indexes: %w", err)
 	}
+	pushSender, err := workerPushSender()
+	if err != nil {
+		return err
+	}
+	pushModule, err := push.NewModule(ctx, database, pushSender)
+	if err != nil {
+		return fmt.Errorf("build push module: %w", err)
+	}
+	// Ladder order follows domain.LadderFor: push first, in-app as the
+	// channel that always works. A member with no registered device fails the
+	// push rung and falls through rather than losing the notification.
 	router := routingapplication.NewRouter(
-		[]routingapplication.ChannelSender{inappsender.New(inAppStore, time.Now)},
+		[]routingapplication.ChannelSender{
+			pushsender.New(pushModule.Push),
+			inappsender.New(inAppStore, time.Now),
+		},
 		decider,
 		time.Now,
 	)
@@ -179,6 +199,39 @@ func newID() string {
 		panic(err)
 	}
 	return "case_" + base64.RawURLEncoding.EncodeToString(id)
+}
+
+// workerPushSender selects the push adapter.
+//
+// The worker cannot reuse the API's delivery builder, which lives under
+// services/api/internal and is therefore closed to it, so selection is
+// repeated here over the same environment variable. Like every other
+// channel, the simulator is refused outside development: a channel that
+// reports delivery without delivering is the failure this codebase has
+// already paid for once.
+func workerPushSender() (pushapp.Sender, error) {
+	provider := strings.ToLower(envOrDefault("PUSH_PROVIDER", "disabled"))
+	environment := strings.ToLower(strings.TrimSpace(envOrDefault("APP_ENV", "development")))
+	simulatorsAllowed := environment == "development" || environment == "test" || environment == "local"
+
+	switch provider {
+	case "expo":
+		return pushexpo.NewSender(pushexpo.Config{
+			AccessToken: strings.TrimSpace(os.Getenv("EXPO_ACCESS_TOKEN")),
+			BaseURL:     strings.TrimSpace(os.Getenv("EXPO_BASE_URL")),
+		}, &http.Client{Timeout: 10 * time.Second})
+	case "disabled":
+		return pushdisabled.NewSender(), nil
+	case "simulator":
+		if !simulatorsAllowed {
+			return nil, fmt.Errorf(
+				"PUSH_PROVIDER may not be %q outside development; use %q to take the channel out of service",
+				"simulator", "disabled")
+		}
+		return pushdisabled.NewSender(), nil
+	default:
+		return nil, fmt.Errorf("PUSH_PROVIDER must be \"expo\", \"disabled\" or \"simulator\", got %q", provider)
+	}
 }
 
 // telemetryShutdownTimeout bounds exporter flush at exit. It is fixed
