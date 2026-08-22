@@ -52,7 +52,10 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/courtship"
 	courtshipproposal "github.com/stanleyHayes/obiara/services/api/internal/courtship/proposal"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire"
+	firemongodb "github.com/stanleyHayes/obiara/services/api/internal/fire/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/api/internal/fire/ember"
+	"github.com/stanleyHayes/obiara/services/api/internal/fire/runsheet"
+	"github.com/stanleyHayes/obiara/services/api/internal/fire/runsheet/adapters/outbound/fireauthority"
 	"github.com/stanleyHayes/obiara/services/api/internal/games/ampe"
 	"github.com/stanleyHayes/obiara/services/api/internal/games/anansesem"
 	"github.com/stanleyHayes/obiara/services/api/internal/games/competition"
@@ -185,6 +188,14 @@ func run() error {
 	seedStageModule, err := seedstage.NewStageModule(ctx, client.Database(cfg.MongoDatabase), cfg.SeedHMACSecret)
 	if err != nil {
 		return fmt.Errorf("build seed stage module: %w", err)
+	}
+	// The run sheet a host works through while running a fire. Authority
+	// comes from the fire aggregate itself, which owns who hosts what.
+	runSheetModule, err := runsheet.NewModule(ctx, client.Database(cfg.MongoDatabase),
+		fireauthority.New(firemongodb.NewRepository(client.Database(cfg.MongoDatabase))),
+		cfg.CircleHMACSecret)
+	if err != nil {
+		return fmt.Errorf("build run sheet module: %w", err)
 	}
 
 	// Modules are composed here at startup (agent_plan.md §7.2).
@@ -483,6 +494,7 @@ func run() error {
 	apihttp.RegisterCourtshipProposalRoutes(mux, proposalModule.Proposals, identityModule.Sessions)
 	apihttp.RegisterCourtshipRoomRoutes(mux, courtship.NewRoom(courtshipRoomModule), identityModule.Sessions)
 	apihttp.RegisterSeedStageRoutes(mux, seedstage.NewStage(seedStageModule), identityModule.Sessions)
+	apihttp.RegisterFireRunSheetRoutes(mux, runSheetModule.RunSheets, identityModule.Sessions)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)

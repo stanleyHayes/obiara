@@ -1166,6 +1166,390 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/fires/{fireId}/run-sheet:
+    post:
+      operationId: createFireRunSheet
+      tags: [Fires]
+      summary: Create the run sheet for a fire
+      security:
+        - MemberBearer: []
+      description: |
+        Host only. The segments are the ordered plan the host works through
+        while running the fire.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: fireId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRunSheetInput"
+      responses:
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "201":
+          description: Run sheet state.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunSheetEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Not available to this member.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The run sheet changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/fires/{fireId}/run-sheet/{id}:
+    get:
+      operationId: readFireRunSheet
+      tags: [Fires]
+      summary: Read the run sheet
+      security:
+        - MemberBearer: []
+      description: |
+        Host only. Timings are projected against the server clock, so a
+        skewed handset cannot run the fire fast or slow.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: fireId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      responses:
+        "200":
+          description: Run sheet state.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunSheetEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Not available to this member.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The run sheet changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/fires/{fireId}/run-sheet/{id}/start:
+    post:
+      operationId: startFireRunSheet
+      tags: [Fires]
+      summary: Start the run sheet
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: fireId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunSheetCommandInput"
+      responses:
+        "200":
+          description: Run sheet state.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunSheetEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Not available to this member.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The run sheet changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/fires/{fireId}/run-sheet/{id}/advance:
+    post:
+      operationId: advanceFireRunSheet
+      tags: [Fires]
+      summary: Advance to the next segment
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: fireId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunSheetCommandInput"
+      responses:
+        "200":
+          description: Run sheet state.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunSheetEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Not available to this member.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The run sheet changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/fires/{fireId}/run-sheet/{id}/skip:
+    post:
+      operationId: skipFireRunSheet
+      tags: [Fires]
+      summary: Skip the current segment
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: fireId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunSheetCommandInput"
+      responses:
+        "200":
+          description: Run sheet state.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunSheetEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Not available to this member.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The run sheet changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/fires/{fireId}/run-sheet/{id}/extend:
+    post:
+      operationId: extendFireRunSheet
+      tags: [Fires]
+      summary: Extend the current segment
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: fireId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtendRunSheetInput"
+      responses:
+        "200":
+          description: Run sheet state.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunSheetEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Not available to this member.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The run sheet changed, or the command id was reused.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/verifications/ghana-card:
     post:
       operationId: submitGhanaCard
@@ -10020,6 +10404,120 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/CourtshipTimelineData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    RunSheetSegmentInput:
+      type: object
+      additionalProperties: false
+      required: [type, titleCode, plannedMinutes]
+      properties:
+        type:
+          type: string
+          enum: [talk, break, game, close]
+        titleCode:
+          type: string
+          maxLength: 128
+        plannedMinutes:
+          type: integer
+          minimum: 1
+          maximum: 240
+        capabilityRef:
+          type: string
+          maxLength: 128
+    CreateRunSheetInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, segments]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        segments:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/RunSheetSegmentInput"
+    RunSheetCommandInput:
+      type: object
+      additionalProperties: false
+      required: [commandId]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        expectedRevision:
+          type: integer
+          format: int64
+          minimum: 0
+    ExtendRunSheetInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, byMinutes]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        expectedRevision:
+          type: integer
+          format: int64
+          minimum: 0
+        byMinutes:
+          type: integer
+          minimum: 1
+          maximum: 60
+    RunSheetData:
+      type: object
+      additionalProperties: false
+      required: [runSheetId, version, status, currentIndex, remainingSeconds, serverTime]
+      properties:
+        runSheetId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        version:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [ready, running, completed]
+        currentIndex:
+          type: integer
+        current:
+          type: object
+          additionalProperties: false
+          required: [type, titleCode, plannedMinutes]
+          properties:
+            type:
+              type: string
+              enum: [talk, break, game, close]
+            titleCode:
+              type: string
+            plannedMinutes:
+              type: integer
+        remainingSeconds:
+          type: integer
+        serverTime:
+          type: string
+          format: date-time
+    RunSheetEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/RunSheetData"
         meta:
           $ref: "#/components/schemas/Metadata"
     StartCourtshipRoomInput:

@@ -13,7 +13,7 @@ tree but nothing routes to them.
 Nothing here is a defect. It is the scope boundary, written down so it is a
 decision rather than a surprise.
 
-## Composed and reachable (54)
+## Composed and reachable (55)
 
 - `internal/notifications`
 - `internal/notifications/deliverystats`
@@ -45,6 +45,7 @@ decision rather than a surprise.
 - `services/api/internal/courtship/safety`
 - `services/api/internal/fire`
 - `services/api/internal/fire/ember`
+- `services/api/internal/fire/runsheet`
 - `services/api/internal/games/ampe`
 - `services/api/internal/games/anansesem`
 - `services/api/internal/games/competition`
@@ -70,7 +71,7 @@ decision rather than a surprise.
 - `services/api/internal/verification`
 - `services/api/internal/verification/liveness`
 
-## Built but not composed (55)
+## Built but not composed (54)
 
 These have no route, job, or consumer. Calling them impossible today is
 accurate; calling them unimplemented is not.
@@ -105,7 +106,6 @@ accurate; calling them unimplemented is not.
 - `services/api/internal/fire/control`
 - `services/api/internal/fire/incident`
 - `services/api/internal/fire/recording`
-- `services/api/internal/fire/runsheet`
 - `services/api/internal/games/conduct`
 - `services/api/internal/governance/marketpack`
 - `services/api/internal/host`
@@ -180,7 +180,11 @@ Of the contexts still dark, measured rather than guessed:
 - **0 are purely mechanical.** Every context whose ports were mechanical has
   either been composed or, as above, turns out to need an integration
   decision before it can be composed correctly.
-- **~29 are self-contained but carry a policy port** — an `Authority`, a
+- **Some policy ports turn out to be bridges, not decisions.** The run
+  sheet's `Authority` looked like invented policy and was not: the fire
+  aggregate already owns who hosts what, so the adapter reads it rather than
+  deciding anything. Check each one before assuming it needs a ruling.
+- **~28 are self-contained but carry a policy port** — an `Authority`, a
   `StakePolicy`, an `Allowlist`, a `Redactor`. The adapter is small; deciding
   what the policy _is_ belongs to whoever owns the product rule, not to
   whoever writes the adapter.
