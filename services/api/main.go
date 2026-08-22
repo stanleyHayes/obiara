@@ -44,6 +44,8 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/catalog"
 	catalogauthority "github.com/stanleyHayes/obiara/services/api/internal/commerce/catalog/adapters/outbound/adminauthority"
 	commerceescrow "github.com/stanleyHayes/obiara/services/api/internal/commerce/escrow"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/ledger"
+	ledgerauthority "github.com/stanleyHayes/obiara/services/api/internal/commerce/ledger/adapters/outbound/adminauthority"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/matchmaker"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/membership"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/reconciliation"
@@ -379,6 +381,13 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build catalog module: %w", err)
 	}
+	// The double-entry ledger behind the catalog: what the platform owes and
+	// is owed. Finance desk only, in both directions.
+	ledgerModule, err := ledger.NewModule(ctx, client.Database(cfg.MongoDatabase),
+		ledgerauthority.New(adminModule.Admin), cfg.CommerceHMACSecret)
+	if err != nil {
+		return fmt.Errorf("build ledger module: %w", err)
+	}
 
 	adminSubjectKeyer, err := adminverificationprivacy.NewHMACKeyer([]byte(cfg.AdminHMACSecret))
 	if err != nil {
@@ -516,6 +525,7 @@ func run() error {
 	apihttp.RegisterFireRunSheetRoutes(mux, runSheetModule.RunSheets, identityModule.Sessions)
 	apihttp.RegisterCatalogRoutes(mux, catalogModule.Catalog, identityModule.Sessions)
 	apihttp.RegisterSeedAllowanceRoutes(mux, allowanceModule.Allowances, identityModule.Sessions)
+	apihttp.RegisterLedgerRoutes(mux, ledgerModule.Ledger)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)

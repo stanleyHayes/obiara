@@ -420,6 +420,48 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/ledger/balances/{accountId}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read an account balance
+     * @description Finance desk only. Balances are recomputed from lines.
+     */
+    readonly get: operations["readLedgerBalance"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/ledger/postings": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Post a double-entry ledger entry
+     * @description Finance desk only. Debits and credits must balance; an unbalanced
+     *     posting is the one mistake a double-entry ledger exists to refuse.
+     *     Amounts are minor units.
+     */
+    readonly post: operations["postLedgerEntry"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/login/complete": {
     readonly parameters: {
       readonly query?: never;
@@ -4296,6 +4338,45 @@ export interface components {
       readonly email: string;
       readonly name: string;
     };
+    readonly LedgerBalanceData: {
+      readonly accountId: string;
+      readonly class: string;
+      readonly currency: string;
+      /** Format: int64 */
+      readonly minor: number;
+    };
+    readonly LedgerBalanceEnvelope: {
+      readonly data: components["schemas"]["LedgerBalanceData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly LedgerLineInput: {
+      readonly accountId: string;
+      /** @enum {string} */
+      readonly class: "asset" | "liability" | "equity" | "revenue" | "expense";
+      /** Format: int64 */
+      readonly minor: number;
+      /** @enum {string} */
+      readonly side: "debit" | "credit";
+    };
+    readonly LedgerPostingData: {
+      readonly currency: string;
+      readonly postingId: string;
+      readonly purpose: string;
+    };
+    readonly LedgerPostingEnvelope: {
+      readonly data: components["schemas"]["LedgerPostingData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly LedgerPostingInput: {
+      readonly commandId: string;
+      /** @enum {string} */
+      readonly currency: "GHS" | "USD";
+      readonly lines: readonly components["schemas"]["LedgerLineInput"][];
+      /** @enum {string} */
+      readonly purpose:
+        "sale_settlement" | "refund_settlement" | "catalog_receivable";
+      readonly referenceId: string;
+    };
     readonly LivenessArtifactData: {
       /** Format: date-time */
       readonly expiresAt: string;
@@ -6696,6 +6777,101 @@ export interface operations {
       readonly 403: components["responses"]["AdminForbidden"];
       readonly 404: components["responses"]["EbeNotAvailable"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly readLedgerBalance: {
+    readonly parameters: {
+      readonly query: {
+        readonly class:
+          "asset" | "liability" | "equity" | "revenue" | "expense";
+        readonly currency: "GHS" | "USD";
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly accountId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The account balance. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["LedgerBalanceEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator is not on the finance desk. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly postLedgerEntry: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["LedgerPostingInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Posting recorded. */
+      readonly 201: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["LedgerPostingEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The operator is not on the finance desk. */
+      readonly 403: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The command id was used for a different posting. */
+      readonly 409: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
     };

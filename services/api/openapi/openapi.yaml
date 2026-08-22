@@ -1864,6 +1864,116 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/ledger/postings:
+    post:
+      operationId: postLedgerEntry
+      tags: [Commerce]
+      summary: Post a double-entry ledger entry
+      security:
+        - AdminBearer: []
+      description: |
+        Finance desk only. Debits and credits must balance; an unbalanced
+        posting is the one mistake a double-entry ledger exists to refuse.
+        Amounts are minor units.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LedgerPostingInput"
+      responses:
+        "201":
+          description: Posting recorded.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerPostingEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator is not on the finance desk.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The command id was used for a different posting.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/ledger/balances/{accountId}:
+    get:
+      operationId: readLedgerBalance
+      tags: [Commerce]
+      summary: Read an account balance
+      security:
+        - AdminBearer: []
+      description: Finance desk only. Balances are recomputed from lines.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        - name: class
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [asset, liability, equity, revenue, expense]
+        - name: currency
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [GHS, USD]
+      responses:
+        "200":
+          description: The account balance.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerBalanceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The operator is not on the finance desk.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/verifications/ghana-card:
     post:
       operationId: submitGhanaCard
@@ -10718,6 +10828,96 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/CourtshipTimelineData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    LedgerLineInput:
+      type: object
+      additionalProperties: false
+      required: [accountId, class, side, minor]
+      properties:
+        accountId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        class:
+          type: string
+          enum: [asset, liability, equity, revenue, expense]
+        side:
+          type: string
+          enum: [debit, credit]
+        minor:
+          type: integer
+          format: int64
+          minimum: 1
+    LedgerPostingInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, referenceId, purpose, currency, lines]
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        referenceId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+        purpose:
+          type: string
+          enum: [sale_settlement, refund_settlement, catalog_receivable]
+        currency:
+          type: string
+          enum: [GHS, USD]
+        lines:
+          type: array
+          minItems: 2
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/LedgerLineInput"
+    LedgerPostingData:
+      type: object
+      additionalProperties: false
+      required: [postingId, purpose, currency]
+      properties:
+        postingId:
+          type: string
+        purpose:
+          type: string
+        currency:
+          type: string
+    LedgerPostingEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/LedgerPostingData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    LedgerBalanceData:
+      type: object
+      additionalProperties: false
+      required: [accountId, class, currency, minor]
+      properties:
+        accountId:
+          type: string
+        class:
+          type: string
+        currency:
+          type: string
+        minor:
+          type: integer
+          format: int64
+    LedgerBalanceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/LedgerBalanceData"
         meta:
           $ref: "#/components/schemas/Metadata"
     SeedAllowanceData:
