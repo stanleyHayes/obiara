@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -81,7 +82,13 @@ func TestDeliveryFailureLoggedAndReported(t *testing.T) {
 		})
 
 	service := NewChannelService(sender, log, nil, func() time.Time { return channelNow })
-	if _, err := service.SendOtp(context.Background(), "+233550000101", "123456"); err != ErrDeliveryFailed {
+	// The sentinel is wrapped so the provider cause survives for triage;
+	// callers must match with errors.Is rather than equality.
+	_, err := service.SendOtp(context.Background(), "+233550000101", "123456")
+	if !errors.Is(err, ErrDeliveryFailed) {
 		t.Fatalf("SendOtp = %v, want ErrDeliveryFailed", err)
+	}
+	if !strings.Contains(err.Error(), "provider down") {
+		t.Errorf("SendOtp = %v, want the provider cause preserved for triage", err)
 	}
 }

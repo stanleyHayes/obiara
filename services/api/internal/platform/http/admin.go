@@ -452,6 +452,15 @@ func authenticatedAdmin(w http.ResponseWriter, r *http.Request, admin Admin) (do
 
 func writeAdminError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, application.ErrCodeDeliveryFailed):
+		// The code was minted but the email provider rejected it. Retrying
+		// cannot help until the provider is fixed, so this is reported as an
+		// unavailable dependency and the real cause goes to the logs.
+		logServerError(r.Context(), r, http.StatusServiceUnavailable, "mfa_delivery_failed", err)
+		writeError(w, r, http.StatusServiceUnavailable, APIError{
+			Code:    "mfa_delivery_failed",
+			Message: "The sign-in code could not be delivered. The email provider is unavailable or misconfigured.",
+		})
 	case errors.Is(err, application.ErrNotAdmin):
 		writeError(w, r, http.StatusForbidden, APIError{
 			Code:    "admin_role_required",
@@ -509,6 +518,9 @@ func writeAdminError(w http.ResponseWriter, r *http.Request, err error) {
 			Message: "One or more fields are invalid.",
 		})
 	default:
+		// Unmapped errors are genuine faults. The envelope stays opaque; the
+		// cause goes to the logs so a 500 is never a dead end during triage.
+		logServerError(r.Context(), r, http.StatusInternalServerError, "internal_error", err)
 		writeError(w, r, http.StatusInternalServerError, APIError{Code: "internal_error", Message: "The request could not be completed."})
 	}
 }

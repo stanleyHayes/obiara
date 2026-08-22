@@ -7,6 +7,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/stanleyHayes/obiara/internal/notifications/domain"
@@ -111,7 +112,8 @@ func (service ChannelService) deliver(ctx context.Context, message whatsappdomai
 		return "", logErr
 	}
 	if err != nil {
-		return "", ErrDeliveryFailed
+		// Keep the provider cause for triage; callers match the sentinel.
+		return "", fmt.Errorf("%w: %w", ErrDeliveryFailed, err)
 	}
 	return providerRef, nil
 }

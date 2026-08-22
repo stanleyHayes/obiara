@@ -16,7 +16,10 @@ import (
 
 	notificationmongodb "github.com/stanleyHayes/obiara/internal/notifications/adapters/outbound/mongodb"
 	notificationapplication "github.com/stanleyHayes/obiara/internal/notifications/application"
+	inappmongodb "github.com/stanleyHayes/obiara/internal/notifications/inapp/adapters/outbound/mongodb"
 	ritualapplication "github.com/stanleyHayes/obiara/internal/notifications/ritual/application"
+	"github.com/stanleyHayes/obiara/internal/notifications/routing/adapters/outbound/inappsender"
+	routingapplication "github.com/stanleyHayes/obiara/internal/notifications/routing/application"
 	"github.com/stanleyHayes/obiara/internal/platform/inbox"
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
@@ -124,8 +127,22 @@ func run() error {
 	safetyCaseService := safetyapplication.NewCaseService(safetyCaseRepository, time.Now, newID)
 	safetyBuilder := safetyjob.NewCaseBuilder(outboxStore, safetyReportRepository, safetyCaseService, inbox.NewStore(database, time.Now))
 
+	// Notification routing (E13-S03): the outbox relay delivers member-facing
+	// events through the channel ladder. Push is not provisioned, so the
+	// ritual ladder falls through to the always-available in-app inbox; the
+	// router skips channels it has no sender for.
+	inAppStore := inappmongodb.NewStore(database)
+	if err := inAppStore.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("ensure in-app notification indexes: %w", err)
+	}
+	router := routingapplication.NewRouter(
+		[]routingapplication.ChannelSender{inappsender.New(inAppStore, time.Now)},
+		decider,
+		time.Now,
+	)
+
 	scheduler := application.NewScheduler([]application.Job{
-		relay.NewOutboxJob(outboxStore, loggingPublisher{logger: logger}, 100, 5*time.Second),
+		relay.NewOutboxJob(outboxStore, relay.NewNotifyingPublisher(router, logger), 100, 5*time.Second),
 		privacyjob.NewProcessorJob(privacyProcessor, 25, 60*time.Second),
 		ritualjob.NewCalendarJob(ritualDispatcher, 5*time.Minute),
 		ritualjob.NewHeraldJob(ritualDispatcher, 5*time.Minute),
@@ -139,20 +156,6 @@ func run() error {
 		return err
 	}
 	logger.InfoContext(ctx, "worker stopped")
-	return nil
-}
-
-// loggingPublisher is the placeholder publisher until notification and
-// projection consumers land; it proves the relay loop end-to-end without
-// leaking payloads (only bounded identifiers are logged).
-type loggingPublisher struct {
-	logger *slog.Logger
-}
-
-func (publisher loggingPublisher) Publish(ctx context.Context, record outbox.Record) error {
-	publisher.logger.InfoContext(ctx, "outbox record published",
-		slog.String("eventType", record.EventType),
-		slog.String("aggregateType", record.AggregateType))
 	return nil
 }
 

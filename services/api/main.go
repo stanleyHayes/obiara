@@ -114,6 +114,10 @@ func run() error {
 		_ = telemetryRuntime.Shutdown(shutdownCtx)
 	}()
 
+	// Give the transport layer a sink for 5xx causes; error envelopes stay
+	// opaque to callers, so without this a fault leaves no trace at all.
+	apihttp.SetServerLogger(telemetryRuntime.Logger)
+
 	connectCtx, cancel := context.WithTimeout(ctx, cfg.MongoConnectTimeout)
 	defer cancel()
 	client, err := apimongo.Connect(connectCtx, cfg.MongoURI)

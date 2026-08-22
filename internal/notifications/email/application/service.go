@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -77,7 +78,10 @@ func (service EmailService) Send(ctx context.Context, to string, template domain
 		return "", err
 	}
 	if sendErr != nil {
-		return "", ErrDeliveryFailed
+		// The provider cause is kept in the chain. Callers still match on
+		// ErrDeliveryFailed, but an operator reading the logs can tell a
+		// rejected key from an unverified sender domain from a rate limit.
+		return "", fmt.Errorf("%w: %w", ErrDeliveryFailed, sendErr)
 	}
 	return providerRef, nil
 }

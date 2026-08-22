@@ -6,6 +6,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/admin/domain"
@@ -23,6 +24,12 @@ var (
 	ErrFourEyesRequired   = errors.New("admin role changes require a distinct second approver")
 	ErrPrincipalConflict  = errors.New("admin principal changed concurrently")
 	ErrRoleChangeNotFound = errors.New("admin role change not found")
+	// ErrCodeDeliveryFailed reports that an MFA code was minted but the
+	// email channel could not deliver it. It is distinct from an internal
+	// fault: the operator is not at fault and retrying will not help until
+	// the email provider is fixed, so transport layers surface it as an
+	// actionable service error rather than a bare 500.
+	ErrCodeDeliveryFailed = errors.New("admin mfa code could not be delivered")
 )
 
 // PrincipalRepository persists admin principals. Privileged mutations are
@@ -295,7 +302,12 @@ func (service AdminService) mintAndSend(ctx context.Context, principalID, email 
 	if err := service.challenges.Create(ctx, domain.NewChallenge(service.newID(), principalID, code, service.now())); err != nil {
 		return err
 	}
-	return service.sender.SendMfaCode(ctx, email, code)
+	if err := service.sender.SendMfaCode(ctx, email, code); err != nil {
+		// The provider error is kept in the chain so operators can read the
+		// real cause in the logs, while callers match on the sentinel.
+		return fmt.Errorf("%w: %w", ErrCodeDeliveryFailed, err)
+	}
+	return nil
 }
 
 // CompleteLogin verifies a code and issues an admin session.
