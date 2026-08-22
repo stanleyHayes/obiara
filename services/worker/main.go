@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -68,19 +69,32 @@ func run() error {
 	logger := telemetryRuntime.Logger
 	ctx = telemetryRuntime.Started(ctx, 1)
 	defer func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), telemetryShutdownTimeout)
 		defer shutdownCancel()
 		_ = telemetryRuntime.Shutdown(shutdownCtx)
 	}()
 
-	connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// The worker honours the same connect and shutdown budgets as the API.
+	// These were hardcoded to ten seconds, which a cold Atlas cluster
+	// routinely exceeds; on Render that is a crash loop with no knob to
+	// turn.
+	connectTimeout, err := durationOrDefault("MONGO_CONNECT_TIMEOUT", 10*time.Second)
+	if err != nil {
+		return err
+	}
+	shutdownTimeout, err := durationOrDefault("SHUTDOWN_TIMEOUT", 10*time.Second)
+	if err != nil {
+		return err
+	}
+
+	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 	client, err := apimongo.Connect(connectCtx, envOrDefault("MONGODB_URI", "mongodb://localhost:27017"))
 	if err != nil {
 		return err
 	}
 	defer func() {
-		disconnectCtx, disconnectCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		disconnectCtx, disconnectCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer disconnectCancel()
 		_ = client.Disconnect(disconnectCtx)
 	}()
@@ -165,6 +179,27 @@ func newID() string {
 		panic(err)
 	}
 	return "case_" + base64.RawURLEncoding.EncodeToString(id)
+}
+
+// telemetryShutdownTimeout bounds exporter flush at exit. It is fixed
+// because it runs before the configured shutdown budget is in scope.
+const telemetryShutdownTimeout = 10 * time.Second
+
+// durationOrDefault reads a Go duration from the environment, failing loudly
+// on a malformed value rather than silently falling back.
+func durationOrDefault(key string, fallback time.Duration) (time.Duration, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be a Go duration such as 30s, got %q", key, value)
+	}
+	if parsed <= 0 {
+		return 0, fmt.Errorf("%s must be positive, got %q", key, value)
+	}
+	return parsed, nil
 }
 
 func envOrDefault(key, fallback string) string {

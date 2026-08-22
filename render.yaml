@@ -16,8 +16,12 @@ projects:
             envVars:
               - key: APP_ENV
                 value: production
+              # Atlas can take well over ten seconds to accept the first
+              # connection on a cold or shared cluster. Both services fail
+              # startup when this budget is exceeded, which on Render is a
+              # crash loop, so the default is generous rather than tight.
               - key: MONGO_CONNECT_TIMEOUT
-                value: 10s
+                value: 30s
               - key: SHUTDOWN_TIMEOUT
                 value: 20s
               - key: OTEL_EXPORTER_OTLP_INSECURE
