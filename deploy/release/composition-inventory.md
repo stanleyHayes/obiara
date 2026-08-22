@@ -13,7 +13,7 @@ tree but nothing routes to them.
 Nothing here is a defect. It is the scope boundary, written down so it is a
 decision rather than a surprise.
 
-## Composed and reachable (51)
+## Composed and reachable (54)
 
 - `internal/notifications`
 - `internal/notifications/deliverystats`
@@ -57,8 +57,11 @@ decision rather than a surprise.
 - `services/api/internal/platform/flagcontrol`
 - `services/api/internal/profile`
 - `services/api/internal/realtime/livekit`
+- `services/api/internal/seed/decline`
 - `services/api/internal/seed/garden`
 - `services/api/internal/seed/listening`
+- `services/api/internal/seed/safety`
+- `services/api/internal/seed/sprout`
 - `services/api/internal/sentinel/scamarc`
 - `services/api/internal/suban`
 - `services/api/internal/suban/explanation`
@@ -67,7 +70,7 @@ decision rather than a surprise.
 - `services/api/internal/verification`
 - `services/api/internal/verification/liveness`
 
-## Built but not composed (58)
+## Built but not composed (55)
 
 These have no route, job, or consumer. Calling them impossible today is
 accurate; calling them unimplemented is not.
@@ -120,13 +123,10 @@ accurate; calling them unimplemented is not.
 - `services/api/internal/safety/victimexport`
 - `services/api/internal/safety/womensreview`
 - `services/api/internal/seed/allowance`
-- `services/api/internal/seed/decline`
 - `services/api/internal/seed/pod`
-- `services/api/internal/seed/safety`
 - `services/api/internal/seed/screening`
 - `services/api/internal/seed/source`
 - `services/api/internal/seed/sow`
-- `services/api/internal/seed/sprout`
 - `services/api/internal/seed/water`
 - `services/api/internal/vouch/assisted`
 - `services/api/internal/vouch/attestation`

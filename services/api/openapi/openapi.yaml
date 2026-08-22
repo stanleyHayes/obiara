@@ -788,69 +788,6 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
-  /v1/courtship/rooms/{id}/pace/advance:
-    post:
-      operationId: advanceCourtshipPace
-      tags: [Courtship]
-      summary: Advance the room's rhythm
-      security:
-        - MemberBearer: []
-      description: |
-        Moves the room's rhythm on. This is the room's own pace, not an action attributed to either member.
-      parameters:
-        - $ref: "#/components/parameters/CorrelationId"
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 128
-            pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RoomCommandInput"
-      responses:
-        "200":
-          description: Room state after the action.
-          headers:
-            X-Correlation-ID:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CourtshipRoomEnvelope"
-        "400":
-          $ref: "#/components/responses/InvalidJSON"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: The room is not available to this member.
-          headers:
-            X-Correlation-ID:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "409":
-          description: The room changed, is paused, or the command id was reused.
-          headers:
-            X-Correlation-ID:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
-        "415":
-          $ref: "#/components/responses/UnsupportedMediaType"
-        "422":
-          $ref: "#/components/responses/ValidationFailed"
-        "500":
-          $ref: "#/components/responses/InternalError"
   /v1/courtship/rooms/{id}/pace/relight:
     post:
       operationId: relightCourtshipPace

@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/courtship/pace/domain"
@@ -78,4 +79,26 @@ func (service Service) change(ctx context.Context, roomID, commandID, memberID s
 		return domain.Pace{}, err
 	}
 	return pace, nil
+}
+
+// IsMember reports whether a member belongs to a room.
+//
+// The pace aggregate is opened with both members when the room starts, so it
+// is the room's membership record. Slices that carry no membership of their
+// own — the turn queue is one — gate on this before acting, or any member
+// who learns a room id could act inside somebody else's courtship.
+func (service Service) IsMember(ctx context.Context, roomID, memberID string) (bool, error) {
+	room, err := service.keys.Key("pace_room", roomID)
+	if err != nil {
+		return false, err
+	}
+	pace, err := service.repository.Find(ctx, room)
+	if err != nil {
+		return false, err
+	}
+	actor, err := service.keys.Key("pace_member", memberID)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(pace.Members(), actor), nil
 }

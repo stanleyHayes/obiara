@@ -74,6 +74,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/profile"
 	"github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit"
 	livekitapp "github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit/application"
+	seedstage "github.com/stanleyHayes/obiara/services/api/internal/seed"
 	gardenmongodb "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/mongodb"
 	gardenprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/privacy"
 	gardenapp "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/application"
@@ -179,6 +180,11 @@ func run() error {
 	courtshipRoomModule, err := courtship.NewRoomModule(ctx, client.Database(cfg.MongoDatabase), cfg.CircleHMACSecret)
 	if err != nil {
 		return fmt.Errorf("build courtship room module: %w", err)
+	}
+	// The seed stage a member meets before a courtship room exists.
+	seedStageModule, err := seedstage.NewStageModule(ctx, client.Database(cfg.MongoDatabase), cfg.SeedHMACSecret)
+	if err != nil {
+		return fmt.Errorf("build seed stage module: %w", err)
 	}
 
 	// Modules are composed here at startup (agent_plan.md §7.2).
@@ -476,6 +482,7 @@ func run() error {
 	apihttp.RegisterPushRoutes(mux, pushModule.Push, identityModule.Sessions)
 	apihttp.RegisterCourtshipProposalRoutes(mux, proposalModule.Proposals, identityModule.Sessions)
 	apihttp.RegisterCourtshipRoomRoutes(mux, courtship.NewRoom(courtshipRoomModule), identityModule.Sessions)
+	apihttp.RegisterSeedStageRoutes(mux, seedstage.NewStage(seedStageModule), identityModule.Sessions)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)

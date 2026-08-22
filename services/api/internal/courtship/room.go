@@ -141,6 +141,24 @@ func notFound(err error) bool {
 	return errors.Is(err, mongo.ErrNoDocuments)
 }
 
+// requireMember reports the room's own denial when the caller is not one of
+// its two members, or when the room does not exist. The two are deliberately
+// the same answer: distinguishing them would let anyone probe which rooms
+// are real.
+func (room Room) requireMember(ctx context.Context, roomID, memberID string) error {
+	member, err := room.module.Pace.IsMember(ctx, roomID, memberID)
+	if err != nil {
+		if notFound(err) {
+			return pacedomain.ErrDenied
+		}
+		return err
+	}
+	if !member {
+		return pacedomain.ErrDenied
+	}
+	return nil
+}
+
 // Room adapts the five room slices to the single inbound port the transport
 // layer sees. Each slice keeps its own aggregate and store; this only spares
 // the composition root from threading five services through one surface that
@@ -182,6 +200,12 @@ func (room Room) Start(ctx context.Context, roomID string, members []string, com
 // caller's device has seen, so a device that has fallen behind is told to
 // catch up rather than writing over what it has not read.
 func (room Room) Submit(ctx context.Context, roomID, deviceRef, actorID, payloadRef, commandID string, baseSequence uint64) (queueapp.Result, error) {
+	// The turn queue carries no membership of its own, so it is gated here.
+	// Without this any member who learned a room id could take turns inside
+	// somebody else's courtship.
+	if err := room.requireMember(ctx, roomID, actorID); err != nil {
+		return queueapp.Result{}, err
+	}
 	result, err := room.module.Queue.Submit(ctx, queueapp.SubmitCommand{
 		ID: commandID, RoomRef: roomID, DeviceRef: deviceRef,
 		ActorID: actorID, PayloadRef: payloadRef, BaseSequence: baseSequence,
@@ -193,20 +217,17 @@ func (room Room) Submit(ctx context.Context, roomID, deviceRef, actorID, payload
 }
 
 // Timeline returns the room's ordered event log after a sequence.
-func (room Room) Timeline(ctx context.Context, roomID string, after uint64, limit int) ([]queuedomain.Event, error) {
+func (room Room) Timeline(ctx context.Context, roomID, memberID string, after uint64, limit int) ([]queuedomain.Event, error) {
+	// Even a metadata-only log reveals that a room exists and how active it
+	// is, so reading it requires membership.
+	if err := room.requireMember(ctx, roomID, memberID); err != nil {
+		return nil, err
+	}
 	events, err := room.module.Queue.Events(ctx, roomID, after, limit)
 	if notFound(err) {
 		return nil, queuedomain.ErrInvalid
 	}
 	return events, err
-}
-
-func (room Room) Advance(ctx context.Context, roomID, commandID string, expected uint64) (pacedomain.Pace, error) {
-	pace, err := room.module.Pace.Advance(ctx, roomID, commandID, expected)
-	if notFound(err) {
-		return pacedomain.Pace{}, pacedomain.ErrDenied
-	}
-	return pace, err
 }
 
 func (room Room) Relight(ctx context.Context, roomID, memberID, commandID string, expected uint64) (pacedomain.Pace, error) {

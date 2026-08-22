@@ -341,7 +341,7 @@ func (run *journey) courtshipRoom(ctx context.Context) {
 		map[string]any{"commandId": "smoke-bad-" + stamp, "action": "stop"}, run.access)
 	run.step("invalid pause action rejected", status == 422, fmt.Sprintf("%d", status))
 
-	// Turn-taking: the log both devices reconcile against.
+	// Turn-taking, and the membership gate that protects it.
 	status, body = run.do(ctx, http.MethodPost, "/v1/courtship/rooms/"+run.roomID+"/turns",
 		map[string]any{"commandId": "smoke-turn-" + stamp, "deviceRef": "smoke-device",
 			"payloadRef": "smoke-payload", "baseSequence": 0}, run.access)
@@ -359,10 +359,14 @@ func (run *journey) courtshipRoom(ctx context.Context) {
 	run.step("GET .../turns", status == 200 && !leaked,
 		fmt.Sprintf("%d, content withheld=%v", status, !leaked))
 
-	// An outsider must not be able to learn a room exists.
+	// An outsider must not be able to learn a room exists, nor read the turn
+	// log of a room they are not in.
 	status, _ = run.do(ctx, http.MethodPost, "/v1/courtship/rooms/room-nobody-has/closure",
 		map[string]any{"commandId": "smoke-outsider-" + stamp}, run.access)
 	run.step("unknown room is 404", status == 404, fmt.Sprintf("%d", status))
+
+	status, _ = run.do(ctx, http.MethodGet, "/v1/courtship/rooms/room-nobody-has/turns", nil, run.access)
+	run.step("outsider cannot read turns", status == 404, fmt.Sprintf("%d", status))
 }
 
 func (run *journey) rejectsUnauthenticated(ctx context.Context) {

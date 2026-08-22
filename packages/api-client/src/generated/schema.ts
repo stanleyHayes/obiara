@@ -1594,26 +1594,6 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
-  readonly "/v1/courtship/rooms/{id}/pace/advance": {
-    readonly parameters: {
-      readonly query?: never;
-      readonly header?: never;
-      readonly path?: never;
-      readonly cookie?: never;
-    };
-    readonly get?: never;
-    readonly put?: never;
-    /**
-     * Advance the room's rhythm
-     * @description Moves the room's rhythm on. This is the room's own pace, not an action attributed to either member.
-     */
-    readonly post: operations["advanceCourtshipPace"];
-    readonly delete?: never;
-    readonly options?: never;
-    readonly head?: never;
-    readonly patch?: never;
-    readonly trace?: never;
-  };
   readonly "/v1/courtship/rooms/{id}/pace/relight": {
     readonly parameters: {
       readonly query?: never;
@@ -8778,61 +8758,6 @@ export interface operations {
     readonly requestBody: {
       readonly content: {
         readonly "application/json": components["schemas"]["RoomHonestyInput"];
-      };
-    };
-    readonly responses: {
-      /** @description Room state after the action. */
-      readonly 200: {
-        headers: {
-          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly "application/json": components["schemas"]["CourtshipRoomEnvelope"];
-        };
-      };
-      readonly 400: components["responses"]["InvalidJSON"];
-      readonly 401: components["responses"]["Unauthorized"];
-      /** @description The room is not available to this member. */
-      readonly 404: {
-        headers: {
-          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly "application/json": components["schemas"]["ErrorEnvelope"];
-        };
-      };
-      /** @description The room changed, is paused, or the command id was reused. */
-      readonly 409: {
-        headers: {
-          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly "application/json": components["schemas"]["ErrorEnvelope"];
-        };
-      };
-      readonly 415: components["responses"]["UnsupportedMediaType"];
-      readonly 422: components["responses"]["ValidationFailed"];
-      readonly 500: components["responses"]["InternalError"];
-    };
-  };
-  readonly advanceCourtshipPace: {
-    readonly parameters: {
-      readonly query?: never;
-      readonly header?: {
-        /** @description Safe caller-provided identifier; invalid values are replaced. */
-        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
-      };
-      readonly path: {
-        readonly id: string;
-      };
-      readonly cookie?: never;
-    };
-    readonly requestBody: {
-      readonly content: {
-        readonly "application/json": components["schemas"]["RoomCommandInput"];
       };
     };
     readonly responses: {

@@ -39,16 +39,12 @@ func (stub *roomStub) Submit(_ context.Context, _, deviceRef, actorID, payloadRe
 	stub.called, stub.actor, stub.commandID, stub.device, stub.payload, stub.base = "submit", actorID, commandID, deviceRef, payloadRef, base
 	return queueapp.Result{Event: queuedomain.Event{Sequence: base + 1}}, stub.err
 }
-func (stub *roomStub) Timeline(_ context.Context, _ string, after uint64, limit int) ([]queuedomain.Event, error) {
-	stub.called, stub.after, stub.limit = "timeline", after, limit
+func (stub *roomStub) Timeline(_ context.Context, _, memberID string, after uint64, limit int) ([]queuedomain.Event, error) {
+	stub.called, stub.actor, stub.after, stub.limit = "timeline", memberID, after, limit
 	return []queuedomain.Event{{Sequence: after + 1, AcceptedAt: time.Now()}}, stub.err
 }
 func (stub *roomStub) Start(_ context.Context, _ string, members []string, commandID, actorID string) (pacedomain.Pace, error) {
 	stub.called, stub.actor, stub.commandID, stub.members = "start", actorID, commandID, members
-	return pacedomain.Pace{}, stub.err
-}
-func (stub *roomStub) Advance(_ context.Context, _, commandID string, revision uint64) (pacedomain.Pace, error) {
-	stub.called, stub.commandID, stub.revision = "advance", commandID, revision
 	return pacedomain.Pace{}, stub.err
 }
 func (stub *roomStub) Relight(_ context.Context, _, memberID, commandID string, revision uint64) (pacedomain.Pace, error) {
@@ -99,7 +95,6 @@ func TestRoomActionsCarryTheActorAndRevision(t *testing.T) {
 	cases := map[string]struct {
 		path, body, want string
 	}{
-		"pace advance": {"/v1/courtship/rooms/room_1/pace/advance", `{"commandId":"c1","expectedRevision":4}`, "advance"},
 		"pace relight": {"/v1/courtship/rooms/room_1/pace/relight", `{"commandId":"c1","expectedRevision":4}`, "relight"},
 		"pause":        {"/v1/courtship/rooms/room_1/pause", `{"commandId":"c1","action":"pause","expectedRevision":4}`, "pause"},
 		"honesty":      {"/v1/courtship/rooms/room_1/honesty", `{"commandId":"c1","grant":true,"expectedRevision":4}`, "honesty"},
@@ -120,9 +115,7 @@ func TestRoomActionsCarryTheActorAndRevision(t *testing.T) {
 			if stub.commandID != "c1" || stub.revision != 4 {
 				t.Errorf("command = %q revision = %d", stub.commandID, stub.revision)
 			}
-			// Advance is the only action not attributed to a member: it is
-			// the room's own rhythm moving on.
-			if testCase.want != "advance" && stub.actor != "mem_actor" {
+			if stub.actor != "mem_actor" {
 				t.Errorf("actor = %q, want the session's member", stub.actor)
 			}
 		})
@@ -308,5 +301,38 @@ func TestTimelineRejectsBadPaging(t *testing.T) {
 		if response.Code != http.StatusUnprocessableEntity {
 			t.Errorf("%s status = %d, want 422", query, response.Code)
 		}
+	}
+}
+
+// TestTimelineIsGatedOnMembership pins the fix for an IDOR found by review:
+// the turn queue carries no membership of its own, so reading its log has to
+// be gated at the composition seam. Without it any member who learned a room
+// id could read another couple's activity.
+func TestTimelineIsGatedOnMembership(t *testing.T) {
+	stub := &roomStub{}
+	request := httptest.NewRequest(http.MethodGet, "/v1/courtship/rooms/room_1/turns", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	roomHandler(stub, "mem_reader").ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", response.Code)
+	}
+	// The member must reach the gate; a handler that drops it cannot enforce
+	// membership no matter what the seam does.
+	if stub.actor != "mem_reader" {
+		t.Errorf("timeline called for %q, want the session's member", stub.actor)
+	}
+}
+
+// TestOutsiderIsRefusedTheTimeline covers the seam's own answer.
+func TestOutsiderIsRefusedTheTimeline(t *testing.T) {
+	stub := &roomStub{err: pacedomain.ErrDenied}
+	request := httptest.NewRequest(http.MethodGet, "/v1/courtship/rooms/room_1/turns", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	roomHandler(stub, "mem_outsider").ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 so an outsider cannot tell the room is real", response.Code)
 	}
 }

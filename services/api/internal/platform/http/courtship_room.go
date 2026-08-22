@@ -22,9 +22,8 @@ import (
 // closure, and the in-room safety actions.
 type CourtshipRoom interface {
 	Submit(ctx context.Context, roomID, deviceRef, actorID, payloadRef, commandID string, baseSequence uint64) (queueapp.Result, error)
-	Timeline(ctx context.Context, roomID string, after uint64, limit int) ([]queuedomain.Event, error)
+	Timeline(ctx context.Context, roomID, memberID string, after uint64, limit int) ([]queuedomain.Event, error)
 	Start(ctx context.Context, roomID string, members []string, commandID, actorID string) (pacedomain.Pace, error)
-	Advance(ctx context.Context, roomID, commandID string, expectedRevision uint64) (pacedomain.Pace, error)
 	Relight(ctx context.Context, roomID, memberID, commandID string, expectedRevision uint64) (pacedomain.Pace, error)
 	ApplyPause(ctx context.Context, roomID, memberID, commandID string, action pausedomain.Action, expectedRevision uint64) (pausedomain.Stone, error)
 	SetHonesty(ctx context.Context, roomID, memberID, commandID string, grant bool, expectedRevision uint64) (honestydomain.Ribbon, error)
@@ -43,7 +42,6 @@ func RegisterCourtshipRoomRoutes(mux *http.ServeMux, room CourtshipRoom, session
 	mux.Handle("POST /v1/courtship/rooms", startRoomHandler(room, sessions))
 	mux.Handle("POST /v1/courtship/rooms/{id}/turns", submitTurnHandler(room, sessions))
 	mux.Handle("GET /v1/courtship/rooms/{id}/turns", roomTimelineHandler(room, sessions))
-	mux.Handle("POST /v1/courtship/rooms/{id}/pace/advance", paceAdvanceHandler(room, sessions))
 	mux.Handle("POST /v1/courtship/rooms/{id}/pace/relight", paceRelightHandler(room, sessions))
 	mux.Handle("POST /v1/courtship/rooms/{id}/pause", pauseHandler(room, sessions))
 	mux.Handle("POST /v1/courtship/rooms/{id}/honesty", honestyHandler(room, sessions))
@@ -253,7 +251,8 @@ func submitTurnHandler(room CourtshipRoom, sessions SessionAuthenticator) http.H
 // Only sequence and time are returned: the turn content stays in the room.
 func roomTimelineHandler(room CourtshipRoom, sessions SessionAuthenticator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := authenticatedMember(w, r, sessions); !ok {
+		memberID, ok := authenticatedMember(w, r, sessions)
+		if !ok {
 			return
 		}
 		roomID := r.PathValue("id")
@@ -287,7 +286,7 @@ func roomTimelineHandler(room CourtshipRoom, sessions SessionAuthenticator) http
 			limit = parsed
 		}
 
-		events, err := room.Timeline(r.Context(), roomID, after, limit)
+		events, err := room.Timeline(r.Context(), roomID, memberID, after, limit)
 		if err != nil {
 			writeCourtshipRoomError(w, r, err)
 			return
@@ -299,23 +298,6 @@ func roomTimelineHandler(room CourtshipRoom, sessions SessionAuthenticator) http
 			})
 		}
 		writeSuccess(w, r, http.StatusOK, response)
-	})
-}
-
-func paceAdvanceHandler(room CourtshipRoom, sessions SessionAuthenticator) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, roomID, body, ok := roomCommand(w, r, sessions)
-		if !ok {
-			return
-		}
-		pace, err := room.Advance(r.Context(), roomID, body.CommandID, body.ExpectedRevision)
-		if err != nil {
-			writeCourtshipRoomError(w, r, err)
-			return
-		}
-		writeSuccess(w, r, http.StatusOK, roomStateResponse{
-			RoomID: roomID, Revision: pace.Revision(), Status: string(pace.Status()),
-		})
 	})
 }
 
