@@ -11853,6 +11853,17 @@ components:
               type: string
               minLength: 12
               maxLength: 240
+            expectedVersion:
+              type: integer
+              format: int64
+              minimum: 1
+              description: >-
+                The principal revision the caller decided against. This
+                action replaces the whole role set, so a decision formed
+                against an older revision would silently revoke a grant
+                another administrator made in between; supplying the
+                version turns that into a 409 instead. Optional for
+                callers that predate optimistic concurrency.
     AdminRoleChangeInput:
       type: object
       additionalProperties: false

@@ -17,7 +17,7 @@ type Admin interface {
 	Enroll(ctx context.Context, sessionID, email string, roles []domain.Role) (domain.Principal, error)
 	ListPrincipals(ctx context.Context, sessionID string) ([]domain.Principal, error)
 	ChangeStatus(ctx context.Context, sessionID, targetID string, status domain.Status) (domain.Principal, error)
-	ChangeRoles(ctx context.Context, sessionID, targetID string, roles []domain.Role) (domain.Principal, error)
+	ChangeRoles(ctx context.Context, sessionID, targetID string, roles []domain.Role, expectedVersion *int64) (domain.Principal, error)
 	ProposeAdminRoleChange(ctx context.Context, sessionID, targetID string, roles []domain.Role, reason string) (domain.RoleChange, error)
 	ListPendingRoleChanges(ctx context.Context, sessionID string) ([]domain.RoleChange, error)
 	ApproveAdminRoleChange(ctx context.Context, sessionID, changeID string) (domain.Principal, error)
@@ -201,6 +201,10 @@ type updatePrincipalRequest struct {
 	Status string   `json:"status"`
 	Roles  []string `json:"roles"`
 	Reason string   `json:"reason"`
+	// ExpectedVersion is the principal revision the console displayed when
+	// the operator chose this change. Absent means "apply regardless",
+	// which is what pre-existing callers send.
+	ExpectedVersion *int64 `json:"expectedVersion"`
 }
 
 func updatePrincipalHandler(admin Admin) http.Handler {
@@ -231,7 +235,7 @@ func updatePrincipalHandler(admin Admin) http.Handler {
 			for _, role := range body.Roles {
 				roles = append(roles, domain.Role(role))
 			}
-			principal, err = admin.ChangeRoles(r.Context(), session.ID(), r.PathValue("id"), roles)
+			principal, err = admin.ChangeRoles(r.Context(), session.ID(), r.PathValue("id"), roles, body.ExpectedVersion)
 		default:
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{Code: "validation_failed", Message: "Choose a supported principal action."})
 			return

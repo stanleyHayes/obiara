@@ -34,6 +34,7 @@ describe("operators model", () => {
       roles: ["verifier"] as const,
       status: "active" as const,
       enrolled: "26 Jul 2026",
+      version: 3,
     };
     const state = operatorsReducer(initialOperatorsState, {
       type: "hydrate",
@@ -41,6 +42,9 @@ describe("operators model", () => {
     });
     expect(state.operators).toHaveLength(1);
     expect(state.selectedId).toBe("adm_live");
+    // The revision must survive hydration: a role change sends it back so
+    // the server can refuse a decision made against a stale copy.
+    expect(state.operators[0].version).toBe(3);
   });
 
   it("keeps enrollment inputs local without inventing an operator", () => {

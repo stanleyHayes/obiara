@@ -65,6 +65,7 @@ type OperatorMutation =
       principalId: string;
       roles: OperatorRole[];
       reason: string;
+      expectedVersion?: number;
     }
   | {
       action: "propose-admin-role";
@@ -158,7 +159,14 @@ export async function POST(request: Request) {
       body:
         body.action === "status"
           ? { action: "status", status: body.status, reason: body.reason }
-          : { action: "roles", roles: body.roles, reason: body.reason },
+          : {
+              action: "roles",
+              roles: body.roles,
+              reason: body.reason,
+              ...(body.expectedVersion === undefined
+                ? {}
+                : { expectedVersion: body.expectedVersion }),
+            },
     },
   );
   return data

@@ -286,3 +286,82 @@ func TestAdminRoleChangeNeedsDistinctSteppedUpApprover(t *testing.T) {
 		t.Fatal("approved target must hold admin role")
 	}
 }
+
+// versionOf is a pointer helper: expectedVersion is optional, and the
+// difference between "absent" and "zero" is the whole point of the guard.
+func versionOf(value int64) *int64 { return &value }
+
+func TestChangeRolesRejectsAStaleDecision(t *testing.T) {
+	service, principals, _, sessions, _, _ := newService(t)
+	// The console displayed revision 3 and the operator chose against it,
+	// but another administrator has since moved the principal to 4.
+	target := domain.ReconstitutePrincipal("adm_target", "target@example.test",
+		[]domain.Role{domain.RoleVerifier, domain.RoleFinance}, domain.StatusActive, 4, adminSvcNow)
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_root").Return(steppedUpSession("sess_root", "adm_root", []domain.Role{domain.RoleAdmin}), nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_root").Return(adminPrincipal(), nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_target").Return(target, nil)
+	// Nothing may be written: this PATCH replaces the whole role set, so
+	// applying it would revoke the grant that moved the version.
+	principals.EXPECT().UpdateWithAudit(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := service.ChangeRoles(context.Background(), "sess_root", "adm_target",
+		[]domain.Role{domain.RoleVerifier}, versionOf(3))
+	if !errors.Is(err, ErrPrincipalConflict) {
+		t.Fatalf("ChangeRoles = %v, want ErrPrincipalConflict", err)
+	}
+}
+
+func TestChangeRolesAppliesWhenTheVersionStillMatches(t *testing.T) {
+	service, principals, _, sessions, _, _ := newService(t)
+	target := domain.ReconstitutePrincipal("adm_target", "target@example.test",
+		[]domain.Role{domain.RoleVerifier, domain.RoleFinance}, domain.StatusActive, 3, adminSvcNow)
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_root").Return(steppedUpSession("sess_root", "adm_root", []domain.Role{domain.RoleAdmin}), nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_root").Return(adminPrincipal(), nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_target").Return(target, nil)
+	principals.EXPECT().UpdateWithAudit(gomock.Any(), gomock.Any(), false, "adm_root", "admin.principal.roles", gomock.Any()).DoAndReturn(
+		func(_ context.Context, updated domain.Principal, _ bool, _ string, _ string, _ time.Time) error {
+			if len(updated.Roles()) != 1 || updated.Roles()[0] != domain.RoleVerifier {
+				t.Fatalf("roles = %v, want [verifier]", updated.Roles())
+			}
+			return nil
+		})
+
+	if _, err := service.ChangeRoles(context.Background(), "sess_root", "adm_target",
+		[]domain.Role{domain.RoleVerifier}, versionOf(3)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestChangeRolesWithoutAnExpectedVersionStillApplies(t *testing.T) {
+	service, principals, _, sessions, _, _ := newService(t)
+	// Callers written before optimistic concurrency existed send nothing,
+	// and must keep working rather than failing closed on every request.
+	target := domain.ReconstitutePrincipal("adm_target", "target@example.test",
+		[]domain.Role{domain.RoleVerifier, domain.RoleFinance}, domain.StatusActive, 9, adminSvcNow)
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_root").Return(steppedUpSession("sess_root", "adm_root", []domain.Role{domain.RoleAdmin}), nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_root").Return(adminPrincipal(), nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_target").Return(target, nil)
+	principals.EXPECT().UpdateWithAudit(gomock.Any(), gomock.Any(), false, "adm_root", "admin.principal.roles", gomock.Any()).Return(nil)
+
+	if _, err := service.ChangeRoles(context.Background(), "sess_root", "adm_target",
+		[]domain.Role{domain.RoleVerifier}, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestChangeRolesStillRefusesAnAdminRoleFlip(t *testing.T) {
+	service, principals, _, sessions, _, _ := newService(t)
+	// The four-eyes rule must not become reachable just because the
+	// version matched.
+	target := domain.ReconstitutePrincipal("adm_target", "target@example.test",
+		[]domain.Role{domain.RoleVerifier}, domain.StatusActive, 3, adminSvcNow)
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_root").Return(steppedUpSession("sess_root", "adm_root", []domain.Role{domain.RoleAdmin}), nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_root").Return(adminPrincipal(), nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_target").Return(target, nil)
+
+	_, err := service.ChangeRoles(context.Background(), "sess_root", "adm_target",
+		[]domain.Role{domain.RoleVerifier, domain.RoleAdmin}, versionOf(3))
+	if !errors.Is(err, ErrFourEyesRequired) {
+		t.Fatalf("ChangeRoles = %v, want ErrFourEyesRequired", err)
+	}
+}

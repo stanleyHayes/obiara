@@ -129,6 +129,7 @@ export function OperatorsDesk({
           roles: OperatorRole[];
           status: "active" | "suspended";
           createdAt: string;
+          version: number;
         }>;
         message?: string;
       } | null;
@@ -147,6 +148,7 @@ export function OperatorsDesk({
             roles: item.roles,
             status: item.status,
             enrolled: new Date(item.createdAt).toLocaleDateString(),
+            version: item.version,
           })),
         });
       if (mounted.current && generation === directoryGeneration.current)
@@ -252,7 +254,14 @@ export function OperatorsDesk({
           op.type === "add"
             ? [...selected.roles, op.role]
             : selected.roles.filter((r) => r !== op.role);
-        requestBody = { ...body, roles: actualRoles };
+        // The revision these roles were read at travels with them. Without
+        // it the delta still resolves against a possibly stale local copy,
+        // and a full-replace PATCH would quietly drop a grant made since.
+        requestBody = {
+          ...body,
+          roles: actualRoles,
+          expectedVersion: selected.version,
+        };
         delete (requestBody as Record<string, unknown>).operation;
       }
       const response = await fetch("/api/operators", {
@@ -276,6 +285,11 @@ export function OperatorsDesk({
           message: payload?.message ?? "The access change failed.",
         });
         setConfirmError(payload?.message ?? "The access change failed.");
+        // A conflict means the copy on screen is behind. Telling an operator
+        // to refresh while leaving the stale revision loaded would send them
+        // straight back into the same 409, so reload it for them and let the
+        // retry be made against what is actually there now.
+        if (response.status === 409) void loadOperators();
         return;
       }
       if (!mounted.current || generation !== actionGeneration.current) return;

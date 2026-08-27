@@ -3489,6 +3489,11 @@ export interface components {
       | {
           /** @constant */
           readonly action: "roles";
+          /**
+           * Format: int64
+           * @description The principal revision the caller decided against. This action replaces the whole role set, so a decision formed against an older revision would silently revoke a grant another administrator made in between; supplying the version turns that into a 409 instead. Optional for callers that predate optimistic concurrency.
+           */
+          readonly expectedVersion?: number;
           readonly reason: string;
           readonly roles: readonly (
             "verifier" | "ts_agent" | "host" | "finance" | "admin"

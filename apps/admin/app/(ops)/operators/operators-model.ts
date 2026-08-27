@@ -18,6 +18,10 @@ export interface Operator {
   // Enrollment date projected from the principal's createdAt. The backend
   // does not project MFA state or last-active timestamps; do not invent them.
   enrolled: string;
+  // The principal revision this row was read at. A role change sends it
+  // back so the server can refuse a decision formed against a revision
+  // another administrator has since moved past.
+  version: number;
 }
 
 export const roleCatalog: Readonly<
@@ -254,6 +258,9 @@ export function operatorsReducer(
         roles: state.enrollRoles,
         status: "active",
         enrolled: "invite sent",
+        // A freshly enrolled principal starts at revision 1; the next load
+        // replaces this row with the server's own.
+        version: 1,
       };
       return {
         ...state,

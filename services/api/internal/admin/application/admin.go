@@ -158,7 +158,15 @@ func (service AdminService) ChangeStatus(ctx context.Context, sessionID, targetI
 
 // ChangeRoles applies non-admin role changes. Admin grants/revocations are
 // deliberately routed to the separate four-eyes proposal flow.
-func (service AdminService) ChangeRoles(ctx context.Context, sessionID, targetID string, roles []domain.Role) (domain.Principal, error) {
+// expectedVersion, when supplied, is the principal revision the caller made
+// its decision against. It is optional so that callers written before
+// optimistic concurrency existed keep working, but any caller that can
+// supply it should: this PATCH replaces the whole role set, so a decision
+// formed against an older revision silently revokes whatever another
+// administrator granted in between. The four-eyes path already captures
+// target.Version() at proposal time for exactly this reason; this is the
+// same guard for the changes that apply immediately.
+func (service AdminService) ChangeRoles(ctx context.Context, sessionID, targetID string, roles []domain.Role, expectedVersion *int64) (domain.Principal, error) {
 	_, actor, err := service.requireSteppedUpAdmin(ctx, sessionID)
 	if err != nil {
 		return domain.Principal{}, err
@@ -166,6 +174,9 @@ func (service AdminService) ChangeRoles(ctx context.Context, sessionID, targetID
 	target, err := service.principals.FindByID(ctx, targetID)
 	if err != nil {
 		return domain.Principal{}, err
+	}
+	if expectedVersion != nil && *expectedVersion != target.Version() {
+		return domain.Principal{}, ErrPrincipalConflict
 	}
 	hasAdmin := false
 	for _, role := range roles {
