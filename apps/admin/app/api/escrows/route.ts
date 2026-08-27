@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 type Mutation =
   | { action: "fund"; engagementId: string; fundingRef: string }
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     ? NextResponse.json(result.data.data, { status: result.response.status })
     : NextResponse.json(
         {
-          message: apiErrorMessage(
+          ...apiErrorBody(
             result.error,
             "The escrow action could not be retained.",
           ),

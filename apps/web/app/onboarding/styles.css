@@ -320,6 +320,68 @@
   font-weight: 550;
 }
 
+.onboarding-otp-field {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.onboarding-otp-field > small {
+  color: #8b7782;
+  font-size: 0.68rem;
+  font-weight: 550;
+}
+
+.onboarding-otp-field .obiara-otp-fieldset {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.onboarding-otp-field .obiara-otp-fieldset legend {
+  color: #3a0e2e;
+  font-size: 0.79rem;
+  font-weight: 800;
+  margin-bottom: 0.55rem;
+  padding: 0;
+}
+
+.onboarding-otp-field .obiara-otp-inputs {
+  display: grid;
+  gap: clamp(0.35rem, 1.4vw, 0.65rem);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.onboarding-card .obiara-otp-inputs input:not([type="checkbox"]) {
+  border-color: rgba(58, 14, 46, 0.24);
+  border-radius: 0.75rem;
+  font-size: clamp(1.15rem, 3vw, 1.5rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  min-height: 3.75rem;
+  min-width: 0;
+  padding: 0;
+  text-align: center;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.onboarding-card .obiara-otp-inputs input:focus-visible {
+  border-color: #8d315c;
+  box-shadow: 0 0 0 0.25rem rgba(141, 49, 92, 0.1);
+  outline: 2px solid #ff9f1c;
+  outline-offset: 2px;
+  transform: translateY(-2px);
+}
+
+.onboarding-card .obiara-otp-inputs input:disabled {
+  background: #eee8e9;
+  color: #887780;
+  cursor: not-allowed;
+}
+
 .onboarding-phone-input {
   align-items: stretch;
   background: #fffdfb;
@@ -543,6 +605,9 @@
   .onboarding-card > section > button,
   .onboarding-link-button,
   .onboarding-phone-input {
+    transition: none;
+  }
+  .onboarding-card .obiara-otp-inputs input:not([type="checkbox"]) {
     transition: none;
   }
 }

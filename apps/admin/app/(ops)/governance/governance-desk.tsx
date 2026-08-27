@@ -1,429 +1,552 @@
 "use client";
 
+import { errorCode, needsStepUp } from "../../lib/step-up";
 import {
   Alert,
   Box,
   Button,
-  Card,
   Checkbox,
   Chip,
-  CircularProgress,
-  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   FormControlLabel,
   MenuItem,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect, useMemo, useState } from "react";
-
-type Market = "gh_en" | "gh_tw" | "gh_pidgin" | "gh_ga";
-type Pack = {
-  packId: string;
-  market: Market;
-  terminologyRef: string;
-  features: Record<string, boolean>;
-  status: "draft" | "published" | "retired";
-  version: number;
-  createdAt: string;
-  publishedAt?: string;
-  proposedByMe?: boolean;
-  approvedByMe?: boolean;
-};
-
-const marketLabels: Record<Market, string> = {
-  gh_en: "Ghana · English",
-  gh_tw: "Ghana · Twi",
-  gh_pidgin: "Ghana · Pidgin",
-  gh_ga: "Ghana · Ga",
-};
-const capabilities = ["sow", "fires", "ai", "payments", "gate"] as const;
-
-function compactRef(value: string) {
-  return `pack···${value.slice(-8).toUpperCase()}`;
-}
-
+import { SegmentedOtpInput } from "@obiara/ui-web";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AdminCard } from "../../admin-card";
+import { AdminSkeleton } from "../../loading-skeleton";
+import { EmptyState } from "../../empty-state";
+import {
+  markets,
+  validPack,
+  validPackResult,
+  type Market,
+  type Pack,
+  type PendingPack,
+} from "../../content-model";
+const labels: Record<Market, string> = {
+    gh_en: "Ghana · English",
+    gh_tw: "Ghana · Twi",
+    gh_pidgin: "Ghana · Pidgin",
+    gh_ga: "Ghana · Ga",
+  },
+  caps = ["sow", "fires", "ai", "payments", "gate"];
 export function GovernanceDesk() {
-  const [packs, setPacks] = useState<Pack[]>([]);
-  const [market, setMarket] = useState<Market>("gh_tw");
-  const [terminologyRef, setTerminologyRef] = useState("");
-  const [features, setFeatures] = useState<Record<string, boolean>>({
-    sow: true,
-    fires: true,
-    ai: false,
-    payments: true,
-    gate: true,
-  });
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
+  const [packs, setPacks] = useState<Pack[]>([]),
+    [loading, setLoading] = useState(true),
+    [loadError, setLoadError] = useState(""),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [draftOpen, setDraftOpen] = useState(false),
+    [market, setMarket] = useState<Market>("gh_tw"),
+    [ref, setRef] = useState(""),
+    [features, setFeatures] = useState<Record<string, boolean>>({
+      sow: true,
+      fires: true,
+      ai: false,
+      payments: true,
+      gate: true,
+    }),
+    [pending, setPending] = useState<PendingPack | null>(null),
+    [mfa, setMfa] = useState(false),
+    [otp, setOtp] = useState(""),
+    [busy, setBusy] = useState(false);
+  const mounted = useRef(false),
+    loadGen = useRef(0),
+    actionGen = useRef(0),
+    stepGen = useRef(0),
+    abort = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
+    const gen = ++loadGen.current;
+    abort.current?.abort();
+    const c = new AbortController();
+    abort.current = c;
     setLoading(true);
-    setError(null);
+    setLoadError("");
     try {
-      const response = await fetch("/api/governance", { cache: "no-store" });
-      const body = (await response.json().catch(() => null)) as {
-        packs?: Pack[];
-        message?: string;
-      } | null;
-      if (!response.ok)
+      const r = await fetch("/api/governance", {
+          cache: "no-store",
+          signal: c.signal,
+        }),
+        b: unknown = await r.json().catch(() => null);
+      if (
+        !r.ok ||
+        !b ||
+        typeof b !== "object" ||
+        !("packs" in b) ||
+        !Array.isArray(b.packs) ||
+        !b.packs.every(validPack)
+      )
         throw new Error(
-          body?.message ?? "Market-pack governance could not be loaded.",
+          b &&
+            typeof b === "object" &&
+            "message" in b &&
+            typeof b.message === "string"
+            ? b.message
+            : "Market-pack governance could not be loaded.",
         );
-      setPacks(body?.packs ?? []);
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Market-pack governance could not be loaded.",
-      );
+      if (mounted.current && gen === loadGen.current) setPacks(b.packs);
+    } catch (e) {
+      if (!c.signal.aborted && mounted.current && gen === loadGen.current)
+        setLoadError(
+          e instanceof Error
+            ? e.message
+            : "Market-pack governance could not be loaded.",
+        );
     } finally {
-      setLoading(false);
+      if (mounted.current && gen === loadGen.current) setLoading(false);
     }
   }, []);
-
   useEffect(() => {
-    const initialLoad = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(initialLoad);
+    mounted.current = true;
+    const t = setTimeout(() => void load(), 0);
+    const loads = loadGen,
+      actions = actionGen,
+      steps = stepGen;
+    return () => {
+      clearTimeout(t);
+      mounted.current = false;
+      loads.current++;
+      actions.current++;
+      steps.current++;
+      abort.current?.abort();
+    };
   }, [load]);
-
-  const counts = useMemo(
-    () => ({
-      draft: packs.filter((pack) => pack.status === "draft").length,
-      published: packs.filter((pack) => pack.status === "published").length,
-      retired: packs.filter((pack) => pack.status === "retired").length,
-    }),
-    [packs],
-  );
-
-  async function mutate(payload: object, key: string, success: string) {
-    setBusy(key);
-    setError(null);
-    setNotice(null);
+  async function execute(snapshot: PendingPack) {
+    const gen = ++actionGen.current;
+    setBusy(true);
+    setError("");
+    setNotice("");
     try {
-      const response = await fetch("/api/governance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const body = (await response.json().catch(() => null)) as {
-        message?: string;
-      } | null;
-      if (!response.ok)
+      const r = await fetch("/api/governance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            snapshot.action === "draft"
+              ? snapshot
+              : {
+                  action: snapshot.action,
+                  packId: snapshot.pack.packId,
+                },
+          ),
+        }),
+        b: unknown = await r.json().catch(() => null);
+      if (!mounted.current || gen !== actionGen.current) return;
+      if (needsStepUp(r.status, errorCode(b))) {
+        setMfa(true);
+        return;
+      }
+      if (!r.ok || !validPackResult(b, snapshot))
         throw new Error(
-          body?.message ?? "The governance action could not be completed.",
+          b &&
+            typeof b === "object" &&
+            "message" in b &&
+            typeof b.message === "string"
+            ? b.message
+            : "The governance action could not be completed.",
         );
-      setNotice(success);
-      if (key === "draft") setTerminologyRef("");
-      await load();
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "The governance action could not be completed.",
+      setPending(null);
+      setMfa(false);
+      setOtp("");
+      setError("");
+      if (snapshot.action === "draft") setRef("");
+      setNotice(
+        snapshot.action === "draft"
+          ? "Draft retained with an immutable audit record."
+          : snapshot.action === "publish"
+            ? "Pack published by a distinct operator."
+            : "Pack retired; its history remains intact.",
       );
+      await load();
+    } catch (e) {
+      if (mounted.current && gen === actionGen.current) {
+        setError(
+          e instanceof Error
+            ? e.message
+            : "The governance action could not be completed.",
+        );
+      }
     } finally {
-      setBusy(null);
+      if (mounted.current && gen === actionGen.current) setBusy(false);
     }
   }
-
+  async function step(action: "start" | "complete") {
+    const gen = ++stepGen.current;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/step-up", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            action === "start" ? { action } : { action, code: otp },
+          ),
+        }),
+        b = await r.json().catch(() => null);
+      if (!mounted.current || gen !== stepGen.current) return;
+      if (!r.ok) throw new Error(b?.message ?? "MFA failed.");
+      if (action === "complete" && pending) {
+        const exact = pending;
+        setMfa(false);
+        setOtp("");
+        await execute(exact);
+      } else setNotice("A step-up code was sent.");
+    } catch (e) {
+      if (mounted.current && gen === stepGen.current)
+        setError(e instanceof Error ? e.message : "MFA failed.");
+    } finally {
+      if (mounted.current && gen === stepGen.current) setBusy(false);
+    }
+  }
   return (
-    <Box
-      sx={{
-        bgcolor: "background.default",
-        color: "text.primary",
-        minHeight: "100vh",
-        py: 4,
-      }}
-    >
-      <Container maxWidth="lg">
-        <Box sx={{ mb: 5, maxWidth: 820 }}>
-          <Typography
-            sx={{
-              color: "#8e3159",
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: 1.4,
-            }}
-          >
-            MARKET GOVERNANCE · LIVE
-          </Typography>
-          <Typography
-            component="h1"
-            sx={{
-              fontSize: { xs: 42, md: 70 },
-              fontWeight: 800,
-              letterSpacing: "-0.06em",
-              lineHeight: 0.95,
-              mt: 1,
-            }}
-          >
-            Configuration needs a second set of eyes.
-          </Typography>
-          <Typography sx={{ color: "#69535d", mt: 2, maxWidth: "68ch" }}>
-            Draft bounded market configuration, publish only through a distinct
-            operator, and retire without erasing history. Every transition
-            commits atomically with its audit.
-          </Typography>
-        </Box>
-
-        {error ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        ) : null}
-        {notice ? (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {notice}
-          </Alert>
-        ) : null}
-
-        <Box
-          sx={{
-            display: "grid",
-            gap: 1.5,
-            gridTemplateColumns: "repeat(3,minmax(0,1fr))",
-            mb: 2,
-          }}
-        >
+    <Stack spacing={3}>
+      <Box>
+        <Typography className="section-kicker">
+          MARKET GOVERNANCE · LIVE
+        </Typography>
+        <Typography component="h1">
+          Configuration needs a second set of eyes.
+        </Typography>
+        <Typography color="text.secondary">
+          Draft bounded market configuration, publish only through a distinct
+          operator, and retire without erasing history.
+        </Typography>
+      </Box>
+      {loadError ? (
+        <AdminCard variant="warning" watermark="evidence" showWatermark={false}>
+          <EmptyState
+            icon="!"
+            title="Governance unavailable"
+            description={loadError}
+            variant="warning"
+            action={<Button onClick={() => void load()}>Retry</Button>}
+          />
+        </AdminCard>
+      ) : null}
+      {notice ? <Alert severity="success">{notice}</Alert> : null}
+      <Button
+        onClick={() => setDraftOpen(true)}
+        variant="contained"
+        sx={{ alignSelf: "flex-start" }}
+      >
+        Draft market pack
+      </Button>
+      {!loading && !loadError ? (
+        <Stack spacing={1.25}>
           {(["draft", "published", "retired"] as const).map((status) => (
-            <Card key={status} variant="outlined" sx={{ p: 2.25 }}>
-              <Typography
-                sx={{
-                  color: "text.secondary",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                }}
-              >
-                {status}
+            <AdminCard key={status} variant="metric" watermark="analytics">
+              <Typography color="text.secondary">
+                {status.toUpperCase()}
               </Typography>
               <Typography sx={{ fontSize: 30, fontWeight: 800 }}>
-                {counts[status]}
+                {packs.filter((pack) => pack.status === status).length}
               </Typography>
-            </Card>
+            </AdminCard>
           ))}
-        </Box>
-
-        <Box
-          sx={{
-            display: "grid",
-            gap: 2,
-            gridTemplateColumns: { xs: "1fr", lg: "360px minmax(0,1fr)" },
-          }}
-        >
-          <Card sx={{ p: 3 }}>
-            <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
-              Draft a market pack
-            </Typography>
-            <Typography sx={{ color: "text.secondary", fontSize: 13, mb: 2 }}>
-              A terminology reference identifies separately reviewed language
-              assets; this desk does not upload or invent translations.
-            </Typography>
-            <Stack spacing={2}>
-              <TextField
-                select
-                label="Market"
-                value={market}
-                onChange={(event) => setMarket(event.target.value as Market)}
-              >
-                {(Object.keys(marketLabels) as Market[]).map((value) => (
-                  <MenuItem key={value} value={value}>
-                    {marketLabels[value]}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Terminology registry reference"
-                placeholder="terminology:gh-tw:v4"
-                value={terminologyRef}
-                onChange={(event) =>
-                  setTerminologyRef(event.target.value.slice(0, 128))
-                }
-              />
-              <Box>
-                <Typography sx={{ fontSize: 12, fontWeight: 800, mb: 0.5 }}>
-                  CAPABILITIES
+        </Stack>
+      ) : null}
+      {loading ? (
+        <AdminCard variant="panel" watermark="evidence" showWatermark={false}>
+          <AdminSkeleton variant="card-list" rows={4} />
+        </AdminCard>
+      ) : !loadError && packs.length === 0 ? (
+        <AdminCard variant="panel" watermark="evidence" showWatermark={false}>
+          <EmptyState
+            icon="✓"
+            title="No market packs"
+            description="No market packs have been drafted in this environment."
+          />
+        </AdminCard>
+      ) : !loadError ? (
+        <Stack spacing={1.5}>
+          {packs.map((pack) => (
+            <AdminCard
+              key={pack.packId}
+              component="article"
+              variant="row"
+              watermark="evidence"
+            >
+              <Stack spacing={1}>
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  sx={{ justifyContent: "space-between", gap: 1 }}
+                >
+                  <Box>
+                    <Typography
+                      component="h2"
+                      sx={{ fontFamily: "monospace", overflowWrap: "anywhere" }}
+                    >
+                      {pack.packId}
+                    </Typography>
+                    <Typography>
+                      {labels[pack.market]} · v{pack.version}
+                    </Typography>
+                  </Box>
+                  <Chip label={pack.status} />
+                </Stack>
+                <Typography color="text.secondary">
+                  {pack.terminologyRef}
                 </Typography>
-                {capabilities.map((capability) => (
+                <Typography>
+                  {Object.entries(pack.features)
+                    .filter(([, v]) => v)
+                    .map(([k]) => k)
+                    .join(" · ") || "No capabilities enabled"}
+                </Typography>
+                {pack.status === "draft" ? (
+                  <Button
+                    disabled={busy || Boolean(pack.proposedByMe)}
+                    onClick={() => setPending({ action: "publish", pack })}
+                  >
+                    {pack.proposedByMe
+                      ? "Second operator required"
+                      : "Review publication"}
+                  </Button>
+                ) : pack.status === "published" ? (
+                  <Button
+                    color="warning"
+                    disabled={busy}
+                    onClick={() => setPending({ action: "retire", pack })}
+                  >
+                    Review retirement
+                  </Button>
+                ) : null}
+              </Stack>
+            </AdminCard>
+          ))}
+        </Stack>
+      ) : null}
+      <Dialog
+        open={draftOpen}
+        aria-labelledby="draft-pack-title"
+        aria-describedby="draft-pack-description"
+        onClose={() => {
+          if (!busy) setDraftOpen(false);
+        }}
+      >
+        <DialogTitle id="draft-pack-title">Draft a market pack</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <DialogContentText id="draft-pack-description">
+              Prepare exact bounded market configuration for immutable review.
+            </DialogContentText>
+            <TextField
+              select
+              label="Market"
+              value={market}
+              onChange={(e) => setMarket(e.target.value as Market)}
+            >
+              {markets.map((m) => (
+                <MenuItem key={m} value={m}>
+                  {labels[m]}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Terminology registry reference"
+              helperText="Identifies separately reviewed language assets; this desk does not upload or invent translations."
+              value={ref}
+              onChange={(e) => setRef(e.target.value.slice(0, 128))}
+            />
+            <Box component="fieldset" sx={{ border: 0, p: 0, m: 0 }}>
+              <Typography component="legend">Capabilities</Typography>
+              <Stack>
+                {caps.map((c) => (
                   <FormControlLabel
-                    key={capability}
+                    key={c}
                     control={
                       <Checkbox
-                        checked={features[capability] ?? false}
-                        onChange={(event) =>
-                          setFeatures((current) => ({
-                            ...current,
-                            [capability]: event.target.checked,
-                          }))
+                        checked={features[c] ?? false}
+                        onChange={(e) =>
+                          setFeatures({ ...features, [c]: e.target.checked })
                         }
                       />
                     }
-                    label={capability}
+                    label={c}
                   />
                 ))}
-              </Box>
-              <Button
-                disabled={terminologyRef.trim().length < 3 || busy !== null}
-                onClick={() =>
-                  void mutate(
-                    {
-                      action: "draft",
-                      market,
-                      terminologyRef: terminologyRef.trim(),
-                      features,
-                    },
-                    "draft",
-                    "Draft retained with an immutable audit record.",
-                  )
-                }
-                variant="contained"
-              >
-                {busy === "draft" ? "Retaining…" : "Create audited draft"}
-              </Button>
-            </Stack>
-          </Card>
-
-          <Card sx={{ p: 3 }}>
-            <Stack
-              direction="row"
-              sx={{
-                alignItems: "center",
-                justifyContent: "space-between",
-                mb: 2,
-              }}
-            >
-              <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
-                Governance register
+              </Stack>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setDraftOpen(false);
+              setError("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={busy || ref.trim().length < 3}
+            onClick={() => {
+              const snapshot: PendingPack = {
+                action: "draft",
+                market,
+                terminologyRef: ref.trim(),
+                features: { ...features },
+              };
+              setPending(snapshot);
+              setDraftOpen(false);
+              setError("");
+            }}
+            variant="contained"
+          >
+            Create audited draft
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={Boolean(pending) && !mfa}
+        aria-labelledby="pack-confirm-title"
+        onClose={() => {
+          if (!busy) {
+            setPending(null);
+            setError("");
+            setOtp("");
+          }
+        }}
+        aria-describedby="pack-confirm"
+      >
+        <DialogTitle id="pack-confirm-title">
+          Confirm exact governance transition
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="pack-confirm">
+            Review the immutable pack identity, version and target status.
+          </DialogContentText>
+          {error ? <Alert severity="error">{error}</Alert> : null}
+          {pending?.action === "draft" ? (
+            <>
+              <Typography>
+                <strong>Action:</strong> draft
               </Typography>
-              <Button onClick={() => void load()} size="small">
-                Refresh
-              </Button>
-            </Stack>
-            {loading ? (
-              <Stack sx={{ alignItems: "center", py: 8 }}>
-                <CircularProgress size={28} />
-              </Stack>
-            ) : packs.length === 0 ? (
-              <Alert severity="info">
-                No market packs have been drafted in this environment.
+              <Typography>
+                <strong>Market:</strong> {labels[pending.market]}
+              </Typography>
+              <Typography>
+                <strong>Terminology:</strong> {pending.terminologyRef}
+              </Typography>
+              <Typography>
+                <strong>Capabilities:</strong>{" "}
+                {Object.entries(pending.features)
+                  .filter(([, enabled]) => enabled)
+                  .map(([name]) => name)
+                  .join(", ") || "None"}
+              </Typography>
+            </>
+          ) : pending ? (
+            <>
+              <Typography>
+                <strong>Pack:</strong> {pending.pack.packId}
+              </Typography>
+              <Typography>
+                <strong>Version:</strong> {pending.pack.version}
+              </Typography>
+              <Typography>
+                <strong>Action:</strong> {pending.action}
+              </Typography>
+              <Typography>
+                <strong>Market:</strong> {labels[pending.pack.market]}
+              </Typography>
+              <Typography>
+                <strong>Terminology:</strong> {pending.pack.terminologyRef}
+              </Typography>
+              <Typography>
+                <strong>Capabilities:</strong>{" "}
+                {Object.entries(pending.pack.features)
+                  .filter(([, enabled]) => enabled)
+                  .map(([name]) => name)
+                  .join(", ") || "None"}
+              </Typography>
+              <Alert severity="warning">
+                Publication requires a different operator from the proposer.
+                Retirement preserves immutable history.
               </Alert>
-            ) : (
-              <Stack spacing={1.25}>
-                {packs.map((pack) => (
-                  <Card key={pack.packId} variant="outlined" sx={{ p: 2 }}>
-                    <Stack
-                      direction={{ xs: "column", md: "row" }}
-                      spacing={1.5}
-                      sx={{
-                        alignItems: { md: "center" },
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Box sx={{ minWidth: 0 }}>
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          sx={{ alignItems: "center", flexWrap: "wrap" }}
-                        >
-                          <Typography
-                            sx={{ fontFamily: "monospace", fontWeight: 800 }}
-                          >
-                            {compactRef(pack.packId)}
-                          </Typography>
-                          <Chip
-                            label={pack.status}
-                            size="small"
-                            color={
-                              pack.status === "published"
-                                ? "success"
-                                : pack.status === "draft"
-                                  ? "warning"
-                                  : "default"
-                            }
-                          />
-                          <Chip
-                            label={`v${pack.version}`}
-                            size="small"
-                            variant="outlined"
-                          />
-                          {pack.proposedByMe ? (
-                            <Chip
-                              label="proposed by you"
-                              size="small"
-                              variant="outlined"
-                            />
-                          ) : null}
-                        </Stack>
-                        <Typography sx={{ fontWeight: 800, mt: 0.75 }}>
-                          {marketLabels[pack.market]}
-                        </Typography>
-                        <Typography
-                          sx={{
-                            color: "text.secondary",
-                            fontFamily: "monospace",
-                            fontSize: 12,
-                            overflowWrap: "anywhere",
-                          }}
-                        >
-                          {pack.terminologyRef}
-                        </Typography>
-                        <Typography
-                          sx={{ color: "text.secondary", fontSize: 12 }}
-                        >
-                          {Object.entries(pack.features)
-                            .filter(([, enabled]) => enabled)
-                            .map(([name]) => name)
-                            .join(" · ") || "No capabilities enabled"}
-                        </Typography>
-                      </Box>
-                      <Stack direction="row" spacing={1}>
-                        {pack.status === "draft" ? (
-                          <Button
-                            disabled={
-                              Boolean(pack.proposedByMe) || busy !== null
-                            }
-                            onClick={() =>
-                              void mutate(
-                                { action: "publish", packId: pack.packId },
-                                pack.packId,
-                                "Pack published by a distinct operator.",
-                              )
-                            }
-                            variant="contained"
-                          >
-                            {pack.proposedByMe
-                              ? "Second operator required"
-                              : "Publish"}
-                          </Button>
-                        ) : null}
-                        {pack.status === "published" ? (
-                          <Button
-                            color="warning"
-                            disabled={busy !== null}
-                            onClick={() =>
-                              void mutate(
-                                { action: "retire", packId: pack.packId },
-                                pack.packId,
-                                "Pack retired; its history remains intact.",
-                              )
-                            }
-                            variant="outlined"
-                          >
-                            Retire
-                          </Button>
-                        ) : null}
-                      </Stack>
-                    </Stack>
-                  </Card>
-                ))}
-              </Stack>
-            )}
-          </Card>
-        </Box>
-      </Container>
-    </Box>
+            </>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setPending(null);
+              setError("");
+              setOtp("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={busy || !pending}
+            onClick={() => (pending ? void execute(pending) : undefined)}
+          >
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={mfa}
+        aria-labelledby="governance-mfa-title"
+        aria-describedby="governance-mfa-description"
+        onClose={() => {
+          if (!busy) {
+            setMfa(false);
+            setPending(null);
+            setOtp("");
+            setError("");
+          }
+        }}
+      >
+        <DialogTitle id="governance-mfa-title">Fresh MFA required</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="governance-mfa-description">
+            Verify fresh authority to retry the exact confirmed governance
+            command.
+          </DialogContentText>
+          {error ? (
+            <Alert severity="error" role="alert">
+              {error}
+            </Alert>
+          ) : null}
+          <SegmentedOtpInput
+            label="Six-digit code"
+            value={otp}
+            onChange={setOtp}
+            disabled={busy}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setMfa(false);
+              setPending(null);
+              setOtp("");
+              setError("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button disabled={busy} onClick={() => void step("start")}>
+            Send code
+          </Button>
+          <Button
+            disabled={busy || otp.length !== 6}
+            onClick={() => void step("complete")}
+          >
+            Verify and retry
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Stack>
   );
 }

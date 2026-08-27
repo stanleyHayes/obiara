@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 type OperatorRole = "verifier" | "ts_agent" | "host" | "finance" | "admin";
 
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       ? NextResponse.json(data.data)
       : NextResponse.json(
           {
-            message: apiErrorMessage(
+            ...apiErrorBody(
               error,
               "Pending admin-role changes could not be loaded.",
             ),
@@ -46,10 +46,7 @@ export async function GET(request: Request) {
     ? NextResponse.json(data.data)
     : NextResponse.json(
         {
-          message: apiErrorMessage(
-            error,
-            "The operator directory could not be loaded.",
-          ),
+          ...apiErrorBody(error, "The operator directory could not be loaded."),
         },
         { status: response.status },
       );
@@ -106,10 +103,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data, { status: response.status })
       : NextResponse.json(
           {
-            message: apiErrorMessage(
-              error,
-              "The operator could not be enrolled.",
-            ),
+            ...apiErrorBody(error, "The operator could not be enrolled."),
           },
           { status: response.status },
         );
@@ -127,7 +121,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data, { status: response.status })
       : NextResponse.json(
           {
-            message: apiErrorMessage(
+            ...apiErrorBody(
               error,
               "The admin-role proposal could not be created.",
             ),
@@ -148,7 +142,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data)
       : NextResponse.json(
           {
-            message: apiErrorMessage(
+            ...apiErrorBody(
               error,
               "The admin-role proposal could not be approved.",
             ),
@@ -171,7 +165,7 @@ export async function POST(request: Request) {
     ? NextResponse.json(data.data)
     : NextResponse.json(
         {
-          message: apiErrorMessage(
+          ...apiErrorBody(
             error,
             "The operator access change could not be applied.",
           ),

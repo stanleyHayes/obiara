@@ -1712,6 +1712,12 @@ surfaces. Authenticated interiors remain protected behind real OTP gates and
 were not bypassed. Repository-wide Prettier and `git diff --check` now pass
 after formatting the accumulated implementation.
 
+Admin redesign program (2026-08-22): the authorized page-by-page admin visual
+and interaction redesign is tracked in `admin_redesign_plan.md`. That child
+ledger owns route claims, shared-file reservations, loading/empty/error state
+requirements, Ashesi ScheduleFlow right-side interaction parity, and acceptance
+evidence. Existing task statuses in this master ledger are unchanged.
+
 Escrow runtime evidence (2026-07-30): member web and Expo now list only
 privacy-safe, owner-bound funded escrows and allow only member acceptance or
 dispute freeze. The operations Agyina desk can retain provider-confirmed funding

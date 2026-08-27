@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  Chip,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Chip, Stack, Typography } from "@mui/material";
 import Link from "next/link";
+import { AdminCard } from "../../admin-card";
 
 const severities = [
   [
@@ -106,23 +99,37 @@ export function IncidentRunbook() {
         </Stack>
       </header>
 
-      <Alert severity="error" className="verification-alert">
-        Priority in every conflict: member physical safety, member dignity and
-        privacy, platform integrity, then growth. A confirmed or reasonably
-        suspected personal-data breach starts the reporting clock; certainty is
-        not required.
-      </Alert>
+      <AdminCard
+        className="incident-priority"
+        variant="warning"
+        watermark="safety"
+      >
+        <Box className="incident-priority-copy">
+          <Typography className="section-kicker">Incident priority</Typography>
+          <Typography>
+            Priority in every conflict: member physical safety, member dignity
+            and privacy, platform integrity, then growth. A confirmed or
+            reasonably suspected personal-data breach starts the reporting
+            clock; certainty is not required.
+          </Typography>
+        </Box>
+      </AdminCard>
 
       <Box
         sx={{
           display: "grid",
           gap: 1.5,
-          gridTemplateColumns: { xs: "1fr", md: "repeat(2,1fr)" },
+          gridTemplateColumns: "1fr",
           mb: 3,
         }}
       >
         {severities.map(([severity, response, definition]) => (
-          <Card key={severity} variant="outlined" sx={{ p: 2.5 }}>
+          <AdminCard
+            key={severity}
+            variant="warning"
+            watermark="safety"
+            sx={{ p: 2.5 }}
+          >
             <Stack
               direction="row"
               spacing={1}
@@ -146,12 +153,12 @@ export function IncidentRunbook() {
             <Typography sx={{ color: "text.secondary", mt: 1 }}>
               {definition}
             </Typography>
-          </Card>
+          </AdminCard>
         ))}
       </Box>
 
       <Box className="incident-runbook-grid">
-        <Card>
+        <AdminCard variant="timeline" watermark="queue">
           <Box className="verification-panel-heading">
             <Typography component="h2">Ordered response</Typography>
             <Chip label="Human-owned" variant="outlined" />
@@ -181,9 +188,9 @@ export function IncidentRunbook() {
               </Box>
             ))}
           </Stack>
-        </Card>
+        </AdminCard>
 
-        <Card>
+        <AdminCard variant="timeline" watermark="clock">
           <Box className="verification-panel-heading">
             <Typography component="h2">72-hour clock</Typography>
             <Chip color="error" label="From reasonable suspicion" />
@@ -198,10 +205,14 @@ export function IncidentRunbook() {
               </Box>
             ))}
           </Stack>
-        </Card>
+        </AdminCard>
       </Box>
 
-      <Card className="incident-packet">
+      <AdminCard
+        className="incident-packet"
+        variant="policy"
+        watermark="evidence"
+      >
         <Box>
           <Typography className="section-kicker">
             Available control surfaces
@@ -226,13 +237,13 @@ export function IncidentRunbook() {
             Care queue
           </Button>
         </Stack>
-      </Card>
+      </AdminCard>
 
       <Box
         sx={{
           display: "grid",
           gap: 2,
-          gridTemplateColumns: { xs: "1fr", md: "repeat(2,1fr)" },
+          gridTemplateColumns: "1fr",
           mt: 3,
         }}
       >

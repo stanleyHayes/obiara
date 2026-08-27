@@ -4,15 +4,20 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
-  CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Stack,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AdminCard } from "../../admin-card";
+import { EmptyState } from "../../empty-state";
+import { AdminSkeleton } from "../../loading-skeleton";
 
 type MemberStatus = "active" | "suspended" | "blocked" | "deleted";
 type MemberRow = {
@@ -54,12 +59,23 @@ export function MembersDesk() {
   const [selectedRef, setSelectedRef] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const mounted = useRef(true);
+  const loadGeneration = useRef(0);
+  const requestController = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/members", { cache: "no-store" });
+      const response = await fetch("/api/members", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       const body = (await response.json().catch(() => null)) as {
         members?: MemberRow[];
         message?: string;
@@ -68,21 +84,38 @@ export function MembersDesk() {
         throw new Error(
           body?.message ?? "The member directory could not be loaded.",
         );
-      setMembers(body?.members ?? []);
+      if (!mounted.current || generation !== loadGeneration.current) return;
+      const next = body?.members ?? [];
+      setMembers(next);
+      setLoaded(true);
+      setSelectedRef((current) =>
+        next.some((item) => item.ref === current) ? current : null,
+      );
     } catch (cause) {
+      if ((cause as Error).name === "AbortError") return;
+      if (!mounted.current || generation !== loadGeneration.current) return;
+      setLoaded(false);
+      setSelectedRef(null);
       setError(
         cause instanceof Error
           ? cause.message
           : "The member directory could not be loaded.",
       );
     } finally {
-      setLoading(false);
+      if (mounted.current && generation === loadGeneration.current)
+        setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    mounted.current = true;
     const initialLoad = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(initialLoad);
+    return () => {
+      mounted.current = false;
+      loadGeneration.current += 1;
+      requestController.current?.abort();
+      window.clearTimeout(initialLoad);
+    };
   }, [load]);
   const selected = members.find((member) => member.ref === selectedRef);
   const counts = useMemo(
@@ -164,26 +197,41 @@ export function MembersDesk() {
           sx={{
             display: "grid",
             gap: 1.5,
-            gridTemplateColumns: { xs: "repeat(2,1fr)", md: "repeat(4,1fr)" },
+            gridTemplateColumns: "1fr",
             mb: 2,
           }}
         >
           {(Object.keys(counts) as MemberStatus[]).map((status) => (
-            <Card key={status} variant="outlined" sx={{ p: 2.25 }}>
-              <Typography
-                sx={{
-                  color: "text.secondary",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                }}
-              >
-                {status}
-              </Typography>
-              <Typography sx={{ fontSize: 30, fontWeight: 800 }}>
-                {counts[status]}
-              </Typography>
-            </Card>
+            <AdminCard
+              key={status}
+              variant="metric"
+              watermark="identity"
+              showWatermark={loaded && !loading && !error}
+              sx={{ p: 2.25 }}
+            >
+              {loading ? (
+                <AdminSkeleton
+                  variant="metric"
+                  label={`Loading ${status} member count`}
+                />
+              ) : (
+                <>
+                  <Typography
+                    sx={{
+                      color: "text.secondary",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {status}
+                  </Typography>
+                  <Typography sx={{ fontSize: 30, fontWeight: 800 }}>
+                    {error || !loaded ? "Unavailable" : counts[status]}
+                  </Typography>
+                </>
+              )}
+            </AdminCard>
           ))}
         </Box>
 
@@ -191,13 +239,15 @@ export function MembersDesk() {
           sx={{
             display: "grid",
             gap: 2,
-            gridTemplateColumns: {
-              xs: "1fr",
-              md: "minmax(0,1.25fr) minmax(300px,.75fr)",
-            },
+            gridTemplateColumns: "1fr",
           }}
         >
-          <Card sx={{ p: 3 }}>
+          <AdminCard
+            variant="panel"
+            watermark="identity"
+            showWatermark={loaded && !loading && !error && members.length > 0}
+            sx={{ p: 3 }}
+          >
             <Stack
               direction="row"
               sx={{
@@ -209,26 +259,39 @@ export function MembersDesk() {
               <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
                 Newest accounts
               </Typography>
-              <Chip
-                label={`${members.length} loaded`}
-                size="small"
-                variant="outlined"
-              />
+              {loading ? (
+                <AdminSkeleton
+                  variant="identity"
+                  label="Loading member directory count"
+                />
+              ) : loaded && !error ? (
+                <Chip
+                  label={`${members.length} loaded`}
+                  size="small"
+                  variant="outlined"
+                />
+              ) : null}
             </Stack>
             {loading ? (
-              <Stack sx={{ alignItems: "center", py: 8 }}>
-                <CircularProgress size={28} />
-              </Stack>
-            ) : members.length === 0 ? (
-              <Alert severity="info">
-                No member accounts have been registered in this environment.
-              </Alert>
+              <AdminSkeleton
+                variant="card-list"
+                rows={5}
+                label="Loading member directory"
+              />
+            ) : error || !loaded ? null : members.length === 0 ? (
+              <EmptyState
+                icon="♙"
+                title="No member accounts"
+                description="No member accounts have been registered in this environment."
+                variant="neutral"
+              />
             ) : (
               <Stack spacing={1}>
                 {members.map((member) => (
                   <Button
                     key={member.ref}
-                    aria-pressed={selectedRef === member.ref}
+                    aria-haspopup="dialog"
+                    aria-controls="member-detail-dialog"
                     onClick={() => setSelectedRef(member.ref)}
                     sx={{
                       border: "1px solid",
@@ -276,9 +339,26 @@ export function MembersDesk() {
                 ))}
               </Stack>
             )}
-          </Card>
+          </AdminCard>
+        </Box>
 
-          <Card sx={{ p: 3 }}>
+        <Dialog
+          id="member-detail-dialog"
+          aria-describedby="member-detail-description"
+          className="admin-form-dialog"
+          fullWidth
+          maxWidth="sm"
+          open={loaded && !loading && !error && Boolean(selected)}
+          onClose={() => setSelectedRef(null)}
+        >
+          <DialogTitle>Account detail</DialogTitle>
+          <DialogContent>
+            <Typography
+              id="member-detail-description"
+              className="visually-hidden"
+            >
+              Read-only pseudonymous account lifecycle detail.
+            </Typography>
             <Typography
               sx={{
                 color: "#8e3159",
@@ -332,13 +412,12 @@ export function MembersDesk() {
                   Continue in safety
                 </Button>
               </Stack>
-            ) : (
-              <Typography sx={{ color: "text.secondary", mt: 2 }}>
-                Select a pseudonymous account to inspect its lifecycle state.
-              </Typography>
-            )}
-          </Card>
-        </Box>
+            ) : null}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSelectedRef(null)}>Close</Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Box>
   );

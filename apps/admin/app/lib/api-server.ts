@@ -46,3 +46,35 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+// apiErrorCode surfaces the machine-readable code beside the human message.
+// Callers need it because several distinct faults share HTTP 403 and only
+// some are recoverable by the operator: a stale step-up is fixed by
+// re-verifying, but a missing role or a four-eyes rule never is. Without the
+// code a desk can only guess, and guessing means looping an operator through
+// an MFA challenge that cannot help them.
+export function apiErrorCode(error: unknown): string | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "error" in error &&
+    typeof error.error === "object" &&
+    error.error !== null &&
+    "code" in error.error &&
+    typeof error.error.code === "string"
+  ) {
+    return error.error.code.trim() || null;
+  }
+  return null;
+}
+
+// apiErrorBody is the fail-closed JSON body every BFF route returns on error.
+export function apiErrorBody(
+  error: unknown,
+  fallback: string,
+): { message: string; code: string | null } {
+  return {
+    message: apiErrorMessage(error, fallback),
+    code: apiErrorCode(error),
+  };
+}

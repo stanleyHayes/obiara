@@ -4,16 +4,23 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
-  CircularProgress,
   Container,
   Stack,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { AdminCard } from "../../admin-card";
+import { AdminSkeleton } from "../../loading-skeleton";
+import { EmptyState } from "../../empty-state";
 
 import {
   useThemeMode,
@@ -98,16 +105,16 @@ export function AccountSettings() {
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [signOutBusy, setSignOutBusy] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const mounted = useRef(false);
+  const loadGeneration = useRef(0);
+  const controllerRef = useRef<AbortController | null>(null);
   const searchParams = useSearchParams();
   const themeMode = useThemeMode();
   const language = useSyncExternalStore(
     subscribeStorage,
-    () => {
-      const stored = window.localStorage.getItem(languageStorageKey);
-      return languages.some((item) => item === stored)
-        ? (stored as (typeof languages)[number])
-        : "English";
-    },
+    () => "English" as const,
     () => "English" as const,
   );
   const param = searchParams.get("tab");
@@ -116,31 +123,53 @@ export function AccountSettings() {
     : "account";
 
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
     setLoading(true);
     setError(null);
+    setAccount(null);
     try {
-      const response = await fetch("/api/account", { cache: "no-store" });
+      const response = await fetch("/api/account", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       const body = (await response.json().catch(() => null)) as
         (Account & { message?: string }) | null;
       if (!response.ok || !body?.email)
         throw new Error(
           body?.message ?? "Your operator account could not be loaded.",
         );
-      setAccount(body);
+      if (mounted.current && generation === loadGeneration.current)
+        setAccount(body);
     } catch (cause) {
+      if (
+        controller.signal.aborted ||
+        !mounted.current ||
+        generation !== loadGeneration.current
+      )
+        return;
       setError(
         cause instanceof Error
           ? cause.message
           : "Your operator account could not be loaded.",
       );
     } finally {
-      setLoading(false);
+      if (mounted.current && generation === loadGeneration.current)
+        setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    mounted.current = true;
     const initialLoad = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(initialLoad);
+    return () => {
+      window.clearTimeout(initialLoad);
+      mounted.current = false;
+      loadGeneration.current += 1;
+      controllerRef.current?.abort();
+    };
   }, [load]);
 
   return (
@@ -205,6 +234,7 @@ export function AccountSettings() {
           {tabs.map((tab) => (
             <Button
               key={tab.id}
+              aria-current={activeTab === tab.id ? "page" : undefined}
               href={`/account?tab=${tab.id}`}
               variant={activeTab === tab.id ? "contained" : "outlined"}
             >
@@ -213,19 +243,42 @@ export function AccountSettings() {
           ))}
         </Stack>
         {error ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
+          <AdminCard
+            variant="warning"
+            watermark="identity"
+            showWatermark={false}
+            sx={{ mb: 2 }}
+          >
+            <EmptyState
+              icon="!"
+              title="Account unavailable"
+              description={error}
+              variant="warning"
+              action={
+                <Button onClick={() => void load()} variant="outlined">
+                  Retry
+                </Button>
+              }
+            />
+          </AdminCard>
         ) : null}
         {loading ? (
-          <Stack sx={{ alignItems: "center", py: 10 }}>
-            <CircularProgress size={30} />
-          </Stack>
+          <AdminCard
+            variant="detail"
+            watermark="identity"
+            showWatermark={false}
+          >
+            <AdminSkeleton
+              variant="card-list"
+              rows={3}
+              label="Loading account and session details"
+            />
+          </AdminCard>
         ) : null}
 
         {!loading && account && activeTab === "account" ? (
           <Stack spacing={2}>
-            <Card sx={{ p: 3 }}>
+            <AdminCard variant="detail" watermark="identity" sx={{ p: 3 }}>
               <Stack
                 direction={{ xs: "column", sm: "row" }}
                 spacing={2}
@@ -246,7 +299,11 @@ export function AccountSettings() {
                   </Typography>
                   <Typography
                     component="h2"
-                    sx={{ fontSize: 26, fontWeight: 800 }}
+                    sx={{
+                      fontSize: 26,
+                      fontWeight: 800,
+                      overflowWrap: "anywhere",
+                    }}
                   >
                     {account.email}
                   </Typography>
@@ -259,8 +316,8 @@ export function AccountSettings() {
               <Typography sx={{ color: "text.secondary", mt: 2 }}>
                 Enrolled {dateLabel(account.operatorSince)}
               </Typography>
-            </Card>
-            <Card sx={{ p: 3 }}>
+            </AdminCard>
+            <AdminCard variant="policy" watermark="evidence" sx={{ p: 3 }}>
               <Typography
                 component="h2"
                 sx={{ fontSize: 22, fontWeight: 800, mb: 2 }}
@@ -281,13 +338,13 @@ export function AccountSettings() {
                 admin identity model. Role changes belong to the audited
                 operator desk and administrator roles require four eyes.
               </Alert>
-            </Card>
+            </AdminCard>
           </Stack>
         ) : null}
 
         {!loading && account && activeTab === "security" ? (
           <Stack spacing={2}>
-            <Card sx={{ p: 3 }}>
+            <AdminCard variant="detail" watermark="identity" sx={{ p: 3 }}>
               <Stack
                 direction={{ xs: "column", sm: "row" }}
                 spacing={2}
@@ -323,7 +380,7 @@ export function AccountSettings() {
                   color={account.steppedUp ? "success" : "warning"}
                 />
               </Stack>
-            </Card>
+            </AdminCard>
             <Alert severity="info">
               The service does not infer device names or locations and does not
               expose other sessions through this account view. Use sign out to
@@ -331,20 +388,44 @@ export function AccountSettings() {
             </Alert>
             <Button
               color="warning"
+              aria-busy={signOutBusy}
+              disabled={signOutBusy}
               onClick={async () => {
-                await fetch("/api/auth", { method: "DELETE" });
-                window.location.assign("/signed-out");
+                setSignOutBusy(true);
+                setSignOutError(null);
+                try {
+                  const response = await fetch("/api/auth", {
+                    method: "DELETE",
+                  });
+                  if (!response.ok)
+                    throw new Error(
+                      "This browser could not be signed out. Your session remains active.",
+                    );
+                  window.location.assign("/signed-out");
+                } catch (cause) {
+                  setSignOutError(
+                    cause instanceof Error
+                      ? cause.message
+                      : "This browser could not be signed out. Your session remains active.",
+                  );
+                  setSignOutBusy(false);
+                }
               }}
               variant="outlined"
             >
               Sign out this browser
             </Button>
+            {signOutError ? (
+              <Alert severity="error" role="alert">
+                {signOutError}
+              </Alert>
+            ) : null}
           </Stack>
         ) : null}
 
         {!loading && activeTab === "appearance" ? (
           <Stack spacing={2}>
-            <Card sx={{ p: 3 }}>
+            <AdminCard variant="form" watermark="analytics" sx={{ p: 3 }}>
               <Typography component="h2" sx={{ fontSize: 22, fontWeight: 800 }}>
                 Theme on this browser
               </Typography>
@@ -356,7 +437,7 @@ export function AccountSettings() {
                 sx={{
                   display: "grid",
                   gap: 1.5,
-                  gridTemplateColumns: "repeat(3,1fr)",
+                  gridTemplateColumns: "1fr",
                 }}
               >
                 {(
@@ -375,20 +456,21 @@ export function AccountSettings() {
                   />
                 ))}
               </Box>
-            </Card>
-            <Card sx={{ p: 3 }}>
+            </AdminCard>
+            <AdminCard variant="form" watermark="identity" sx={{ p: 3 }}>
               <Typography component="h2" sx={{ fontSize: 22, fontWeight: 800 }}>
                 Language preference
               </Typography>
               <Typography sx={{ color: "text.secondary", mb: 2 }}>
-                Stored only in this browser until a server preference service
-                exists.
+                Stored only in this browser. This is a preference only; the
+                interface is not translated yet.
               </Typography>
               <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                 {languages.map((item) => (
                   <Button
                     key={item}
-                    aria-pressed={language === item}
+                    aria-pressed={item === "English" && language === item}
+                    disabled={item !== "English"}
                     onClick={() => {
                       window.localStorage.setItem(languageStorageKey, item);
                       window.dispatchEvent(
@@ -401,10 +483,13 @@ export function AccountSettings() {
                     variant={language === item ? "contained" : "outlined"}
                   >
                     {item}
+                    {item === "English"
+                      ? " · current interface"
+                      : " · coming soon"}
                   </Button>
                 ))}
               </Stack>
-            </Card>
+            </AdminCard>
           </Stack>
         ) : null}
       </Container>

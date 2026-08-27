@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  Chip,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Chip, Stack, Typography } from "@mui/material";
 import Link from "next/link";
+import { AdminCard } from "../../admin-card";
 
 const safeguards = [
   [
@@ -75,11 +68,16 @@ export function WorkforceSafeguards() {
         sx={{
           display: "grid",
           gap: 1.5,
-          gridTemplateColumns: { xs: "1fr", md: "repeat(2,1fr)" },
+          gridTemplateColumns: "1fr",
         }}
       >
         {safeguards.map(([title, description], index) => (
-          <Card key={title} variant="outlined" sx={{ p: 2.5 }}>
+          <AdminCard
+            key={title}
+            variant="policy"
+            watermark="safety"
+            sx={{ p: 2.5 }}
+          >
             <Stack direction="row" spacing={1.5}>
               <Typography
                 sx={{ color: "primary.main", fontSize: 22, fontWeight: 900 }}
@@ -98,11 +96,16 @@ export function WorkforceSafeguards() {
                 </Typography>
               </Box>
             </Stack>
-          </Card>
+          </AdminCard>
         ))}
       </Box>
 
-      <Card className="workforce-preview" sx={{ mt: 3 }}>
+      <AdminCard
+        variant="policy"
+        watermark="evidence"
+        className="workforce-preview"
+        sx={{ mt: 3 }}
+      >
         <Box>
           <Typography className="section-kicker">Evidence boundary</Typography>
           <Typography component="h2">
@@ -117,7 +120,7 @@ export function WorkforceSafeguards() {
         <Button component={Link} href="/safety" variant="contained">
           Open safety queue
         </Button>
-      </Card>
+      </AdminCard>
 
       <Alert severity="info" sx={{ mt: 3 }}>
         Before production staffing, the external workforce authority must prove

@@ -4,13 +4,15 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
   Container,
   Stack,
   Typography,
 } from "@mui/material";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AdminCard } from "../../admin-card";
+import { EmptyState } from "../../empty-state";
+import { AdminSkeleton } from "../../loading-skeleton";
 
 type WaitlistEntry = {
   name: string;
@@ -31,11 +33,22 @@ export function WaitlistDesk() {
   const [entries, setEntries] = useState<WaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const mounted = useRef(true);
+  const loadGeneration = useRef(0);
+  const requestController = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
+    const generation = ++loadGeneration.current;
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/waitlist", { cache: "no-store" });
+      const response = await fetch("/api/waitlist", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       const body = (await response.json().catch(() => null)) as {
         entries?: WaitlistEntry[];
         message?: string;
@@ -44,20 +57,32 @@ export function WaitlistDesk() {
         throw new Error(
           body?.message ?? "The waiting list could not be loaded.",
         );
+      if (!mounted.current || generation !== loadGeneration.current) return;
       setEntries(body?.entries ?? []);
+      setLoaded(true);
     } catch (cause) {
+      if ((cause as Error).name === "AbortError") return;
+      if (!mounted.current || generation !== loadGeneration.current) return;
+      setLoaded(false);
       setError(
         cause instanceof Error
           ? cause.message
           : "The waiting list could not be loaded.",
       );
     } finally {
-      setLoading(false);
+      if (mounted.current && generation === loadGeneration.current)
+        setLoading(false);
     }
   }, []);
   useEffect(() => {
+    mounted.current = true;
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      mounted.current = false;
+      loadGeneration.current += 1;
+      requestController.current?.abort();
+      window.clearTimeout(timer);
+    };
   }, [load]);
   const pending = useMemo(
     () =>
@@ -117,7 +142,7 @@ export function WaitlistDesk() {
             onClick={() => void load()}
             variant="outlined"
           >
-            {loading ? "Refreshing…" : "Refresh"}
+            Refresh
           </Button>
         </Stack>
         {error ? (
@@ -129,81 +154,137 @@ export function WaitlistDesk() {
           sx={{
             display: "grid",
             gap: 1.5,
-            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+            gridTemplateColumns: "1fr",
             mb: 3,
           }}
         >
-          <Card variant="outlined" sx={{ p: 2.5 }}>
-            <Typography
-              sx={{ color: "text.secondary", fontSize: 12, fontWeight: 800 }}
-            >
-              TOTAL SIGNUPS
-            </Typography>
-            <Typography sx={{ fontSize: 36, fontWeight: 800 }}>
-              {entries.length}
-            </Typography>
-          </Card>
-          <Card variant="outlined" sx={{ p: 2.5 }}>
-            <Typography
-              sx={{ color: "text.secondary", fontSize: 12, fontWeight: 800 }}
-            >
-              AWAITING LAUNCH EMAIL
-            </Typography>
-            <Typography sx={{ fontSize: 36, fontWeight: 800 }}>
-              {pending}
-            </Typography>
-          </Card>
+          <AdminCard
+            variant="metric"
+            watermark="identity"
+            showWatermark={loaded && !loading && !error}
+            sx={{ p: 2.5 }}
+          >
+            {loading ? (
+              <AdminSkeleton variant="metric" label="Loading total signups" />
+            ) : (
+              <>
+                <Typography
+                  sx={{
+                    color: "text.secondary",
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  TOTAL SIGNUPS
+                </Typography>
+                <Typography sx={{ fontSize: 36, fontWeight: 800 }}>
+                  {error || !loaded ? "Unavailable" : entries.length}
+                </Typography>
+              </>
+            )}
+          </AdminCard>
+          <AdminCard
+            variant="metric"
+            watermark="queue"
+            showWatermark={loaded && !loading && !error}
+            sx={{ p: 2.5 }}
+          >
+            {loading ? (
+              <AdminSkeleton
+                variant="metric"
+                label="Loading pending launch emails"
+              />
+            ) : (
+              <>
+                <Typography
+                  sx={{
+                    color: "text.secondary",
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  AWAITING LAUNCH EMAIL
+                </Typography>
+                <Typography sx={{ fontSize: 36, fontWeight: 800 }}>
+                  {error || !loaded ? "Unavailable" : pending}
+                </Typography>
+              </>
+            )}
+          </AdminCard>
         </Box>
         <Stack spacing={1.25}>
-          {!loading && entries.length === 0 ? (
-            <Card variant="outlined" sx={{ p: 4, textAlign: "center" }}>
-              <Typography sx={{ fontWeight: 800 }}>
-                No one is waiting yet.
-              </Typography>
-              <Typography sx={{ color: "text.secondary" }}>
-                New marketing signups will appear here.
-              </Typography>
-            </Card>
+          {!loading && loaded && !error && entries.length === 0 ? (
+            <EmptyState
+              icon="⌁"
+              title="No one is waiting yet"
+              description="New marketing signups will appear here."
+              variant="neutral"
+            />
           ) : null}
-          {entries.map((entry) => (
-            <Card key={entry.email} variant="outlined" sx={{ p: 2.25 }}>
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={2}
-                sx={{
-                  alignItems: { sm: "center" },
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Typography sx={{ fontWeight: 800 }}>{entry.name}</Typography>
-                  <Typography sx={{ color: "text.secondary" }}>
-                    {entry.email}
-                  </Typography>
-                </Box>
-                <Stack
-                  direction="row"
-                  spacing={1.5}
-                  sx={{ alignItems: "center" }}
+          {loading ? (
+            <AdminSkeleton
+              variant="card-list"
+              rows={5}
+              label="Loading waitlist entries"
+            />
+          ) : null}
+          {!loading && loaded && !error
+            ? entries.map((entry) => (
+                <AdminCard
+                  key={entry.email}
+                  variant="row"
+                  watermark="identity"
+                  sx={{ p: 2.25 }}
                 >
-                  <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                    {dateLabel(entry.signedUpAt)}
-                  </Typography>
-                  <Chip
-                    color={
-                      entry.notificationState === "sent" ? "success" : "warning"
-                    }
-                    label={
-                      entry.notificationState === "sent"
-                        ? "Notified"
-                        : "Pending"
-                    }
-                    size="small"
-                  />
-                </Stack>
-              </Stack>
-            </Card>
-          ))}
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={2}
+                    sx={{
+                      alignItems: { sm: "center" },
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box>
+                      <Typography sx={{ fontWeight: 800 }}>
+                        {entry.name}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: "text.secondary",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        {entry.email}
+                      </Typography>
+                    </Box>
+                    <Stack
+                      direction="row"
+                      spacing={1.5}
+                      sx={{ alignItems: "center" }}
+                    >
+                      <Typography
+                        sx={{ color: "text.secondary", fontSize: 13 }}
+                      >
+                        {dateLabel(entry.signedUpAt)}
+                      </Typography>
+                      <Chip
+                        color={
+                          entry.notificationState === "sent"
+                            ? "success"
+                            : "warning"
+                        }
+                        label={
+                          entry.notificationState === "sent"
+                            ? "Notified"
+                            : "Pending"
+                        }
+                        size="small"
+                      />
+                    </Stack>
+                  </Stack>
+                </AdminCard>
+              ))
+            : null}
         </Stack>
       </Container>
     </Box>

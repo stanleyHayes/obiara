@@ -9,8 +9,11 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { SegmentedOtpInput } from "@obiara/ui-web";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { isAdminSessionResult, isCodeSent } from "../auth-model";
+import { AdminSkeleton } from "../loading-skeleton";
 
 export function AdminLogin() {
   const router = useRouter();
@@ -21,42 +24,84 @@ export function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const mounted = useRef(false);
+  const generation = useRef(0);
+  const controller = useRef<AbortController | null>(null);
+  const emailField = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    mounted.current = true;
+    const lifecycle = generation;
+    return () => {
+      mounted.current = false;
+      lifecycle.current++;
+      controller.current?.abort();
+    };
+  }, []);
 
   async function submit(action: "start" | "complete") {
+    const run = ++generation.current;
+    controller.current?.abort();
+    const requestController = new AbortController();
+    controller.current = requestController;
     setBusy(true);
     setMessage("");
     try {
       const response = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, email, password, code }),
+        body: JSON.stringify(
+          action === "start"
+            ? { action, email, password }
+            : { action, email, code },
+        ),
+        signal: requestController.signal,
       });
-      const payload = (await response.json().catch(() => null)) as {
-        message?: string;
-      } | null;
+      const payload: unknown = await response.json().catch(() => null);
       if (!response.ok)
         throw new Error(
-          payload?.message || "Admin sign-in could not continue.",
+          payload &&
+            typeof payload === "object" &&
+            "message" in payload &&
+            typeof payload.message === "string"
+            ? payload.message
+            : "Admin sign-in could not continue.",
         );
       if (action === "start") {
+        if (!isCodeSent(payload))
+          throw new Error("Admin sign-in could not continue.");
+        if (!mounted.current || run !== generation.current) return;
+        setPassword("");
+        setShowPassword(false);
         setStage("code");
       } else {
+        if (!isAdminSessionResult(payload))
+          throw new Error("Admin sign-in could not continue.");
+        if (!mounted.current || run !== generation.current) return;
         router.replace("/");
         router.refresh();
       }
     } catch (error) {
+      if (
+        requestController.signal.aborted ||
+        !mounted.current ||
+        run !== generation.current
+      )
+        return;
       setMessage(
         error instanceof Error
           ? error.message
           : "Admin sign-in could not continue.",
       );
     } finally {
-      setBusy(false);
+      if (mounted.current && run === generation.current) setBusy(false);
     }
   }
 
   return (
     <form
+      aria-busy={busy}
+      aria-describedby={message ? "admin-login-error" : undefined}
       className="admin-login-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -64,9 +109,19 @@ export function AdminLogin() {
       }}
     >
       <div className="admin-login-progress" aria-label="Sign-in progress">
-        <span className="is-active">1</span>
+        <span
+          aria-current={stage === "email" ? "step" : undefined}
+          className="is-active"
+        >
+          1
+        </span>
         <i aria-hidden="true" className={stage === "code" ? "is-active" : ""} />
-        <span className={stage === "code" ? "is-active" : ""}>2</span>
+        <span
+          aria-current={stage === "code" ? "step" : undefined}
+          className={stage === "code" ? "is-active" : ""}
+        >
+          2
+        </span>
         <Typography>
           {stage === "email" ? "Account details" : "Identity check"}
         </Typography>
@@ -81,7 +136,8 @@ export function AdminLogin() {
       ) : null}
       <TextField
         autoComplete="email"
-        disabled={stage === "code"}
+        disabled={stage === "code" || busy}
+        inputRef={emailField}
         fullWidth
         label="Admin email"
         onChange={(event) => setEmail(event.target.value)}
@@ -91,7 +147,7 @@ export function AdminLogin() {
       />
       <TextField
         autoComplete="current-password"
-        disabled={stage === "code"}
+        disabled={stage === "code" || busy}
         fullWidth
         label="Password"
         onChange={(event) => setPassword(event.target.value)}
@@ -108,7 +164,7 @@ export function AdminLogin() {
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
-                    disabled={stage === "code"}
+                    disabled={stage === "code" || busy}
                     edge="end"
                     onClick={() => setShowPassword((visible) => !visible)}
                     onMouseDown={(event) => event.preventDefault()}
@@ -129,32 +185,30 @@ export function AdminLogin() {
       {stage === "email" ? (
         <div className="admin-login-help">
           <a href="mailto:support@obiara.app?subject=Admin%20access%20recovery&body=I%20need%20help%20recovering%20access%20to%20the%20Obiara%20operations%20desk.%20Please%20send%20me%20the%20secure%20recovery%20steps.">
-            Forgot password?
+            Contact support to recover access
           </a>
         </div>
       ) : null}
       {stage === "code" ? (
-        <TextField
-          autoComplete="one-time-code"
+        <SegmentedOtpInput
           autoFocus
-          fullWidth
+          disabled={busy}
           label="Six-digit code"
-          onChange={(event) =>
-            setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-          }
+          onChange={setCode}
           required
-          slotProps={{
-            htmlInput: {
-              inputMode: "numeric",
-              maxLength: 6,
-              pattern: "[0-9]{6}",
-            },
-          }}
           value={code}
         />
       ) : null}
-      {message ? <Alert severity="error">{message}</Alert> : null}
+      {message ? (
+        <Alert id="admin-login-error" severity="error">
+          {message}
+        </Alert>
+      ) : null}
+      {busy ? (
+        <AdminSkeleton variant="inline" label="Checking securely" />
+      ) : null}
       <Button
+        aria-describedby={message ? "admin-login-error" : undefined}
         className="admin-auth-primary-action"
         disabled={
           busy ||
@@ -165,11 +219,7 @@ export function AdminLogin() {
         type="submit"
         variant="contained"
       >
-        {busy
-          ? "Checking securely…"
-          : stage === "email"
-            ? "Send sign-in code"
-            : "Verify and enter"}
+        {stage === "email" ? "Send sign-in code" : "Verify and enter"}
       </Button>
       {stage === "code" ? (
         <Button
@@ -180,7 +230,9 @@ export function AdminLogin() {
             setStage("email");
             setCode("");
             setPassword("");
+            setShowPassword(false);
             setMessage("");
+            requestAnimationFrame(() => emailField.current?.focus());
           }}
           type="button"
         >

@@ -1,458 +1,800 @@
 "use client";
 
+import { errorCode, needsStepUp } from "../../lib/step-up";
 import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
-  Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   LinearProgress,
   MenuItem,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import { FormEvent, useState } from "react";
-
-type Cohort = {
-  id: string;
-  capacity: 4 | 8 | 16;
-  enrolled: number;
-  joined: boolean;
-  status: "open" | "locked" | "started";
+import { SegmentedOtpInput } from "@obiara/ui-web";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { AdminCard } from "../../admin-card";
+import { AdminSkeleton } from "../../loading-skeleton";
+import { EmptyState } from "../../empty-state";
+import {
+  validCohort,
+  validCompetition,
+  validReviewResult,
+  type Cohort,
+  type Competition,
+  type PendingTournament,
+} from "../../content-model";
+type Mode = "landing" | "cohort" | "competition";
+const command = (kind: string) => `${kind}.${crypto.randomUUID()}`;
+export function TournamentDesk({
+  mode = "landing",
+  cohortId,
+  competitionId,
+}: {
+  mode?: Mode;
+  cohortId?: string;
   competitionId?: string;
-  revision: number;
-};
-type Competition = {
-  id: string;
-  revision: number;
-  status: "active" | "completed";
-  reviews: {
-    id: string;
-    matchId: string;
-    status: "open" | "resolved" | "appealed" | "final";
-    decision: "none" | "no_action" | "rules_action";
-  }[];
-};
-
-function statusColour(status: Cohort["status"]) {
-  if (status === "started") return "success" as const;
-  if (status === "locked") return "warning" as const;
-  return "info" as const;
-}
-
-export function TournamentDesk() {
-  const [cohort, setCohort] = useState<Cohort | null>(null);
-  const [competition, setCompetition] = useState<Competition | null>(null);
-  const [reference, setReference] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-
-  async function readResponse(response: Response) {
-    const payload = (await response.json().catch(() => null)) as
-      (Cohort & { message?: string }) | null;
-    if (!response.ok)
-      throw new Error(
-        payload?.message ||
-          "The tournament desk could not complete that action.",
-      );
-    return payload;
-  }
-
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const capacity = Number(
-      new FormData(event.currentTarget).get("capacity"),
-    ) as 4 | 8 | 16;
-    setBusy(true);
-    setMessage("");
+}) {
+  const router = useRouter(),
+    [reference, setReference] = useState(""),
+    [createOpen, setCreateOpen] = useState(false),
+    [capacity, setCapacity] = useState<4 | 8 | 16>(4),
+    [cohort, setCohort] = useState<Cohort | null>(null),
+    [competition, setCompetition] = useState<Competition | null>(null),
+    [loading, setLoading] = useState(mode !== "landing"),
+    [loadError, setLoadError] = useState(""),
+    [loadStatus, setLoadStatus] = useState(0),
+    [actionError, setActionError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [pending, setPending] = useState<PendingTournament | null>(null),
+    [mfa, setMfa] = useState(false),
+    [otp, setOtp] = useState(""),
+    [busy, setBusy] = useState(false);
+  const mounted = useRef(false),
+    loadGen = useRef(0),
+    actionGen = useRef(0),
+    stepGen = useRef(0),
+    abort = useRef<AbortController | null>(null),
+    keys = useRef(new Map<string, string>());
+  const keyFor = (terms: string) => {
+    if (!keys.current.has(terms))
+      keys.current.set(terms, command("tournament"));
+    return keys.current.get(terms)!;
+  };
+  const load = useCallback(async () => {
+    if (mode === "landing" || !cohortId) return;
+    const gen = ++loadGen.current;
+    abort.current?.abort();
+    const c = new AbortController();
+    abort.current = c;
+    setLoading(true);
+    setLoadError("");
+    setLoadStatus(0);
+    let responseStatus = 0;
     try {
-      const response = await fetch("/api/game-cohorts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
-        },
-        body: JSON.stringify({ action: "create", capacity }),
-      });
-      const value = await readResponse(response);
-      if (!value?.id) throw new Error("The cohort response was incomplete.");
-      setCohort(value);
-      setCompetition(null);
-      setReference(value.id);
-      setMessage(
-        "Private cohort created. Share only its invitation reference.",
-      );
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "The cohort could not be created.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function load(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const id = reference.trim();
-    if (!id) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      const response = await fetch(
-        `/api/game-cohorts?cohortId=${encodeURIComponent(id)}`,
-      );
-      const value = await readResponse(response);
-      if (!value?.id) throw new Error("The cohort response was incomplete.");
-      setCohort(value);
-      if (value.competitionId)
-        await loadCompetition(value.id, value.competitionId);
-      else setCompetition(null);
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "The cohort could not be opened.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function start() {
-    if (!cohort) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      const response = await fetch("/api/game-cohorts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
-        },
-        body: JSON.stringify({
-          action: "start",
-          cohortId: cohort.id,
-          expectedRevision: cohort.revision,
+      const query = `cohortId=${encodeURIComponent(cohortId)}${competitionId ? `&competitionId=${encodeURIComponent(competitionId)}` : ""}`,
+        r = await fetch(`/api/game-cohorts?${query}`, {
+          signal: c.signal,
+          cache: "no-store",
         }),
-      });
-      const value = (await response.json().catch(() => null)) as {
-        cohort?: Cohort;
-        message?: string;
-      } | null;
-      if (!response.ok || !value?.cohort)
-        throw new Error(value?.message || "The bracket could not be started.");
-      setCohort(value.cohort);
-      if (value.cohort.competitionId)
-        await loadCompetition(value.cohort.id, value.cohort.competitionId);
-      setMessage(
-        "Bracket started. Entrants can now open the privacy-safe ladder.",
-      );
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "The bracket could not be started.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function loadCompetition(cohortId: string, competitionId: string) {
-    const response = await fetch(
-      `/api/game-cohorts?cohortId=${encodeURIComponent(cohortId)}&competitionId=${encodeURIComponent(competitionId)}`,
-    );
-    const payload = (await response.json().catch(() => null)) as
-      (Competition & { message?: string }) | null;
-    if (!response.ok || !payload?.id)
-      throw new Error(
-        payload?.message || "The competition review desk could not be opened.",
-      );
-    setCompetition(payload);
-  }
-
-  async function resolve(
-    reviewId: string,
-    decision: "no_action" | "rules_action",
-    appeal: boolean,
-  ) {
-    if (!cohort || !competition) return;
-    setBusy(true);
-    setMessage("");
-    try {
-      const response = await fetch("/api/game-cohorts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
-        },
-        body: JSON.stringify({
-          action: appeal ? "resolve-appeal" : "resolve-review",
-          cohortId: cohort.id,
-          competitionId: competition.id,
-          reviewId,
-          decision,
-          expectedRevision: competition.revision,
-        }),
-      });
-      const payload = (await response.json().catch(() => null)) as
-        (Competition & { message?: string }) | null;
-      if (!response.ok || !payload?.id)
+        b: unknown = await r.json().catch(() => null);
+      responseStatus = r.status;
+      if (!r.ok || (competitionId ? !validCompetition(b) : !validCohort(b)))
         throw new Error(
-          payload?.message || "The review decision could not be retained.",
+          b &&
+            typeof b === "object" &&
+            "message" in b &&
+            typeof b.message === "string"
+            ? b.message
+            : "The requested tournament record is unavailable.",
         );
-      setCompetition(payload);
-      setMessage(
-        "Human review decision retained with its immutable evidence reference.",
-      );
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "The review decision could not be retained.",
-      );
+      if (!mounted.current || gen !== loadGen.current) return;
+      if (competitionId) {
+        if ((b as Competition).id !== competitionId)
+          throw new Error("The exact competition was not returned.");
+        setCompetition(b as Competition);
+      } else {
+        if ((b as Cohort).id !== cohortId)
+          throw new Error("The exact cohort was not returned.");
+        setCohort(b as Cohort);
+      }
+    } catch (e) {
+      if (!c.signal.aborted && mounted.current && gen === loadGen.current) {
+        setLoadStatus(responseStatus);
+        setLoadError(
+          e instanceof Error
+            ? e.message
+            : "The requested tournament record is unavailable.",
+        );
+      }
     } finally {
-      setBusy(false);
+      if (mounted.current && gen === loadGen.current) setLoading(false);
+    }
+  }, [mode, cohortId, competitionId]);
+  useEffect(() => {
+    mounted.current = true;
+    const t = setTimeout(() => void load(), 0);
+    const loads = loadGen,
+      actions = actionGen,
+      steps = stepGen;
+    return () => {
+      clearTimeout(t);
+      mounted.current = false;
+      loads.current++;
+      actions.current++;
+      steps.current++;
+      abort.current?.abort();
+    };
+  }, [load]);
+  function payload(p: PendingTournament) {
+    if (p.kind === "create") return { action: "create", capacity: p.capacity };
+    if (p.kind === "start")
+      return {
+        action: "start",
+        cohortId: p.cohortId,
+        expectedRevision: p.expectedRevision,
+      };
+    return {
+      action: p.appeal ? "resolve-appeal" : "resolve-review",
+      cohortId: p.cohortId,
+      competitionId: p.competitionId,
+      reviewId: p.reviewId,
+      decision: p.decision,
+      expectedRevision: p.expectedRevision,
+    };
+  }
+  async function execute(p: PendingTournament) {
+    const gen = ++actionGen.current;
+    setBusy(true);
+    setActionError("");
+    try {
+      const r = await fetch("/api/game-cohorts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": p.key,
+          },
+          body: JSON.stringify(payload(p)),
+        }),
+        b: unknown = await r.json().catch(() => null);
+      if (!mounted.current || gen !== actionGen.current) return;
+      if (needsStepUp(r.status, errorCode(b)) && p.kind === "review") {
+        setMfa(true);
+        return;
+      }
+      if (!r.ok) {
+        // On revision conflict: drop stale pending and cached key, refresh data.
+        // Operator can retry with current revision; new command gets fresh idempotency key.
+        if (
+          r.status === 409 &&
+          b &&
+          typeof b === "object" &&
+          "code" in b &&
+          b.code === "competition_conflict"
+        ) {
+          setPending(null);
+          // Reconstruct terms to delete the cached idempotency key, ensuring
+          // next attempt generates a fresh key with the current revision.
+          if (p.kind === "create") {
+            keys.current.delete(
+              JSON.stringify({ kind: "create", capacity: p.capacity }),
+            );
+          } else if (p.kind === "start") {
+            keys.current.delete(
+              JSON.stringify({
+                kind: "start",
+                cohortId: p.cohortId,
+                expectedRevision: p.expectedRevision,
+              }),
+            );
+          } else {
+            keys.current.delete(
+              JSON.stringify({
+                kind: "review",
+                cohortId: p.cohortId,
+                competitionId: p.competitionId,
+                reviewId: p.reviewId,
+                decision: p.decision,
+                expectedRevision: p.expectedRevision,
+                appeal: p.appeal,
+              }),
+            );
+          }
+          await load();
+          throw new Error(
+            "Revision conflict: the bracket has changed. Data reloaded—review and retry.",
+          );
+        }
+        throw new Error(
+          b &&
+            typeof b === "object" &&
+            "message" in b &&
+            typeof b.message === "string"
+            ? b.message
+            : "The tournament action failed.",
+        );
+      }
+      if (p.kind === "create") {
+        if (!validCohort(b) || b.capacity !== p.capacity)
+          throw new Error("The cohort response was invalid.");
+        keys.current.delete(
+          JSON.stringify({ kind: "create", capacity: p.capacity }),
+        );
+        setPending(null);
+        router.push(`/tournaments/${encodeURIComponent(b.id)}`);
+        return;
+      }
+      if (p.kind === "start") {
+        if (
+          !b ||
+          typeof b !== "object" ||
+          !("cohort" in b) ||
+          !("competition" in b) ||
+          !validCohort(b.cohort) ||
+          !validCompetition(b.competition) ||
+          b.cohort.id !== p.cohortId ||
+          b.cohort.status !== "started" ||
+          b.cohort.revision <= p.expectedRevision ||
+          b.cohort.competitionId !== b.competition.id
+        )
+          throw new Error("The bracket response was invalid.");
+        setCohort(b.cohort);
+        setNotice("Bracket started.");
+        keys.current.delete(
+          JSON.stringify({
+            kind: "start",
+            cohortId: p.cohortId,
+            expectedRevision: p.expectedRevision,
+          }),
+        );
+      } else {
+        if (!validReviewResult(b, p))
+          throw new Error("The review result was invalid.");
+        setCompetition(b as Competition);
+        setNotice("Human review decision retained.");
+      }
+      setPending(null);
+      setMfa(false);
+      setOtp("");
+      setActionError("");
+    } catch (e) {
+      if (mounted.current && gen === actionGen.current)
+        setActionError(
+          e instanceof Error ? e.message : "The tournament action failed.",
+        );
+    } finally {
+      if (mounted.current && gen === actionGen.current) setBusy(false);
     }
   }
-
-  return (
-    <Stack spacing={3}>
-      <Box>
-        <Typography
-          sx={{
-            color: "text.secondary",
-            fontSize: 12,
-            fontWeight: 800,
-            letterSpacing: 1.4,
-          }}
+  async function step(action: "start" | "complete") {
+    const gen = ++stepGen.current;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/step-up", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            action === "start" ? { action } : { action, code: otp },
+          ),
+        }),
+        b = await r.json().catch(() => null);
+      if (!mounted.current || gen !== stepGen.current) return;
+      if (!r.ok) throw new Error(b?.message ?? "MFA failed.");
+      if (action === "complete" && pending) {
+        const exact = pending;
+        setMfa(false);
+        setOtp("");
+        await execute(exact);
+      } else setNotice("A step-up code was sent.");
+    } catch (e) {
+      if (mounted.current && gen === stepGen.current)
+        setActionError(e instanceof Error ? e.message : "MFA failed.");
+    } finally {
+      if (mounted.current && gen === stepGen.current) setBusy(false);
+    }
+  }
+  function create() {
+    const terms = JSON.stringify({ kind: "create", capacity });
+    setPending({ kind: "create", capacity, key: keyFor(terms) });
+    setCreateOpen(false);
+  }
+  function resume(e: FormEvent) {
+    e.preventDefault();
+    if (reference.trim())
+      router.push(`/tournaments/${encodeURIComponent(reference.trim())}`);
+  }
+  if (mode === "landing")
+    return (
+      <Stack spacing={3}>
+        <Heading />
+        {notice ? <Alert severity="success">{notice}</Alert> : null}
+        <Button
+          variant="contained"
+          sx={{ alignSelf: "flex-start" }}
+          onClick={() => setCreateOpen(true)}
         >
-          PRIVATE COMPETITION CONTROL
-        </Typography>
-        <Typography
-          component="h1"
-          sx={{
-            fontSize: { xs: 36, md: 52 },
-            fontWeight: 800,
-            letterSpacing: -2,
-          }}
-        >
-          Run invitation-only tournaments.
-        </Typography>
-        <Typography sx={{ color: "text.secondary", maxWidth: 760 }}>
-          Create a fixed cohort, share its private reference, then start the
-          bracket after every seat is claimed. No discovery, popularity ranking,
-          or member directory is exposed.
-        </Typography>
-      </Box>
-      {message ? (
-        <Alert
-          severity={
-            message.includes("created") || message.includes("started")
-              ? "success"
-              : "info"
-          }
-        >
-          {message}
-        </Alert>
-      ) : null}
-      <Stack
-        direction={{ xs: "column", lg: "row" }}
-        spacing={3}
-        sx={{ alignItems: "stretch" }}
-      >
-        <Card
+          Create private cohort
+        </Button>
+        <AdminCard
           component="form"
-          onSubmit={create}
-          sx={{ flex: 1, p: { xs: 2.5, md: 4 } }}
+          onSubmit={resume}
+          variant="form"
+          watermark="identity"
         >
-          <Stack spacing={2.5}>
-            <Typography component="h2" variant="h5" sx={{ fontWeight: 800 }}>
-              Create a cohort
-            </Typography>
+          <Stack spacing={2}>
+            <Typography component="h2">Resume control</Typography>
             <TextField
-              defaultValue={4}
-              label="Entrant capacity"
-              name="capacity"
+              label="Private cohort reference"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              required
+            />
+            <Button type="submit" disabled={!reference.trim()}>
+              Open exact cohort
+            </Button>
+          </Stack>
+        </AdminCard>
+        <Dialog
+          open={createOpen}
+          aria-labelledby="cohort-create-title"
+          aria-describedby="cohort-create-description"
+          onClose={() => {
+            if (!busy) setCreateOpen(false);
+          }}
+        >
+          <DialogTitle id="cohort-create-title">
+            Create a private cohort
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText id="cohort-create-description">
+              Seats are opt-in. The cohort locks automatically when full;
+              performance never changes member matching or trust.
+            </DialogContentText>
+            <TextField
               select
+              label="Entrant capacity"
+              value={capacity}
+              onChange={(e) =>
+                setCapacity(Number(e.target.value) as 4 | 8 | 16)
+              }
+              sx={{ mt: 1 }}
             >
-              {[4, 8, 16].map((capacity) => (
-                <MenuItem key={capacity} value={capacity}>
-                  {capacity} entrants
+              {[4, 8, 16].map((x) => (
+                <MenuItem key={x} value={x}>
+                  {x} entrants
                 </MenuItem>
               ))}
             </TextField>
-            <Alert severity="info">
-              Seats are opt-in. The cohort locks automatically when full;
-              performance never changes member matching or trust.
-            </Alert>
-            <Button
-              disabled={busy}
-              size="large"
-              type="submit"
-              variant="contained"
-            >
-              {busy ? "Working…" : "Create private cohort"}
+          </DialogContent>
+          <DialogActions>
+            <Button disabled={busy} onClick={() => setCreateOpen(false)}>
+              Cancel
             </Button>
-          </Stack>
-        </Card>
-        <Card
-          component="form"
-          onSubmit={load}
-          sx={{ flex: 1, p: { xs: 2.5, md: 4 } }}
-        >
-          <Stack spacing={2.5}>
-            <Typography component="h2" variant="h5" sx={{ fontWeight: 800 }}>
-              Resume control
-            </Typography>
-            <TextField
-              label="Private cohort reference"
-              onChange={(event) => setReference(event.target.value)}
-              required
-              value={reference}
-            />
-            <Button
-              disabled={busy || !reference.trim()}
-              size="large"
-              type="submit"
-              variant="outlined"
-            >
-              Open cohort
+            <Button disabled={busy} onClick={create}>
+              Review creation
             </Button>
-          </Stack>
-        </Card>
+          </DialogActions>
+        </Dialog>
+        <Confirm
+          pending={pending}
+          busy={busy}
+          error={actionError}
+          close={() => {
+            setPending(null);
+            setActionError("");
+            setOtp("");
+          }}
+          run={execute}
+        />
       </Stack>
-      {cohort ? (
-        <Card sx={{ p: { xs: 2.5, md: 4 } }}>
-          <Stack spacing={2.5}>
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              sx={{ justifyContent: "space-between", gap: 2 }}
-            >
-              <Box>
-                <Typography
-                  color="text.secondary"
-                  sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.2 }}
-                >
-                  INVITATION REFERENCE
-                </Typography>
-                <Typography
-                  component="h2"
-                  sx={{
-                    fontFamily: "monospace",
-                    fontSize: { xs: 22, md: 30 },
-                    overflowWrap: "anywhere",
-                  }}
-                >
-                  {cohort.id}
-                </Typography>
-              </Box>
-              <Chip
-                color={statusColour(cohort.status)}
-                label={cohort.status.toUpperCase()}
-              />
-            </Stack>
-            <Divider />
-            <Box>
-              <Stack direction="row" sx={{ justifyContent: "space-between" }}>
-                <Typography sx={{ fontWeight: 750 }}>Seats claimed</Typography>
-                <Typography>
-                  {cohort.enrolled} / {cohort.capacity}
-                </Typography>
-              </Stack>
-              <LinearProgress
-                sx={{ height: 10, borderRadius: 5, mt: 1 }}
-                value={(cohort.enrolled / cohort.capacity) * 100}
-                variant="determinate"
-              />
-            </Box>
-            {cohort.competitionId ? (
-              <Alert severity="success">
-                Competition reference: {cohort.competitionId}
-              </Alert>
-            ) : null}
-            <Button
-              disabled={busy || cohort.status !== "locked"}
-              onClick={start}
-              size="large"
-              variant="contained"
-            >
-              {cohort.status === "open"
-                ? "Waiting for every seat"
-                : cohort.status === "started"
-                  ? "Bracket already started"
-                  : "Start bracket"}
-            </Button>
-          </Stack>
-        </Card>
+    );
+  return (
+    <Stack spacing={3}>
+      <Heading />
+      {notice ? <Alert severity="success">{notice}</Alert> : null}
+      {loading ? (
+        <AdminCard variant="detail" watermark="identity" showWatermark={false}>
+          <AdminSkeleton variant="form" />
+        </AdminCard>
+      ) : loadError ? (
+        <AdminCard variant="warning" watermark="identity" showWatermark={false}>
+          <EmptyState
+            icon="!"
+            title={
+              loadStatus === 404
+                ? "Tournament record not found"
+                : "Tournament record unavailable"
+            }
+            description={loadError}
+            variant="warning"
+            action={
+              loadStatus === 404 ? (
+                <Button component={Link} href="/tournaments">
+                  Return to tournaments
+                </Button>
+              ) : (
+                <Button onClick={() => void load()}>Retry</Button>
+              )
+            }
+          />
+        </AdminCard>
+      ) : mode === "cohort" && cohort ? (
+        <CohortView
+          cohort={cohort}
+          busy={busy}
+          review={() => {
+            const terms = JSON.stringify({
+              kind: "start",
+              cohortId: cohort.id,
+              expectedRevision: cohort.revision,
+            });
+            setPending({
+              kind: "start",
+              cohortId: cohort.id,
+              expectedRevision: cohort.revision,
+              key: keyFor(terms),
+            });
+          }}
+        />
+      ) : mode === "competition" && competition ? (
+        <CompetitionView
+          competition={competition}
+          busy={busy}
+          review={(id, decision, appeal) => {
+            const terms = JSON.stringify({
+              kind: "review",
+              cohortId,
+              competitionId: competition.id,
+              reviewId: id,
+              decision,
+              expectedRevision: competition.revision,
+              appeal,
+            });
+            setPending({
+              kind: "review",
+              cohortId: cohortId!,
+              competitionId: competition.id,
+              reviewId: id,
+              decision,
+              expectedRevision: competition.revision,
+              appeal,
+              key: keyFor(terms),
+            });
+          }}
+        />
       ) : null}
-      {competition?.reviews.length ? (
-        <Card sx={{ p: { xs: 2.5, md: 4 } }}>
-          <Stack spacing={2.5}>
-            <Box>
-              <Typography
-                color="text.secondary"
-                sx={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.2 }}
-              >
-                NEUTRAL FAIR-PLAY REVIEW
-              </Typography>
-              <Typography component="h2" variant="h5" sx={{ fontWeight: 800 }}>
-                Decide from server evidence, never accusation.
-              </Typography>
-            </Box>
-            {competition.reviews.map((review) => (
-              <Card key={review.id} variant="outlined" sx={{ p: 2.5 }}>
-                <Stack spacing={2}>
-                  <Typography sx={{ fontWeight: 750 }}>
-                    {review.matchId} · {review.status}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    Current decision: {review.decision.replaceAll("_", " ")}
-                  </Typography>
-                  {review.status === "open" || review.status === "appealed" ? (
-                    <Stack
-                      direction={{ xs: "column", sm: "row" }}
-                      spacing={1.5}
-                    >
-                      <Button
-                        disabled={busy}
-                        onClick={() =>
-                          void resolve(
-                            review.id,
-                            "no_action",
-                            review.status === "appealed",
-                          )
-                        }
-                        variant="outlined"
-                      >
-                        No action
-                      </Button>
-                      <Button
-                        color="warning"
-                        disabled={busy}
-                        onClick={() =>
-                          void resolve(
-                            review.id,
-                            "rules_action",
-                            review.status === "appealed",
-                          )
-                        }
-                        variant="contained"
-                      >
-                        Rules action
-                      </Button>
-                    </Stack>
-                  ) : null}
-                </Stack>
-              </Card>
-            ))}
-          </Stack>
-        </Card>
-      ) : null}
+      <Confirm
+        pending={mfa ? null : pending}
+        busy={busy}
+        error={actionError}
+        close={() => {
+          setPending(null);
+          setActionError("");
+          setOtp("");
+        }}
+        run={execute}
+      />
+      <Dialog
+        open={mfa}
+        aria-labelledby="tournament-mfa-title"
+        aria-describedby="tournament-mfa-description"
+        onClose={() => {
+          if (!busy) {
+            setMfa(false);
+            setPending(null);
+            setOtp("");
+            setActionError("");
+          }
+        }}
+      >
+        <DialogTitle id="tournament-mfa-title">Fresh MFA required</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="tournament-mfa-description">
+            Verify fresh authority to retry this exact review decision.
+          </DialogContentText>
+          {actionError ? (
+            <Alert severity="error" role="alert">
+              {actionError}
+            </Alert>
+          ) : null}
+          <SegmentedOtpInput
+            label="Six-digit code"
+            value={otp}
+            onChange={setOtp}
+            disabled={busy}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setMfa(false);
+              setPending(null);
+              setOtp("");
+              setActionError("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button disabled={busy} onClick={() => void step("start")}>
+            Send code
+          </Button>
+          <Button
+            disabled={busy || otp.length !== 6}
+            onClick={() => void step("complete")}
+          >
+            Verify and retry
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
+}
+function Heading() {
+  return (
+    <Box>
+      <Typography className="section-kicker">
+        PRIVATE COMPETITION CONTROL
+      </Typography>
+      <Typography component="h1">Run invitation-only tournaments.</Typography>
+      <Typography color="text.secondary">
+        No discovery, popularity ranking, or member directory is exposed.
+      </Typography>
+    </Box>
+  );
+}
+function CohortView({
+  cohort,
+  busy,
+  review,
+}: {
+  cohort: Cohort;
+  busy: boolean;
+  review: () => void;
+}) {
+  return (
+    <AdminCard component="article" variant="detail" watermark="identity">
+      <Stack spacing={2}>
+        <Typography component="h2" sx={{ overflowWrap: "anywhere" }}>
+          {cohort.id}
+        </Typography>
+        <Chip label={cohort.status} />
+        <Typography>Revision {cohort.revision}</Typography>
+        <Box
+          role="progressbar"
+          aria-label="Seats claimed"
+          aria-valuemin={0}
+          aria-valuemax={cohort.capacity}
+          aria-valuenow={cohort.enrolled}
+          aria-valuetext={`${cohort.enrolled} of ${cohort.capacity} seats claimed`}
+        >
+          <Typography>
+            {cohort.enrolled} / {cohort.capacity} seats claimed
+          </Typography>
+          <LinearProgress
+            value={(cohort.enrolled / cohort.capacity) * 100}
+            variant="determinate"
+          />
+        </Box>
+        {cohort.competitionId ? (
+          <Button
+            component={Link}
+            href={`/tournaments/${encodeURIComponent(cohort.id)}/competitions/${encodeURIComponent(cohort.competitionId)}`}
+          >
+            Open competition
+          </Button>
+        ) : null}
+        <Button
+          disabled={
+            busy ||
+            cohort.status !== "locked" ||
+            cohort.enrolled !== cohort.capacity
+          }
+          onClick={review}
+        >
+          {cohort.status === "locked"
+            ? "Review bracket start"
+            : cohort.status === "open"
+              ? "Waiting for every seat"
+              : "Bracket already started"}
+        </Button>
+      </Stack>
+    </AdminCard>
+  );
+}
+function CompetitionView({
+  competition,
+  busy,
+  review,
+}: {
+  competition: Competition;
+  busy: boolean;
+  review: (id: string, d: "no_action" | "rules_action", a: boolean) => void;
+}) {
+  return (
+    <Stack spacing={2}>
+      <AdminCard variant="detail" watermark="evidence">
+        <Typography component="h2">Competition {competition.id}</Typography>
+        <Typography>
+          {competition.status} · revision {competition.revision}
+        </Typography>
+        <Typography>
+          {competition.matches.length} matches · {competition.ladder.length}{" "}
+          ladder entries
+        </Typography>
+      </AdminCard>
+      <AdminCard variant="panel" watermark="analytics">
+        <Stack spacing={1}>
+          <Typography component="h3">Privacy-safe ladder</Typography>
+          {competition.ladder.map((entry, index) => (
+            <Box
+              component="article"
+              key={`${entry.label}-${index}`}
+              sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}
+            >
+              <Typography sx={{ fontWeight: 800 }}>
+                {entry.label}
+                {entry.you ? " · you" : ""}
+              </Typography>
+              <Typography color="text.secondary">
+                {entry.wins} wins · {entry.played} played
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
+      </AdminCard>
+      <AdminCard variant="panel" watermark="clock">
+        <Stack spacing={1}>
+          <Typography component="h3">Bracket matches</Typography>
+          {competition.matches.map((match) => (
+            <Box
+              component="article"
+              key={match.id}
+              sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}
+            >
+              <Typography sx={{ fontWeight: 800 }}>
+                Round {match.round} · slot {match.slot}
+              </Typography>
+              <Typography>
+                {match.firstLabel} vs {match.secondLabel}
+              </Typography>
+              <Typography color="text.secondary">
+                {match.resultRecorded
+                  ? `Winner: ${match.winnerLabel ?? "Recorded"}`
+                  : "Result pending"}
+                {match.youArePlaying ? " · your match" : ""}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
+      </AdminCard>
+      {competition.reviews.length === 0 ? (
+        <AdminCard variant="panel" watermark="evidence" showWatermark={false}>
+          <EmptyState
+            icon="✓"
+            title="No neutral reviews"
+            description="No review requires an operator decision."
+          />
+        </AdminCard>
+      ) : (
+        competition.reviews.map((r) => (
+          <AdminCard
+            component="article"
+            key={r.id}
+            variant="row"
+            watermark="evidence"
+          >
+            <Stack spacing={1}>
+              <Typography component="h3">{r.matchId}</Typography>
+              <Typography>
+                {r.status} · {r.decision.replaceAll("_", " ")} · opened{" "}
+                {new Date(r.openedAt).toLocaleString()}
+              </Typography>
+              {r.status === "open" || r.status === "appealed" ? (
+                <Stack direction="column" spacing={1}>
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      review(r.id, "no_action", r.status === "appealed")
+                    }
+                  >
+                    Review no action
+                  </Button>
+                  <Button
+                    disabled={busy}
+                    color="warning"
+                    onClick={() =>
+                      review(r.id, "rules_action", r.status === "appealed")
+                    }
+                  >
+                    Review rules action
+                  </Button>
+                </Stack>
+              ) : null}
+            </Stack>
+          </AdminCard>
+        ))
+      )}
+    </Stack>
+  );
+}
+function Confirm({
+  pending,
+  busy,
+  error,
+  close,
+  run,
+}: {
+  pending: PendingTournament | null;
+  busy: boolean;
+  error: string;
+  close: () => void;
+  run: (p: PendingTournament) => Promise<void>;
+}) {
+  return (
+    <Dialog
+      open={Boolean(pending)}
+      onClose={() => {
+        if (!busy) close();
+      }}
+      aria-describedby="tournament-confirm"
+      aria-labelledby="tournament-confirm-title"
+    >
+      <DialogTitle id="tournament-confirm-title">
+        Confirm exact tournament command
+      </DialogTitle>
+      <DialogContent>
+        <DialogContentText id="tournament-confirm">
+          Review the immutable identifiers, revision, and decision.
+        </DialogContentText>
+        {error ? (
+          <Alert severity="error" role="alert">
+            {error}
+          </Alert>
+        ) : null}
+        {pending ? (
+          <Typography sx={{ overflowWrap: "anywhere" }}>
+            {JSON.stringify(payloadForDisplay(pending))}
+          </Typography>
+        ) : null}
+      </DialogContent>
+      <DialogActions>
+        <Button disabled={busy} onClick={close}>
+          Cancel
+        </Button>
+        <Button
+          disabled={busy || !pending}
+          onClick={() => (pending ? void run(pending) : undefined)}
+        >
+          Confirm
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+function payloadForDisplay(p: PendingTournament) {
+  if (p.kind === "create") return { kind: p.kind, capacity: p.capacity };
+  if (p.kind === "start")
+    return {
+      kind: p.kind,
+      cohortId: p.cohortId,
+      expectedRevision: p.expectedRevision,
+    };
+  return {
+    kind: p.kind,
+    cohortId: p.cohortId,
+    competitionId: p.competitionId,
+    reviewId: p.reviewId,
+    decision: p.decision,
+    expectedRevision: p.expectedRevision,
+    appeal: p.appeal,
+  };
 }

@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 type PromptInput = {
   id: string;
@@ -36,10 +36,7 @@ export async function POST(request: Request) {
     ? NextResponse.json(data.data, { status: response.status })
     : NextResponse.json(
         {
-          message: apiErrorMessage(
-            error,
-            "The reviewed prompt could not be approved.",
-          ),
+          ...apiErrorBody(error, "The reviewed prompt could not be approved."),
         },
         { status: response.status },
       );

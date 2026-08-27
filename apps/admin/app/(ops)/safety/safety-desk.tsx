@@ -1,10 +1,11 @@
 "use client";
 
+import { errorCode, needsStepUp } from "../../lib/step-up";
+
 import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
   Dialog,
   DialogActions,
@@ -14,13 +15,16 @@ import {
   InputLabel,
   MenuItem,
   Select,
-  Skeleton,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { SegmentedOtpInput } from "@obiara/ui-web";
+import { EmptyState } from "../../empty-state";
+import { AdminSkeleton } from "../../loading-skeleton";
+import { buildCasePath } from "../../case-route-model";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
 
 type EvidencePurpose = "triage" | "appeal" | "legal";
 
@@ -53,14 +57,14 @@ function deadlineLabel(value: string) {
   return difference < 0 ? `${hours}h overdue` : `${hours}h remaining`;
 }
 
-function SafetyQueueItem({
-  item,
-  selected,
-  onSelect,
-}: Readonly<{ item: SafetyCase; selected: boolean; onSelect: () => void }>) {
+function SafetyQueueItem({ item }: Readonly<{ item: SafetyCase }>) {
   return (
-    <Button aria-pressed={selected} className="safety-case" onClick={onSelect}>
-      <Box>
+    <Button
+      className="safety-case"
+      href={buildCasePath("safety", item.caseId, "/safety")}
+    >
+      <Box className="admin-watermarked-row">
+        <AdminCardWatermark watermark="safety" />
         <Stack direction="row" spacing={1}>
           <Typography component="strong">{item.caseId}</Typography>
           <Chip
@@ -81,7 +85,7 @@ function SafetyQueueItem({
   );
 }
 
-export function SafetyDesk() {
+export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
   const [cases, setCases] = useState<SafetyCase[]>([]);
   const [selectedID, setSelectedID] = useState("");
   const [purpose, setPurpose] = useState<EvidencePurpose>("triage");
@@ -89,14 +93,30 @@ export function SafetyDesk() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [success, setSuccess] = useState("");
   const [stepUpOpen, setStepUpOpen] = useState(false);
   const [stepUpCode, setStepUpCode] = useState("");
+  const [dialogError, setDialogError] = useState("");
+  const loadGeneration = useRef(0);
+  const mounted = useRef(true);
+  const actionGeneration = useRef(0);
   const selected = cases.find((item) => item.caseId === selectedID);
+  const detailMode = Boolean(caseId);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      actionGeneration.current += 1;
+      loadGeneration.current += 1;
+    };
+  }, []);
 
   async function loadQueue() {
+    const generation = ++loadGeneration.current;
     setLoading(true);
-    setMessage("");
+    window.queueMicrotask(() => setLoadError(""));
     try {
       const response = await fetch("/api/safety");
       const payload = (await response.json()) as {
@@ -108,26 +128,30 @@ export function SafetyDesk() {
           payload.message || "The safety queue could not be loaded.",
         );
       const next = payload.cases ?? [];
+      if (!mounted.current || generation !== loadGeneration.current) return;
       setCases(next);
-      setSelectedID((current) =>
-        next.some((item) => item.caseId === current)
-          ? current
-          : (next[0]?.caseId ?? ""),
+      setSelectedID(
+        caseId && next.some((item) => item.caseId === caseId) ? caseId : "",
       );
     } catch (error) {
-      setMessage(
+      if (!mounted.current || generation !== loadGeneration.current) return;
+      setLoadError(
         error instanceof Error
           ? error.message
           : "The safety queue could not be loaded.",
       );
     } finally {
-      setLoading(false);
+      if (mounted.current && generation === loadGeneration.current)
+        setLoading(false);
     }
   }
 
   useEffect(() => {
     let active = true;
-    void fetch("/api/safety")
+    const generation = ++loadGeneration.current;
+    const controller = new AbortController();
+    window.queueMicrotask(() => setLoadError(""));
+    void fetch("/api/safety", { signal: controller.signal })
       .then(async (response) => {
         const payload = (await response.json()) as {
           cases?: SafetyCase[];
@@ -137,32 +161,37 @@ export function SafetyDesk() {
           throw new Error(
             payload.message || "The safety queue could not be loaded.",
           );
-        if (active) {
+        if (active && generation === loadGeneration.current) {
           const next = payload.cases ?? [];
           setCases(next);
-          setSelectedID(next[0]?.caseId ?? "");
+          setSelectedID(
+            caseId && next.some((item) => item.caseId === caseId) ? caseId : "",
+          );
         }
       })
       .catch((error: unknown) => {
-        if (active)
-          setMessage(
+        if (active && generation === loadGeneration.current)
+          setLoadError(
             error instanceof Error
               ? error.message
               : "The safety queue could not be loaded.",
           );
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && generation === loadGeneration.current) setLoading(false);
       });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, []);
+  }, [caseId]);
 
   async function assignCase() {
     if (!selected) return;
+    const action = ++actionGeneration.current;
     setBusy(true);
     setMessage("");
+    setDialogError("");
     try {
       const response = await fetch("/api/safety", {
         method: "POST",
@@ -171,6 +200,7 @@ export function SafetyDesk() {
       });
       const payload = (await response.json().catch(() => null)) as
         (SafetyCase & { message?: string }) | null;
+      if (!mounted.current || action !== actionGeneration.current) return;
       if (!response.ok || !payload?.caseId)
         throw new Error(payload?.message || "The case could not be assigned.");
       setCases((current) =>
@@ -182,20 +212,24 @@ export function SafetyDesk() {
         `${payload.caseId} is assigned to you. Evidence remains sealed until fresh MFA.`,
       );
     } catch (error) {
+      if (!mounted.current || action !== actionGeneration.current) return;
       setMessage(
         error instanceof Error
           ? error.message
           : "The case could not be assigned.",
       );
     } finally {
-      setBusy(false);
+      if (mounted.current && action === actionGeneration.current)
+        setBusy(false);
     }
   }
 
   async function requestEvidence() {
     if (!selected?.assignedToMe) return;
+    const action = ++actionGeneration.current;
     setBusy(true);
     setMessage("");
+    setDialogError("");
     try {
       const response = await fetch("/api/safety", {
         method: "POST",
@@ -208,8 +242,10 @@ export function SafetyDesk() {
       });
       const payload = (await response.json().catch(() => null)) as
         (SafetyEvidence & { message?: string }) | null;
+      if (!mounted.current || action !== actionGeneration.current) return;
       if (!response.ok || !payload?.caseId) {
-        if (response.status === 403) setStepUpOpen(true);
+        if (needsStepUp(response.status, errorCode(payload)))
+          setStepUpOpen(true);
         throw new Error(
           payload?.message || "Redacted evidence could not be opened.",
         );
@@ -217,19 +253,24 @@ export function SafetyDesk() {
       setEvidence(payload);
       setSuccess(`Audited ${purpose} access recorded for ${payload.caseId}.`);
     } catch (error) {
-      setMessage(
+      if (!mounted.current || action !== actionGeneration.current) return;
+      const text =
         error instanceof Error
           ? error.message
-          : "Redacted evidence could not be opened.",
-      );
+          : "Redacted evidence could not be opened.";
+      setMessage(text);
+      setDialogError(text);
     } finally {
-      setBusy(false);
+      if (mounted.current && action === actionGeneration.current)
+        setBusy(false);
     }
   }
 
   async function stepUp(action: "start" | "complete") {
+    const actionRequest = ++actionGeneration.current;
     setBusy(true);
     setMessage("");
+    setDialogError("");
     try {
       const response = await fetch("/api/step-up", {
         method: "POST",
@@ -241,6 +282,8 @@ export function SafetyDesk() {
       const payload = (await response.json().catch(() => null)) as {
         message?: string;
       } | null;
+      if (!mounted.current || actionRequest !== actionGeneration.current)
+        return;
       if (!response.ok)
         throw new Error(
           payload?.message || "The MFA step-up could not be completed.",
@@ -254,22 +297,29 @@ export function SafetyDesk() {
         await requestEvidence();
       }
     } catch (error) {
-      setMessage(
+      if (!mounted.current || actionRequest !== actionGeneration.current)
+        return;
+      const text =
         error instanceof Error
           ? error.message
-          : "The MFA step-up could not be completed.",
-      );
+          : "The MFA step-up could not be completed.";
+      setMessage(text);
+      setDialogError(text);
     } finally {
-      setBusy(false);
+      if (mounted.current && actionRequest === actionGeneration.current)
+        setBusy(false);
     }
   }
 
   return (
-    <main className="verification-shell safety-desk-shell">
+    <main className="verification-shell safety-desk-shell" aria-busy={busy}>
       <header className="verification-header">
         <Box>
-          <Link href="/" className="verification-back">
-            Return to command centre
+          <Link
+            href={detailMode ? "/safety" : "/"}
+            className="verification-back"
+          >
+            {detailMode ? "Back to safety queue" : "Return to command centre"}
           </Link>
           <Typography className="section-kicker">
             Trust and safety desk
@@ -282,12 +332,25 @@ export function SafetyDesk() {
             access.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Chip label={`${cases.length} queued`} color="warning" />
-          <Chip label="Evidence access audited" color="success" />
-        </Stack>
+        {loading ? (
+          <AdminSkeleton
+            variant="form"
+            label="Loading trust and safety desk header"
+            className="triage-header-skeleton"
+          />
+        ) : loadError ? null : (
+          <Stack direction="row" spacing={1}>
+            <Chip label={`${cases.length} queued`} color="warning" />
+            <Chip label="Evidence access audited" color="success" />
+          </Stack>
+        )}
       </header>
 
+      {loadError ? (
+        <Alert severity="error" className="verification-alert">
+          {loadError}
+        </Alert>
+      ) : null}
       {message ? (
         <Alert severity="error" className="verification-alert">
           {message}
@@ -304,220 +367,277 @@ export function SafetyDesk() {
       ) : null}
 
       <Box className="verification-grid">
-        <Card className="verification-list">
-          <Box className="verification-panel-heading">
-            <Typography component="h2">Priority queue</Typography>
-            <Button
-              disabled={loading}
-              onClick={() => void loadQueue()}
-              size="small"
-            >
-              Refresh
-            </Button>
-          </Box>
-          <Box aria-label="Trust and safety cases">
-            {loading ? (
-              <Stack spacing={1.5} sx={{ p: 2 }}>
-                <Skeleton height={76} />
-                <Skeleton height={76} />
-                <Skeleton height={76} />
-              </Stack>
-            ) : cases.length ? (
-              cases.map((item) => (
-                <SafetyQueueItem
-                  item={item}
-                  key={item.caseId}
-                  onSelect={() => setSelectedID(item.caseId)}
-                  selected={item.caseId === selectedID}
+        {!detailMode ? (
+          <AdminCard
+            variant="panel"
+            watermark="queue"
+            showWatermark={!loading && !loadError && cases.length > 0}
+            className="verification-list"
+          >
+            <Box className="verification-panel-heading">
+              <Typography component="h2">Priority queue</Typography>
+              <Button
+                disabled={loading}
+                onClick={() => void loadQueue()}
+                size="small"
+              >
+                Refresh
+              </Button>
+            </Box>
+            <Box aria-label="Trust and safety cases">
+              {loading ? (
+                <AdminSkeleton
+                  variant="card-list"
+                  rows={4}
+                  label="Loading trust and safety queue"
                 />
-              ))
-            ) : (
-              <Alert severity="success">No triage cases are waiting.</Alert>
-            )}
-          </Box>
-        </Card>
-
-        <Card className="verification-review">
-          {selected ? (
-            <Stack spacing={3}>
-              <Box className="verification-panel-heading">
-                <Box>
-                  <Typography className="section-kicker">
-                    Case {selected.caseId}
-                  </Typography>
-                  <Typography component="h2">
-                    Controlled evidence review
-                  </Typography>
-                </Box>
-                <Chip
-                  label={
-                    selected.assignedToMe
-                      ? "Assigned to you"
-                      : selected.assigned
-                        ? "Assigned"
-                        : "Unassigned"
-                  }
-                  color={selected.assignedToMe ? "success" : "default"}
-                />
-              </Box>
-              <Box className="verification-facts">
-                <Box>
-                  <Typography>Private subject</Typography>
-                  <Typography component="strong">
-                    {selected.subjectRef}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography>Severity</Typography>
-                  <Typography component="strong">
-                    Tier {selected.tier}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography>SLA</Typography>
-                  <Typography component="strong">
-                    {deadlineLabel(selected.slaDueAt)}
-                  </Typography>
-                </Box>
-              </Box>
-              {!selected.assigned ? (
-                <Alert severity="info">
-                  Claim the case before requesting its least-exposure evidence
-                  bundle.
-                </Alert>
-              ) : !selected.assignedToMe ? (
-                <Alert severity="warning">
-                  This case belongs to another agent. Evidence access is
-                  blocked.
-                </Alert>
+              ) : loadError ? null : cases.length ? (
+                cases.map((item) => (
+                  <SafetyQueueItem item={item} key={item.caseId} />
+                ))
               ) : (
-                <Alert severity="info">
-                  Choose the exact review purpose. Opening evidence requires
-                  fresh MFA and creates an immutable access record.
-                </Alert>
+                <EmptyState
+                  icon="✓"
+                  title="Triage queue is clear"
+                  description="No trust and safety cases are waiting. New priority work will appear here in SLA order."
+                  variant="success"
+                />
               )}
-              <Box className="verification-actions">
-                {!selected.assigned ? (
-                  <Button
-                    disabled={busy}
-                    onClick={() => void assignCase()}
-                    variant="contained"
-                  >
-                    Assign to me
-                  </Button>
-                ) : null}
-                <FormControl sx={{ minWidth: 180 }}>
-                  <InputLabel id="safety-purpose-label">
-                    Access purpose
-                  </InputLabel>
-                  <Select
-                    label="Access purpose"
-                    labelId="safety-purpose-label"
-                    onChange={(event) =>
-                      setPurpose(event.target.value as EvidencePurpose)
+            </Box>
+          </AdminCard>
+        ) : null}
+        {detailMode ? (
+          <AdminCard
+            variant="detail"
+            watermark="safety"
+            showWatermark={!loading && !loadError && Boolean(selected)}
+            className="verification-review"
+          >
+            {selected ? (
+              <Stack spacing={3}>
+                <Box className="verification-panel-heading">
+                  <Box>
+                    <Typography className="section-kicker">
+                      Case {selected.caseId}
+                    </Typography>
+                    <Typography component="h2">
+                      Controlled evidence review
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={
+                      selected.assignedToMe
+                        ? "Assigned to you"
+                        : selected.assigned
+                          ? "Assigned"
+                          : "Unassigned"
                     }
-                    value={purpose}
+                    color={selected.assignedToMe ? "success" : "default"}
+                  />
+                </Box>
+                <Box className="verification-facts">
+                  <Box>
+                    <Typography>Private subject</Typography>
+                    <Typography component="strong">
+                      {selected.subjectRef}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography>Severity</Typography>
+                    <Typography component="strong">
+                      Tier {selected.tier}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography>SLA</Typography>
+                    <Typography component="strong">
+                      {deadlineLabel(selected.slaDueAt)}
+                    </Typography>
+                  </Box>
+                </Box>
+                {!selected.assigned ? (
+                  <Alert severity="info">
+                    Claim the case before requesting its least-exposure evidence
+                    bundle.
+                  </Alert>
+                ) : !selected.assignedToMe ? (
+                  <Alert severity="warning">
+                    This case belongs to another agent. Evidence access is
+                    blocked.
+                  </Alert>
+                ) : (
+                  <Alert severity="info">
+                    Choose the exact review purpose. Opening evidence requires
+                    fresh MFA and creates an immutable access record.
+                  </Alert>
+                )}
+                <Box className="verification-actions">
+                  {!selected.assigned ? (
+                    <Button
+                      disabled={busy}
+                      onClick={() => void assignCase()}
+                      variant="contained"
+                    >
+                      Assign to me
+                    </Button>
+                  ) : null}
+                  <FormControl sx={{ minWidth: 180 }}>
+                    <InputLabel id="safety-purpose-label">
+                      Access purpose
+                    </InputLabel>
+                    <Select
+                      label="Access purpose"
+                      labelId="safety-purpose-label"
+                      onChange={(event) =>
+                        setPurpose(event.target.value as EvidencePurpose)
+                      }
+                      value={purpose}
+                    >
+                      <MenuItem value="triage">Triage</MenuItem>
+                      <MenuItem value="appeal">Appeal</MenuItem>
+                      <MenuItem value="legal">Legal</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <Button
+                    disabled={busy || !selected.assignedToMe}
+                    onClick={() => void requestEvidence()}
+                    variant="outlined"
                   >
-                    <MenuItem value="triage">Triage</MenuItem>
-                    <MenuItem value="appeal">Appeal</MenuItem>
-                    <MenuItem value="legal">Legal</MenuItem>
-                  </Select>
-                </FormControl>
-                <Button
-                  disabled={busy || !selected.assignedToMe}
-                  onClick={() => void requestEvidence()}
-                  variant="outlined"
-                >
-                  Open redacted evidence
-                </Button>
-              </Box>
-            </Stack>
-          ) : (
-            <Alert severity="info">Select a queued case to begin.</Alert>
-          )}
-        </Card>
+                    Open redacted evidence
+                  </Button>
+                </Box>
+              </Stack>
+            ) : loading ? (
+              <AdminSkeleton
+                variant="form"
+                label="Loading safety case workspace"
+              />
+            ) : loadError ? (
+              <EmptyState
+                icon="!"
+                title="Safety case unavailable"
+                description={loadError}
+                variant="warning"
+                action={<Button onClick={() => void loadQueue()}>Retry</Button>}
+              />
+            ) : (
+              <EmptyState
+                icon="⌁"
+                title="Safety case not found"
+                description="This case is no longer in the active queue, or the link is invalid."
+                variant="warning"
+                action={<Button href="/safety">Back to queue</Button>}
+              />
+            )}
+          </AdminCard>
+        ) : null}
       </Box>
 
-      <Dialog
-        fullWidth
-        maxWidth="sm"
-        onClose={() => setEvidence(null)}
-        open={Boolean(evidence)}
-      >
-        <DialogTitle>Redacted case evidence</DialogTitle>
-        <DialogContent>
-          {evidence ? (
-            <Stack spacing={2}>
-              <Alert severity="warning">
-                Purpose: {purpose}. Access has been logged.
-              </Alert>
-              <Box className="verification-facts">
-                <Box>
-                  <Typography>Subject</Typography>
-                  <Typography component="strong">
-                    {evidence.subjectRef}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography>Category</Typography>
-                  <Typography component="strong">
-                    {evidence.category}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography>Surface</Typography>
-                  <Typography component="strong">{evidence.surface}</Typography>
-                </Box>
-              </Box>
-              {evidence.contextRef ? (
-                <Typography>Context: {evidence.contextRef}</Typography>
-              ) : null}
-              <Alert severity="info">
-                {evidence.description ||
-                  "No free-text description was supplied."}
-              </Alert>
-            </Stack>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEvidence(null)}>Close evidence</Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        fullWidth
-        maxWidth="xs"
-        onClose={() => setStepUpOpen(false)}
-        open={stepUpOpen}
-      >
-        <DialogTitle>Fresh MFA required</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <Alert severity="info">
-              The evidence remains sealed until this session completes a fresh
-              step-up.
-            </Alert>
-            <TextField
-              autoComplete="one-time-code"
-              label="Step-up code"
-              onChange={(event) => setStepUpCode(event.target.value)}
-              value={stepUpCode}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button disabled={busy} onClick={() => void stepUp("start")}>
-            Send code
-          </Button>
-          <Button
-            disabled={busy || stepUpCode.trim().length < 6}
-            onClick={() => void stepUp("complete")}
-            variant="contained"
+      {detailMode ? (
+        <>
+          <Dialog
+            className="admin-form-dialog"
+            fullWidth
+            maxWidth="sm"
+            onClose={() => {
+              setEvidence(null);
+              setDialogError("");
+            }}
+            open={Boolean(evidence)}
           >
-            Verify and open
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <DialogTitle>Redacted case evidence</DialogTitle>
+            <DialogContent>
+              {evidence ? (
+                <Stack spacing={2}>
+                  <Alert severity="warning">
+                    Purpose: {purpose}. Access has been logged.
+                  </Alert>
+                  {dialogError ? (
+                    <Alert severity="error" role="alert" aria-live="assertive">
+                      {dialogError}
+                    </Alert>
+                  ) : null}
+                  <Box className="verification-facts">
+                    <Box>
+                      <Typography>Subject</Typography>
+                      <Typography component="strong">
+                        {evidence.subjectRef}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography>Category</Typography>
+                      <Typography component="strong">
+                        {evidence.category}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography>Surface</Typography>
+                      <Typography component="strong">
+                        {evidence.surface}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  {evidence.contextRef ? (
+                    <Typography>Context: {evidence.contextRef}</Typography>
+                  ) : null}
+                  <Alert severity="info">
+                    {evidence.description ||
+                      "No free-text description was supplied."}
+                  </Alert>
+                </Stack>
+              ) : null}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setEvidence(null)}>Close evidence</Button>
+            </DialogActions>
+          </Dialog>
+
+          <Dialog
+            className="admin-form-dialog"
+            fullWidth
+            maxWidth="xs"
+            onClose={() => {
+              setStepUpOpen(false);
+              setDialogError("");
+            }}
+            open={stepUpOpen}
+          >
+            <DialogTitle>Fresh MFA required</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} sx={{ pt: 1 }}>
+                <Alert severity="info">
+                  The evidence remains sealed until this session completes a
+                  fresh step-up.
+                </Alert>
+                {dialogError ? (
+                  <Alert severity="error" role="alert" aria-live="assertive">
+                    {dialogError}
+                  </Alert>
+                ) : null}
+                <SegmentedOtpInput
+                  label="Step-up code"
+                  onChange={setStepUpCode}
+                  value={stepUpCode}
+                  disabled={busy}
+                  required
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button disabled={busy} onClick={() => void stepUp("start")}>
+                Send code
+              </Button>
+              <Button
+                disabled={busy || stepUpCode.trim().length < 6}
+                onClick={() => void stepUp("complete")}
+                variant="contained"
+              >
+                Verify and open
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </>
+      ) : null}
     </main>
   );
 }

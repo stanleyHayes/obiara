@@ -1,10 +1,11 @@
 "use client";
 
+import { errorCode, needsStepUp } from "../../lib/step-up";
+
 import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
   Container,
   Dialog,
@@ -15,13 +16,15 @@ import {
   InputLabel,
   MenuItem,
   Select,
-  Skeleton,
   Stack,
-  TextField,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { SegmentedOtpInput } from "@obiara/ui-web";
+import { AdminCard } from "../../admin-card";
+import { AdminSkeleton } from "../../loading-skeleton";
+import { EmptyState } from "../../empty-state";
 
 type Capability = "sow" | "fires" | "ai" | "payments" | "gate";
 type Environment = "staging" | "production";
@@ -49,6 +52,12 @@ const labels: Record<Capability, string> = {
   payments: "Payments and escrow",
   gate: "Doorway and private gate",
 };
+const actionVerbs: Record<ControlAction, string> = {
+  enable: "enabled",
+  disable: "disabled",
+  kill: "killed",
+  unkill: "removed from runtime kill",
+};
 
 export function ControlsDesk() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -57,6 +66,8 @@ export function ControlsDesk() {
   const [controlAction, setControlAction] = useState<ControlAction>("kill");
   const [reason, setReason] = useState<Reason>("incident");
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState("");
@@ -65,68 +76,89 @@ export function ControlsDesk() {
     proposalId?: string;
   }>(null);
   const [stepUpCode, setStepUpCode] = useState("");
+  const mounted = useRef(false);
+  const loadGeneration = useRef(0);
+  const actionGeneration = useRef(0);
+  const stepUpGeneration = useRef(0);
+  const controllerRef = useRef<AbortController | null>(null);
+  const commandIdRef = useRef(`control:${crypto.randomUUID()}`);
+  const [proposalOpen, setProposalOpen] = useState(false);
+  const [dialogError, setDialogError] = useState("");
+  const [confirmProposal, setConfirmProposal] = useState<Proposal | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    "approve" | "apply" | null
+  >(null);
 
   async function load() {
+    const generation = ++loadGeneration.current;
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
     setLoading(true);
-    setMessage("");
+    setLoaded(false);
+    setLoadError("");
     try {
-      const response = await fetch("/api/controls");
+      const response = await fetch("/api/controls", {
+        signal: controller.signal,
+      });
       const payload = (await response.json()) as {
         proposals?: Proposal[];
         message?: string;
       };
-      if (!response.ok)
+      if (!response.ok || !Array.isArray(payload.proposals))
         throw new Error(
           payload.message || "Runtime-control proposals could not be loaded.",
         );
-      setProposals(payload.proposals ?? []);
+      if (mounted.current && generation === loadGeneration.current) {
+        setProposals(payload.proposals);
+        setLoaded(true);
+      }
     } catch (error) {
-      setMessage(
+      if (
+        controller.signal.aborted ||
+        !mounted.current ||
+        generation !== loadGeneration.current
+      )
+        return;
+      setProposalOpen(false);
+      setConfirmProposal(null);
+      setConfirmAction(null);
+      setLoadError(
         error instanceof Error
           ? error.message
           : "Runtime-control proposals could not be loaded.",
       );
     } finally {
-      setLoading(false);
+      if (mounted.current && generation === loadGeneration.current)
+        setLoading(false);
     }
   }
 
   useEffect(() => {
-    let active = true;
-    void fetch("/api/controls")
-      .then(async (response) => {
-        const payload = (await response.json()) as {
-          proposals?: Proposal[];
-          message?: string;
-        };
-        if (!response.ok)
-          throw new Error(
-            payload.message || "Runtime-control proposals could not be loaded.",
-          );
-        if (active) setProposals(payload.proposals ?? []);
-      })
-      .catch((error: unknown) => {
-        if (active)
-          setMessage(
-            error instanceof Error
-              ? error.message
-              : "Runtime-control proposals could not be loaded.",
-          );
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
+    mounted.current = true;
+    const timer = window.setTimeout(() => void load(), 0);
     return () => {
-      active = false;
+      window.clearTimeout(timer);
+      mounted.current = false;
+      loadGeneration.current += 1;
+      actionGeneration.current += 1;
+      stepUpGeneration.current += 1;
+      controllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    commandIdRef.current = `control:${crypto.randomUUID()}`;
+  }, [capability, environment, controlAction, reason]);
 
   async function mutate(
     action: "propose" | "approve" | "apply",
     proposalId?: string,
   ) {
+    const generation = ++actionGeneration.current;
     setBusy(true);
     setMessage("");
+    setDialogError("");
     try {
       const response = await fetch("/api/controls", {
         method: "POST",
@@ -135,7 +167,7 @@ export function ControlsDesk() {
           action === "propose"
             ? {
                 action,
-                commandId: `control:${crypto.randomUUID()}`,
+                commandId: commandIdRef.current,
                 capability,
                 environment,
                 controlAction,
@@ -147,11 +179,22 @@ export function ControlsDesk() {
       const payload = (await response.json().catch(() => null)) as
         (Proposal & { message?: string }) | null;
       if (!response.ok || !payload?.proposalId) {
-        if (response.status === 403) setPending({ action, proposalId });
+        if (
+          needsStepUp(response.status, errorCode(payload)) &&
+          mounted.current &&
+          generation === actionGeneration.current
+        ) {
+          setPending({ action, proposalId });
+          setDialogError(
+            payload?.message ||
+              "Fresh MFA is required before this retained action can continue.",
+          );
+        }
         throw new Error(
           payload?.message || `The proposal could not be ${action}d.`,
         );
       }
+      if (!mounted.current || generation !== actionGeneration.current) return;
       setProposals((current) => {
         const retained = current.filter(
           (item) => item.proposalId !== payload.proposalId,
@@ -165,20 +208,36 @@ export function ControlsDesk() {
             ? "Proposal approved. This approver may now apply the exact retained terms."
             : "Runtime change applied. It will fail closed automatically at expiry.",
       );
+      setPending(null);
+      setStepUpCode("");
+      setDialogError("");
+      setConfirmProposal(null);
+      setConfirmAction(null);
+      if (action === "propose") {
+        commandIdRef.current = `control:${crypto.randomUUID()}`;
+        setProposalOpen(false);
+      }
     } catch (error) {
-      setMessage(
+      if (!mounted.current || generation !== actionGeneration.current) return;
+      const nextMessage =
         error instanceof Error
           ? error.message
-          : "The runtime-control action failed.",
-      );
+          : "The runtime-control action failed.";
+      if (pending || proposalOpen || confirmProposal)
+        setDialogError(nextMessage);
+      setMessage(nextMessage);
     } finally {
-      setBusy(false);
+      if (mounted.current && generation === actionGeneration.current)
+        setBusy(false);
     }
   }
 
   async function stepUp(action: "start" | "complete") {
+    const generation = ++stepUpGeneration.current;
+    let retrying = false;
     setBusy(true);
     setMessage("");
+    setDialogError("");
     try {
       const response = await fetch("/api/step-up", {
         method: "POST",
@@ -190,6 +249,7 @@ export function ControlsDesk() {
       const payload = (await response.json().catch(() => null)) as {
         message?: string;
       } | null;
+      if (!mounted.current || generation !== stepUpGeneration.current) return;
       if (!response.ok)
         throw new Error(
           payload?.message || "The MFA step-up could not be completed.",
@@ -200,16 +260,25 @@ export function ControlsDesk() {
         const next = pending;
         setPending(null);
         setStepUpCode("");
+        setDialogError("");
+        retrying = true;
         await mutate(next.action, next.proposalId);
       }
     } catch (error) {
-      setMessage(
+      if (!mounted.current || generation !== stepUpGeneration.current) return;
+      const nextMessage =
         error instanceof Error
           ? error.message
-          : "The MFA step-up could not be completed.",
-      );
+          : "The MFA step-up could not be completed.";
+      setDialogError(nextMessage);
+      setMessage(nextMessage);
     } finally {
-      setBusy(false);
+      if (
+        !retrying &&
+        mounted.current &&
+        generation === stepUpGeneration.current
+      )
+        setBusy(false);
     }
   }
 
@@ -251,9 +320,9 @@ export function ControlsDesk() {
               market.
             </Typography>
           </Box>
-          <Link href="/">
-            <Button variant="outlined">Back to command centre</Button>
-          </Link>
+          <Button component={Link} href="/" variant="outlined">
+            Back to command centre
+          </Button>
         </Stack>
 
         {message ? (
@@ -271,7 +340,11 @@ export function ControlsDesk() {
           </Alert>
         ) : null}
 
-        <Card sx={{ borderRadius: 1, p: 3 }}>
+        <AdminCard
+          variant="form"
+          watermark="evidence"
+          sx={{ borderRadius: 1, p: 3 }}
+        >
           <Typography component="h2" sx={{ fontSize: 30, fontWeight: 800 }}>
             Propose exact terms
           </Typography>
@@ -279,79 +352,126 @@ export function ControlsDesk() {
             Every proposal expires within two hours. Expiry publishes disabled
             plus killed, regardless of the requested action.
           </Typography>
-          <Box
-            sx={{
-              display: "grid",
-              gap: 2,
-              gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" },
-            }}
-          >
-            <FormControl>
-              <InputLabel>Capability</InputLabel>
-              <Select
-                label="Capability"
-                value={capability}
-                onChange={(event) =>
-                  setCapability(event.target.value as Capability)
-                }
-              >
-                {Object.entries(labels).map(([key, label]) => (
-                  <MenuItem key={key} value={key}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl>
-              <InputLabel>Environment</InputLabel>
-              <Select
-                label="Environment"
-                value={environment}
-                onChange={(event) =>
-                  setEnvironment(event.target.value as Environment)
-                }
-              >
-                <MenuItem value="staging">Staging</MenuItem>
-                <MenuItem value="production">Production</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl>
-              <InputLabel>Action</InputLabel>
-              <Select
-                label="Action"
-                value={controlAction}
-                onChange={(event) =>
-                  setControlAction(event.target.value as ControlAction)
-                }
-              >
-                <MenuItem value="enable">Enable</MenuItem>
-                <MenuItem value="disable">Disable</MenuItem>
-                <MenuItem value="kill">Kill immediately</MenuItem>
-                <MenuItem value="unkill">Remove runtime kill</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl>
-              <InputLabel>Reason</InputLabel>
-              <Select
-                label="Reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value as Reason)}
-              >
-                <MenuItem value="staged_rollout">Staged rollout</MenuItem>
-                <MenuItem value="incident">Incident</MenuItem>
-                <MenuItem value="maintenance">Maintenance</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
           <Button
-            disabled={busy}
-            onClick={() => void mutate("propose")}
-            sx={{ mt: 2 }}
+            disabled={!loaded || Boolean(loadError)}
+            onClick={() => setProposalOpen(true)}
             variant="contained"
           >
-            Create stepped-up proposal
+            Create proposal
           </Button>
-        </Card>
+        </AdminCard>
+
+        <Dialog
+          fullWidth
+          maxWidth="sm"
+          open={proposalOpen}
+          onClose={() => {
+            if (!busy) {
+              setProposalOpen(false);
+              setDialogError("");
+            }
+          }}
+          aria-labelledby="control-proposal-title"
+        >
+          <DialogTitle id="control-proposal-title">
+            Propose exact terms
+          </DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <FormControl>
+                <InputLabel>Capability</InputLabel>
+                <Select
+                  label="Capability"
+                  value={capability}
+                  onChange={(event) =>
+                    setCapability(event.target.value as Capability)
+                  }
+                >
+                  {Object.entries(labels).map(([key, label]) => (
+                    <MenuItem key={key} value={key}>
+                      {label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl>
+                <InputLabel>Environment</InputLabel>
+                <Select
+                  label="Environment"
+                  value={environment}
+                  onChange={(event) =>
+                    setEnvironment(event.target.value as Environment)
+                  }
+                >
+                  <MenuItem value="staging">Staging</MenuItem>
+                  <MenuItem value="production">Production</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl>
+                <InputLabel>Action</InputLabel>
+                <Select
+                  label="Action"
+                  value={controlAction}
+                  onChange={(event) =>
+                    setControlAction(event.target.value as ControlAction)
+                  }
+                >
+                  <MenuItem value="enable">Enable</MenuItem>
+                  <MenuItem value="disable">Disable</MenuItem>
+                  <MenuItem value="kill">Kill immediately</MenuItem>
+                  <MenuItem value="unkill">Remove runtime kill</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl>
+                <InputLabel>Reason</InputLabel>
+                <Select
+                  label="Reason"
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value as Reason)}
+                >
+                  <MenuItem value="staged_rollout">Staged rollout</MenuItem>
+                  <MenuItem value="incident">Incident</MenuItem>
+                  <MenuItem value="maintenance">Maintenance</MenuItem>
+                </Select>
+              </FormControl>
+              <Alert
+                severity={
+                  controlAction === "kill" || controlAction === "disable"
+                    ? "warning"
+                    : "info"
+                }
+              >
+                {labels[capability]} will be {actionVerbs[controlAction]} in{" "}
+                {environment} for Ghana. The retained command expires within two
+                hours and then fails closed.
+              </Alert>
+              {dialogError ? (
+                <Alert severity="error" role="alert" aria-live="assertive">
+                  {dialogError}
+                </Alert>
+              ) : null}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setProposalOpen(false);
+                setDialogError("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              aria-busy={busy}
+              disabled={busy}
+              onClick={() => void mutate("propose")}
+              variant="contained"
+            >
+              Submit retained proposal
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Stack spacing={2} sx={{ mt: 3 }}>
           <Stack
@@ -366,13 +486,39 @@ export function ControlsDesk() {
             </Button>
           </Stack>
           {loading ? (
-            <>
-              <Skeleton height={130} />
-              <Skeleton height={130} />
-            </>
-          ) : proposals.length ? (
+            <AdminCard variant="panel" watermark="queue" showWatermark={false}>
+              <AdminSkeleton
+                variant="card-list"
+                rows={2}
+                label="Loading runtime-control proposals"
+              />
+            </AdminCard>
+          ) : loadError ? (
+            <AdminCard
+              variant="warning"
+              watermark="queue"
+              showWatermark={false}
+            >
+              <EmptyState
+                icon="!"
+                title="Controls unavailable"
+                description={loadError}
+                variant="warning"
+                action={
+                  <Button onClick={() => void load()} variant="outlined">
+                    Retry
+                  </Button>
+                }
+              />
+            </AdminCard>
+          ) : loaded && proposals.length ? (
             proposals.map((proposal) => (
-              <Card key={proposal.proposalId} sx={{ borderRadius: 1, p: 2.5 }}>
+              <AdminCard
+                key={proposal.proposalId}
+                variant="row"
+                watermark="queue"
+                sx={{ borderRadius: 1, p: 2.5 }}
+              >
                 <Stack
                   direction={{ xs: "column", md: "row" }}
                   spacing={2}
@@ -406,13 +552,19 @@ export function ControlsDesk() {
                       {new Date(proposal.expiresAt).toLocaleString()}
                     </Typography>
                   </Box>
-                  <Stack direction="row" spacing={1}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ flexWrap: "wrap", gap: 1 }}
+                  >
                     {proposal.status === "proposed" ? (
                       <Button
                         disabled={busy}
-                        onClick={() =>
-                          void mutate("approve", proposal.proposalId)
-                        }
+                        onClick={() => {
+                          setDialogError("");
+                          setConfirmProposal(proposal);
+                          setConfirmAction("approve");
+                        }}
                         variant="outlined"
                       >
                         Approve as second admin
@@ -421,9 +573,11 @@ export function ControlsDesk() {
                     {proposal.status === "approved" ? (
                       <Button
                         disabled={busy || !proposal.approvedByMe}
-                        onClick={() =>
-                          void mutate("apply", proposal.proposalId)
-                        }
+                        onClick={() => {
+                          setDialogError("");
+                          setConfirmProposal(proposal);
+                          setConfirmAction("apply");
+                        }}
                         variant="contained"
                       >
                         Apply retained terms
@@ -437,18 +591,99 @@ export function ControlsDesk() {
                     ) : null}
                   </Stack>
                 </Stack>
-              </Card>
+              </AdminCard>
             ))
-          ) : (
-            <Alert severity="info">No active runtime-control proposals.</Alert>
-          )}
+          ) : loaded ? (
+            <AdminCard variant="panel" watermark="queue" showWatermark={false}>
+              <EmptyState
+                icon="✓"
+                title="No active proposals"
+                description="There are no retained runtime-control proposals awaiting review or application."
+              />
+            </AdminCard>
+          ) : null}
         </Stack>
       </Container>
 
       <Dialog
         fullWidth
+        maxWidth="sm"
+        open={Boolean(confirmProposal && confirmAction)}
+        onClose={() => {
+          if (!busy) {
+            setConfirmProposal(null);
+            setConfirmAction(null);
+            setDialogError("");
+          }
+        }}
+        aria-labelledby="control-action-confirm-title"
+      >
+        <DialogTitle id="control-action-confirm-title">
+          {confirmAction === "approve"
+            ? "Approve retained terms?"
+            : "Apply retained terms?"}
+        </DialogTitle>
+        <DialogContent>
+          {confirmProposal ? (
+            <Stack spacing={1.5} sx={{ pt: 1 }}>
+              <Typography>
+                <strong>{labels[confirmProposal.capability]}</strong> ·{" "}
+                {actionVerbs[confirmProposal.action]}
+              </Typography>
+              <Typography color="text.secondary">
+                {confirmProposal.environment} · {confirmProposal.market} ·{" "}
+                {confirmProposal.reason.replaceAll("_", " ")} · expires{" "}
+                {new Date(confirmProposal.expiresAt).toLocaleString()}
+              </Typography>
+              <Alert severity={confirmAction === "apply" ? "warning" : "info"}>
+                {confirmAction === "approve"
+                  ? "A distinct stepped-up administrator must approve the exact retained proposal."
+                  : "This applies the exact retained terms until fail-closed expiry."}
+              </Alert>
+              {dialogError ? (
+                <Alert severity="error" role="alert" aria-live="assertive">
+                  {dialogError}
+                </Alert>
+              ) : null}
+            </Stack>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setConfirmProposal(null);
+              setConfirmAction(null);
+              setDialogError("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            aria-busy={busy}
+            disabled={busy || !confirmProposal || !confirmAction}
+            onClick={() =>
+              confirmProposal && confirmAction
+                ? void mutate(confirmAction, confirmProposal.proposalId)
+                : undefined
+            }
+            variant="contained"
+          >
+            Confirm {confirmAction}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        fullWidth
         maxWidth="xs"
-        onClose={() => setPending(null)}
+        onClose={() => {
+          if (!busy) {
+            setPending(null);
+            setStepUpCode("");
+            setDialogError("");
+          }
+        }}
         open={Boolean(pending)}
       >
         <DialogTitle>Fresh MFA required</DialogTitle>
@@ -457,15 +692,31 @@ export function ControlsDesk() {
             <Alert severity="info">
               No control state changes until fresh step-up succeeds.
             </Alert>
-            <TextField
-              autoComplete="one-time-code"
+            {dialogError ? (
+              <Alert severity="error" role="alert" aria-live="assertive">
+                {dialogError}
+              </Alert>
+            ) : null}
+            <SegmentedOtpInput
               label="Step-up code"
-              onChange={(event) => setStepUpCode(event.target.value)}
+              onChange={setStepUpCode}
               value={stepUpCode}
+              disabled={busy}
+              required
             />
           </Stack>
         </DialogContent>
         <DialogActions>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setPending(null);
+              setStepUpCode("");
+              setDialogError("");
+            }}
+          >
+            Cancel
+          </Button>
           <Button disabled={busy} onClick={() => void stepUp("start")}>
             Send code
           </Button>

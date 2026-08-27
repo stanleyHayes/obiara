@@ -1,3 +1,5 @@
+"use client";
+
 import { Button, Typography } from "@mui/material";
 import Link from "next/link";
 
@@ -15,15 +17,15 @@ export default function SignedOutPage() {
         This device no longer has access to the operations desk. Sessions on
         your other devices are unchanged.
       </Typography>
-      <Link className="admin-auth-action-link" href="/">
-        <Button
-          className="admin-auth-primary-action"
-          fullWidth
-          variant="contained"
-        >
-          Return to sign in
-        </Button>
-      </Link>
+      <Button
+        component={Link}
+        className="admin-auth-primary-action"
+        fullWidth
+        href="/login"
+        variant="contained"
+      >
+        Return to sign in
+      </Button>
     </AuthShell>
   );
 }

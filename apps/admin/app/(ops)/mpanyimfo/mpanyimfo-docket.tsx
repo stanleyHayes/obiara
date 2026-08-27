@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  Chip,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Chip, Stack, Typography } from "@mui/material";
 import Link from "next/link";
+import { AdminCard } from "../../admin-card";
 
 const dimensions = [
   [
@@ -77,7 +70,11 @@ export function MpanyimfoDocket() {
         an appeal.
       </Alert>
 
-      <Card className="mpanyimfo-record">
+      <AdminCard
+        variant="policy"
+        watermark="evidence"
+        className="mpanyimfo-record"
+      >
         <Box className="verification-panel-heading">
           <Box>
             <Typography className="section-kicker">
@@ -95,17 +92,17 @@ export function MpanyimfoDocket() {
           cohort and response thresholds, and acknowledgement of every observed
           gap before recording a result.
         </Typography>
-      </Card>
+      </AdminCard>
 
       <Box
         sx={{
           display: "grid",
           gap: 1.5,
-          gridTemplateColumns: { xs: "1fr", md: "repeat(2,1fr)" },
+          gridTemplateColumns: "1fr",
           mt: 3,
         }}
       >
-        <Card sx={{ p: 3 }}>
+        <AdminCard variant="panel" watermark="evidence" sx={{ p: 3 }}>
           <Typography className="section-kicker">
             Reviewed dimensions
           </Typography>
@@ -132,8 +129,8 @@ export function MpanyimfoDocket() {
               </Box>
             ))}
           </Stack>
-        </Card>
-        <Card sx={{ p: 3 }}>
+        </AdminCard>
+        <AdminCard variant="warning" watermark="safety" sx={{ p: 3 }}>
           <Typography className="section-kicker">
             Fail-closed gap codes
           </Typography>
@@ -154,7 +151,7 @@ export function MpanyimfoDocket() {
               </Box>
             ))}
           </Stack>
-        </Card>
+        </AdminCard>
       </Box>
 
       <Box className="mpanyimfo-grid" sx={{ mt: 3 }}>
@@ -170,7 +167,12 @@ export function MpanyimfoDocket() {
         </Alert>
       </Box>
 
-      <Card className="mpanyimfo-record" sx={{ mt: 3 }}>
+      <AdminCard
+        variant="warning"
+        watermark="safety"
+        className="mpanyimfo-record"
+        sx={{ mt: 3 }}
+      >
         <Typography className="section-kicker">
           Uncomposed panel authority
         </Typography>
@@ -186,7 +188,7 @@ export function MpanyimfoDocket() {
         <Button component={Link} href="/safety" variant="outlined">
           Open the real safety queue
         </Button>
-      </Card>
+      </AdminCard>
     </main>
   );
 }

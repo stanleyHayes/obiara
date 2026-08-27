@@ -126,8 +126,7 @@ a {
 }
 
 .welcome-title span {
-  color: transparent;
-  -webkit-text-stroke: 1.5px var(--plum);
+  color: var(--plum);
 }
 
 .welcome-body {

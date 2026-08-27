@@ -2,13 +2,12 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
   Container,
   Stack,
   Typography,
 } from "@mui/material";
-import Link from "next/link";
+import { AdminCard } from "../../admin-card";
 
 const evidence = [
   {
@@ -86,9 +85,9 @@ export function CommunityDesk() {
               circle, fire, host and participant-notice evidence together.
             </Typography>
           </Box>
-          <Link href="/">
-            <Button variant="outlined">Back to command centre</Button>
-          </Link>
+          <Button href="/" variant="outlined">
+            Back to command centre
+          </Button>
         </Stack>
 
         <Alert severity="warning" sx={{ mb: 3 }}>
@@ -97,7 +96,11 @@ export function CommunityDesk() {
           runtime.
         </Alert>
 
-        <Card sx={{ borderRadius: 1, p: { xs: 2.5, md: 4 } }}>
+        <AdminCard
+          variant="policy"
+          watermark="evidence"
+          sx={{ borderRadius: 1, p: { xs: 2.5, md: 4 } }}
+        >
           <Stack
             direction={{ xs: "column", md: "row" }}
             spacing={2}
@@ -132,7 +135,7 @@ export function CommunityDesk() {
             sx={{
               display: "grid",
               gap: 1.5,
-              gridTemplateColumns: { xs: "1fr", md: "repeat(2,minmax(0,1fr))" },
+              gridTemplateColumns: "1fr",
               mt: 3,
             }}
           >
@@ -162,17 +165,21 @@ export function CommunityDesk() {
               </Box>
             ))}
           </Box>
-        </Card>
+        </AdminCard>
 
         <Box
           sx={{
             display: "grid",
             gap: 2,
-            gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+            gridTemplateColumns: "1fr",
             mt: 3,
           }}
         >
-          <Card sx={{ borderRadius: 1, p: 3 }}>
+          <AdminCard
+            variant="policy"
+            watermark="evidence"
+            sx={{ borderRadius: 1, p: 3 }}
+          >
             <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
               What readiness means
             </Typography>
@@ -183,8 +190,12 @@ export function CommunityDesk() {
               assign a host, cancel a fire, change a circle or send a
               notification.
             </Typography>
-          </Card>
-          <Card sx={{ borderRadius: 1, p: 3 }}>
+          </AdminCard>
+          <AdminCard
+            variant="panel"
+            watermark="queue"
+            sx={{ borderRadius: 1, p: 3 }}
+          >
             <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
               Available controls
             </Typography>
@@ -199,14 +210,14 @@ export function CommunityDesk() {
               spacing={1.5}
               sx={{ mt: 2 }}
             >
-              <Link href="/controls">
-                <Button variant="contained">Runtime controls</Button>
-              </Link>
-              <Link href="/safety">
-                <Button variant="outlined">Safety queue</Button>
-              </Link>
+              <Button href="/controls" variant="contained">
+                Runtime controls
+              </Button>
+              <Button href="/safety" variant="outlined">
+                Safety queue
+              </Button>
             </Stack>
-          </Card>
+          </AdminCard>
         </Box>
       </Container>
     </Box>

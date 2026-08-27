@@ -22,6 +22,11 @@
 //	BOOTSTRAP_ADMIN_EMAIL     required
 //	BOOTSTRAP_ADMIN_PASSWORD  required, must satisfy the admin password policy
 //	BOOTSTRAP_ADMIN_ROLES     optional, comma separated; defaults to every role
+//	BOOTSTRAP_ALLOW_NON_ADMIN optional; set to seed a non-admin operator
+//	                          account. The console's audited enrollment is
+//	                          the normal path for staff — this exists for
+//	                          seeding role-scoped accounts out of band, and
+//	                          it is the only way to give one a password.
 package main
 
 import (
@@ -128,7 +133,10 @@ func loadSettings(getenv func(string) string) (settings, error) {
 		return settings{}, fmt.Errorf("BOOTSTRAP_ADMIN_PASSWORD: %w", err)
 	}
 
-	roles, err := parseRoles(getenv("BOOTSTRAP_ADMIN_ROLES"))
+	roles, err := parseRoles(
+		getenv("BOOTSTRAP_ADMIN_ROLES"),
+		strings.TrimSpace(getenv("BOOTSTRAP_ALLOW_NON_ADMIN")) != "",
+	)
 	if err != nil {
 		return settings{}, err
 	}
@@ -145,7 +153,7 @@ func allRoles() []domain.Role {
 	}
 }
 
-func parseRoles(value string) ([]domain.Role, error) {
+func parseRoles(value string, allowNonAdmin bool) ([]domain.Role, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return allRoles(), nil
@@ -170,7 +178,10 @@ func parseRoles(value string) ([]domain.Role, error) {
 	}
 	// Without the admin role the seeded operator could not enroll anyone
 	// else, which would leave the console just as unreachable as before.
-	if !slices.Contains(roles, domain.RoleAdmin) {
+	// Seeding a role-scoped account is a different job from breaking that
+	// cycle, so it has to say so explicitly rather than silently producing
+	// an operator who cannot let anybody in.
+	if !allowNonAdmin && !slices.Contains(roles, domain.RoleAdmin) {
 		return nil, fmt.Errorf("BOOTSTRAP_ADMIN_ROLES must include %q", domain.RoleAdmin)
 	}
 	return roles, nil

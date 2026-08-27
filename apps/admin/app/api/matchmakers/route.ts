@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 async function sessionID() {
   return (await cookies()).get("obiara_admin_session")?.value;
@@ -25,10 +25,7 @@ export async function GET() {
     ? NextResponse.json(data.data)
     : NextResponse.json(
         {
-          message: apiErrorMessage(
-            error,
-            "The licensing register could not be loaded.",
-          ),
+          ...apiErrorBody(error, "The licensing register could not be loaded."),
         },
         { status: response.status },
       );
@@ -93,10 +90,7 @@ export async function POST(request: Request) {
     ? NextResponse.json(result.data.data, { status: result.response.status })
     : NextResponse.json(
         {
-          message: apiErrorMessage(
-            result.error,
-            "The licence could not be retained.",
-          ),
+          ...apiErrorBody(result.error, "The licence could not be retained."),
         },
         { status: result.response.status },
       );

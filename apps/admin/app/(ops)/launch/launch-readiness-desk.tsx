@@ -2,13 +2,12 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
   Container,
   Stack,
   Typography,
 } from "@mui/material";
-import Link from "next/link";
+import { AdminCard } from "../../admin-card";
 
 const repositoryEvidence = [
   "Exact candidate and full engineering checks",
@@ -74,17 +73,17 @@ export function LaunchReadinessDesk() {
                 mt: 1,
               }}
             >
-              Built. Not yet cleared.
+              Repository handoff. Production not cleared.
             </Typography>
             <Typography sx={{ color: "text.secondary", maxWidth: 760, mt: 2 }}>
-              Repository delivery and synthetic staging qualification are
-              complete. Production remains blocked by decisions and evidence
-              only their named authorities can provide.
+              This static inventory records repository handoffs prepared for
+              staging review. It is not live verification or production
+              approval; named authorities must provide current evidence.
             </Typography>
           </Box>
-          <Link href="/">
-            <Button variant="outlined">Back to command centre</Button>
-          </Link>
+          <Button href="/" variant="outlined">
+            Back to command centre
+          </Button>
         </Stack>
 
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -97,33 +96,35 @@ export function LaunchReadinessDesk() {
           sx={{
             display: "grid",
             gap: 2,
-            gridTemplateColumns: { xs: "1fr", md: "0.8fr 1.2fr" },
+            gridTemplateColumns: "1fr",
           }}
         >
-          <Card
+          <AdminCard
+            variant="policy"
+            watermark="evidence"
             sx={{
-              bgcolor: "text.primary",
-              borderRadius: 1,
-              color: "#fff8f0",
               p: { xs: 2.5, md: 3.5 },
             }}
           >
-            <Chip
-              label="Repository-controlled"
-              sx={{ bgcolor: "#d5f5e6", color: "#173d32", fontWeight: 800 }}
-            />
+            <Chip label="Repository-controlled" variant="outlined" />
             <Typography
               component="h2"
               sx={{ fontSize: 34, fontWeight: 800, lineHeight: 1.05, mt: 2 }}
             >
               Evidence ready for staging.
             </Typography>
-            <Stack spacing={1.25} sx={{ mt: 3 }}>
+            <Stack
+              component="ul"
+              spacing={1.25}
+              sx={{ mt: 3, p: 0, listStyle: "none" }}
+            >
               {repositoryEvidence.map((item) => (
                 <Box
+                  component="li"
                   key={item}
                   sx={{
-                    borderTop: "1px solid rgba(255,255,255,.16)",
+                    borderTop: "1px solid",
+                    borderColor: "divider",
                     pt: 1.25,
                   }}
                 >
@@ -132,14 +133,23 @@ export function LaunchReadinessDesk() {
               ))}
             </Stack>
             <Typography
-              sx={{ color: "#d9c8cf", fontSize: 13, lineHeight: 1.6, mt: 3 }}
+              sx={{
+                color: "text.secondary",
+                fontSize: 13,
+                lineHeight: 1.6,
+                mt: 3,
+              }}
             >
               Exact-candidate evidence must remain current. This is staging
               evidence, not production approval.
             </Typography>
-          </Card>
+          </AdminCard>
 
-          <Card sx={{ borderRadius: 1, p: { xs: 2.5, md: 3.5 } }}>
+          <AdminCard
+            variant="warning"
+            watermark="evidence"
+            sx={{ p: { xs: 2.5, md: 3.5 } }}
+          >
             <Stack
               direction={{ xs: "column", sm: "row" }}
               spacing={1}
@@ -169,9 +179,13 @@ export function LaunchReadinessDesk() {
                 sx={{ alignSelf: "flex-start" }}
               />
             </Stack>
-            <Box sx={{ display: "grid", gap: 1, mt: 2.5 }}>
+            <Box
+              component="ul"
+              sx={{ display: "grid", gap: 1, mt: 2.5, p: 0, listStyle: "none" }}
+            >
               {externalGates.map(([gate, owner]) => (
                 <Stack
+                  component="li"
                   key={gate}
                   direction={{ xs: "column", sm: "row" }}
                   spacing={0.75}
@@ -191,10 +205,10 @@ export function LaunchReadinessDesk() {
                 </Stack>
               ))}
             </Box>
-          </Card>
+          </AdminCard>
         </Box>
 
-        <Card sx={{ borderRadius: 1, mt: 3, p: 3 }}>
+        <AdminCard variant="policy" watermark="safety" sx={{ mt: 3, p: 3 }}>
           <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
             Decision integrity
           </Typography>
@@ -204,12 +218,10 @@ export function LaunchReadinessDesk() {
             Even valid production-authorization evidence returns a decision
             only; it never deploys or mutates infrastructure.
           </Typography>
-          <Link href="/controls">
-            <Button sx={{ mt: 2 }} variant="outlined">
-              Review runtime controls
-            </Button>
-          </Link>
-        </Card>
+          <Button href="/controls" sx={{ mt: 2 }} variant="outlined">
+            Review runtime controls
+          </Button>
+        </AdminCard>
       </Container>
     </Box>
   );

@@ -5,7 +5,6 @@ import {
   Avatar,
   Box,
   Button,
-  Card,
   Chip,
   Container,
   Stack,
@@ -16,6 +15,10 @@ import { Suspense, useEffect, useState } from "react";
 
 import { HandoverButton } from "./handover-button";
 import { TourDialog } from "./tour-dialog";
+import { EmptyState } from "../empty-state";
+import { AdminSkeleton } from "../loading-skeleton";
+import { buildCasePath } from "../case-route-model";
+import { AdminCard } from "../admin-card";
 
 type VerificationCase = {
   caseId: string;
@@ -68,7 +71,10 @@ function useCases<T>(url: string, fallback: string): LoadResult<T[]> {
         }
       })
       .catch((error: unknown) => {
-        if ((error as Error).name !== "AbortError") {
+        if (
+          !controller.signal.aborted &&
+          (error as Error).name !== "AbortError"
+        ) {
           setResult({
             state: "error",
             message: error instanceof Error ? error.message : fallback,
@@ -111,32 +117,63 @@ function MetricCard({
   note,
   accent,
   href,
+  loading,
+  trusted,
 }: Readonly<{
   label: string;
   value: string;
   note: string;
   accent: string;
   href: string;
+  loading?: boolean;
+  trusted: boolean;
 }>) {
   return (
-    <Link href={href} style={{ textDecoration: "none" }}>
-      <Card className="metric-card" sx={{ "--metric-accent": accent }}>
-        <Typography className="metric-label">{label}</Typography>
-        <Typography className="metric-value">{value}</Typography>
-        <Typography className="metric-note">{note}</Typography>
-      </Card>
+    <Link
+      className="metric-card-link"
+      href={href}
+      style={{ textDecoration: "none" }}
+    >
+      <AdminCard
+        variant="metric"
+        watermark={
+          label.includes("safety")
+            ? "safety"
+            : label.includes("Care")
+              ? "care"
+              : "verification"
+        }
+        showWatermark={trusted}
+        interactive
+        className="metric-card"
+        sx={{ "--metric-accent": accent }}
+      >
+        {loading ? (
+          <AdminSkeleton
+            variant="metric"
+            label={`Loading ${label.toLowerCase()}`}
+          />
+        ) : (
+          <>
+            <Typography className="metric-label">{label}</Typography>
+            <Typography className="metric-value">{value}</Typography>
+            <Typography className="metric-note">{note}</Typography>
+          </>
+        )}
+      </AdminCard>
     </Link>
   );
 }
 
 function metricValue<T>(result: LoadResult<T[]>): string {
-  if (result.state === "loading") return "…";
+  if (result.state === "loading") return "";
   if (result.state === "error") return "unavailable";
   return String(result.value.length);
 }
 
 export default function AdminHome() {
   const [account, setAccount] = useState<{ email: string } | null>(null);
+  const [accountFailed, setAccountFailed] = useState(false);
   const verifications = useCases<VerificationCase>(
     "/api/verifications",
     "The verification queue could not be loaded.",
@@ -157,9 +194,12 @@ export default function AdminHome() {
         const body = (await response.json().catch(() => null)) as {
           email?: string;
         } | null;
-        if (response.ok && body?.email) setAccount({ email: body.email });
+        if (!response.ok || !body?.email) throw new Error("account");
+        setAccount({ email: body.email });
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        if ((error as Error).name !== "AbortError") setAccountFailed(true);
+      });
     return () => controller.abort();
   }, []);
 
@@ -196,7 +236,7 @@ export default function AdminHome() {
         .map((part) => part[0])
         .join("")
         .toUpperCase() || "?"
-    : "–";
+    : "";
 
   return (
     <Box component="main">
@@ -217,11 +257,28 @@ export default function AdminHome() {
             <Typography>Here is what needs a human pair of eyes.</Typography>
           </Box>
           <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-            <Button className="search-button" href="/verification">
+            <Button className="search-button" href="/verification?search=1">
               ⌕ Search cases
             </Button>
             <HandoverButton />
-            <Avatar className="header-avatar">{initials}</Avatar>
+            {!account && !accountFailed ? (
+              <AdminSkeleton
+                variant="identity"
+                label="Loading command centre identity"
+                className="dashboard-identity-skeleton"
+              />
+            ) : account ? (
+              <Avatar
+                className="header-avatar"
+                aria-label={`Signed in as ${account.email}`}
+              >
+                {initials}
+              </Avatar>
+            ) : (
+              <span className="dashboard-identity-error" role="status">
+                Operator identity unavailable
+              </span>
+            )}
           </Stack>
         </Box>
 
@@ -233,6 +290,8 @@ export default function AdminHome() {
 
         <Box className="metrics-grid">
           <MetricCard
+            trusted={verifications.state === "ready"}
+            loading={verifications.state === "loading"}
             label="Waiting for verification"
             value={
               verifications.state === "ready"
@@ -250,6 +309,8 @@ export default function AdminHome() {
             href="/verification"
           />
           <MetricCard
+            trusted={safety.state === "ready"}
+            loading={safety.state === "loading"}
             label="Open safety cases"
             value={
               safety.state === "ready"
@@ -265,6 +326,8 @@ export default function AdminHome() {
             href="/safety"
           />
           <MetricCard
+            trusted={care.state === "ready"}
+            loading={care.state === "loading"}
             label="Care follow-ups"
             value={
               care.state === "ready"
@@ -282,7 +345,14 @@ export default function AdminHome() {
         </Box>
 
         <Box className="work-grid">
-          <Card className="queue-panel">
+          <AdminCard
+            variant="panel"
+            watermark="queue"
+            showWatermark={
+              verifications.state === "ready" && queuedVerifications.length > 0
+            }
+            className="queue-panel command-panel"
+          >
             <Box className="panel-heading">
               <Box>
                 <Typography className="section-kicker">
@@ -296,11 +366,24 @@ export default function AdminHome() {
             </Box>
 
             <Box className="queue-list">
+              {verifications.state === "loading" ? (
+                <AdminSkeleton
+                  variant="queue-row"
+                  rows={4}
+                  label="Loading verification queue"
+                />
+              ) : null}
               {verifications.state === "ready" &&
               queuedVerifications.length === 0 ? (
-                <Typography sx={{ color: "text.secondary", p: 2 }}>
-                  Nobody is waiting for review right now.
-                </Typography>
+                <EmptyState
+                  icon="✓"
+                  title="Review queue is clear"
+                  description="Nobody is waiting for verification review right now. New uncertain cases will appear here automatically."
+                  variant="success"
+                  action={
+                    <Button href="/verification">Open verification desk</Button>
+                  }
+                />
               ) : null}
               {queuedVerifications.slice(0, 5).map((item) => (
                 <Box className="queue-row" key={item.caseId}>
@@ -316,15 +399,23 @@ export default function AdminHome() {
                     {waitLabel(item.submittedAt)}
                   </Typography>
                   <Chip className="tone-gold" label="Queued" />
-                  <Button className="review-button" href="/verification">
+                  <Button
+                    className="review-button"
+                    href={buildCasePath("verification", item.caseId)}
+                  >
                     Review
                   </Button>
                 </Box>
               ))}
             </Box>
-          </Card>
+          </AdminCard>
 
-          <Card className="sla-panel">
+          <AdminCard
+            variant="warning"
+            watermark="clock"
+            showWatermark={false}
+            className="sla-panel"
+          >
             <Box className="panel-heading compact">
               <Box>
                 <Typography className="section-kicker">
@@ -333,17 +424,24 @@ export default function AdminHome() {
                 <Typography component="h2">SLA pulse</Typography>
               </Box>
             </Box>
-            <Alert severity="info" sx={{ mt: 1 }}>
-              Response-time evidence is not composed into this command centre.
-              This page does not invent substitute percentages.
-            </Alert>
+            <EmptyState
+              icon="◷"
+              title="SLA evidence unavailable"
+              description="Response-time evidence is not composed into this command centre. This page does not invent substitute percentages."
+              variant="neutral"
+            />
             <Button className="plain-action" href="/analytics">
               Open analytics desk
             </Button>
-          </Card>
+          </AdminCard>
         </Box>
 
-        <Card className="incident-panel">
+        <AdminCard
+          variant="panel"
+          watermark="safety"
+          showWatermark={safety.state === "ready" && openSafety.length > 0}
+          className="incident-panel"
+        >
           <Box className="panel-heading">
             <Box>
               <Typography className="section-kicker">
@@ -351,16 +449,21 @@ export default function AdminHome() {
               </Typography>
               <Typography component="h2">Open cases</Typography>
             </Box>
-            <Link href="/safety">
-              <Button>Open safety desk</Button>
-            </Link>
+            <Button href="/safety">Open safety desk</Button>
           </Box>
           <Box
             className="incident-table"
-            role="table"
+            role="region"
             aria-label="Open trust and safety cases"
           >
-            <Box className="incident-head" role="row">
+            {safety.state === "loading" ? (
+              <AdminSkeleton
+                variant="table"
+                rows={4}
+                label="Loading open safety cases"
+              />
+            ) : null}
+            <Box className="incident-head" aria-hidden="true">
               <span>Case</span>
               <span>Tier</span>
               <span>Queue</span>
@@ -369,12 +472,20 @@ export default function AdminHome() {
               <span />
             </Box>
             {safety.state === "ready" && openSafety.length === 0 ? (
-              <Typography sx={{ color: "text.secondary", p: 2 }}>
-                No open safety cases.
-              </Typography>
+              <EmptyState
+                icon="⌁"
+                title="No open safety cases"
+                description="The active safety queue is clear. New priority cases will appear here with their tier and SLA."
+                variant="success"
+                action={<Button href="/safety">Open safety desk</Button>}
+              />
             ) : null}
             {openSafety.slice(0, 5).map((item) => (
-              <Box className="incident-row" role="row" key={item.caseId}>
+              <Box
+                aria-label={`${item.caseId}, tier ${item.tier}, ${item.queue} queue, ${item.status.replace("_", " ")}`}
+                className="incident-row"
+                key={item.caseId}
+              >
                 <strong>{item.caseId}</strong>
                 <span>Tier {item.tier}</span>
                 <span>{item.queue}</span>
@@ -388,13 +499,16 @@ export default function AdminHome() {
                   })}
                   className="tone-pink"
                 />
-                <Button aria-label={`Open ${item.caseId}`} href="/safety">
+                <Button
+                  aria-label={`Open ${item.caseId}`}
+                  href={buildCasePath("safety", item.caseId)}
+                >
                   →
                 </Button>
               </Box>
             ))}
           </Box>
-        </Card>
+        </AdminCard>
       </Container>
     </Box>
   );

@@ -86,7 +86,7 @@ func TestLoadSettingsRejectsAnInvalidEmail(t *testing.T) {
 
 func TestParseRoles(t *testing.T) {
 	t.Run("explicit subset", func(t *testing.T) {
-		roles, err := parseRoles("admin, verifier ,admin")
+		roles, err := parseRoles("admin, verifier ,admin", false)
 		if err != nil {
 			t.Fatalf("parseRoles: %v", err)
 		}
@@ -97,7 +97,7 @@ func TestParseRoles(t *testing.T) {
 	})
 
 	t.Run("unknown role", func(t *testing.T) {
-		if _, err := parseRoles("admin,superuser"); err == nil {
+		if _, err := parseRoles("admin,superuser", false); err == nil {
 			t.Fatal("parseRoles accepted an unknown role")
 		}
 	})
@@ -105,7 +105,7 @@ func TestParseRoles(t *testing.T) {
 	// A grant without the admin role could not enroll anyone, leaving the
 	// console just as unreachable as an empty database.
 	t.Run("without admin", func(t *testing.T) {
-		_, err := parseRoles("verifier,finance")
+		_, err := parseRoles("verifier,finance", false)
 		if err == nil {
 			t.Fatal("parseRoles accepted a grant with no admin role")
 		}
@@ -115,7 +115,7 @@ func TestParseRoles(t *testing.T) {
 	})
 
 	t.Run("blank falls back to every role", func(t *testing.T) {
-		roles, err := parseRoles("   ")
+		roles, err := parseRoles("   ", false)
 		if err != nil {
 			t.Fatalf("parseRoles: %v", err)
 		}
@@ -132,5 +132,34 @@ func TestNewIDIsPrefixedAndUnique(t *testing.T) {
 	}
 	if first == second {
 		t.Error("newID returned the same id twice")
+	}
+}
+
+func TestParseRolesRequiresAdminUnlessAllowed(t *testing.T) {
+	if _, err := parseRoles("verifier", false); err == nil {
+		t.Fatal("parseRoles accepted a non-admin role set without the opt-out")
+	}
+	roles, err := parseRoles("verifier", true)
+	if err != nil {
+		t.Fatalf("parseRoles with opt-out: %v", err)
+	}
+	if len(roles) != 1 || roles[0] != domain.RoleVerifier {
+		t.Fatalf("roles = %v, want [verifier]", roles)
+	}
+}
+
+func TestLoadSettingsHonoursNonAdminOptOut(t *testing.T) {
+	values := completeEnv()
+	values["BOOTSTRAP_ADMIN_ROLES"] = "finance"
+	if _, err := loadSettings(env(values)); err == nil {
+		t.Fatal("loadSettings accepted a non-admin role set without the opt-out")
+	}
+	values["BOOTSTRAP_ALLOW_NON_ADMIN"] = "1"
+	loaded, err := loadSettings(env(values))
+	if err != nil {
+		t.Fatalf("loadSettings: %v", err)
+	}
+	if len(loaded.roles) != 1 || loaded.roles[0] != domain.RoleFinance {
+		t.Fatalf("roles = %v, want [finance]", loaded.roles)
 	}
 }

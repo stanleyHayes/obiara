@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 async function sessionID() {
   return (await cookies()).get("obiara_admin_session")?.value;
@@ -25,10 +25,7 @@ export async function GET() {
     ? NextResponse.json(data.data)
     : NextResponse.json(
         {
-          message: apiErrorMessage(
-            error,
-            "Market-pack governance could not be loaded.",
-          ),
+          ...apiErrorBody(error, "Market-pack governance could not be loaded."),
         },
         { status: response.status },
       );
@@ -74,7 +71,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data, { status: response.status })
       : NextResponse.json(
           {
-            message: apiErrorMessage(
+            ...apiErrorBody(
               error,
               "The market-pack draft could not be retained.",
             ),
@@ -102,7 +99,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(result.data.data)
       : NextResponse.json(
           {
-            message: apiErrorMessage(
+            ...apiErrorBody(
               result.error,
               `The market pack could not be ${body.action}ed.`,
             ),

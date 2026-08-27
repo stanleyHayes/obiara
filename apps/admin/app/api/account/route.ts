@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 export async function GET() {
   const session = (await cookies()).get("obiara_admin_session")?.value;
@@ -18,10 +18,7 @@ export async function GET() {
     ? NextResponse.json(data.data)
     : NextResponse.json(
         {
-          message: apiErrorMessage(
-            error,
-            "Your operator account could not be loaded.",
-          ),
+          ...apiErrorBody(error, "Your operator account could not be loaded."),
         },
         { status: response.status },
       );

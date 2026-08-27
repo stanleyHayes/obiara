@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 type CareScript =
   | "helpline_directory_gh"
@@ -41,10 +41,7 @@ export async function GET() {
     ? NextResponse.json(data.data)
     : NextResponse.json(
         {
-          message: apiErrorMessage(
-            error,
-            "The care queue could not be loaded.",
-          ),
+          ...apiErrorBody(error, "The care queue could not be loaded."),
         },
         { status: response.status },
       );
@@ -82,10 +79,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data)
       : NextResponse.json(
           {
-            message: apiErrorMessage(
-              error,
-              "The care case could not be engaged.",
-            ),
+            ...apiErrorBody(error, "The care case could not be engaged."),
           },
           { status: response.status },
         );
@@ -107,7 +101,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data)
       : NextResponse.json(
           {
-            message: apiErrorMessage(
+            ...apiErrorBody(
               error,
               "The care resolution could not be recorded.",
             ),

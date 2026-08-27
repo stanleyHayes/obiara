@@ -1,9 +1,18 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
+import { isCodeSent, isUpstreamAdminSession } from "../../auth-model";
 
 const sessionCookie = "obiara_admin_session";
+const exactKeys = (value: Record<string, unknown>, keys: readonly string[]) => {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return (
+    actual.length === expected.length &&
+    actual.every((key, index) => key === expected[index])
+  );
+};
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
@@ -13,7 +22,12 @@ export async function POST(request: Request) {
     password?: unknown;
   } | null;
 
-  if (body?.action === "start" && typeof body.email === "string") {
+  if (
+    body?.action === "start" &&
+    typeof body.email === "string" &&
+    typeof body.password === "string" &&
+    exactKeys(body, ["action", "email", "password"])
+  ) {
     const { data, error, response } = await apiClient().POST(
       "/v1/admin/login/start",
       {
@@ -21,29 +35,28 @@ export async function POST(request: Request) {
         // whitespace are characters the operator deliberately chose.
         body: {
           email: body.email.trim(),
-          ...(typeof body.password === "string"
-            ? { password: body.password }
-            : {}),
+          password: body.password,
         },
       },
     );
-    return data
+    return data && isCodeSent(data.data)
       ? NextResponse.json(data.data, { status: response.status })
       : NextResponse.json(
           {
-            message: apiErrorMessage(
-              error,
+            ...apiErrorBody(
+              data ? undefined : error,
               "The sign-in code could not be sent.",
             ),
           },
-          { status: response.status },
+          { status: data ? 502 : response.status },
         );
   }
 
   if (
     body?.action === "complete" &&
     typeof body.email === "string" &&
-    typeof body.code === "string"
+    typeof body.code === "string" &&
+    exactKeys(body, ["action", "email", "code"])
   ) {
     const { data, error, response } = await apiClient().POST(
       "/v1/admin/login/complete",
@@ -51,15 +64,15 @@ export async function POST(request: Request) {
         body: { email: body.email.trim(), code: body.code.trim() },
       },
     );
-    if (!data) {
+    if (!data || !isUpstreamAdminSession(data.data)) {
       return NextResponse.json(
         {
-          message: apiErrorMessage(
-            error,
+          ...apiErrorBody(
+            data ? undefined : error,
             "The sign-in code could not be verified.",
           ),
         },
-        { status: response.status },
+        { status: data ? 502 : response.status },
       );
     }
     const result = NextResponse.json({

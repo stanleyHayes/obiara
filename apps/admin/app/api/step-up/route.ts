@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 async function sessionID() {
   return (await cookies()).get("obiara_admin_session")?.value;
@@ -31,10 +31,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data, { status: response.status })
       : NextResponse.json(
           {
-            message: apiErrorMessage(
-              error,
-              "The step-up code could not be sent.",
-            ),
+            ...apiErrorBody(error, "The step-up code could not be sent."),
           },
           { status: response.status },
         );
@@ -52,10 +49,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data, { status: response.status })
       : NextResponse.json(
           {
-            message: apiErrorMessage(
-              error,
-              "The step-up code could not be verified.",
-            ),
+            ...apiErrorBody(error, "The step-up code could not be verified."),
           },
           { status: response.status },
         );

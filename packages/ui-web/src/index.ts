@@ -19,6 +19,8 @@ export type {
   ObiaraStatusChipProps,
   ObiaraStatusTone,
 } from "./primitives";
+export { SegmentedOtpInput } from "./segmented-otp-input";
+export type { SegmentedOtpInputProps } from "./segmented-otp-input";
 export { createObiaraTheme, obiaraTheme } from "./theme";
 export type { ObiaraThemePreferences } from "./theme";
 export * from "./states";

@@ -52,5 +52,8 @@ export const railGroups: readonly RailGroup[] = [
 ];
 
 export function isActiveLink(pathname: string, href: string): boolean {
-  return pathname === href;
+  // Exact match, or prefix match on a path segment boundary. "/" must not match
+  // everything—only exactly "/". Other hrefs like "/matchmakers" must not match
+  // hypothetical "/matchmakers-archive", so we check for a "/" after the prefix.
+  return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 }

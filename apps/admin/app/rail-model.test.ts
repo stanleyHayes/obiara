@@ -34,4 +34,25 @@ describe("Admin rail navigation model", () => {
     expect(isActiveLink("/care", "/safety")).toBe(false);
     expect(isActiveLink("/", "/")).toBe(true);
   });
+
+  it("highlights parent section on detail routes", () => {
+    // Detail routes should highlight their parent section
+    expect(isActiveLink("/verification/CASE-123", "/verification")).toBe(true);
+    expect(isActiveLink("/safety/CASE-456", "/safety")).toBe(true);
+    expect(isActiveLink("/care/CASE-789", "/care")).toBe(true);
+    expect(isActiveLink("/tournaments/cohort-abc", "/tournaments")).toBe(true);
+    expect(isActiveLink("/operators/principal-xyz", "/operators")).toBe(true);
+    expect(isActiveLink("/matchmakers/id-123", "/matchmakers")).toBe(true);
+    expect(isActiveLink("/matchmakers/new", "/matchmakers")).toBe(true);
+    expect(isActiveLink("/matchmakers/escrow", "/matchmakers")).toBe(true);
+  });
+
+  it("respects segment boundaries and does not match prefix substrings", () => {
+    // "/" must not match detail routes
+    expect(isActiveLink("/verification/CASE-123", "/")).toBe(false);
+    // "/matchmakers" must not match "/matchmakers-archive"
+    expect(isActiveLink("/matchmakers-archive/item", "/matchmakers")).toBe(
+      false,
+    );
+  });
 });

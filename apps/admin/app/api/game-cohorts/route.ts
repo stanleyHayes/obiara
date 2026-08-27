@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 async function adminSession() {
   return (await cookies()).get("obiara_admin_session")?.value;
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       ? NextResponse.json(data.data)
       : NextResponse.json(
           {
-            message: apiErrorMessage(
+            ...apiErrorBody(
               error,
               "The competition review desk could not be opened.",
             ),
@@ -53,10 +53,7 @@ export async function GET(request: Request) {
     ? NextResponse.json(data.data)
     : NextResponse.json(
         {
-          message: apiErrorMessage(
-            error,
-            "The private cohort could not be opened.",
-          ),
+          ...apiErrorBody(error, "The private cohort could not be opened."),
         },
         { status: response.status },
       );
@@ -102,10 +99,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data, { status: response.status })
       : NextResponse.json(
           {
-            message: apiErrorMessage(
-              error,
-              "The private cohort could not be created.",
-            ),
+            ...apiErrorBody(error, "The private cohort could not be created."),
           },
           { status: response.status },
         );
@@ -145,7 +139,7 @@ export async function POST(request: Request) {
       ? NextResponse.json(data.data)
       : NextResponse.json(
           {
-            message: apiErrorMessage(
+            ...apiErrorBody(
               error,
               "The human review decision could not be retained.",
             ),
@@ -153,6 +147,11 @@ export async function POST(request: Request) {
           { status: response.status },
         );
   }
+  if (body.action !== "start")
+    return NextResponse.json(
+      { message: "The tournament action is incomplete." },
+      { status: 422 },
+    );
   const { data, error, response } = await apiClient().POST(
     "/v1/admin/game-cohorts/{cohortId}/start",
     {
@@ -168,7 +167,7 @@ export async function POST(request: Request) {
     ? NextResponse.json(data.data, { status: response.status })
     : NextResponse.json(
         {
-          message: apiErrorMessage(error, "The bracket could not be started."),
+          ...apiErrorBody(error, "The bracket could not be started."),
         },
         { status: response.status },
       );

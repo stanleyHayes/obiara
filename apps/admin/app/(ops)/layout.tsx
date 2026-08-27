@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { AdminRail } from "../admin-rail";
+import { AdminChrome } from "../admin-chrome";
 
 export default async function OpsLayout({
   children,
@@ -13,10 +13,5 @@ export default async function OpsLayout({
   if (!(await cookies()).get("obiara_admin_session")?.value) {
     redirect("/login");
   }
-  return (
-    <div className="admin-page">
-      <AdminRail />
-      <div className="admin-main">{children}</div>
-    </div>
-  );
+  return <AdminChrome>{children}</AdminChrome>;
 }

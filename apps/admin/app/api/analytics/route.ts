@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorBody } from "../../lib/api-server";
 
 export async function GET(request: Request) {
   const session = (await cookies()).get("obiara_admin_session")?.value;
@@ -30,10 +30,7 @@ export async function GET(request: Request) {
     ? NextResponse.json(data.data)
     : NextResponse.json(
         {
-          message: apiErrorMessage(
-            error,
-            "The funnel report could not be loaded.",
-          ),
+          ...apiErrorBody(error, "The funnel report could not be loaded."),
         },
         { status: response.status },
       );

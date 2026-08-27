@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { SegmentedOtpInput } from "@obiara/ui-web";
 import { useReducer, useRef, useState } from "react";
 
 import brandMark from "../../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-ondark_transparent.png";
@@ -309,44 +310,44 @@ export function OnboardingFlow() {
                     </small>
                   </div>
                 </div>
-                <label>
-                  <span>
-                    {state.stage === "phone"
-                      ? "Ghana phone number"
-                      : "One-time code"}
-                  </span>
-                  <div className="onboarding-phone-input">
-                    <span aria-hidden="true">
-                      {state.stage === "phone" ? "GH" : "#"}
-                    </span>
-                    <input
-                      aria-describedby="phone-format"
-                      autoComplete={
-                        state.stage === "phone" ? "tel" : "one-time-code"
-                      }
-                      inputMode="numeric"
-                      onChange={(event) =>
-                        dispatch(
-                          state.stage === "phone"
-                            ? {
-                                type: "phone-changed",
-                                phone: event.target.value,
-                              }
-                            : { type: "otp-changed", otp: event.target.value },
-                        )
-                      }
-                      placeholder={
-                        state.stage === "phone" ? "024 123 4567" : "000 000"
-                      }
-                      value={state.stage === "phone" ? state.phone : state.otp}
+                {state.stage === "phone" ? (
+                  <label>
+                    <span>Ghana phone number</span>
+                    <div className="onboarding-phone-input">
+                      <span aria-hidden="true">GH</span>
+                      <input
+                        aria-describedby="phone-format"
+                        autoComplete="tel"
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          dispatch({
+                            type: "phone-changed",
+                            phone: event.target.value,
+                          })
+                        }
+                        placeholder="024 123 4567"
+                        value={state.phone}
+                      />
+                    </div>
+                    <small id="phone-format">
+                      Use the 10-digit number registered to you.
+                    </small>
+                  </label>
+                ) : (
+                  <div className="onboarding-otp-field">
+                    <SegmentedOtpInput
+                      autoFocus
+                      describedBy="otp-format"
+                      label="One-time code"
+                      onChange={(otp) => dispatch({ type: "otp-changed", otp })}
+                      required
+                      value={state.otp}
                     />
+                    <small id="otp-format">
+                      The code expires shortly for your protection.
+                    </small>
                   </div>
-                  <small id="phone-format">
-                    {state.stage === "phone"
-                      ? "Use the 10-digit number registered to you."
-                      : "The code expires shortly for your protection."}
-                  </small>
-                </label>
+                )}
                 <button
                   disabled={
                     submitting ||

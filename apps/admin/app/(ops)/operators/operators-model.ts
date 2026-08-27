@@ -94,6 +94,9 @@ export const matrixRoles: readonly OperatorRole[] = [
   "admin",
 ];
 
+// Exported for client-side validation in operators-desk.tsx.
+export { REASON_MIN_LENGTH, REASON_MAX_LENGTH };
+
 export interface OperatorsState {
   actorId: string;
   actorEmail: string;
@@ -112,6 +115,7 @@ export type OperatorsAction =
   | { type: "hydrate"; operators: Operator[] }
   | { type: "server-error"; message: string }
   | { type: "server-success"; message: string }
+  | { type: "step-up-notice"; message: string }
   | { type: "select"; id: string }
   | { type: "open-enroll" }
   | { type: "close-enroll" }
@@ -148,8 +152,15 @@ function activeAdmins(operators: Operator[]): Operator[] {
   );
 }
 
+// Reason field enforced client-side here and server-side in updatePrincipalHandler.
+const REASON_MIN_LENGTH = 12;
+const REASON_MAX_LENGTH = 240;
+
 function reasonOk(reason: string): boolean {
-  return reason.trim().length >= 12;
+  const trimmed = reason.trim();
+  return (
+    trimmed.length >= REASON_MIN_LENGTH && trimmed.length <= REASON_MAX_LENGTH
+  );
 }
 
 function needsSecondApprover(operator: Operator, role: OperatorRole): boolean {
@@ -174,6 +185,12 @@ export function operatorsReducer(
       };
     case "server-error":
       return { ...state, error: action.message, notice: null };
+    // A step-up is a detour inside an action, not the completion of one:
+    // it must report progress without discarding the enrollment or the
+    // reason the operator has already typed, which is what they return to
+    // once the code is verified.
+    case "step-up-notice":
+      return { ...state, notice: action.message, error: null };
     case "server-success":
       return {
         ...state,
