@@ -12,24 +12,29 @@ import (
 var (
 	ErrChallengeNotFound = errors.New("otp challenge not found")
 	ErrAccountNotFound   = errors.New("account not found")
-	// ErrAccountExists reports a unique-phone conflict at write time (a
+	// ErrAccountExists reports a unique-contact conflict at write time (a
 	// racing registration); transport layers map it to a conflict without
 	// importing persistence types.
 	ErrAccountExists = errors.New("account already exists")
 	// ErrCodeDeliveryFailed reports that an OTP was minted but no transport
 	// in the ladder could deliver it. It is distinct from an internal fault:
-	// the member did nothing wrong and retrying will not help until the SMS
+	// the member did nothing wrong and retrying will not help until the
 	// provider is fixed, so transport layers surface it as an actionable
 	// service error rather than a bare 500.
 	ErrCodeDeliveryFailed = errors.New("otp code could not be delivered")
+	// ErrChannelUnavailable reports a contact whose channel this deployment
+	// has no transport for. It is deliberately not a delivery failure: no
+	// retry can help, so telling the member to try again shortly would loop
+	// them forever on a provider that was never configured.
+	ErrChannelUnavailable = errors.New("no otp sender is configured for this channel")
 )
 
 // OtpChallengeRepository persists OTP challenges.
 type OtpChallengeRepository interface {
 	Create(context.Context, domain.OtpChallenge) error
-	// LatestByPhone returns the most recent challenge for a phone number.
-	LatestByPhone(context.Context, string) (domain.OtpChallenge, error)
-	// Update persists attempt/consumption changes. The phone+createdAt
+	// LatestByContact returns the most recent challenge for a contact.
+	LatestByContact(context.Context, domain.Contact) (domain.OtpChallenge, error)
+	// Update persists attempt/consumption changes. The contact+createdAt
 	// identity of a challenge never changes.
 	Update(context.Context, domain.OtpChallenge) error
 }
@@ -37,10 +42,10 @@ type OtpChallengeRepository interface {
 // AccountRepository persists phone-bound accounts.
 type AccountRepository interface {
 	Create(context.Context, domain.Account) error
-	FindByPhone(context.Context, string) (domain.Account, error)
+	FindByContact(context.Context, domain.Contact) (domain.Account, error)
 	FindByID(context.Context, string) (domain.Account, error)
 	// List returns accounts newest first for bounded, redacted operational
-	// projections. Callers must never project the stored phone number.
+	// projections. Callers must never project the stored contact value.
 	List(context.Context, int) ([]domain.Account, error)
 	// UpdateWithAudit applies a tier transition atomically with its audit
 	// record, rejecting stale versions with ErrStaleSession.
@@ -51,11 +56,12 @@ type AccountRepository interface {
 	ListSuspendedExpired(context.Context, time.Time, int) ([]domain.Account, error)
 }
 
-// OtpSender is the outbound provider port for OTP delivery (SMS primary,
-// WhatsApp fallback per agent_plan.md §11). Production adapters are scored
-// and selected separately; the simulator adapter serves dev and tests.
+// OtpSender is the outbound provider port for OTP delivery. The contact
+// carries its own channel, so the adapter behind this port decides which
+// transport to use rather than the service guessing: an SMS contact goes to
+// the SMS provider, an email contact to the email provider.
 type OtpSender interface {
-	Send(ctx context.Context, phone, code string) error
+	Send(ctx context.Context, contact domain.Contact, code string) error
 }
 
 // RegistrationService runs phone OTP registration and login: challenge
@@ -95,11 +101,11 @@ type OtpRequest struct {
 }
 
 // RequestOtp issues a new challenge subject to the resend policy.
-func (service RegistrationService) RequestOtp(ctx context.Context, phone string) (OtpRequest, error) {
+func (service RegistrationService) RequestOtp(ctx context.Context, contact domain.Contact) (OtpRequest, error) {
 	now := service.now()
 
 	var latest *domain.OtpChallenge
-	if challenge, err := service.challenges.LatestByPhone(ctx, phone); err == nil {
+	if challenge, err := service.challenges.LatestByContact(ctx, contact); err == nil {
 		latest = &challenge
 	} else if !errors.Is(err, ErrChallengeNotFound) {
 		return OtpRequest{}, err
@@ -117,11 +123,11 @@ func (service RegistrationService) RequestOtp(ctx context.Context, phone string)
 	if err != nil {
 		return OtpRequest{}, err
 	}
-	challenge, err := domain.NewChallenge(service.newID(), phone, code, sentCount, now)
+	challenge, err := domain.NewChallenge(service.newID(), contact, code, sentCount, now)
 	if err != nil {
 		return OtpRequest{}, err
 	}
-	if err := service.sender.Send(ctx, phone, code); err != nil {
+	if err := service.sender.Send(ctx, contact, code); err != nil {
 		// The provider cause is kept in the chain so operators can read the
 		// real reason in the logs, while callers match on the sentinel. The
 		// challenge is deliberately not persisted: a member must never be
@@ -136,8 +142,8 @@ func (service RegistrationService) RequestOtp(ctx context.Context, phone string)
 
 // VerifyOtp checks a code, consumes the challenge, finds or creates the
 // account, and issues a session for the device.
-func (service RegistrationService) VerifyOtp(ctx context.Context, phone, code, deviceID string) (IssuedSession, error) {
-	challenge, err := service.challenges.LatestByPhone(ctx, phone)
+func (service RegistrationService) VerifyOtp(ctx context.Context, contact domain.Contact, code, deviceID string) (IssuedSession, error) {
+	challenge, err := service.challenges.LatestByContact(ctx, contact)
 	if err != nil {
 		return IssuedSession{}, err
 	}
@@ -151,9 +157,9 @@ func (service RegistrationService) VerifyOtp(ctx context.Context, phone, code, d
 		return IssuedSession{}, err
 	}
 
-	account, err := service.accounts.FindByPhone(ctx, phone)
+	account, err := service.accounts.FindByContact(ctx, contact)
 	if errors.Is(err, ErrAccountNotFound) {
-		account, err = domain.NewAccount(service.newID(), phone, service.now())
+		account, err = domain.NewAccount(service.newID(), contact, service.now())
 		if err != nil {
 			return IssuedSession{}, err
 		}

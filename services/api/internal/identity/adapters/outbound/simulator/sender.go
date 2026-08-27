@@ -6,7 +6,10 @@ package simulator
 
 import (
 	"context"
+	"fmt"
 	"sync"
+
+	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 // Sender is an in-memory OtpSender for local development and tests.
@@ -19,7 +22,15 @@ func NewSender() *Sender {
 	return &Sender{lastByPhone: make(map[string]string)}
 }
 
-func (sender *Sender) Send(_ context.Context, phone, code string) error {
+func (sender *Sender) Send(_ context.Context, contact domain.Contact, code string) error {
+	// The router only sends SMS contacts here; a different channel means a
+	// composition mistake, and delivering a sign-in code to the wrong
+	// transport is exactly what must not happen quietly.
+	if contact.Channel() != domain.ChannelSMS {
+		return fmt.Errorf("%s: unexpected contact channel %q", "simulator", contact.Channel())
+	}
+	phone := contact.Value()
+
 	sender.mu.Lock()
 	defer sender.mu.Unlock()
 	sender.lastByPhone[phone] = code

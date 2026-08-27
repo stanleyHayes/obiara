@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 // ErrNotConfigured reports missing credentials at construction time.
@@ -110,7 +112,15 @@ func NewSender(config Config, client *http.Client) (*Sender, error) {
 
 // Send delivers the code to phone (E.164). It satisfies the identity
 // context's application.OtpSender port.
-func (sender *Sender) Send(ctx context.Context, phone, code string) error {
+func (sender *Sender) Send(ctx context.Context, contact domain.Contact, code string) error {
+	// The router only sends SMS contacts here; a different channel means a
+	// composition mistake, and delivering a sign-in code to the wrong
+	// transport is exactly what must not happen quietly.
+	if contact.Channel() != domain.ChannelSMS {
+		return fmt.Errorf("%s: unexpected contact channel %q", "twilio", contact.Channel())
+	}
+	phone := contact.Value()
+
 	form := url.Values{}
 	form.Set("To", phone)
 	if sender.config.MessagingServiceSID != "" {

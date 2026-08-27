@@ -28,3 +28,20 @@ func IsDuplicateKey(err error) bool {
 	}
 	return false
 }
+
+// indexNotFoundCode is the server's reply to dropping an index that is not
+// there.
+const indexNotFoundCode = 27
+
+// IsIndexNotFound reports whether err is a missing-index error from a drop.
+// Repositories use it to make index removal idempotent: a schema change that
+// retires an index must not fail the boot of an instance that has already
+// applied it, or of a fresh database that never had it.
+func IsIndexNotFound(err error) bool {
+	var commandError mongo.CommandError
+	if errors.As(err, &commandError) {
+		return commandError.Code == indexNotFoundCode ||
+			commandError.Name == "IndexNotFound"
+	}
+	return false
+}

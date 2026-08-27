@@ -66,13 +66,28 @@ export function OnboardingFlow() {
     try {
       const endpoint =
         state.stage === "phone" ? "/api/auth/otp" : "/api/auth/otp/verify";
+
+      const requestBody: {
+        channel: string;
+        contact?: string;
+        phone?: string;
+        code?: string;
+      } = { channel: state.channel };
+
+      if (state.channel === "sms") {
+        requestBody.phone = e164Phone(state.contact);
+      } else {
+        requestBody.contact = state.contact;
+      }
+
+      if (state.stage === "otp") {
+        requestBody.code = state.otp;
+      }
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: e164Phone(state.phone),
-          ...(state.stage === "otp" ? { code: state.otp } : {}),
-        }),
+        body: JSON.stringify(requestBody),
       });
       const payload = (await response.json().catch(() => null)) as {
         message?: string;
@@ -290,16 +305,20 @@ export function OnboardingFlow() {
                 <div className="onboarding-step-number" aria-hidden="true">
                   01
                 </div>
-                <p className="onboarding-kicker">Phone verification</p>
+                <p className="onboarding-kicker">
+                  {state.stage === "otp"
+                    ? "Code verification"
+                    : "Contact verification"}
+                </p>
                 <h2 id="phone-title">
                   {state.stage === "phone"
-                    ? "Begin with your number."
+                    ? "Choose your secure key."
                     : "Check your messages."}
                 </h2>
                 <p>
                   {state.stage === "phone"
                     ? "This becomes your private key to sign in and recover your account. Other members never see it."
-                    : `Enter the short-lived code sent to ${state.phone}.`}
+                    : `Enter the short-lived code sent to ${state.contact}.`}
                 </p>
                 <div className="onboarding-privacy-note">
                   <span aria-hidden="true">⌁</span>
@@ -311,28 +330,89 @@ export function OnboardingFlow() {
                   </div>
                 </div>
                 {state.stage === "phone" ? (
-                  <label>
-                    <span>Ghana phone number</span>
-                    <div className="onboarding-phone-input">
-                      <span aria-hidden="true">GH</span>
-                      <input
-                        aria-describedby="phone-format"
-                        autoComplete="tel"
-                        inputMode="numeric"
-                        onChange={(event) =>
-                          dispatch({
-                            type: "phone-changed",
-                            phone: event.target.value,
-                          })
-                        }
-                        placeholder="024 123 4567"
-                        value={state.phone}
-                      />
-                    </div>
-                    <small id="phone-format">
-                      Use the 10-digit number registered to you.
-                    </small>
-                  </label>
+                  <>
+                    <fieldset className="onboarding-channel-select">
+                      <legend>How do you want to receive your code?</legend>
+                      <div className="onboarding-channel-options">
+                        <label className="onboarding-channel-option">
+                          <input
+                            checked={state.channel === "sms"}
+                            onChange={() =>
+                              dispatch({
+                                type: "channel-changed",
+                                channel: "sms",
+                              })
+                            }
+                            type="radio"
+                            name="channel"
+                            value="sms"
+                          />
+                          <span>Phone (SMS)</span>
+                        </label>
+                        <label className="onboarding-channel-option">
+                          <input
+                            checked={state.channel === "email"}
+                            onChange={() =>
+                              dispatch({
+                                type: "channel-changed",
+                                channel: "email",
+                              })
+                            }
+                            type="radio"
+                            name="channel"
+                            value="email"
+                          />
+                          <span>Email</span>
+                        </label>
+                      </div>
+                    </fieldset>
+
+                    {state.channel === "sms" ? (
+                      <label>
+                        <span>Ghana phone number</span>
+                        <div className="onboarding-phone-input">
+                          <span aria-hidden="true">GH</span>
+                          <input
+                            aria-describedby="phone-format"
+                            autoComplete="tel"
+                            inputMode="numeric"
+                            onChange={(event) =>
+                              dispatch({
+                                type: "contact-changed",
+                                contact: event.target.value,
+                              })
+                            }
+                            placeholder="024 123 4567"
+                            value={state.contact}
+                          />
+                        </div>
+                        <small id="phone-format">
+                          Use the 10-digit number registered to you.
+                        </small>
+                      </label>
+                    ) : (
+                      <label>
+                        <span>Email address</span>
+                        <input
+                          aria-describedby="email-format"
+                          autoComplete="email"
+                          inputMode="email"
+                          onChange={(event) =>
+                            dispatch({
+                              type: "contact-changed",
+                              contact: event.target.value,
+                            })
+                          }
+                          placeholder="you@example.com"
+                          type="email"
+                          value={state.contact}
+                        />
+                        <small id="email-format">
+                          We will send a code to this address.
+                        </small>
+                      </label>
+                    )}
+                  </>
                 ) : (
                   <div className="onboarding-otp-field">
                     <SegmentedOtpInput
@@ -352,7 +432,9 @@ export function OnboardingFlow() {
                   disabled={
                     submitting ||
                     (state.stage === "phone"
-                      ? !/^0\d{9}$/.test(state.phone)
+                      ? state.channel === "sms"
+                        ? !/^0\d{9}$/.test(state.contact)
+                        : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.contact)
                       : state.otp.length !== 6)
                   }
                   onClick={submitPhoneStep}
@@ -361,7 +443,7 @@ export function OnboardingFlow() {
                   {submitting
                     ? "Sending securely…"
                     : state.stage === "phone"
-                      ? "Continue with this number  →"
+                      ? "Continue with this address  →"
                       : "Verify and continue  →"}
                 </button>
                 {requestError && (

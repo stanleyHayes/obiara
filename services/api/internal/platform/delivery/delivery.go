@@ -29,11 +29,16 @@ import (
 	whatsappapp "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/application"
 	whatsappdomain "github.com/stanleyHayes/obiara/internal/notifications/whatsapp/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/arkesel"
+	"github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/channel"
+	"github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/emailotp"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/failover"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/simulator"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/twilio"
 	identityapp "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
+	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
+
+	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 // providerTimeout bounds a single outbound provider call. It is deliberately
@@ -174,12 +179,20 @@ func PreflightEmail(ctx context.Context, sender emailapp.Sender, logger *slog.Lo
 		slog.String("hint", "RESEND_FROM_ADDRESS must use a domain listed as verified above"))
 }
 
-// OtpSender builds the OTP delivery ladder named by OTP_PROVIDERS.
+// OtpSender builds the per-channel OTP delivery routes.
+//
+// SMS gets the failover ladder named by OTP_PROVIDERS. Email gets a single
+// route through the email context, present whenever an email service was
+// configured — a member who verified an address must receive their code
+// there, so there is nothing to fall back to and nothing to choose.
+//
 // whatsappChannel supplies the "whatsapp" rung and may be zero when that
-// rung is not selected.
+// rung is not selected. emails may be nil, in which case the deployment
+// simply cannot offer email sign-in and says so at boot.
 func OtpSender(
 	cfg config.NotificationsConfig,
 	whatsappChannel whatsappapp.ChannelService,
+	emails emailotp.EmailService,
 	logger *slog.Logger,
 ) (identityapp.OtpSender, error) {
 	rungs := make([]identityapp.OtpSender, 0, len(cfg.OtpProviders))
@@ -221,11 +234,37 @@ func OtpSender(
 		names = append(names, string(selected))
 	}
 
-	sender, err := failover.NewSender(ladderObserver(names, logger), rungs...)
-	if err != nil {
-		return nil, fmt.Errorf("build otp ladder: %w", err)
+	routes := make(map[identitydomain.Channel]identityapp.OtpSender, 2)
+	if len(rungs) > 0 {
+		ladder, err := failover.NewSender(ladderObserver(names, logger), rungs...)
+		if err != nil {
+			return nil, fmt.Errorf("build otp ladder: %w", err)
+		}
+		routes[identitydomain.ChannelSMS] = ladder
 	}
-	return sender, nil
+	if emails != nil {
+		emailSender, err := emailotp.NewSender(emails)
+		if err != nil {
+			return nil, fmt.Errorf("build email otp sender: %w", err)
+		}
+		routes[identitydomain.ChannelEmail] = emailSender
+	}
+
+	router, err := channel.NewRouter(routes)
+	if err != nil {
+		return nil, fmt.Errorf("build otp channel router: %w", err)
+	}
+	if logger != nil {
+		available := make([]string, 0, 2)
+		for _, name := range router.Channels() {
+			available = append(available, string(name))
+		}
+		// Boot states plainly which sign-in channels members can actually
+		// use, so a missing provider is visible here rather than as a member
+		// staring at a code that never arrives.
+		logger.Info("otp channels ready", "channels", strings.Join(available, ","))
+	}
+	return router, nil
 }
 
 // ladderObserver reports rung outcomes. A rung failure is warned rather than
@@ -257,7 +296,15 @@ type whatsappOtpSender struct {
 	channel whatsappapp.ChannelService
 }
 
-func (sender whatsappOtpSender) Send(ctx context.Context, phone, code string) error {
+func (sender whatsappOtpSender) Send(ctx context.Context, contact domain.Contact, code string) error {
+	// The router only sends SMS contacts here; a different channel means a
+	// composition mistake, and delivering a sign-in code to the wrong
+	// transport is exactly what must not happen quietly.
+	if contact.Channel() != domain.ChannelSMS {
+		return fmt.Errorf("%s: unexpected contact channel %q", "whatsapp", contact.Channel())
+	}
+	phone := contact.Value()
+
 	_, err := sender.channel.SendOtp(ctx, phone, code)
 	return err
 }

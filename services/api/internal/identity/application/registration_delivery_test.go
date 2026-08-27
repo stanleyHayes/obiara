@@ -17,16 +17,17 @@ import (
 // had no way to learn why.
 func TestRequestOtpReportsDeliveryFailure(t *testing.T) {
 	service, challenges, _, sender, _ := newRegistration(t)
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233550000101")
 	providerErr := errors.New(`arkesel: delivery failed: provider status "error", provider code 104`)
 
-	challenges.EXPECT().LatestByPhone(gomock.Any(), "+233550000101").
+	challenges.EXPECT().LatestByContact(gomock.Any(), contact).
 		Return(domain.OtpChallenge{}, ErrChallengeNotFound)
-	sender.EXPECT().Send(gomock.Any(), "+233550000101", gomock.Any()).Return(providerErr)
+	sender.EXPECT().Send(gomock.Any(), contact, gomock.Any()).Return(providerErr)
 	// No Create expectation: gomock fails on any unexpected call, so this
 	// asserts that an undelivered code is never persisted. Storing it would
 	// ask the member for a code that does not exist and burn their attempts.
 
-	_, err := service.RequestOtp(context.Background(), "+233550000101")
+	_, err := service.RequestOtp(context.Background(), contact)
 	if err == nil {
 		t.Fatal("RequestOtp reported success while the code was never sent")
 	}

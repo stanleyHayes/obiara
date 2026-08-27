@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 type stubSender struct {
@@ -14,7 +15,7 @@ type stubSender struct {
 	code  string
 }
 
-func (sender *stubSender) Send(_ context.Context, _, code string) error {
+func (sender *stubSender) Send(_ context.Context, _ domain.Contact, code string) error {
 	sender.calls++
 	sender.code = code
 	return sender.err
@@ -23,12 +24,13 @@ func (sender *stubSender) Send(_ context.Context, _, code string) error {
 func TestFirstWorkingRungWins(t *testing.T) {
 	primary := &stubSender{}
 	fallback := &stubSender{}
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
 	sender, err := NewSender(nil, primary, fallback)
 	if err != nil {
 		t.Fatalf("NewSender: %v", err)
 	}
-	if err := sender.Send(context.Background(), "+233544919953", "123456"); err != nil {
+	if err := sender.Send(context.Background(), contact, "123456"); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -48,12 +50,13 @@ func TestLadderFallsThroughToTheNextRung(t *testing.T) {
 	smsDown := errors.New("arkesel unavailable")
 	primary := &stubSender{err: smsDown}
 	fallback := &stubSender{}
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
 	sender, err := NewSender(nil, primary, fallback)
 	if err != nil {
 		t.Fatalf("NewSender: %v", err)
 	}
-	if err := sender.Send(context.Background(), "+233544919953", "123456"); err != nil {
+	if err := sender.Send(context.Background(), contact, "123456"); err != nil {
 		t.Fatalf("Send returned %v; the fallback rung accepted the message", err)
 	}
 	if fallback.calls != 1 {
@@ -64,13 +67,14 @@ func TestLadderFallsThroughToTheNextRung(t *testing.T) {
 func TestExhaustedLadderReportsEveryFailure(t *testing.T) {
 	first := errors.New("arkesel unavailable")
 	second := errors.New("whatsapp unavailable")
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
 	sender, err := NewSender(nil, &stubSender{err: first}, &stubSender{err: second})
 	if err != nil {
 		t.Fatalf("NewSender: %v", err)
 	}
 
-	sendErr := sender.Send(context.Background(), "+233544919953", "123456")
+	sendErr := sender.Send(context.Background(), contact, "123456")
 	if sendErr == nil {
 		t.Fatal("Send succeeded with every rung failing")
 	}
@@ -82,6 +86,7 @@ func TestExhaustedLadderReportsEveryFailure(t *testing.T) {
 
 func TestCancelledContextStopsTheLadder(t *testing.T) {
 	primary := &stubSender{}
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 	sender, err := NewSender(nil, primary)
 	if err != nil {
 		t.Fatalf("NewSender: %v", err)
@@ -89,7 +94,7 @@ func TestCancelledContextStopsTheLadder(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if err := sender.Send(ctx, "+233544919953", "123456"); !errors.Is(err, context.Canceled) {
+	if err := sender.Send(ctx, contact, "123456"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Send error = %v, want context.Canceled", err)
 	}
 	if primary.calls != 0 {
@@ -103,6 +108,7 @@ func TestObserverSeesEveryRungOutcome(t *testing.T) {
 		failed bool
 	}
 	var seen []outcome
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
 	sender, err := NewSender(func(_ context.Context, index int, err error) {
 		seen = append(seen, outcome{index: index, failed: err != nil})
@@ -110,7 +116,7 @@ func TestObserverSeesEveryRungOutcome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSender: %v", err)
 	}
-	if err := sender.Send(context.Background(), "+233544919953", "123456"); err != nil {
+	if err := sender.Send(context.Background(), contact, "123456"); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 

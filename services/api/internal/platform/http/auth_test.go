@@ -14,16 +14,16 @@ import (
 )
 
 type registrationStub struct {
-	requestOtp func(context.Context, string) (application.OtpRequest, error)
-	verifyOtp  func(context.Context, string, string, string) (application.IssuedSession, error)
+	requestOtp func(context.Context, domain.Contact) (application.OtpRequest, error)
+	verifyOtp  func(context.Context, domain.Contact, string, string) (application.IssuedSession, error)
 }
 
-func (stub registrationStub) RequestOtp(ctx context.Context, phone string) (application.OtpRequest, error) {
-	return stub.requestOtp(ctx, phone)
+func (stub registrationStub) RequestOtp(ctx context.Context, contact domain.Contact) (application.OtpRequest, error) {
+	return stub.requestOtp(ctx, contact)
 }
 
-func (stub registrationStub) VerifyOtp(ctx context.Context, phone, code, deviceID string) (application.IssuedSession, error) {
-	return stub.verifyOtp(ctx, phone, code, deviceID)
+func (stub registrationStub) VerifyOtp(ctx context.Context, contact domain.Contact, code, deviceID string) (application.IssuedSession, error) {
+	return stub.verifyOtp(ctx, contact, code, deviceID)
 }
 
 // sessionsStub drives the refresh route. Existing OTP tests pass a zero
@@ -61,9 +61,9 @@ func postJSON(t *testing.T, handler http.Handler, path, body string) *httptest.R
 func TestRequestOtpAccepted(t *testing.T) {
 	expires := time.Date(2026, time.July, 26, 12, 10, 0, 0, time.UTC)
 	handler := authHandler(registrationStub{
-		requestOtp: func(_ context.Context, phone string) (application.OtpRequest, error) {
-			if phone != "+233550000101" {
-				t.Fatalf("phone = %q", phone)
+		requestOtp: func(_ context.Context, contact domain.Contact) (application.OtpRequest, error) {
+			if contact.Value() != "+233550000101" || contact.Channel() != domain.ChannelSMS {
+				t.Fatalf("contact = %v", contact)
 			}
 			return application.OtpRequest{ChallengeID: "ch-1", ExpiresAt: expires}, nil
 		},
@@ -87,7 +87,7 @@ func TestRequestOtpAccepted(t *testing.T) {
 
 func TestRequestOtpValidation(t *testing.T) {
 	handler := authHandler(registrationStub{
-		requestOtp: func(context.Context, string) (application.OtpRequest, error) {
+		requestOtp: func(context.Context, domain.Contact) (application.OtpRequest, error) {
 			t.Fatal("application must not be called for invalid input")
 			return application.OtpRequest{}, nil
 		},
@@ -110,7 +110,7 @@ func TestRequestOtpValidation(t *testing.T) {
 
 func TestRequestOtpRateLimitedMaps429(t *testing.T) {
 	handler := authHandler(registrationStub{
-		requestOtp: func(context.Context, string) (application.OtpRequest, error) {
+		requestOtp: func(context.Context, domain.Contact) (application.OtpRequest, error) {
 			return application.OtpRequest{}, domain.ErrOtpRateLimited
 		},
 	})
@@ -140,9 +140,9 @@ func TestVerifyOtpIssuesSession(t *testing.T) {
 	}
 
 	handler := authHandler(registrationStub{
-		verifyOtp: func(_ context.Context, phone, code, deviceID string) (application.IssuedSession, error) {
-			if phone != "+233550000101" || code != "123456" || deviceID != "device-1" {
-				t.Fatalf("verify args = %q %q %q", phone, code, deviceID)
+		verifyOtp: func(_ context.Context, contact domain.Contact, code, deviceID string) (application.IssuedSession, error) {
+			if contact.Value() != "+233550000101" || contact.Channel() != domain.ChannelSMS || code != "123456" || deviceID != "device-1" {
+				t.Fatalf("verify args = %v %q %q", contact, code, deviceID)
 			}
 			return application.IssuedSession{Session: session, AccessToken: access.Plain, RefreshToken: refresh.Plain}, nil
 		},
@@ -176,7 +176,7 @@ func TestVerifyOtpErrorMapping(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			handler := authHandler(registrationStub{
-				verifyOtp: func(context.Context, string, string, string) (application.IssuedSession, error) {
+				verifyOtp: func(context.Context, domain.Contact, string, string) (application.IssuedSession, error) {
 					return application.IssuedSession{}, tc.err
 				},
 			})
@@ -193,5 +193,107 @@ func TestVerifyOtpErrorMapping(t *testing.T) {
 				t.Fatal("internal error leaked")
 			}
 		})
+	}
+}
+
+func TestRequestOtpEmailChannel(t *testing.T) {
+	expires := time.Date(2026, time.August, 27, 12, 10, 0, 0, time.UTC)
+	handler := authHandler(registrationStub{
+		requestOtp: func(_ context.Context, contact domain.Contact) (application.OtpRequest, error) {
+			if contact.Channel() != domain.ChannelEmail {
+				t.Fatalf("expected email channel, got %v", contact.Channel())
+			}
+			if contact.Value() != "user@example.com" {
+				t.Fatalf("expected user@example.com, got %q", contact.Value())
+			}
+			return application.OtpRequest{ChallengeID: "ch-1", ExpiresAt: expires}, nil
+		},
+	})
+
+	response := postJSON(t, handler, "/v1/auth/otp", `{"channel":"email","contact":"user@example.com"}`)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestRequestOtpPhoneBackCompat(t *testing.T) {
+	expires := time.Date(2026, time.August, 27, 12, 10, 0, 0, time.UTC)
+	handler := authHandler(registrationStub{
+		requestOtp: func(_ context.Context, contact domain.Contact) (application.OtpRequest, error) {
+			if contact.Channel() != domain.ChannelSMS {
+				t.Fatalf("phone field should default to SMS, got %v", contact.Channel())
+			}
+			if contact.Value() != "+233550000101" {
+				t.Fatalf("expected +233550000101, got %q", contact.Value())
+			}
+			return application.OtpRequest{ChallengeID: "ch-1", ExpiresAt: expires}, nil
+		},
+	})
+
+	// Old request format should still work
+	response := postJSON(t, handler, "/v1/auth/otp", `{"phone":"+233550000101"}`)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("back-compat: status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestRequestOtpInvalidEmail(t *testing.T) {
+	handler := authHandler(registrationStub{
+		requestOtp: func(context.Context, domain.Contact) (application.OtpRequest, error) {
+			t.Fatal("application must not be called for invalid email")
+			return application.OtpRequest{}, nil
+		},
+	})
+
+	response := postJSON(t, handler, "/v1/auth/otp", `{"channel":"email","contact":"not-an-email"}`)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid email status = %d, want 422", response.Code)
+	}
+	var envelope errorEnvelope
+	decodeResponse(t, response, &envelope)
+	if envelope.Error.Details[0].Field != "contact" {
+		t.Fatalf("error field = %q, want contact", envelope.Error.Details[0].Field)
+	}
+}
+
+func TestRequestOtpInvalidChannel(t *testing.T) {
+	handler := authHandler(registrationStub{
+		requestOtp: func(context.Context, domain.Contact) (application.OtpRequest, error) {
+			t.Fatal("application must not be called for invalid channel")
+			return application.OtpRequest{}, nil
+		},
+	})
+
+	response := postJSON(t, handler, "/v1/auth/otp", `{"channel":"carrier-pigeon","contact":"+233550000101"}`)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid channel status = %d, want 422", response.Code)
+	}
+	var envelope errorEnvelope
+	decodeResponse(t, response, &envelope)
+	if envelope.Error.Details[0].Field != "channel" {
+		t.Fatalf("error field = %q, want channel", envelope.Error.Details[0].Field)
+	}
+}
+
+func TestVerifyOtpEmailChannel(t *testing.T) {
+	access, _ := domain.IssueAccessToken("sess_1", time.Now())
+	refresh, _ := domain.IssueRefreshToken("sess_1", time.Now())
+	session, _ := domain.Start("sess_1", "member-1", "device-1", access, refresh, time.Now())
+
+	handler := authHandler(registrationStub{
+		verifyOtp: func(_ context.Context, contact domain.Contact, code, deviceID string) (application.IssuedSession, error) {
+			if contact.Channel() != domain.ChannelEmail {
+				t.Fatalf("expected email channel, got %v", contact.Channel())
+			}
+			if contact.Value() != "user@example.com" {
+				t.Fatalf("expected user@example.com, got %q", contact.Value())
+			}
+			return application.IssuedSession{Session: session, AccessToken: access.Plain, RefreshToken: refresh.Plain}, nil
+		},
+	})
+
+	response := postJSON(t, handler, "/v1/auth/otp/verify", `{"channel":"email","contact":"user@example.com","code":"123456","deviceId":"device-1"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 }

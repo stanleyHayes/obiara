@@ -17,6 +17,9 @@ const (
 	TemplateOpsAlert         Template = "ops_alert"
 	TemplateAdminNotice      Template = "admin_notice"
 	TemplateVerificationHelp Template = "verification_help"
+	// TemplateMemberSignIn carries a member's sign-in code when their
+	// verified contact is an email address rather than a phone number.
+	TemplateMemberSignIn Template = "member_sign_in"
 )
 
 var (
@@ -38,7 +41,7 @@ func NewMessage(to string, template Template, params map[string]string) (Message
 		return Message{}, ErrInvalidRecipient
 	}
 	switch template {
-	case TemplateOpsAlert, TemplateAdminNotice, TemplateVerificationHelp:
+	case TemplateOpsAlert, TemplateAdminNotice, TemplateVerificationHelp, TemplateMemberSignIn:
 	default:
 		return Message{}, ErrInvalidTemplate
 	}

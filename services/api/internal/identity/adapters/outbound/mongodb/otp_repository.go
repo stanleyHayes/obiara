@@ -29,7 +29,8 @@ func (repository *OtpChallengeRepository) collection() *mongo.Collection {
 
 type otpDocument struct {
 	ID         string     `bson:"_id"`
-	Phone      string     `bson:"phone"`
+	Channel    string     `bson:"channel"`
+	Contact    string     `bson:"contact"`
 	CodeHash   string     `bson:"codeHash"`
 	ExpiresAt  time.Time  `bson:"expiresAt"`
 	Attempts   int        `bson:"attempts"`
@@ -41,8 +42,8 @@ type otpDocument struct {
 func (repository *OtpChallengeRepository) EnsureIndexes(ctx context.Context) error {
 	_, err := repository.collection().Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
-			Keys:    bson.D{{Key: "phone", Value: 1}, {Key: "createdAt", Value: -1}},
-			Options: options.Index().SetName("otp_phone_latest"),
+			Keys:    bson.D{{Key: "channel", Value: 1}, {Key: "contact", Value: 1}, {Key: "createdAt", Value: -1}},
+			Options: options.Index().SetName("otp_contact_latest"),
 		},
 		{
 			// Challenges are ephemeral verification artifacts; expire the
@@ -60,10 +61,10 @@ func (repository *OtpChallengeRepository) Create(ctx context.Context, challenge 
 	return err
 }
 
-func (repository *OtpChallengeRepository) LatestByPhone(ctx context.Context, phone string) (domain.OtpChallenge, error) {
+func (repository *OtpChallengeRepository) LatestByContact(ctx context.Context, contact domain.Contact) (domain.OtpChallenge, error) {
 	var document otpDocument
 	err := repository.collection().FindOne(ctx,
-		bson.M{"phone": phone},
+		bson.M{"channel": string(contact.Channel()), "contact": contact.Value()},
 		options.FindOne().SetSort(bson.D{{Key: "createdAt", Value: -1}}),
 	).Decode(&document)
 	if err != nil {
@@ -92,7 +93,8 @@ func (repository *OtpChallengeRepository) Update(ctx context.Context, challenge 
 func toOtpDocument(challenge domain.OtpChallenge) otpDocument {
 	return otpDocument{
 		ID:         challenge.ID(),
-		Phone:      challenge.Phone(),
+		Channel:    string(challenge.Contact().Channel()),
+		Contact:    challenge.Contact().Value(),
 		CodeHash:   challenge.CodeHash(),
 		ExpiresAt:  challenge.ExpiresAt(),
 		Attempts:   challenge.Attempts(),
@@ -105,7 +107,7 @@ func toOtpDocument(challenge domain.OtpChallenge) otpDocument {
 func toOtpDomain(document otpDocument) domain.OtpChallenge {
 	return domain.ReconstituteChallenge(
 		document.ID,
-		document.Phone,
+		domain.ReconstituteContact(domain.Channel(document.Channel), document.Contact),
 		document.CodeHash,
 		document.ExpiresAt,
 		document.Attempts,

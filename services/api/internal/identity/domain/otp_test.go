@@ -7,18 +7,20 @@ import (
 )
 
 func TestNewChallengeValidation(t *testing.T) {
-	if _, err := NewChallenge("", "+233550000101", "123456", 1, testNow); err != ErrChallengeIDNeeded {
+	validContact := ReconstituteContact(ChannelSMS, "+233550000101")
+	if _, err := NewChallenge("", validContact, "123456", 1, testNow); err != ErrChallengeIDNeeded {
 		t.Fatalf("empty id = %v", err)
 	}
 	for _, phone := range []string{"", "0550000101", "+233 55 000 0101", "+0123", "abc"} {
-		if _, err := NewChallenge("ch-1", phone, "123456", 1, testNow); err != ErrInvalidPhone {
-			t.Fatalf("phone %q = %v, want ErrInvalidPhone", phone, err)
+		_, err := NewContact(ChannelSMS, phone)
+		if err == nil {
+			t.Fatalf("phone %q should fail validation", phone)
 		}
 	}
-	if _, err := NewChallenge("ch-1", "+233550000101", "12345", 1, testNow); err == nil {
+	if _, err := NewChallenge("ch-1", validContact, "12345", 1, testNow); err == nil {
 		t.Fatal("short code must fail")
 	}
-	challenge, err := NewChallenge("ch-1", "+233550000101", "123456", 1, testNow)
+	challenge, err := NewChallenge("ch-1", validContact, "123456", 1, testNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +33,8 @@ func TestNewChallengeValidation(t *testing.T) {
 }
 
 func TestVerifyFlow(t *testing.T) {
-	challenge, err := NewChallenge("ch-1", "+233550000101", "123456", 1, testNow)
+	contact := ReconstituteContact(ChannelSMS, "+233550000101")
+	challenge, err := NewChallenge("ch-1", contact, "123456", 1, testNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +54,7 @@ func TestVerifyFlow(t *testing.T) {
 	}
 
 	// Fresh challenge: expiry then success.
-	fresh, _ := NewChallenge("ch-2", "+233550000101", "123456", 1, testNow)
+	fresh, _ := NewChallenge("ch-2", contact, "123456", 1, testNow)
 	if err := fresh.Verify("123456", testNow.Add(OtpLifetime+time.Minute)); err != ErrOtpExpired {
 		t.Fatalf("expired verify = %v, want ErrOtpExpired", err)
 	}
@@ -67,7 +70,8 @@ func TestVerifyFlow(t *testing.T) {
 }
 
 func TestCheckResendPolicy(t *testing.T) {
-	recent, _ := NewChallenge("ch-1", "+233550000101", "123456", 1, testNow)
+	contact := ReconstituteContact(ChannelSMS, "+233550000101")
+	recent, _ := NewChallenge("ch-1", contact, "123456", 1, testNow)
 
 	if err := CheckResend(nil, testNow); err != nil {
 		t.Fatalf("no prior challenge = %v", err)
@@ -79,7 +83,7 @@ func TestCheckResendPolicy(t *testing.T) {
 		t.Fatalf("resend after interval = %v", err)
 	}
 
-	hourly, _ := NewChallenge("ch-2", "+233550000101", "123456", OtpHourlyLimit, testNow)
+	hourly, _ := NewChallenge("ch-2", contact, "123456", OtpHourlyLimit, testNow)
 	if err := CheckResend(&hourly, testNow.Add(30*time.Minute)); err != ErrOtpRateLimited {
 		t.Fatalf("hourly cap = %v, want rate limited", err)
 	}
@@ -104,18 +108,22 @@ func TestGenerateCode(t *testing.T) {
 }
 
 func TestAccountLifecycle(t *testing.T) {
-	account, err := NewAccount("id_1", "+233550000101", testNow)
+	contact, err := NewContact(ChannelSMS, "+233550000101")
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := NewAccount("id_1", contact, testNow)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := account.Usable(); err != nil {
 		t.Fatalf("active account = %v", err)
 	}
-	blocked := ReconstituteAccount("id_1", "+233550000101", AccountBlocked, TierUnverified, 1, nil, testNow)
+	blocked := ReconstituteAccount("id_1", contact, AccountBlocked, TierUnverified, 1, nil, testNow)
 	if err := blocked.Usable(); err != ErrAccountNotUsable {
 		t.Fatalf("blocked account = %v, want ErrAccountNotUsable", err)
 	}
-	if _, err := NewAccount("id_1", "bad-phone", testNow); err != ErrInvalidPhone {
-		t.Fatalf("bad phone = %v", err)
+	if _, err := NewContact(ChannelSMS, "bad-phone"); err == nil {
+		t.Fatalf("bad phone should fail validation")
 	}
 }

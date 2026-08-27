@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 const testCode = "482913"
@@ -44,8 +46,9 @@ func TestSendAcceptsSuccessStatus(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"success","data":[{"recipient":"233544919953","id":"abc"}]}`))
 	})
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
-	if err := sender.Send(context.Background(), "+233544919953", testCode); err != nil {
+	if err := sender.Send(context.Background(), contact, testCode); err != nil {
 		t.Fatalf("Send returned %v, want nil", err)
 	}
 	if apiKey != "synthetic-test-only" {
@@ -78,8 +81,9 @@ func TestSendRejectsSuccessStatusCodeWithFailureBody(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(body))
 			})
+			contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
-			err := sender.Send(context.Background(), "+233544919953", testCode)
+			err := sender.Send(context.Background(), contact, testCode)
 			if err == nil {
 				t.Fatal("Send accepted a 200 response carrying a failure status")
 			}
@@ -97,8 +101,9 @@ func TestSendNeverLeaksTheCodeOrKey(t *testing.T) {
 		_, _ = w.Write([]byte(`{"status":"error","message":"bad request for code ` + testCode +
 			` with key synthetic-test-only"}`))
 	})
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
-	err := sender.Send(context.Background(), "+233544919953", testCode)
+	err := sender.Send(context.Background(), contact, testCode)
 	if err == nil {
 		t.Fatal("Send accepted a 400 response")
 	}
@@ -119,8 +124,9 @@ func TestSendRetriesServerFaultsOnce(t *testing.T) {
 		}
 		_, _ = w.Write([]byte(`{"status":"success"}`))
 	})
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
-	if err := sender.Send(context.Background(), "+233544919953", testCode); err != nil {
+	if err := sender.Send(context.Background(), contact, testCode); err != nil {
 		t.Fatalf("Send returned %v after a retryable fault, want nil", err)
 	}
 	if got := attempts.Load(); got != 2 {
@@ -134,8 +140,9 @@ func TestSendDoesNotRetryBusinessFailures(t *testing.T) {
 		attempts.Add(1)
 		_, _ = w.Write([]byte(`{"status":"error","message":"Insufficient balance"}`))
 	})
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
-	if err := sender.Send(context.Background(), "+233544919953", testCode); err == nil {
+	if err := sender.Send(context.Background(), contact, testCode); err == nil {
 		t.Fatal("Send accepted a business failure")
 	}
 	// Resending cannot fix an empty balance, and each attempt is billable.
@@ -150,8 +157,9 @@ func TestSendHonoursContextCancellation(t *testing.T) {
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
 
-	if err := sender.Send(ctx, "+233544919953", testCode); err == nil {
+	if err := sender.Send(ctx, contact, testCode); err == nil {
 		t.Fatal("Send ignored a cancelled context")
 	}
 }
@@ -195,7 +203,8 @@ func TestCustomTemplateIsUsed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSender: %v", err)
 	}
-	if err := sender.Send(context.Background(), "+233544919953", testCode); err != nil {
+	contact := domain.ReconstituteContact(domain.ChannelSMS, "+233544919953")
+	if err := sender.Send(context.Background(), contact, testCode); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	if captured.Message != "Obiara: "+testCode+". Akwaaba." {

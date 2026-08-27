@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 var (
@@ -111,7 +113,15 @@ func NewSender(config Config, client *http.Client) (*Sender, error) {
 
 // Send delivers the code to phone (E.164). It satisfies the identity
 // context's application.OtpSender port.
-func (sender *Sender) Send(ctx context.Context, phone, code string) error {
+func (sender *Sender) Send(ctx context.Context, contact domain.Contact, code string) error {
+	// The router only sends SMS contacts here; a different channel means a
+	// composition mistake, and delivering a sign-in code to the wrong
+	// transport is exactly what must not happen quietly.
+	if contact.Channel() != domain.ChannelSMS {
+		return fmt.Errorf("%s: unexpected contact channel %q", "arkesel", contact.Channel())
+	}
+	phone := contact.Value()
+
 	payload, err := json.Marshal(map[string]any{
 		"sender":     sender.sender,
 		"message":    fmt.Sprintf(sender.template, code),

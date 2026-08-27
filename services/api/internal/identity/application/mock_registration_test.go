@@ -56,19 +56,19 @@ func (mr *MockOtpChallengeRepositoryMockRecorder) Create(arg0, arg1 any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockOtpChallengeRepository)(nil).Create), arg0, arg1)
 }
 
-// LatestByPhone mocks base method.
-func (m *MockOtpChallengeRepository) LatestByPhone(arg0 context.Context, arg1 string) (domain.OtpChallenge, error) {
+// LatestByContact mocks base method.
+func (m *MockOtpChallengeRepository) LatestByContact(arg0 context.Context, arg1 domain.Contact) (domain.OtpChallenge, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestByPhone", arg0, arg1)
+	ret := m.ctrl.Call(m, "LatestByContact", arg0, arg1)
 	ret0, _ := ret[0].(domain.OtpChallenge)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// LatestByPhone indicates an expected call of LatestByPhone.
-func (mr *MockOtpChallengeRepositoryMockRecorder) LatestByPhone(arg0, arg1 any) *gomock.Call {
+// LatestByContact indicates an expected call of LatestByContact.
+func (mr *MockOtpChallengeRepositoryMockRecorder) LatestByContact(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestByPhone", reflect.TypeOf((*MockOtpChallengeRepository)(nil).LatestByPhone), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestByContact", reflect.TypeOf((*MockOtpChallengeRepository)(nil).LatestByContact), arg0, arg1)
 }
 
 // Update mocks base method.
@@ -123,6 +123,21 @@ func (mr *MockAccountRepositoryMockRecorder) Create(arg0, arg1 any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockAccountRepository)(nil).Create), arg0, arg1)
 }
 
+// FindByContact mocks base method.
+func (m *MockAccountRepository) FindByContact(arg0 context.Context, arg1 domain.Contact) (domain.Account, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindByContact", arg0, arg1)
+	ret0, _ := ret[0].(domain.Account)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindByContact indicates an expected call of FindByContact.
+func (mr *MockAccountRepositoryMockRecorder) FindByContact(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByContact", reflect.TypeOf((*MockAccountRepository)(nil).FindByContact), arg0, arg1)
+}
+
 // FindByID mocks base method.
 func (m *MockAccountRepository) FindByID(arg0 context.Context, arg1 string) (domain.Account, error) {
 	m.ctrl.T.Helper()
@@ -136,21 +151,6 @@ func (m *MockAccountRepository) FindByID(arg0 context.Context, arg1 string) (dom
 func (mr *MockAccountRepositoryMockRecorder) FindByID(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByID", reflect.TypeOf((*MockAccountRepository)(nil).FindByID), arg0, arg1)
-}
-
-// FindByPhone mocks base method.
-func (m *MockAccountRepository) FindByPhone(arg0 context.Context, arg1 string) (domain.Account, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindByPhone", arg0, arg1)
-	ret0, _ := ret[0].(domain.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindByPhone indicates an expected call of FindByPhone.
-func (mr *MockAccountRepositoryMockRecorder) FindByPhone(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByPhone", reflect.TypeOf((*MockAccountRepository)(nil).FindByPhone), arg0, arg1)
 }
 
 // List mocks base method.
@@ -236,15 +236,15 @@ func (m *MockOtpSender) EXPECT() *MockOtpSenderMockRecorder {
 }
 
 // Send mocks base method.
-func (m *MockOtpSender) Send(ctx context.Context, phone, code string) error {
+func (m *MockOtpSender) Send(ctx context.Context, contact domain.Contact, code string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Send", ctx, phone, code)
+	ret := m.ctrl.Call(m, "Send", ctx, contact, code)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Send indicates an expected call of Send.
-func (mr *MockOtpSenderMockRecorder) Send(ctx, phone, code any) *gomock.Call {
+func (mr *MockOtpSenderMockRecorder) Send(ctx, contact, code any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockOtpSender)(nil).Send), ctx, phone, code)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockOtpSender)(nil).Send), ctx, contact, code)
 }

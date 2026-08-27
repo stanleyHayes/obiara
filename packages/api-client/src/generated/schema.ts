@@ -998,9 +998,9 @@ export interface paths {
     readonly get?: never;
     readonly put?: never;
     /**
-     * Request a phone OTP challenge
-     * @description Issues a 6-digit code to the phone via the active OTP provider
-     *     (SMS with WhatsApp fallback). Subject to per-phone resend
+     * Request an OTP challenge
+     * @description Issues a 6-digit code via the requested channel (SMS or email).
+     *     SMS uses the active SMS provider. Subject to per-contact resend
      *     throttling. The response never contains the code.
      */
     readonly post: operations["requestOtp"];
@@ -1020,10 +1020,10 @@ export interface paths {
     readonly get?: never;
     readonly put?: never;
     /**
-     * Verify a phone OTP and issue a session
-     * @description Verifies the latest challenge for the phone, finds or creates the
-     *     account (exactly one active account per phone) and issues a
-     *     short-lived access token plus a rotated refresh token.
+     * Verify an OTP and issue a session
+     * @description Verifies the latest challenge for the contact, finds or creates the
+     *     account and issues a short-lived access token plus a rotated
+     *     refresh token.
      */
     readonly post: operations["verifyOtp"];
     readonly delete?: never;
@@ -3817,6 +3817,11 @@ export interface components {
       readonly data: components["schemas"]["CatalogSKUData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    /**
+     * @description The delivery channel for the OTP. Defaults to sms when absent.
+     * @enum {string}
+     */
+    readonly Channel: "sms" | "email";
     readonly ChannelStatsData: {
       readonly attempted: number;
       readonly delivered: number;
@@ -4759,12 +4764,22 @@ export interface components {
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly OtpRequestInput: {
-      readonly phone: components["schemas"]["PhoneNumber"];
+      /** @description The delivery channel (sms or email). Defaults to sms. */
+      readonly channel?: components["schemas"]["Channel"];
+      /** @description The phone number (E.164) or email address for the chosen channel. */
+      readonly contact?: string;
+      /** @description Legacy spelling of contact; used when contact is absent. An E.164 phone number implies sms channel. */
+      readonly phone?: components["schemas"]["PhoneNumber"];
     };
     readonly OtpVerifyInput: {
+      /** @description The delivery channel (sms or email). Defaults to sms. */
+      readonly channel?: components["schemas"]["Channel"];
       readonly code: string;
+      /** @description The phone number (E.164) or email address for the chosen channel. */
+      readonly contact?: string;
       readonly deviceId: string;
-      readonly phone: components["schemas"]["PhoneNumber"];
+      /** @description Legacy spelling of contact; used when contact is absent. An E.164 phone number implies sms channel. */
+      readonly phone?: components["schemas"]["PhoneNumber"];
     };
     readonly OwareData: {
       readonly captured: readonly number[];

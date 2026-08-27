@@ -166,7 +166,16 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	otpSender, err := delivery.OtpSender(cfg.Notifications, whatsappChannel, telemetryRuntime.Logger)
+	// Transactional email (E13-S04): Resend channel with signed delivery
+	// webhooks.
+	emailModule, err := email.NewModule(ctx, client.Database(cfg.MongoDatabase), emailSender, os.Getenv("RESEND_WEBHOOK_SECRET"))
+	if err != nil {
+		return fmt.Errorf("build email module: %w", err)
+	}
+	// The OTP router needs the email service, not just the provider: a
+	// member who verified an address receives their sign-in code through
+	// the same logged, webhook-correlated path as every other message.
+	otpSender, err := delivery.OtpSender(cfg.Notifications, whatsappChannel, emailModule.Email, telemetryRuntime.Logger)
 	if err != nil {
 		return err
 	}
@@ -367,12 +376,6 @@ func run() error {
 	notificationModule, err := notifications.NewModule(ctx, client.Database(cfg.MongoDatabase))
 	if err != nil {
 		return fmt.Errorf("build notifications module: %w", err)
-	}
-	// Transactional email (E13-S04): Resend channel with signed delivery
-	// webhooks.
-	emailModule, err := email.NewModule(ctx, client.Database(cfg.MongoDatabase), emailSender, os.Getenv("RESEND_WEBHOOK_SECRET"))
-	if err != nil {
-		return fmt.Errorf("build email module: %w", err)
 	}
 	// Admin principals and MFA (E16-S01); codes ride the email channel.
 	adminModule, err := admin.NewModule(ctx, client.Database(cfg.MongoDatabase), adminemail.NewSender(emailModule.Email))

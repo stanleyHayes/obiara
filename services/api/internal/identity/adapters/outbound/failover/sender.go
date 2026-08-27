@@ -2,6 +2,10 @@
 // in agent_plan.md §11: SMS primary, WhatsApp fallback. The first adapter
 // that accepts the message wins; the caller sees an error only when every
 // rung fails.
+//
+// A ladder is built per channel. Choosing which ladder a contact belongs to
+// is the router's job, not this package's — every rung here is assumed to
+// speak the same channel.
 package failover
 
 import (
@@ -9,6 +13,7 @@ import (
 	"errors"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 // ErrNoSenders reports a ladder built with no rungs. Constructing one is a
@@ -43,13 +48,13 @@ func NewSender(observe Observer, rungs ...application.OtpSender) (*Sender, error
 // Send walks the ladder. A cancelled context stops the walk immediately
 // rather than burning the remaining rungs on a request the caller has
 // already abandoned.
-func (sender *Sender) Send(ctx context.Context, phone, code string) error {
+func (sender *Sender) Send(ctx context.Context, contact domain.Contact, code string) error {
 	var failures []error
 	for index, rung := range sender.rungs {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		err := rung.Send(ctx, phone, code)
+		err := rung.Send(ctx, contact, code)
 		if sender.observe != nil {
 			sender.observe(ctx, index, err)
 		}

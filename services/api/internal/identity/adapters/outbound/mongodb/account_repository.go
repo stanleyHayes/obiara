@@ -14,8 +14,9 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
-// AccountRepository persists phone-bound accounts with a unique active
-// phone index (FR-102: exactly one active account per verified identity).
+// AccountRepository persists contact-bound accounts with a unique index on
+// the channel-and-value pair (FR-102: exactly one active account per
+// verified identity).
 type AccountRepository struct {
 	database *mongo.Database
 }
@@ -34,7 +35,8 @@ func (repository *AccountRepository) transitions() *mongo.Collection {
 
 type accountDocument struct {
 	ID             string     `bson:"_id"`
-	Phone          string     `bson:"phone"`
+	Channel        string     `bson:"channel"`
+	Contact        string     `bson:"contact"`
 	Status         string     `bson:"status"`
 	Tier           int        `bson:"tier"`
 	Version        int64      `bson:"version"`
@@ -52,9 +54,18 @@ type transitionDocument struct {
 }
 
 func (repository *AccountRepository) EnsureIndexes(ctx context.Context) error {
+	// The old index keyed accounts on "phone" alone. It has to go rather
+	// than sit alongside the new one: a unique index treats a missing field
+	// as null, so the first two email accounts — neither carrying a phone —
+	// would collide with each other on it. Dropping a index that is not
+	// there is not an error worth failing a boot over.
+	if err := repository.collection().Indexes().DropOne(ctx, "accounts_phone_unique"); err != nil &&
+		!apimongo.IsIndexNotFound(err) {
+		return err
+	}
 	if _, err := repository.collection().Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "phone", Value: 1}},
-		Options: options.Index().SetName("accounts_phone_unique").SetUnique(true),
+		Keys:    bson.D{{Key: "channel", Value: 1}, {Key: "contact", Value: 1}},
+		Options: options.Index().SetName("accounts_contact_unique").SetUnique(true),
 	}); err != nil {
 		return err
 	}
@@ -73,8 +84,8 @@ func (repository *AccountRepository) Create(ctx context.Context, account domain.
 	return err
 }
 
-func (repository *AccountRepository) FindByPhone(ctx context.Context, phone string) (domain.Account, error) {
-	return repository.findOne(ctx, bson.M{"phone": phone})
+func (repository *AccountRepository) FindByContact(ctx context.Context, contact domain.Contact) (domain.Account, error) {
+	return repository.findOne(ctx, bson.M{"channel": string(contact.Channel()), "contact": contact.Value()})
 }
 
 func (repository *AccountRepository) FindByID(ctx context.Context, id string) (domain.Account, error) {
@@ -106,7 +117,7 @@ func (repository *AccountRepository) List(ctx context.Context, limit int) ([]dom
 			return nil, err
 		}
 		accounts = append(accounts, domain.ReconstituteAccount(
-			document.ID, document.Phone, domain.AccountStatus(document.Status),
+			document.ID, toContact(document), domain.AccountStatus(document.Status),
 			domain.Tier(document.Tier), document.Version, document.SuspendedUntil, document.CreatedAt))
 	}
 	return accounts, cursor.Err()
@@ -122,7 +133,7 @@ func (repository *AccountRepository) findOne(ctx context.Context, filter bson.M)
 	}
 	return domain.ReconstituteAccount(
 		document.ID,
-		document.Phone,
+		toContact(document),
 		domain.AccountStatus(document.Status),
 		domain.Tier(document.Tier),
 		document.Version,
@@ -152,7 +163,7 @@ func (repository *AccountRepository) ListSuspendedExpired(ctx context.Context, n
 			return nil, err
 		}
 		accounts = append(accounts, domain.ReconstituteAccount(
-			document.ID, document.Phone, domain.AccountStatus(document.Status),
+			document.ID, toContact(document), domain.AccountStatus(document.Status),
 			domain.Tier(document.Tier), document.Version, document.SuspendedUntil, document.CreatedAt))
 	}
 	return accounts, cursor.Err()
@@ -201,10 +212,16 @@ func (repository *AccountRepository) UpdateWithAudit(ctx context.Context, accoun
 	})
 }
 
+// toContact rebuilds the stored identity.
+func toContact(document accountDocument) domain.Contact {
+	return domain.ReconstituteContact(domain.Channel(document.Channel), document.Contact)
+}
+
 func toAccountDocument(account domain.Account) accountDocument {
 	return accountDocument{
 		ID:             account.ID(),
-		Phone:          account.Phone(),
+		Channel:        string(account.Contact().Channel()),
+		Contact:        account.Contact().Value(),
 		Status:         string(account.Status()),
 		Tier:           int(account.Tier()),
 		Version:        account.Version(),

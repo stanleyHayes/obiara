@@ -437,6 +437,58 @@
   color: #ad9ba5;
 }
 
+.onboarding-channel-select {
+  border: 0;
+  display: grid;
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+
+.onboarding-channel-select legend {
+  color: #3a0e2e;
+  font-size: 0.79rem;
+  font-weight: 800;
+  padding: 0;
+}
+
+.onboarding-channel-options {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.onboarding-channel-option {
+  align-items: center;
+  border: 1px solid rgba(58, 14, 46, 0.2);
+  border-radius: 0.8rem;
+  color: #3a0e2e;
+  cursor: pointer;
+  display: flex;
+  gap: 0.7rem;
+  padding: 1rem;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.onboarding-channel-option input[type="radio"] {
+  cursor: pointer;
+  margin: 0;
+  min-height: auto;
+  min-width: auto;
+  padding: 0;
+}
+
+.onboarding-channel-option:has(input[type="radio"]:checked) {
+  background: rgba(199, 47, 83, 0.08);
+  border-color: #c72f53;
+}
+
+.onboarding-channel-option:hover {
+  border-color: rgba(58, 14, 46, 0.35);
+}
+
 .onboarding-card input:focus-visible,
 .onboarding-card button:focus-visible,
 .onboarding-link-button:focus-visible,

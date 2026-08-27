@@ -68,6 +68,15 @@ var specs = map[domain.Template]renderSpec{
 		fields:  []string{"summary"},
 		body:    `<p>An operations alert was raised:</p><p>%s</p><p>Open the admin console to review it.</p>`,
 	},
+	domain.TemplateMemberSignIn: {
+		subject: "Your Obiara sign-in code",
+		fields:  []string{"code"},
+		body: `<p>Your Obiara sign-in code is:</p>` +
+			`<p style="font-size:28px;font-weight:700;letter-spacing:4px;margin:16px 0">%s</p>` +
+			`<p>It expires in 10 minutes and can be used once.</p>` +
+			`<p>If you did not ask to sign in, you can ignore this message. ` +
+			`Do not share this code — Obiara will never ask you for it.</p>`,
+	},
 	domain.TemplateVerificationHelp: {
 		subject: "Help with your Obiara verification",
 		fields:  []string{"reference"},

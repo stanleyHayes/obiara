@@ -26,8 +26,9 @@ func (adminMemberKeyerStub) Key(string, string) (string, error) { return "member
 
 func TestAdminMemberDirectoryIsRedacted(t *testing.T) {
 	created := time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)
+	contact := identitydomain.ReconstituteContact(identitydomain.ChannelSMS, "+233550000101")
 	account := identitydomain.ReconstituteAccount(
-		"member-secret-id", "+233550000101", identitydomain.AccountActive,
+		"member-secret-id", contact, identitydomain.AccountActive,
 		identitydomain.TierVerified, 3, nil, created,
 	)
 	mux := http.NewServeMux()

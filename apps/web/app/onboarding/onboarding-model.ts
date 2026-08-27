@@ -9,7 +9,8 @@ export type OnboardingStage =
 
 export interface OnboardingState {
   readonly stage: OnboardingStage;
-  readonly phone: string;
+  readonly channel: "sms" | "email";
+  readonly contact: string;
   readonly otp: string;
   readonly acceptedPromise: boolean;
   readonly acceptedTerms: boolean;
@@ -19,7 +20,8 @@ export interface OnboardingState {
 }
 
 export type OnboardingAction =
-  | { readonly type: "phone-changed"; readonly phone: string }
+  | { readonly type: "channel-changed"; readonly channel: "sms" | "email" }
+  | { readonly type: "contact-changed"; readonly contact: string }
   | { readonly type: "request-code" }
   | { readonly type: "otp-changed"; readonly otp: string }
   | { readonly type: "verify-code" }
@@ -43,7 +45,8 @@ export type OnboardingAction =
 
 export const initialOnboardingState: OnboardingState = {
   stage: "phone",
-  phone: "",
+  channel: "sms",
+  contact: "",
   otp: "",
   acceptedPromise: false,
   acceptedTerms: false,
@@ -57,14 +60,38 @@ export function onboardingReducer(
   action: OnboardingAction,
 ): OnboardingState {
   switch (action.type) {
-    case "phone-changed":
+    case "channel-changed":
+      // Switching channel clears the contact: a phone number is not a
+      // half-typed email address, and carrying one across would submit a
+      // value that cannot be valid for the newly chosen channel.
       return state.stage === "phone"
-        ? { ...state, phone: action.phone.replace(/\D/g, "").slice(0, 10) }
+        ? { ...state, channel: action.channel, contact: "" }
         : state;
-    case "request-code":
-      return state.stage === "phone" && /^0\d{9}$/.test(state.phone)
+    case "contact-changed":
+      // The contact is the single source of truth for what the member
+      // typed. Sanitising here rather than keeping a second derived field
+      // means the input always displays exactly what will be submitted —
+      // a phone box that shows digits it then silently strips is how a
+      // member ends up staring at a code that went somewhere else.
+      return state.stage === "phone"
+        ? {
+            ...state,
+            contact:
+              state.channel === "sms"
+                ? action.contact.replace(/\D/g, "").slice(0, 10)
+                : action.contact.trim(),
+          }
+        : state;
+    case "request-code": {
+      // Validate based on channel
+      const isValid =
+        state.channel === "sms"
+          ? /^0\d{9}$/.test(state.contact)
+          : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.contact);
+      return state.stage === "phone" && isValid
         ? { ...state, stage: "otp" }
         : state;
+    }
     case "otp-changed":
       return state.stage === "otp"
         ? { ...state, otp: action.otp.replace(/\D/g, "").slice(0, 6) }

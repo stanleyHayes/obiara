@@ -13,10 +13,11 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
-// Registration is the inbound port for phone OTP registration (E03-S01).
+// Registration is the inbound port for OTP registration (E03-S01), over
+// whichever channel the member verified.
 type Registration interface {
-	RequestOtp(context.Context, string) (application.OtpRequest, error)
-	VerifyOtp(ctx context.Context, phone, code, deviceID string) (application.IssuedSession, error)
+	RequestOtp(context.Context, domain.Contact) (application.OtpRequest, error)
+	VerifyOtp(ctx context.Context, contact domain.Contact, code, deviceID string) (application.IssuedSession, error)
 }
 
 // Sessions is the inbound port for session rotation. Access tokens live
@@ -112,7 +113,13 @@ func writeRefreshError(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 type requestOtpBody struct {
-	Phone string `json:"phone"`
+	// Channel is "sms" or "email" and defaults to "sms" when absent, so
+	// clients written before email sign-in existed keep working untouched.
+	Channel string `json:"channel"`
+	// Contact is the address or number for that channel. Phone is the
+	// pre-channel spelling of the same field and is still accepted.
+	Contact string `json:"contact"`
+	Phone   string `json:"phone"`
 }
 
 type otpRequestResponse struct {
@@ -121,6 +128,8 @@ type otpRequestResponse struct {
 }
 
 type verifyOtpBody struct {
+	Channel  string `json:"channel"`
+	Contact  string `json:"contact"`
 	Phone    string `json:"phone"`
 	Code     string `json:"code"`
 	DeviceID string `json:"deviceId"`
@@ -154,17 +163,17 @@ func requestOtpHandler(registration Registration) http.Handler {
 			return
 		}
 
-		body.Phone = strings.TrimSpace(body.Phone)
-		if !e164(body.Phone) {
+		contact, fieldErr := resolveContact(body.Channel, body.Contact, body.Phone)
+		if fieldErr != nil {
 			writeError(w, r, http.StatusUnprocessableEntity, APIError{
 				Code:    "validation_failed",
 				Message: "One or more fields are invalid.",
-				Details: []FieldError{{Field: "phone", Reason: "must be an E.164 phone number"}},
+				Details: []FieldError{*fieldErr},
 			})
 			return
 		}
 
-		request, err := registration.RequestOtp(r.Context(), body.Phone)
+		request, err := registration.RequestOtp(r.Context(), contact)
 		if err != nil {
 			writeAuthError(w, r, err)
 			return
@@ -195,12 +204,12 @@ func verifyOtpHandler(registration Registration) http.Handler {
 			return
 		}
 
-		body.Phone = strings.TrimSpace(body.Phone)
 		body.Code = strings.TrimSpace(body.Code)
 		body.DeviceID = strings.TrimSpace(body.DeviceID)
 		var details []FieldError
-		if !e164(body.Phone) {
-			details = append(details, FieldError{Field: "phone", Reason: "must be an E.164 phone number"})
+		contact, fieldErr := resolveContact(body.Channel, body.Contact, body.Phone)
+		if fieldErr != nil {
+			details = append(details, *fieldErr)
 		}
 		if len(body.Code) != 6 {
 			details = append(details, FieldError{Field: "code", Reason: "must be the 6-digit code"})
@@ -217,7 +226,7 @@ func verifyOtpHandler(registration Registration) http.Handler {
 			return
 		}
 
-		issued, err := registration.VerifyOtp(r.Context(), body.Phone, body.Code, body.DeviceID)
+		issued, err := registration.VerifyOtp(r.Context(), contact, body.Code, body.DeviceID)
 		if err != nil {
 			writeAuthError(w, r, err)
 			return
@@ -235,12 +244,54 @@ func verifyOtpHandler(registration Registration) http.Handler {
 
 var e164Pattern = regexp.MustCompile(`^\+[1-9]\d{7,14}$`)
 
+// e164 validates a bare phone number for handlers that take one directly
+// rather than as a channelled contact.
 func e164(phone string) bool {
 	return e164Pattern.MatchString(phone)
 }
 
+// resolveContact builds the identity a request is about.
+//
+// "contact" is the current field; "phone" is what every client sent before
+// channels existed and still means an SMS contact. Accepting both keeps the
+// mobile app and any deployed web build working across the rollout instead
+// of breaking sign-in for everyone who has not updated.
+func resolveContact(channelValue, contactValue, phoneValue string) (domain.Contact, *FieldError) {
+	value := strings.TrimSpace(contactValue)
+	field := "contact"
+	if value == "" {
+		value = strings.TrimSpace(phoneValue)
+		field = "phone"
+	}
+
+	channel, err := domain.ParseChannel(channelValue)
+	if err != nil {
+		return domain.Contact{}, &FieldError{Field: "channel", Reason: `must be "sms" or "email"`}
+	}
+
+	contact, err := domain.NewContact(channel, value)
+	if err != nil {
+		reason := "must be an E.164 phone number"
+		if channel == domain.ChannelEmail {
+			reason = "must be a valid email address"
+		}
+		return domain.Contact{}, &FieldError{Field: field, Reason: reason}
+	}
+	return contact, nil
+}
+
 func writeAuthError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, application.ErrChannelUnavailable):
+		// Checked before the delivery case, which this error also carries:
+		// the member picked a channel this deployment cannot send on, and
+		// the only useful thing to tell them is to pick the other one.
+		logServerError(r.Context(), r, http.StatusUnprocessableEntity, "otp_channel_unavailable", err)
+		writeError(w, r, http.StatusUnprocessableEntity, APIError{
+			Code:    "otp_channel_unavailable",
+			Message: "That sign-in method is not available. Please use the other one.",
+			Details: []FieldError{{Field: "channel", Reason: "not configured for this deployment"}},
+		})
 	case errors.Is(err, application.ErrCodeDeliveryFailed):
 		// Minted but undeliverable. Retrying cannot help until the SMS
 		// provider is fixed, so this is reported as an unavailable

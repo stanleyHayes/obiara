@@ -117,6 +117,7 @@ func TestEveryDomainTemplateRenders(t *testing.T) {
 		domain.TemplateAdminNotice:      {"code": "112233"},
 		domain.TemplateOpsAlert:         {"summary": "queue depth exceeded"},
 		domain.TemplateVerificationHelp: {"reference": "vrf_123"},
+		domain.TemplateMemberSignIn:     {"code": "445566"},
 	}
 	// A template the domain admits but this adapter cannot render would send
 	// a blank email, so the mapping must stay exhaustive.

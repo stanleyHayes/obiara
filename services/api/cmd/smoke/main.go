@@ -33,6 +33,8 @@ import (
 
 	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 	"github.com/stanleyHayes/obiara/services/api/internal/identity"
+
+	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 )
 
 // smokePhone is a documentation-range Ghanaian number that no handset owns.
@@ -160,9 +162,14 @@ func (run *journey) mintCode(ctx context.Context) string {
 	if err != nil {
 		return ""
 	}
+	contact, err := identitydomain.NewContact(identitydomain.ChannelSMS, smokePhone)
+	if err != nil {
+		return ""
+	}
 	// Clear the prior challenge so the resend throttle does not reject this.
-	run.database.Collection("otp_challenges").DeleteMany(ctx, bson.M{"phone": smokePhone})
-	if _, err := module.Registration.RequestOtp(ctx, smokePhone); err != nil {
+	run.database.Collection("otp_challenges").DeleteMany(ctx,
+		bson.M{"channel": string(contact.Channel()), "contact": contact.Value()})
+	if _, err := module.Registration.RequestOtp(ctx, contact); err != nil {
 		return ""
 	}
 	return captured.code
@@ -474,7 +481,7 @@ func (run *journey) cleanup(ctx context.Context) {
 
 type capturingSender struct{ code string }
 
-func (sender *capturingSender) Send(_ context.Context, _, code string) error {
+func (sender *capturingSender) Send(_ context.Context, _ identitydomain.Contact, code string) error {
 	sender.code = code
 	return nil
 }

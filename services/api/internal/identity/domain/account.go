@@ -49,11 +49,13 @@ type TierTransition struct {
 	OccurredAt time.Time
 }
 
-// Account binds one verified phone identity to one member (FR-102: exactly
-// one active account per verified identity).
+// Account binds one verified contact to one member (FR-102: exactly one
+// active account per verified identity). The contact carries its channel,
+// so a verified phone number and a verified email address are distinct
+// identities rather than two spellings of one.
 type Account struct {
 	id             string
-	phone          string
+	contact        Contact
 	status         AccountStatus
 	tier           Tier
 	version        int64
@@ -61,19 +63,19 @@ type Account struct {
 	createdAt      time.Time
 }
 
-func NewAccount(id, phone string, now time.Time) (Account, error) {
+func NewAccount(id string, contact Contact, now time.Time) (Account, error) {
 	if id == "" {
 		return Account{}, ErrSessionIDRequired
 	}
-	if !e164Pattern.MatchString(phone) {
-		return Account{}, ErrInvalidPhone
+	if contact.IsZero() {
+		return Account{}, ErrContactRequired
 	}
-	return Account{id: id, phone: phone, status: AccountActive, tier: TierUnverified, version: 1, createdAt: now.UTC()}, nil
+	return Account{id: id, contact: contact, status: AccountActive, tier: TierUnverified, version: 1, createdAt: now.UTC()}, nil
 }
 
 // ReconstituteAccount rebuilds a stored account without policy checks.
-func ReconstituteAccount(id, phone string, status AccountStatus, tier Tier, version int64, suspendedUntil *time.Time, createdAt time.Time) Account {
-	return Account{id: id, phone: phone, status: status, tier: tier, version: version, suspendedUntil: suspendedUntil, createdAt: createdAt}
+func ReconstituteAccount(id string, contact Contact, status AccountStatus, tier Tier, version int64, suspendedUntil *time.Time, createdAt time.Time) Account {
+	return Account{id: id, contact: contact, status: status, tier: tier, version: version, suspendedUntil: suspendedUntil, createdAt: createdAt}
 }
 
 // Usable reports whether the account may act right now. A suspended
@@ -163,7 +165,7 @@ func (account *Account) ApplyTransition(target Tier, reason, actorID string, now
 }
 
 func (account Account) ID() string                 { return account.id }
-func (account Account) Phone() string              { return account.phone }
+func (account Account) Contact() Contact           { return account.contact }
 func (account Account) Status() AccountStatus      { return account.status }
 func (account Account) Tier() Tier                 { return account.tier }
 func (account Account) Version() int64             { return account.version }
