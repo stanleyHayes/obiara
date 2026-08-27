@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,12 +23,17 @@ func newService(t *testing.T) (VerificationService, *MockCaseRepository, *MockVe
 	cases := NewMockCaseRepository(ctrl)
 	provider := NewMockVerificationProvider(ctrl)
 	tiers := NewMockTierTransitions(ctrl)
-	service := NewVerificationService(cases, provider, tiers, fixedNow, func() string { return "vc_test" })
+	keyer := NewMockCardKeyer(ctrl)
+	keyer.EXPECT().Key(gomock.Any()).DoAndReturn(func(card string) (string, error) {
+		return "key_" + card, nil
+	}).AnyTimes()
+	service := NewVerificationService(cases, provider, tiers, keyer, fixedNow, func() string { return "vc_test" })
 	return service, cases, provider, tiers
 }
 
 func TestMatchApprovesAndPromotes(t *testing.T) {
 	service, cases, provider, tiers := newService(t)
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), gomock.Any()).Return("", ErrCaseNotFound)
 	cases.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
 	provider.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(
 		ProviderResult{Outcome: "match", ProviderRef: "ref-1", Reason: "issuer match"}, nil)
@@ -51,6 +57,7 @@ func TestMatchApprovesAndPromotes(t *testing.T) {
 
 func TestMismatchRejects(t *testing.T) {
 	service, cases, provider, _ := newService(t)
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), gomock.Any()).Return("", ErrCaseNotFound)
 	cases.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
 	provider.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(
 		ProviderResult{Outcome: "mismatch", ProviderRef: "ref-2", Reason: "no issuer record"}, nil)
@@ -78,6 +85,7 @@ func TestOutageAndUncertaintyQueueManual(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			service, cases, provider, _ := newService(t)
+			cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), gomock.Any()).Return("", ErrCaseNotFound)
 			cases.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
 			setup(provider)
 			cases.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -101,7 +109,7 @@ func TestOutageAndUncertaintyQueueManual(t *testing.T) {
 
 func TestDecideManualApprovalPromotes(t *testing.T) {
 	service, cases, _, tiers := newService(t)
-	queued := domain.ReconstituteCase("vc_1", "id_1", "GHA-1", domain.StatusQueuedManual, "", "provider uncertain", testDOB, 2, testNow, nil)
+	queued := domain.ReconstituteCase("vc_1", "id_1", "key_1", "0001", domain.StatusQueuedManual, "", "provider uncertain", testDOB, 2, testNow, nil)
 	cases.EXPECT().FindByID(gomock.Any(), "vc_1").Return(queued, nil)
 	cases.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 	tiers.EXPECT().Transition(gomock.Any(), "id_1", 1, gomock.Any(), "agent-1").Return(nil)
@@ -112,5 +120,87 @@ func TestDecideManualApprovalPromotes(t *testing.T) {
 	}
 	if verificationCase.Status() != domain.StatusApproved {
 		t.Fatalf("status = %q", verificationCase.Status())
+	}
+}
+
+func TestIdentityAlreadyVerifiedOnDifferentAccount(t *testing.T) {
+	service, cases, _, _ := newService(t)
+	// Mock to report the card is already verified on a different account
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), "key_GHA-000000000-1").
+		Return("other-account", nil).
+		Times(1)
+	// Create must NOT be called
+	cases.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := service.SubmitGhanaCard(context.Background(), "id_1", "GHA-000000000-1", testDOB)
+	if !errors.Is(err, ErrIdentityAlreadyVerified) {
+		t.Fatalf("SubmitGhanaCard = %v, want ErrIdentityAlreadyVerified", err)
+	}
+}
+
+func TestIdentityAlreadyVerifiedOnSameAccount(t *testing.T) {
+	service, cases, provider, tiers := newService(t)
+	// Mock to report the card is already verified on THE SAME account
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), "key_GHA-000000000-1").
+		Return("id_1", nil)
+	// Submission proceeds normally
+	cases.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
+	provider.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(
+		ProviderResult{Outcome: "match", ProviderRef: "ref-1", Reason: "issuer match"}, nil)
+	cases.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+	tiers.EXPECT().Transition(gomock.Any(), "id_1", 1, gomock.Any(), gomock.Any()).Return(nil)
+
+	verificationCase, err := service.SubmitGhanaCard(context.Background(), "id_1", "GHA-000000000-1", testDOB)
+	if err != nil {
+		t.Fatalf("SubmitGhanaCard = %v", err)
+	}
+	if verificationCase.Status() != domain.StatusApproved {
+		t.Fatalf("status = %q", verificationCase.Status())
+	}
+}
+
+func TestIdentityCheckErrorPropagates(t *testing.T) {
+	service, cases, _, _ := newService(t)
+	// Mock to return an unexpected error
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), gomock.Any()).
+		Return("", errors.New("database error"))
+	// Create must NOT be called
+	cases.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := service.SubmitGhanaCard(context.Background(), "id_1", "GHA-000000000-1", testDOB)
+	if !strings.Contains(err.Error(), "database error") {
+		t.Fatalf("SubmitGhanaCard = %v, want 'database error'", err)
+	}
+}
+
+func TestCardKeysAndMasksStored(t *testing.T) {
+	service, cases, provider, tiers := newService(t)
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), gomock.Any()).
+		Return("", ErrCaseNotFound).AnyTimes()
+	cases.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, c domain.VerificationCase) error {
+			// Assert the case stores the key and mask, not the plaintext card
+			if c.CardKey() != "key_GHA-123" {
+				t.Fatalf("cardKey = %q, want key_GHA-123", c.CardKey())
+			}
+			if !strings.Contains(c.CardMask(), "123") {
+				t.Fatalf("cardMask = %q, want to contain last 4 digits", c.CardMask())
+			}
+			return nil
+		})
+	provider.EXPECT().Verify(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, req ProviderRequest) (ProviderResult, error) {
+			// Assert the provider receives the plaintext card number
+			if req.CardNumber != "GHA-123" {
+				t.Fatalf("CardNumber = %q, want GHA-123", req.CardNumber)
+			}
+			return ProviderResult{Outcome: "match", ProviderRef: "ref-1", Reason: "issuer match"}, nil
+		})
+	cases.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+	tiers.EXPECT().Transition(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	_, err := service.SubmitGhanaCard(context.Background(), "id_1", "GHA-123", testDOB)
+	if err != nil {
+		t.Fatalf("SubmitGhanaCard = %v", err)
 	}
 }

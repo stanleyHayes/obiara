@@ -14,6 +14,8 @@ import (
 
 	"github.com/stanleyHayes/obiara/services/api/internal/verification/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification/domain"
+
+	apimongo "github.com/stanleyHayes/obiara/internal/platform/mongo"
 )
 
 type CaseRepository struct {
@@ -31,7 +33,8 @@ func (repository *CaseRepository) collection() *mongo.Collection {
 type caseDocument struct {
 	ID          string     `bson:"_id"`
 	AccountID   string     `bson:"accountId"`
-	CardNumber  string     `bson:"cardNumber"`
+	CardKey     string     `bson:"cardKey"`
+	CardMask    string     `bson:"cardMask"`
 	Status      string     `bson:"status"`
 	ProviderRef string     `bson:"providerRef,omitempty"`
 	Reason      string     `bson:"reason,omitempty"`
@@ -51,8 +54,40 @@ func (repository *CaseRepository) EnsureIndexes(ctx context.Context) error {
 			Keys:    bson.D{{Key: "status", Value: 1}, {Key: "createdAt", Value: 1}},
 			Options: options.Index().SetName("verifications_queue"),
 		},
+		{
+			// One approved case per card, across every account. This is the
+			// real enforcement of "one active account per verified
+			// identity": the service checks first for a clear error, but two
+			// concurrent submissions of the same card would both pass that
+			// check and only one may commit.
+			//
+			// Partial, so that rejected and abandoned attempts do not claim
+			// an identity — a member whose first submission failed must be
+			// able to try again.
+			Keys: bson.D{{Key: "cardKey", Value: 1}},
+			Options: options.Index().SetName("verifications_identity_unique").
+				SetUnique(true).
+				SetPartialFilterExpression(bson.M{"status": string(domain.StatusApproved)}),
+		},
 	})
 	return err
+}
+
+// ApprovedAccountByCardKey reports which account, if any, already holds this
+// identity.
+func (repository *CaseRepository) ApprovedAccountByCardKey(ctx context.Context, cardKey string) (string, error) {
+	var document caseDocument
+	err := repository.collection().FindOne(ctx, bson.M{
+		"cardKey": cardKey,
+		"status":  string(domain.StatusApproved),
+	}).Decode(&document)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return "", application.ErrCaseNotFound
+		}
+		return "", err
+	}
+	return document.AccountID, nil
 }
 
 func (repository *CaseRepository) Create(ctx context.Context, verificationCase domain.VerificationCase) error {
@@ -84,6 +119,13 @@ func (repository *CaseRepository) Update(ctx context.Context, verificationCase d
 			"version":     document.Version,
 		}})
 	if err != nil {
+		// The partial unique index rejects a second approval of the same
+		// card. Two concurrent submissions both clear the service's
+		// pre-check, so this is where "one active account per verified
+		// identity" is actually decided.
+		if apimongo.IsDuplicateKey(err) {
+			return application.ErrIdentityAlreadyVerified
+		}
 		return err
 	}
 	if result.MatchedCount == 0 {
@@ -119,7 +161,8 @@ func toDocument(verificationCase domain.VerificationCase) caseDocument {
 	return caseDocument{
 		ID:          verificationCase.ID(),
 		AccountID:   verificationCase.AccountID(),
-		CardNumber:  verificationCase.CardNumber(),
+		CardKey:     verificationCase.CardKey(),
+		CardMask:    verificationCase.CardMask(),
 		Status:      string(verificationCase.Status()),
 		ProviderRef: verificationCase.ProviderRef(),
 		Reason:      verificationCase.Reason(),
@@ -134,7 +177,8 @@ func toDomain(document caseDocument) domain.VerificationCase {
 	return domain.ReconstituteCase(
 		document.ID,
 		document.AccountID,
-		document.CardNumber,
+		document.CardKey,
+		document.CardMask,
 		domain.CaseStatus(document.Status),
 		document.ProviderRef,
 		document.Reason,

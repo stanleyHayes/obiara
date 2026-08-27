@@ -15,6 +15,16 @@ import (
 var (
 	ErrCaseNotFound     = errors.New("verification case not found")
 	ErrProviderRejected = errors.New("identity provider rejected the document")
+	// ErrIdentityAlreadyVerified reports a card that is already the verified
+	// identity of a different account.
+	//
+	// FR-102 is "exactly one active account per verified identity", and the
+	// verified identity is the document, not the phone number or the email
+	// address it was submitted from. Without this, one person could hold a
+	// Tier 1 account per contact they control — which is also how a blocked
+	// member walks back onto the romantic surfaces, since blocking is per
+	// account.
+	ErrIdentityAlreadyVerified = errors.New("this identity is already verified on another account")
 )
 
 // ProviderRequest is the provider-neutral verification submission. Provider
@@ -47,6 +57,14 @@ type CaseRepository interface {
 	Update(context.Context, domain.VerificationCase) error
 	// NextQueued returns the oldest manual-queue cases for the fallback desk.
 	NextQueued(context.Context, int) ([]domain.VerificationCase, error)
+	// ApprovedAccountByCardKey returns the account already verified with this
+	// card, or ErrCaseNotFound when the identity is unclaimed.
+	ApprovedAccountByCardKey(ctx context.Context, cardKey string) (string, error)
+}
+
+// CardKeyer derives the stable, non-reversible key a card is recognised by.
+type CardKeyer interface {
+	Key(value string) (string, error)
 }
 
 // TierTransitions is the identity-context port used to promote accounts on
@@ -60,32 +78,59 @@ type VerificationService struct {
 	cases    CaseRepository
 	provider VerificationProvider
 	tiers    TierTransitions
+	keyer    CardKeyer
 	now      func() time.Time
 	newID    func() string
 }
 
-func NewVerificationService(cases CaseRepository, provider VerificationProvider, tiers TierTransitions, now func() time.Time, newID func() string) VerificationService {
-	return VerificationService{cases: cases, provider: provider, tiers: tiers, now: now, newID: newID}
+func NewVerificationService(cases CaseRepository, provider VerificationProvider, tiers TierTransitions, keyer CardKeyer, now func() time.Time, newID func() string) VerificationService {
+	return VerificationService{cases: cases, provider: provider, tiers: tiers, keyer: keyer, now: now, newID: newID}
 }
 
 // SubmitGhanaCard opens a case and asks the provider. Provider outage or
 // uncertainty routes the case to the human fallback queue; the member is
 // never silently failed or passed (FR-103).
 func (service VerificationService) SubmitGhanaCard(ctx context.Context, accountID, cardNumber string, dateOfBirth time.Time) (domain.VerificationCase, error) {
-	verificationCase, err := domain.NewCase(service.newID(), accountID, cardNumber, dateOfBirth, service.now())
+	cardKey, err := service.keyer.Key(cardNumber)
+	if err != nil {
+		return domain.VerificationCase{}, err
+	}
+
+	// Refuse before opening a case, so a member who is trying to hold a
+	// second account learns immediately rather than after a provider round
+	// trip. The unique index behind Update is what actually guarantees it —
+	// this check exists to give a clear answer, not to be the enforcement.
+	switch owner, lookupErr := service.cases.ApprovedAccountByCardKey(ctx, cardKey); {
+	case lookupErr == nil && owner != accountID:
+		return domain.VerificationCase{}, ErrIdentityAlreadyVerified
+	case lookupErr != nil && !errors.Is(lookupErr, ErrCaseNotFound):
+		return domain.VerificationCase{}, lookupErr
+	}
+
+	verificationCase, err := domain.NewCase(service.newID(), accountID, cardKey, maskCard(cardNumber), dateOfBirth, service.now())
 	if err != nil {
 		return domain.VerificationCase{}, err
 	}
 	if err := service.cases.Create(ctx, verificationCase); err != nil {
 		return domain.VerificationCase{}, err
 	}
-	return service.decideWithProvider(ctx, verificationCase)
+	// The plaintext travels to the provider in memory and is never stored.
+	return service.decideWithProvider(ctx, verificationCase, cardNumber)
 }
 
-func (service VerificationService) decideWithProvider(ctx context.Context, verificationCase domain.VerificationCase) (domain.VerificationCase, error) {
+// maskCard keeps the last four digits, which is all the review desk ever
+// displayed of a card.
+func maskCard(card string) string {
+	if len(card) < 4 {
+		return "••••"
+	}
+	return "•••• " + card[len(card)-4:]
+}
+
+func (service VerificationService) decideWithProvider(ctx context.Context, verificationCase domain.VerificationCase, cardNumber string) (domain.VerificationCase, error) {
 	result, err := service.provider.Verify(ctx, ProviderRequest{
 		CaseID:      verificationCase.ID(),
-		CardNumber:  verificationCase.CardNumber(),
+		CardNumber:  cardNumber,
 		DateOfBirth: verificationCase.DateOfBirth(),
 	})
 	if err != nil {

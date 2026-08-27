@@ -15,6 +15,20 @@ import { useThemeMode } from "./theme-mode-provider";
 
 type OpenPanel = "notifications" | "account" | null;
 type Account = { email: string; roles: string[] };
+type NotificationItem = {
+  key: string;
+  title: string;
+  detail: string;
+  count: number;
+  href: string;
+  latestAt: string;
+  unread: boolean;
+};
+type NotificationsData = {
+  unreadCount: number;
+  seenAt: string | null;
+  items: NotificationItem[];
+};
 
 const accountMenuItems = [
   {
@@ -90,6 +104,12 @@ export function AdminTopbar({
   const [failed, setFailed] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<NotificationsData | null>(
+    null,
+  );
+  const [notificationsError, setNotificationsError] = useState<string | null>(
+    null,
+  );
   const previousPathname = useRef(pathname);
 
   useEffect(() => {
@@ -107,6 +127,36 @@ export function AdminTopbar({
       });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (panel !== "notifications") {
+      return;
+    }
+    const controller = new AbortController();
+    void fetch("/api/notifications", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = (await response
+          .json()
+          .catch(() => null)) as Partial<NotificationsData> | null;
+        if (!response.ok || !body?.items) throw new Error("notifications");
+        setNotifications({
+          unreadCount: body.unreadCount ?? 0,
+          seenAt: body.seenAt ?? null,
+          items: body.items,
+        });
+        setNotificationsError(null);
+      })
+      .catch((error: unknown) => {
+        if ((error as Error).name !== "AbortError") {
+          setNotificationsError("The notification inbox could not be loaded.");
+          setNotifications(null);
+        }
+      });
+    return () => controller.abort();
+  }, [panel]);
 
   useEffect(() => {
     function returnPanelFocus(openPanel: Exclude<OpenPanel, null>) {
@@ -226,6 +276,32 @@ export function AdminTopbar({
     }
   }
 
+  async function markNotificationsAsSeen() {
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "POST",
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("mark-seen");
+      const body = (await response.json().catch(() => null)) as Partial<{
+        seenAt: string;
+      }> | null;
+      if (body?.seenAt && notifications) {
+        setNotifications({
+          ...notifications,
+          unreadCount: 0,
+          seenAt: body.seenAt,
+          items: notifications.items.map((item) => ({
+            ...item,
+            unread: false,
+          })),
+        });
+      }
+    } catch {
+      // Silently fail; the user can try again
+    }
+  }
+
   return (
     <Box component="header" className="admin-topbar" ref={root}>
       <Box className="admin-topbar-context">
@@ -285,7 +361,11 @@ export function AdminTopbar({
             aria-expanded={panel === "notifications"}
             aria-controls="admin-notifications-panel"
             aria-haspopup="dialog"
-            aria-label="Notifications"
+            aria-label={
+              notifications && notifications.unreadCount > 0
+                ? `Notifications: ${notifications.unreadCount} unread`
+                : "Notifications"
+            }
             onClick={() => {
               setSignOutError(null);
               setPanel((current) =>
@@ -294,6 +374,9 @@ export function AdminTopbar({
             }}
           >
             <span aria-hidden="true">♢</span>
+            {notifications && notifications.unreadCount > 0 ? (
+              <span className="topbar-badge">{notifications.unreadCount}</span>
+            ) : null}
           </button>
           {panel === "notifications" ? (
             <section
@@ -307,28 +390,85 @@ export function AdminTopbar({
               <Box className="topbar-popover-head">
                 <Box>
                   <strong>Notifications</strong>
-                  <Typography>Inbox connection status</Typography>
+                  {notifications && notifications.unreadCount > 0 ? (
+                    <Typography>{notifications.unreadCount} unread</Typography>
+                  ) : (
+                    <Typography>All caught up</Typography>
+                  )}
                 </Box>
+                {notifications && notifications.unreadCount > 0 ? (
+                  <button
+                    type="button"
+                    className="topbar-popover-action"
+                    onClick={() => void markNotificationsAsSeen()}
+                  >
+                    Mark all read
+                  </button>
+                ) : null}
               </Box>
               <Box
                 className="notification-items"
                 role="region"
                 aria-label="Notification items"
               >
-                <EmptyState
-                  icon="◇"
-                  title="Notification inbox unavailable"
-                  description="Notification history is not connected to the operator console. Live work remains in its assigned queue."
-                  variant="neutral"
-                />
+                {!notifications && !notificationsError ? (
+                  <AdminSkeleton
+                    variant="card-list"
+                    label="Loading notifications"
+                  />
+                ) : notificationsError ? (
+                  <EmptyState
+                    icon="⚠"
+                    title="Notifications unavailable"
+                    description={notificationsError}
+                    variant="neutral"
+                  />
+                ) : notifications && notifications.items.length === 0 ? (
+                  <EmptyState
+                    icon="◇"
+                    title="Nothing needs your attention"
+                    description="All queues are clear."
+                    variant="neutral"
+                  />
+                ) : (
+                  <Box className="notification-list">
+                    {notifications?.items.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        className={`notification-item ${item.unread ? "is-unread" : ""}`}
+                        onClick={() => navigate(item.href)}
+                      >
+                        <Box className="notification-item-head">
+                          <strong>{item.title}</strong>
+                          <span className="notification-item-count">
+                            {item.count}
+                          </span>
+                        </Box>
+                        <Typography className="notification-item-detail">
+                          {item.detail}
+                        </Typography>
+                        <small className="notification-item-time">
+                          {(() => {
+                            const now = new Date();
+                            const latest = new Date(item.latestAt);
+                            const diffMs = now.getTime() - latest.getTime();
+                            const diffMins = Math.floor(diffMs / 60000);
+                            const diffHours = Math.floor(diffMins / 60);
+                            const diffDays = Math.floor(diffHours / 24);
+
+                            if (diffMins < 1) return "just now";
+                            if (diffMins < 60) return `${diffMins}m ago`;
+                            if (diffHours < 24) return `${diffHours}h ago`;
+                            if (diffDays < 7) return `${diffDays}d ago`;
+                            return latest.toLocaleDateString();
+                          })()}
+                        </small>
+                      </button>
+                    ))}
+                  </Box>
+                )}
               </Box>
-              <button
-                className="popover-wide-action"
-                type="button"
-                onClick={() => navigate("/")}
-              >
-                Open command centre
-              </button>
             </section>
           ) : null}
         </Box>

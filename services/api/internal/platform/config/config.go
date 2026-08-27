@@ -14,21 +14,22 @@ import (
 
 // Config is the runtime configuration for the api composition root.
 type Config struct {
-	Port                string
-	MongoURI            string
-	MongoDatabase       string
-	MongoConnectTimeout time.Duration
-	ShutdownTimeout     time.Duration
-	TelemetryEndpoint   string
-	TelemetryInsecure   bool
-	ServiceVersion      string
-	Environment         string
-	LivenessHMACSecret  string
-	CommerceHMACSecret  string
-	AdminHMACSecret     string
-	NnoboaInviteSecret  string
-	SeedHMACSecret      string
-	CircleHMACSecret    string
+	Port                   string
+	MongoURI               string
+	MongoDatabase          string
+	MongoConnectTimeout    time.Duration
+	ShutdownTimeout        time.Duration
+	TelemetryEndpoint      string
+	TelemetryInsecure      bool
+	ServiceVersion         string
+	Environment            string
+	LivenessHMACSecret     string
+	VerificationHMACSecret string
+	CommerceHMACSecret     string
+	AdminHMACSecret        string
+	NnoboaInviteSecret     string
+	SeedHMACSecret         string
+	CircleHMACSecret       string
 	// Notifications selects the outbound OTP, WhatsApp and email adapters.
 	Notifications NotificationsConfig
 	// Verification selects the identity and liveness provider adapters.
@@ -70,6 +71,10 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 		LivenessHMACSecret: valueOrDefault(
 			getenv("LIVENESS_HMAC_SECRET"),
 			"obiara-local-liveness-key-change-before-production",
+		),
+		VerificationHMACSecret: valueOrDefault(
+			getenv("VERIFICATION_HMAC_SECRET"),
+			"obiara-local-verification-key-change-before-production",
 		),
 		CommerceHMACSecret: valueOrDefault(
 			getenv("COMMERCE_HMAC_SECRET"),

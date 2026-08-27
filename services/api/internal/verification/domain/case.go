@@ -25,15 +25,22 @@ var (
 	ErrCaseIDRequired      = errors.New("verification case id is required")
 	ErrAccountIDRequired   = errors.New("account id is required")
 	ErrCardNumberRequired  = errors.New("ghana card number is required")
+	ErrCardKeyRequired     = errors.New("ghana card key is required")
 	ErrCaseNotOpen         = errors.New("verification case is not open")
 	ErrDecisionReasonEmpty = errors.New("decision reason is required")
 )
 
 // VerificationCase is one identity-verification attempt for an account.
 type VerificationCase struct {
-	id          string
-	accountID   string
-	cardNumber  string
+	id        string
+	accountID string
+	// cardKey is the HMAC of the card number, never the number itself. It
+	// exists so two submissions of one card can be recognised as one
+	// identity without the platform retaining a national ID.
+	cardKey string
+	// cardMask is the last four digits, which is all the review desk ever
+	// displayed.
+	cardMask    string
 	status      CaseStatus
 	providerRef string
 	reason      string
@@ -44,20 +51,25 @@ type VerificationCase struct {
 }
 
 // NewCase opens a pending case for a Ghana Card submission.
-func NewCase(id, accountID, cardNumber string, dateOfBirth time.Time, now time.Time) (VerificationCase, error) {
+//
+// It takes the key and mask rather than the card number: the plaintext is
+// needed only to ask the provider, within the request that carries it, and
+// this package's contract is that raw card artifacts never persist.
+func NewCase(id, accountID, cardKey, cardMask string, dateOfBirth time.Time, now time.Time) (VerificationCase, error) {
 	if strings.TrimSpace(id) == "" {
 		return VerificationCase{}, ErrCaseIDRequired
 	}
 	if strings.TrimSpace(accountID) == "" {
 		return VerificationCase{}, ErrAccountIDRequired
 	}
-	if strings.TrimSpace(cardNumber) == "" {
-		return VerificationCase{}, ErrCardNumberRequired
+	if strings.TrimSpace(cardKey) == "" {
+		return VerificationCase{}, ErrCardKeyRequired
 	}
 	return VerificationCase{
 		id:          id,
 		accountID:   accountID,
-		cardNumber:  cardNumber,
+		cardKey:     cardKey,
+		cardMask:    cardMask,
 		status:      StatusPending,
 		dateOfBirth: dateOfBirth.UTC(),
 		version:     1,
@@ -66,11 +78,12 @@ func NewCase(id, accountID, cardNumber string, dateOfBirth time.Time, now time.T
 }
 
 // ReconstituteCase rebuilds a stored case without policy checks.
-func ReconstituteCase(id, accountID, cardNumber string, status CaseStatus, providerRef, reason string, dateOfBirth time.Time, version int64, createdAt time.Time, decidedAt *time.Time) VerificationCase {
+func ReconstituteCase(id, accountID, cardKey, cardMask string, status CaseStatus, providerRef, reason string, dateOfBirth time.Time, version int64, createdAt time.Time, decidedAt *time.Time) VerificationCase {
 	return VerificationCase{
 		id:          id,
 		accountID:   accountID,
-		cardNumber:  cardNumber,
+		cardKey:     cardKey,
+		cardMask:    cardMask,
 		status:      status,
 		providerRef: providerRef,
 		reason:      reason,
@@ -131,7 +144,8 @@ func (c *VerificationCase) QueueForManualReview(reason string, now time.Time) er
 
 func (c VerificationCase) ID() string             { return c.id }
 func (c VerificationCase) AccountID() string      { return c.accountID }
-func (c VerificationCase) CardNumber() string     { return c.cardNumber }
+func (c VerificationCase) CardKey() string        { return c.cardKey }
+func (c VerificationCase) CardMask() string       { return c.cardMask }
 func (c VerificationCase) Status() CaseStatus     { return c.status }
 func (c VerificationCase) ProviderRef() string    { return c.providerRef }
 func (c VerificationCase) Reason() string         { return c.reason }

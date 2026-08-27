@@ -696,6 +696,46 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/notifications": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Read the operator inbox
+     * @description Projects the queues the authenticated operator is allowed to see into one inbox. Nothing is stored when work arrives, so an item disappears once its own desk resolves it rather than lingering as a stale notification. A source the operator may not see is omitted rather than reported as forbidden.
+     */
+    readonly get: operations["listAdminNotifications"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/notifications/seen": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Acknowledge the inbox
+     * @description Moves this operator's acknowledgement watermark to now. The watermark never moves backwards, so a late request cannot resurrect items that were already acknowledged.
+     */
+    readonly post: operations["markAdminNotificationsSeen"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/principals": {
     readonly parameters: {
       readonly query?: never;
@@ -3456,6 +3496,34 @@ export interface components {
       readonly data: components["schemas"]["AdminMemberListData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly AdminNotificationItem: {
+      readonly count: number;
+      readonly detail: string;
+      /** @description The console route that owns this work. */
+      readonly href: string;
+      /** @enum {string} */
+      readonly key: "verification_queue" | "role_change_approvals";
+      /**
+       * Format: date-time
+       * @description When the newest item in the underlying queue arrived.
+       */
+      readonly latestAt: string;
+      readonly title: string;
+      readonly unread: boolean;
+    };
+    readonly AdminNotificationsData: {
+      readonly items: readonly components["schemas"]["AdminNotificationItem"][];
+      /**
+       * Format: date-time
+       * @description When this operator last acknowledged the inbox, or null if they never have — in which case everything reads as unread.
+       */
+      readonly seenAt: string | null;
+      readonly unreadCount: number;
+    };
+    readonly AdminNotificationsEnvelope: {
+      readonly data: components["schemas"]["AdminNotificationsData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly AdminPrincipalData: {
       /** Format: date-time */
       readonly createdAt: string;
@@ -3633,6 +3701,17 @@ export interface components {
     readonly AdminSafetyEvidenceInput: {
       /** @enum {string} */
       readonly purpose: "triage" | "appeal" | "legal";
+    };
+    readonly AdminSeenData: {
+      /**
+       * Format: date-time
+       * @description The watermark timestamp just written.
+       */
+      readonly seenAt: string;
+    };
+    readonly AdminSeenEnvelope: {
+      readonly data: components["schemas"]["AdminSeenData"];
+      readonly meta: components["schemas"]["Metadata"];
     };
     readonly AdminSessionData: {
       /** Format: date-time */
@@ -7583,6 +7662,56 @@ export interface operations {
       readonly 401: components["responses"]["Unauthorized"];
       readonly 403: components["responses"]["AdminRoleRequired"];
       readonly 503: components["responses"]["InternalError"];
+    };
+  };
+  readonly listAdminNotifications: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Inbox with unread count, seen watermark, and queue items. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminNotificationsEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly markAdminNotificationsSeen: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Watermark updated. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminSeenEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 500: components["responses"]["InternalError"];
     };
   };
   readonly listAdminPrincipals: {

@@ -2791,6 +2791,56 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/notifications:
+    get:
+      operationId: listAdminNotifications
+      tags: [Admin Verification]
+      summary: Read the operator inbox
+      description: >-
+        Projects the queues the authenticated operator is allowed to see into
+        one inbox. Nothing is stored when work arrives, so an item disappears
+        once its own desk resolves it rather than lingering as a stale
+        notification. A source the operator may not see is omitted rather
+        than reported as forbidden.
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: Inbox with unread count, seen watermark, and queue items.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotificationsEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/notifications/seen:
+    post:
+      operationId: markAdminNotificationsSeen
+      tags: [Admin Verification]
+      summary: Acknowledge the inbox
+      description: >-
+        Moves this operator's acknowledgement watermark to now. The watermark
+        never moves backwards, so a late request cannot resurrect items that
+        were already acknowledged.
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: Watermark updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSeenEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/profile:
     get:
       operationId: getOwnProfile
@@ -8522,6 +8572,76 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/AdminVerificationCaseData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminNotificationItem:
+      type: object
+      additionalProperties: false
+      required: [key, title, detail, count, href, latestAt, unread]
+      properties:
+        key:
+          type: string
+          enum: [verification_queue, role_change_approvals]
+        title:
+          type: string
+        detail:
+          type: string
+        count:
+          type: integer
+          minimum: 1
+        href:
+          type: string
+          description: The console route that owns this work.
+        latestAt:
+          type: string
+          format: date-time
+          description: When the newest item in the underlying queue arrived.
+        unread:
+          type: boolean
+    AdminNotificationsData:
+      type: object
+      additionalProperties: false
+      required: [unreadCount, seenAt, items]
+      properties:
+        unreadCount:
+          type: integer
+          minimum: 0
+        seenAt:
+          type: [string, "null"]
+          format: date-time
+          description: >-
+            When this operator last acknowledged the inbox, or null if they
+            never have — in which case everything reads as unread.
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/AdminNotificationItem"
+    AdminNotificationsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminNotificationsData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminSeenData:
+      type: object
+      additionalProperties: false
+      required: [seenAt]
+      properties:
+        seenAt:
+          type: string
+          format: date-time
+          description: The watermark timestamp just written.
+    AdminSeenEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminSeenData"
         meta:
           $ref: "#/components/schemas/Metadata"
     AdminVerificationQueueData:

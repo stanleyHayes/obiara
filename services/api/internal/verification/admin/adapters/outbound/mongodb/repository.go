@@ -33,9 +33,11 @@ func (repository *Repository) EnsureIndexes(ctx context.Context) error {
 }
 
 type verificationDocument struct {
-	ID          string     `bson:"_id"`
-	AccountID   string     `bson:"accountId"`
-	CardNumber  string     `bson:"cardNumber"`
+	ID        string `bson:"_id"`
+	AccountID string `bson:"accountId"`
+	// The card itself is not stored; the write side persists only the
+	// last-four mask the desk displays.
+	CardMask    string     `bson:"cardMask"`
 	Status      string     `bson:"status"`
 	ProviderRef string     `bson:"providerRef,omitempty"`
 	Reason      string     `bson:"reason,omitempty"`
@@ -98,7 +100,7 @@ func (repository *Repository) AccessEvidence(ctx context.Context, access applica
 		return application.Evidence{}, err
 	}
 	return application.Evidence{
-		CaseID: document.ID, MaskedCard: maskCard(document.CardNumber),
+		CaseID: document.ID, MaskedCard: document.CardMask,
 		AgeBand:        ageBand(document.DateOfBirth, access.OccurredAt),
 		ProviderStatus: reasonCode(document.Reason),
 	}, nil
@@ -223,13 +225,6 @@ func reasonCode(reason string) string {
 	default:
 		return "manual_review"
 	}
-}
-
-func maskCard(card string) string {
-	if len(card) < 4 {
-		return "••••"
-	}
-	return "•••• " + card[len(card)-4:]
 }
 
 func ageBand(dateOfBirth, at time.Time) string {

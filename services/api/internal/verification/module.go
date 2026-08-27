@@ -13,6 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/verification/adapters/outbound/mongodb"
+	"github.com/stanleyHayes/obiara/services/api/internal/verification/adapters/outbound/privacy"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification/application"
 )
 
@@ -30,16 +31,20 @@ var ErrProviderRequired = errors.New("verification module requires an identity p
 
 // NewModule builds the verification context. provider decides cases and must
 // not be nil; tiers bridges to the identity context's tier state machine.
-func NewModule(ctx context.Context, database *mongo.Database, provider application.VerificationProvider, tiers application.TierTransitions) (Module, error) {
+func NewModule(ctx context.Context, database *mongo.Database, provider application.VerificationProvider, tiers application.TierTransitions, cardSecret []byte) (Module, error) {
 	if provider == nil {
 		return Module{}, ErrProviderRequired
+	}
+	keyer, err := privacy.NewHMACKeyer(cardSecret)
+	if err != nil {
+		return Module{}, err
 	}
 	caseRepository := mongodb.NewCaseRepository(database)
 	if err := caseRepository.EnsureIndexes(ctx); err != nil {
 		return Module{}, err
 	}
 	return Module{
-		Verification: application.NewVerificationService(caseRepository, provider, tiers, time.Now, newID),
+		Verification: application.NewVerificationService(caseRepository, provider, tiers, keyer, time.Now, newID),
 		Provider:     provider,
 	}, nil
 }

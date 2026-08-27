@@ -103,6 +103,11 @@ func submitGhanaCardHandler(verification Verification, sessions SessionAuthentic
 
 func writeVerificationError(w http.ResponseWriter, r *http.Request, err error, verificationCase domain.VerificationCase) {
 	switch {
+	case errors.Is(err, application.ErrIdentityAlreadyVerified):
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "identity_already_verified",
+			Message: "This identity is already verified on another account. Sign in to that account, or contact support if you believe this is wrong.",
+		})
 	case errors.Is(err, application.ErrProviderRejected):
 		writeError(w, r, http.StatusUnprocessableEntity, APIError{
 			Code:    "verification_rejected",

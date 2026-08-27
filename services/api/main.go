@@ -98,6 +98,8 @@ import (
 	adminverificationapp "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification/liveness"
 	"github.com/stanleyHayes/obiara/services/api/internal/waitlist"
+
+	adminmongodb "github.com/stanleyHayes/obiara/services/api/internal/admin/adapters/outbound/mongodb"
 )
 
 func main() {
@@ -246,7 +248,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	verificationModule, err := verification.NewModule(ctx, client.Database(cfg.MongoDatabase), identityProvider, tierBridge{tiers: identityModule.Tiers})
+	verificationModule, err := verification.NewModule(ctx, client.Database(cfg.MongoDatabase), identityProvider, tierBridge{tiers: identityModule.Tiers}, []byte(cfg.VerificationHMACSecret))
 	if err != nil {
 		return fmt.Errorf("build verification module: %w", err)
 	}
@@ -575,6 +577,17 @@ func run() error {
 	apihttp.RegisterSafetyRoutes(mux, safetyModule.Safety, identityModule.Sessions)
 	apihttp.RegisterSubanRoutes(mux, subanModule.Suban, subanModule.Explanation, identityModule.Sessions)
 	apihttp.RegisterAdminRoutes(mux, adminModule.Admin)
+	// The operator inbox is a projection of queues that already exist, so it
+	// takes their ports rather than a store of its own; only the
+	// acknowledgement watermark is persisted.
+	apihttp.RegisterAdminNotificationRoutes(
+		mux,
+		adminModule.Admin,
+		adminVerificationService,
+		adminmongodb.NewNotificationMarks(client.Database(cfg.MongoDatabase)),
+		adminPrincipalResolver,
+		time.Now,
+	)
 	apihttp.RegisterAdminMatchmakerRoutes(mux, matchmakerModule.Catalog, adminPrincipalResolver)
 	apihttp.RegisterAdminEscrowRoutes(mux, escrowModule.Escrows, matchmakerModule.Engagements, adminPrincipalResolver)
 	apihttp.RegisterAdminFinanceRoutes(mux, reconciliationModule.Queries, adminPrincipalResolver)

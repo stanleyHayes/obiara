@@ -127,10 +127,12 @@ describe("Admin shell viewport navigation", () => {
   it("uses coherent dialog disclosures and truthful notification states", () => {
     expect(topbar.match(/aria-haspopup="dialog"/g)).toHaveLength(2);
     expect(topbar).toContain('role="dialog"');
-    expect(topbar).toContain('title="Notification inbox unavailable"');
-    expect(topbar).toContain("Notification history is not connected");
+    expect(topbar).toContain("All caught up");
+    expect(topbar).toContain("Nothing needs your attention");
+    expect(topbar).toContain('className="topbar-badge"');
+    expect(topbar).toContain('className="notification-item');
+    expect(topbar).toContain("markNotificationsAsSeen");
     expect(topbar).not.toContain("/account?tab=notifications");
-    expect(topbar).not.toContain("topbar-zero-badge");
     expect(topbar).toContain('label: "My profile"');
     expect(flat(topbar)).toContain("if (!response.ok) throw new Error");
   });

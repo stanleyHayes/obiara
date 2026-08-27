@@ -205,7 +205,12 @@ func TestOperationIDsAreUnique(t *testing.T) {
 		}
 		seen[id] = struct{}{}
 	}
-	if len(seen) != 185 {
-		t.Errorf("operationId count = %d, want 185", len(seen))
+	// The count is deliberate, not incidental: adding a route to the
+	// contract is a decision, and this guard makes an accidental one fail
+	// loudly. 187 covers the operator notification inbox (read and
+	// acknowledge), which the admin console's notification panel needs to
+	// stop being a truthful "unavailable" placeholder.
+	if len(seen) != 187 {
+		t.Errorf("operationId count = %d, want 187", len(seen))
 	}
 }
