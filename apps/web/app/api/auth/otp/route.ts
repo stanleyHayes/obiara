@@ -30,16 +30,23 @@ export async function POST(request: Request) {
     );
   }
 
+  // The SMS path deliberately sends the pre-channel shape: a bare phone
+  // number, with no "channel" key. The API treats an absent channel as SMS
+  // for exactly this reason, and its decoder rejects unknown fields
+  // outright, so a client that always announces its channel turns any
+  // deploy where the API is older than the console into a hard 400 on the
+  // most common route there is. Email has no such fallback — it is a new
+  // capability and needs the API that understands it.
   const apiBody: {
-    channel: "sms" | "email";
+    channel?: "sms" | "email";
     contact?: string;
     phone?: string;
-  } = { channel };
+  } = channel === "email" ? { channel } : {};
 
-  if (contact) {
-    apiBody.contact = contact;
-  } else if (phone) {
-    apiBody.phone = phone;
+  if (channel === "email") {
+    apiBody.contact = contact ?? phone;
+  } else {
+    apiBody.phone = phone ?? contact;
   }
 
   const { data, error, response } = await apiClient().POST("/v1/auth/otp", {

@@ -46,18 +46,28 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   const deviceId = cookieStore.get("obiara_device")?.value || randomUUID();
 
+  // The SMS path deliberately sends the pre-channel shape: a bare phone
+  // number, with no "channel" key. The API treats an absent channel as SMS
+  // for exactly this reason, and its decoder rejects unknown fields
+  // outright, so a client that always announces its channel turns any
+  // deploy where the API is older than the console into a hard 400 on the
+  // most common route there is. Email has no such fallback — it is a new
+  // capability and needs the API that understands it.
   const apiBody: {
-    channel: "sms" | "email";
+    channel?: "sms" | "email";
     contact?: string;
     phone?: string;
     code: string;
     deviceId: string;
-  } = { channel, code: body.code, deviceId };
+  } =
+    channel === "email"
+      ? { channel, code: body.code, deviceId }
+      : { code: body.code, deviceId };
 
-  if (contact) {
-    apiBody.contact = contact;
-  } else if (phone) {
-    apiBody.phone = phone;
+  if (channel === "email") {
+    apiBody.contact = contact ?? phone;
+  } else {
+    apiBody.phone = phone ?? contact;
   }
 
   const { data, error, response } = await apiClient().POST(
