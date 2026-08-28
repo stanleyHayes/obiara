@@ -40,9 +40,19 @@ import (
 // smokePhone is a documentation-range Ghanaian number that no handset owns.
 const smokePhone = "+233555000901"
 
+// defaultSmokeEmail sits on Obiara's own verified sending domain. A reserved
+// documentation domain looks tidier but the email provider refuses it, which
+// turns the fallback into a second failure rather than a working path.
+// Override with SMOKE_EMAIL to route the code somewhere readable.
+const defaultSmokeEmail = "smoke@obiara.app"
+
 type journey struct {
-	base       string
-	client     *http.Client
+	base   string
+	client *http.Client
+	// channel and contact record how this walk actually signed up, so a
+	// later re-sign-in uses the same identity rather than assuming SMS.
+	channel    identitydomain.Channel
+	contact    string
 	database   *mongo.Database
 	memberID   string
 	access     string
@@ -118,24 +128,45 @@ func (run *journey) signUp(ctx context.Context) {
 	fmt.Println("\nSign-up")
 	run.cleanup(ctx)
 
+	// SMS first, because it is the primary channel and its health is worth
+	// reporting on its own. A delivery outage there used to end the walk and
+	// take every later step down as "no session", which hid whether anything
+	// else worked. Falling back to email keeps the rest of the journey under
+	// test while still failing the SMS step honestly.
+	channel := identitydomain.ChannelSMS
+	contactValue := smokePhone
+	defer func() { run.channel, run.contact = channel, contactValue }()
 	status, _ := run.do(ctx, http.MethodPost, "/v1/auth/otp",
 		map[string]string{"phone": smokePhone}, "")
-	run.step("POST /v1/auth/otp", status == 202, fmt.Sprintf("%d", status))
+	run.step("POST /v1/auth/otp (sms)", status == 202, fmt.Sprintf("%d", status))
 	if status != 202 {
-		return
+		channel = identitydomain.ChannelEmail
+		contactValue = envOr("SMOKE_EMAIL", defaultSmokeEmail)
+		status, _ = run.do(ctx, http.MethodPost, "/v1/auth/otp",
+			map[string]string{"channel": "email", "contact": contactValue}, "")
+		run.step("POST /v1/auth/otp (email fallback)", status == 202, fmt.Sprintf("%d", status))
+		if status != 202 {
+			return
+		}
 	}
 
 	// The code is hashed at rest and never returned, which is correct. A real
 	// member reads it off an SMS; here it is re-minted through the same
 	// domain path so the verify step exercises the real endpoint.
-	code := run.mintCode(ctx)
+	code := run.mintCode(ctx, channel, contactValue)
 	if code == "" {
 		run.step("mint a verifiable code", false, "could not issue a challenge")
 		return
 	}
 
-	status, body := run.do(ctx, http.MethodPost, "/v1/auth/otp/verify",
-		map[string]string{"phone": smokePhone, "code": code, "deviceId": "smoke-device"}, "")
+	verifyBody := map[string]string{"code": code, "deviceId": "smoke-device"}
+	if channel == identitydomain.ChannelEmail {
+		verifyBody["channel"] = "email"
+		verifyBody["contact"] = contactValue
+	} else {
+		verifyBody["phone"] = contactValue
+	}
+	status, body := run.do(ctx, http.MethodPost, "/v1/auth/otp/verify", verifyBody, "")
 	run.step("POST /v1/auth/otp/verify", status == 200, fmt.Sprintf("%d", status))
 
 	var envelope struct {
@@ -156,13 +187,13 @@ func (run *journey) signUp(ctx context.Context) {
 
 // mintCode issues a challenge through the identity module with a sender that
 // keeps the code, so the smoke run can complete verification.
-func (run *journey) mintCode(ctx context.Context) string {
+func (run *journey) mintCode(ctx context.Context, channel identitydomain.Channel, value string) string {
 	captured := &capturingSender{}
 	module, err := identity.NewModule(ctx, run.database, captured)
 	if err != nil {
 		return ""
 	}
-	contact, err := identitydomain.NewContact(identitydomain.ChannelSMS, smokePhone)
+	contact, err := identitydomain.NewContact(channel, value)
 	if err != nil {
 		return ""
 	}
@@ -399,18 +430,24 @@ func (run *journey) rejectsUnauthenticated(ctx context.Context) {
 
 // reSignIn issues a fresh session after the theft check revoked the previous.
 func (run *journey) reSignIn(ctx context.Context) {
-	code := run.mintCode(ctx)
+	code := run.mintCode(ctx, run.channel, run.contact)
 	if code == "" {
 		return
 	}
-	_, body := run.do(ctx, http.MethodPost, "/v1/auth/otp/verify",
-		map[string]string{"phone": smokePhone, "code": code, "deviceId": "smoke-device"}, "")
+	body := map[string]string{"code": code, "deviceId": "smoke-device"}
+	if run.channel == identitydomain.ChannelEmail {
+		body["channel"] = "email"
+		body["contact"] = run.contact
+	} else {
+		body["phone"] = run.contact
+	}
+	_, respBody := run.do(ctx, http.MethodPost, "/v1/auth/otp/verify", body, "")
 	var envelope struct {
 		Data struct {
 			AccessToken string `json:"accessToken"`
 		} `json:"data"`
 	}
-	if json.Unmarshal([]byte(body), &envelope) == nil && envelope.Data.AccessToken != "" {
+	if json.Unmarshal([]byte(respBody), &envelope) == nil && envelope.Data.AccessToken != "" {
 		run.access = envelope.Data.AccessToken
 	}
 }
