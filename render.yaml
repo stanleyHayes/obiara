@@ -87,7 +87,7 @@ projects:
             buildCommand: go build -trimpath -ldflags="-s -w" -o bin/obiara-api ./services/api
             startCommand: SERVICE_VERSION="${RENDER_GIT_COMMIT:?missing commit}" ./bin/obiara-api
             healthCheckPath: /live
-            autoDeployTrigger: off
+            autoDeployTrigger: checksPass
             numInstances: 1
             buildFilter:
               paths:
@@ -186,7 +186,7 @@ projects:
             plan: starter
             buildCommand: go build -trimpath -ldflags="-s -w" -o bin/obiara-worker ./services/worker
             startCommand: SERVICE_VERSION="${RENDER_GIT_COMMIT:?missing commit}" ./bin/obiara-worker
-            autoDeployTrigger: off
+            autoDeployTrigger: checksPass
             numInstances: 1
             buildFilter:
               paths:
