@@ -25,6 +25,7 @@ type Config struct {
 	Environment            string
 	LivenessHMACSecret     string
 	VerificationHMACSecret string
+	AdminConsoleURL        string
 	CommerceHMACSecret     string
 	AdminHMACSecret        string
 	NnoboaInviteSecret     string
@@ -71,6 +72,10 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 		LivenessHMACSecret: valueOrDefault(
 			getenv("LIVENESS_HMAC_SECRET"),
 			"obiara-local-liveness-key-change-before-production",
+		),
+		AdminConsoleURL: valueOrDefault(
+			getenv("ADMIN_CONSOLE_URL"),
+			"https://admin.obiara.app",
 		),
 		VerificationHMACSecret: valueOrDefault(
 			getenv("VERIFICATION_HMAC_SECRET"),

@@ -112,6 +112,7 @@ export interface OperatorsState {
   actionReason: string;
   secondApprover: string;
   notice: string | null;
+  noticeType: "success" | "warning";
   error: string | null;
 }
 
@@ -119,13 +120,13 @@ export type OperatorsAction =
   | { type: "hydrate"; operators: Operator[] }
   | { type: "server-error"; message: string }
   | { type: "server-success"; message: string }
+  | { type: "server-warning"; message: string }
   | { type: "step-up-notice"; message: string }
   | { type: "select"; id: string }
   | { type: "open-enroll" }
   | { type: "close-enroll" }
   | { type: "enroll-email"; value: string }
   | { type: "toggle-enroll-role"; role: OperatorRole }
-  | { type: "confirm-enroll" }
   | { type: "reason"; value: string }
   | { type: "approver"; value: string }
   | { type: "suspend" }
@@ -146,6 +147,7 @@ export const initialOperatorsState: OperatorsState = {
   actionReason: "",
   secondApprover: "",
   notice: null,
+  noticeType: "success",
   error: null,
 };
 
@@ -186,9 +188,16 @@ export function operatorsReducer(
             ? state.selectedId
             : (action.operators[0]?.id ?? null),
         error: null,
+        notice: null,
+        noticeType: "success",
       };
     case "server-error":
-      return { ...state, error: action.message, notice: null };
+      return {
+        ...state,
+        error: action.message,
+        notice: null,
+        noticeType: "success",
+      };
     // A step-up is a detour inside an action, not the completion of one:
     // it must report progress without discarding the enrollment or the
     // reason the operator has already typed, which is what they return to
@@ -199,6 +208,18 @@ export function operatorsReducer(
       return {
         ...state,
         notice: action.message,
+        noticeType: "success",
+        error: null,
+        enrollOpen: false,
+        enrollEmail: "",
+        enrollRoles: [],
+        actionReason: "",
+      };
+    case "server-warning":
+      return {
+        ...state,
+        notice: action.message,
+        noticeType: "warning",
         error: null,
         enrollOpen: false,
         enrollEmail: "",
@@ -226,51 +247,6 @@ export function operatorsReducer(
         enrollRoles: held
           ? state.enrollRoles.filter((role) => role !== action.role)
           : [...state.enrollRoles, action.role],
-      };
-    }
-    case "confirm-enroll": {
-      const email = state.enrollEmail.trim().toLowerCase();
-      if (!emailPattern.test(email)) {
-        return { ...state, error: "Enter a valid operator email address." };
-      }
-      if (state.enrollRoles.length === 0) {
-        return {
-          ...state,
-          error:
-            "Assign at least one role. An operator with no role can do nothing.",
-        };
-      }
-      if (
-        state.operators.some(
-          (operator) => operator.email.toLowerCase() === email,
-        )
-      ) {
-        return {
-          ...state,
-          error: "An operator with this email already exists.",
-        };
-      }
-      const name = email.split("@")[0].replace(/^\w/, (c) => c.toUpperCase());
-      const operator: Operator = {
-        id: `op-${name.toLowerCase()}-${state.operators.length + 1}`,
-        name,
-        email,
-        roles: state.enrollRoles,
-        status: "active",
-        enrolled: "invite sent",
-        // A freshly enrolled principal starts at revision 1; the next load
-        // replaces this row with the server's own.
-        version: 1,
-      };
-      return {
-        ...state,
-        operators: [...state.operators, operator],
-        selectedId: operator.id,
-        enrollOpen: false,
-        enrollEmail: "",
-        enrollRoles: [],
-        notice: `${email} enrolled with ${state.enrollRoles.length} role(s). An MFA enrollment code rides the email channel; enrollment stays pending until completed.`,
-        error: null,
       };
     }
     case "reason":

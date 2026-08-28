@@ -77,6 +77,20 @@ var specs = map[domain.Template]renderSpec{
 			`<p>If you did not ask to sign in, you can ignore this message. ` +
 			`Do not share this code — Obiara will never ask you for it.</p>`,
 	},
+	domain.TemplateOperatorInvite: {
+		subject: "You have been given Obiara operator access",
+		// console appears twice: once as the href, once as the visible link
+		// text. fields drives the verb order, and params is read by name, so
+		// naming it twice is how one value fills two verbs.
+		fields: []string{"roles", "console", "console"},
+		body: `<p>You have been enrolled as an Obiara operator.</p>` +
+			`<p>Your access: <strong>%s</strong></p>` +
+			`<p>Sign in at <a href="%s">%s</a> using this email address. ` +
+			`You will be sent a single-use code each time you sign in — ` +
+			`there is no password to set, and this message contains no code.</p>` +
+			`<p>If you were not expecting this, tell the person who runs the ` +
+			`console; an operator account was created against your address.</p>`,
+	},
 	domain.TemplateVerificationHelp: {
 		subject: "Help with your Obiara verification",
 		fields:  []string{"reference"},

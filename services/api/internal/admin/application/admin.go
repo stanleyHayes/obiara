@@ -75,9 +75,14 @@ type AccessAudit interface {
 	Append(ctx context.Context, actorID, action, target string, at time.Time) error
 }
 
-// CodeSender delivers MFA codes (email channel bridge).
-type CodeSender interface {
+// OperatorMailer delivers operator-facing email (channel bridge).
+type OperatorMailer interface {
 	SendMfaCode(ctx context.Context, email, code string) error
+	// SendInvite tells someone they have been enrolled. It carries no
+	// credential — an enrolled operator signs in with a code sent to this
+	// same address — so failing to deliver it costs the invitee a heads-up,
+	// never their access.
+	SendInvite(ctx context.Context, email string, roles []domain.Role) error
 }
 
 // AdminService runs admin auth.
@@ -86,31 +91,39 @@ type AdminService struct {
 	challenges ChallengeRepository
 	sessions   SessionRepository
 	audit      AccessAudit
-	sender     CodeSender
+	sender     OperatorMailer
 	now        func() time.Time
 	newID      func() string
 }
 
-func NewAdminService(principals PrincipalRepository, challenges ChallengeRepository, sessions SessionRepository, audit AccessAudit, sender CodeSender, now func() time.Time, newID func() string) AdminService {
+func NewAdminService(principals PrincipalRepository, challenges ChallengeRepository, sessions SessionRepository, audit AccessAudit, sender OperatorMailer, now func() time.Time, newID func() string) AdminService {
 	return AdminService{principals: principals, challenges: challenges, sessions: sessions, audit: audit, sender: sender, now: now, newID: newID}
 }
 
 // Enroll creates a principal. The actor must hold the admin role, and the
 // enrollment is always audited.
-func (service AdminService) Enroll(ctx context.Context, sessionID, email string, roles []domain.Role) (domain.Principal, error) {
+//
+// The returned bool reports whether the invitation reached the new operator.
+// Delivery is attempted after the principal is committed and never rolls it
+// back: the account genuinely exists and is audited, and pretending
+// otherwise because an email bounced would leave the directory disagreeing
+// with the audit log. A false here means someone has access but does not yet
+// know, which the caller must say plainly rather than swallow.
+func (service AdminService) Enroll(ctx context.Context, sessionID, email string, roles []domain.Role) (domain.Principal, bool, error) {
 	_, actor, err := service.requireSteppedUpAdmin(ctx, sessionID)
 	if err != nil {
-		return domain.Principal{}, err
+		return domain.Principal{}, false, err
 	}
 
 	principal, err := domain.NewPrincipal(service.newID(), email, roles, service.now())
 	if err != nil {
-		return domain.Principal{}, err
+		return domain.Principal{}, false, err
 	}
 	if err := service.principals.CreateWithAudit(ctx, principal, actor.ID(), "admin.enroll", service.now().UTC()); err != nil {
-		return domain.Principal{}, err
+		return domain.Principal{}, false, err
 	}
-	return principal, nil
+	invited := service.sender.SendInvite(ctx, principal.Email(), principal.Roles()) == nil
+	return principal, invited, nil
 }
 
 // ListPrincipals returns the bounded operator directory to an authenticated admin.

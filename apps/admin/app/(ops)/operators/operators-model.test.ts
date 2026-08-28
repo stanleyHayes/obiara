@@ -77,6 +77,18 @@ describe("operators model", () => {
       message: "Operator enrolled.",
     });
     expect(succeeded.notice).toBe("Operator enrolled.");
+    expect(succeeded.noticeType).toBe("success");
     expect(succeeded.error).toBeNull();
+  });
+
+  it("distinguishes enrollment success from invitation delivery failure", () => {
+    const warned = operatorsReducer(initialOperatorsState, {
+      type: "server-warning",
+      message: "Operator was enrolled but invitation could not be delivered.",
+    });
+    expect(warned.notice).toMatch(/enrolled.*invitation/);
+    expect(warned.noticeType).toBe("warning");
+    expect(warned.error).toBeNull();
+    expect(warned.enrollOpen).toBe(false);
   });
 });

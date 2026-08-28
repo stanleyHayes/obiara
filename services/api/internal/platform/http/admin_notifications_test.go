@@ -34,7 +34,7 @@ func (stub notifyAdminStub) ListPendingRoleChanges(context.Context, string) ([]a
 	return stub.changes, stub.changeErr
 }
 
-func (notifyAdminStub) Enroll(context.Context, string, string, []admindomain.Role) (admindomain.Principal, error) {
+func (notifyAdminStub) Enroll(context.Context, string, string, []admindomain.Role) (admindomain.Principal, bool, error) {
 	panic("not used by the inbox")
 }
 func (notifyAdminStub) ListPrincipals(context.Context, string) ([]admindomain.Principal, error) {

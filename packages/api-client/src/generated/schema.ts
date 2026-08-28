@@ -3535,6 +3535,22 @@ export interface components {
       /** Format: int64 */
       readonly version: number;
     };
+    readonly AdminPrincipalEnrolledData: {
+      /** Format: date-time */
+      readonly createdAt: string;
+      readonly email: string;
+      readonly invited: boolean;
+      readonly principalId: string;
+      readonly roles: readonly string[];
+      /** @enum {string} */
+      readonly status: "active" | "suspended";
+      /** Format: int64 */
+      readonly version: number;
+    };
+    readonly AdminPrincipalEnrolledEnvelope: {
+      readonly data: components["schemas"]["AdminPrincipalEnrolledData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly AdminPrincipalEnvelope: {
       readonly data: components["schemas"]["AdminPrincipalData"];
       readonly meta: components["schemas"]["Metadata"];
@@ -7771,7 +7787,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly "application/json": components["schemas"]["AdminPrincipalEnvelope"];
+          readonly "application/json": components["schemas"]["AdminPrincipalEnrolledEnvelope"];
         };
       };
       readonly 400: components["responses"]["InvalidJSON"];

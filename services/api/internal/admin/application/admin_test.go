@@ -13,14 +13,14 @@ import (
 
 var adminSvcNow = time.Date(2026, time.July, 26, 12, 0, 0, 0, time.UTC)
 
-func newService(t *testing.T) (AdminService, *MockPrincipalRepository, *MockChallengeRepository, *MockSessionRepository, *MockAccessAudit, *MockCodeSender) {
+func newService(t *testing.T) (AdminService, *MockPrincipalRepository, *MockChallengeRepository, *MockSessionRepository, *MockAccessAudit, *MockOperatorMailer) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	principals := NewMockPrincipalRepository(ctrl)
 	challenges := NewMockChallengeRepository(ctrl)
 	sessions := NewMockSessionRepository(ctrl)
 	audit := NewMockAccessAudit(ctrl)
-	sender := NewMockCodeSender(ctrl)
+	sender := NewMockOperatorMailer(ctrl)
 	service := NewAdminService(principals, challenges, sessions, audit, sender, func() time.Time { return adminSvcNow }, func() string { return "adm_test" })
 	return service, principals, challenges, sessions, audit, sender
 }
@@ -39,24 +39,53 @@ func TestEnrollRequiresAdminRole(t *testing.T) {
 	sessions.EXPECT().FindByID(gomock.Any(), "sess_v").Return(steppedUpSession("sess_v", "adm_v", []domain.Role{domain.RoleVerifier}), nil)
 	principals.EXPECT().FindByID(gomock.Any(), "adm_v").Return(verifier, nil)
 
-	if _, err := service.Enroll(context.Background(), "sess_v", "new@example.test", []domain.Role{domain.RoleTSAgent}); err != ErrNotAdmin {
+	if _, _, err := service.Enroll(context.Background(), "sess_v", "new@example.test", []domain.Role{domain.RoleTSAgent}); err != ErrNotAdmin {
 		t.Fatalf("Enroll = %v, want ErrNotAdmin (FR-801 least privilege)", err)
 	}
 }
 
-func TestEnrollCreatesAndAudits(t *testing.T) {
-	service, principals, _, sessions, _, _ := newService(t)
+func TestEnrollCreatesAuditsAndInvites(t *testing.T) {
+	service, principals, _, sessions, _, sender := newService(t)
 	sessions.EXPECT().FindByID(gomock.Any(), "sess_root").Return(steppedUpSession("sess_root", "adm_root", []domain.Role{domain.RoleAdmin}), nil)
 	principals.EXPECT().FindByID(gomock.Any(), "adm_root").Return(adminPrincipal(), nil)
 	// The mutation and the audit entry commit atomically in the repository.
 	principals.EXPECT().CreateWithAudit(gomock.Any(), gomock.Any(), "adm_root", "admin.enroll", gomock.Any()).Return(nil)
+	// Enrolling must actually tell the person. Before this, the console
+	// claimed an invitation had been sent and nothing ever was.
+	sender.EXPECT().SendInvite(gomock.Any(), "new@example.test", []domain.Role{domain.RoleTSAgent}).Return(nil)
 
-	principal, err := service.Enroll(context.Background(), "sess_root", "new@example.test", []domain.Role{domain.RoleTSAgent})
+	principal, invited, err := service.Enroll(context.Background(), "sess_root", "new@example.test", []domain.Role{domain.RoleTSAgent})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if principal.ID() != "adm_test" {
 		t.Fatalf("principal = %#v", principal)
+	}
+	if !invited {
+		t.Fatal("invited = false, want true when the invitation was delivered")
+	}
+}
+
+func TestEnrollStillCreatesTheOperatorWhenTheInviteBounces(t *testing.T) {
+	service, principals, _, sessions, _, sender := newService(t)
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_root").Return(steppedUpSession("sess_root", "adm_root", []domain.Role{domain.RoleAdmin}), nil)
+	principals.EXPECT().FindByID(gomock.Any(), "adm_root").Return(adminPrincipal(), nil)
+	principals.EXPECT().CreateWithAudit(gomock.Any(), gomock.Any(), "adm_root", "admin.enroll", gomock.Any()).Return(nil)
+	sender.EXPECT().SendInvite(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("provider refused"))
+
+	// The principal is committed and audited before the invitation is
+	// attempted, so a bounce must not unmake it — the directory and the
+	// audit log would disagree. It reports the failure instead, because an
+	// operator who is not told still holds access.
+	principal, invited, err := service.Enroll(context.Background(), "sess_root", "new@example.test", []domain.Role{domain.RoleTSAgent})
+	if err != nil {
+		t.Fatalf("a failed invitation must not fail the enrollment: %v", err)
+	}
+	if principal.ID() == "" {
+		t.Fatal("principal was not created")
+	}
+	if invited {
+		t.Fatal("invited = true, want false when delivery failed")
 	}
 }
 

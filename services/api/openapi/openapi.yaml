@@ -4503,7 +4503,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AdminPrincipalEnvelope"
+                $ref: "#/components/schemas/AdminPrincipalEnrolledEnvelope"
         "400":
           $ref: "#/components/responses/InvalidJSON"
         "403":
@@ -12075,6 +12075,40 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/AdminPrincipalData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminPrincipalEnrolledData:
+      type: object
+      additionalProperties: false
+      required: [principalId, email, roles, status, version, createdAt, invited]
+      properties:
+        principalId:
+          type: string
+        email:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, suspended]
+        version:
+          type: integer
+          format: int64
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        invited:
+          type: boolean
+    AdminPrincipalEnrolledEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminPrincipalEnrolledData"
         meta:
           $ref: "#/components/schemas/Metadata"
     AdminSessionData:

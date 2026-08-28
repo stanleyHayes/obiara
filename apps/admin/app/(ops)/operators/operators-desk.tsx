@@ -271,6 +271,8 @@ export function OperatorsDesk({
       });
       const payload = (await response.json().catch(() => null)) as {
         message?: string;
+        invited?: boolean;
+        email?: string;
       } | null;
       if (!response.ok) {
         if (
@@ -293,7 +295,32 @@ export function OperatorsDesk({
         return;
       }
       if (!mounted.current || generation !== actionGeneration.current) return;
-      dispatch({ type: "server-success", message: success });
+      // For enroll operations, check if the invitation was sent successfully.
+      if (
+        body &&
+        typeof body === "object" &&
+        "action" in body &&
+        body.action === "enroll" &&
+        payload &&
+        typeof payload === "object"
+      ) {
+        const email = payload.email ?? "Operator";
+        if (payload.invited === false) {
+          dispatch({
+            type: "server-warning",
+            message: `${email} was enrolled with ${
+              (body as { roles?: unknown[] }).roles?.length ?? "?"
+            } role(s), but the invitation could not be delivered. Notify them directly to sign in.`,
+          });
+        } else {
+          dispatch({
+            type: "server-success",
+            message: `${email} was enrolled and notified.`,
+          });
+        }
+      } else {
+        dispatch({ type: "server-success", message: success });
+      }
       setPendingConfirmation(null);
       setConfirmError("");
       await loadOperators();
@@ -429,7 +456,10 @@ export function OperatorsDesk({
         </Stack>
 
         {state.notice ? (
-          <Alert severity="success" sx={{ borderRadius: 1, mb: 3 }}>
+          <Alert
+            severity={state.noticeType === "warning" ? "warning" : "success"}
+            sx={{ borderRadius: 1, mb: 3 }}
+          >
             {state.notice}
           </Alert>
         ) : null}
@@ -1207,9 +1237,9 @@ export function OperatorsDesk({
         <DialogTitle id="enroll-title">Enroll an operator</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Enrollment is an admin capability. The invite carries an MFA
-            enrollment code over the email channel; the principal stays
-            MFA-pending until they complete it.
+            Enrollment is an admin capability. The operator becomes active
+            immediately with the chosen roles. An invitation notice is sent to
+            their email with instructions to sign in.
           </DialogContentText>
           <TextField
             fullWidth
@@ -1265,7 +1295,7 @@ export function OperatorsDesk({
             }
             variant="contained"
           >
-            Enroll with MFA invite
+            Enroll operator
           </Button>
         </DialogActions>
       </Dialog>

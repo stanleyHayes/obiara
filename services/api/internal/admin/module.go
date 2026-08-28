@@ -21,7 +21,7 @@ type Module struct {
 
 // NewModule builds the admin auth slice. sender bridges the email channel
 // (Resend) for MFA code delivery.
-func NewModule(ctx context.Context, database *mongo.Database, sender application.CodeSender) (Module, error) {
+func NewModule(ctx context.Context, database *mongo.Database, sender application.OperatorMailer) (Module, error) {
 	principals := mongodb.NewPrincipalRepository(database)
 	if err := principals.EnsureIndexes(ctx); err != nil {
 		return Module{}, err

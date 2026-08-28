@@ -14,7 +14,7 @@ import (
 
 // Admin is the inbound port for admin auth (E16-S01).
 type Admin interface {
-	Enroll(ctx context.Context, sessionID, email string, roles []domain.Role) (domain.Principal, error)
+	Enroll(ctx context.Context, sessionID, email string, roles []domain.Role) (domain.Principal, bool, error)
 	ListPrincipals(ctx context.Context, sessionID string) ([]domain.Principal, error)
 	ChangeStatus(ctx context.Context, sessionID, targetID string, status domain.Status) (domain.Principal, error)
 	ChangeRoles(ctx context.Context, sessionID, targetID string, roles []domain.Role, expectedVersion *int64) (domain.Principal, error)
@@ -141,6 +141,13 @@ func toPrincipalResponse(principal domain.Principal) principalResponse {
 	}
 }
 
+// enrolledPrincipalResponse adds the one fact only enrollment knows: whether
+// the new operator was actually told.
+type enrolledPrincipalResponse struct {
+	principalResponse
+	Invited bool `json:"invited"`
+}
+
 func enrollHandler(admin Admin) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, _, ok := authenticatedAdmin(w, r, admin)
@@ -168,12 +175,18 @@ func enrollHandler(admin Admin) http.Handler {
 		for _, role := range body.Roles {
 			roles = append(roles, domain.Role(role))
 		}
-		principal, err := admin.Enroll(r.Context(), session.ID(), body.Email, roles)
+		principal, invited, err := admin.Enroll(r.Context(), session.ID(), body.Email, roles)
 		if err != nil {
 			writeAdminError(w, r, err)
 			return
 		}
-		writeSuccess(w, r, http.StatusCreated, toPrincipalResponse(principal))
+		// invited is reported rather than folded into the status: the
+		// operator exists and is audited either way, and an admin who is not
+		// told the invitation bounced will assume the person was notified.
+		writeSuccess(w, r, http.StatusCreated, enrolledPrincipalResponse{
+			principalResponse: toPrincipalResponse(principal),
+			Invited:           invited,
+		})
 	})
 }
 

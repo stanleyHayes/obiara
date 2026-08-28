@@ -20,6 +20,11 @@ const (
 	// TemplateMemberSignIn carries a member's sign-in code when their
 	// verified contact is an email address rather than a phone number.
 	TemplateMemberSignIn Template = "member_sign_in"
+	// TemplateOperatorInvite tells someone they have been given operator
+	// access. It carries no credential: an enrolled operator signs in with a
+	// code sent to this same address, so a secret in the invitation would be
+	// a bearer token sitting in an inbox for nothing.
+	TemplateOperatorInvite Template = "operator_invite"
 )
 
 var (
@@ -41,7 +46,8 @@ func NewMessage(to string, template Template, params map[string]string) (Message
 		return Message{}, ErrInvalidRecipient
 	}
 	switch template {
-	case TemplateOpsAlert, TemplateAdminNotice, TemplateVerificationHelp, TemplateMemberSignIn:
+	case TemplateOpsAlert, TemplateAdminNotice, TemplateVerificationHelp, TemplateMemberSignIn,
+		TemplateOperatorInvite:
 	default:
 		return Message{}, ErrInvalidTemplate
 	}

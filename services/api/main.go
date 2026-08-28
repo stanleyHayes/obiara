@@ -380,7 +380,7 @@ func run() error {
 		return fmt.Errorf("build notifications module: %w", err)
 	}
 	// Admin principals and MFA (E16-S01); codes ride the email channel.
-	adminModule, err := admin.NewModule(ctx, client.Database(cfg.MongoDatabase), adminemail.NewSender(emailModule.Email))
+	adminModule, err := admin.NewModule(ctx, client.Database(cfg.MongoDatabase), adminemail.NewSender(emailModule.Email, cfg.AdminConsoleURL))
 	if err != nil {
 		return fmt.Errorf("build admin module: %w", err)
 	}
