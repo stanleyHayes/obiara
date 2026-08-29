@@ -58,7 +58,7 @@ func (notifyAdminStub) StartLogin(context.Context, string, string) error {
 func (notifyAdminStub) CompleteLogin(context.Context, string, string) (admindomain.Session, error) {
 	panic("not used by the inbox")
 }
-func (notifyAdminStub) StepUpStart(context.Context, string) error { panic("not used by the inbox") }
+func (notifyAdminStub) StepUpStart(context.Context, string) error { return nil }
 func (notifyAdminStub) StepUpComplete(context.Context, string, string) (admindomain.Session, error) {
 	panic("not used by the inbox")
 }
@@ -236,4 +236,26 @@ func pendingChange(t *testing.T) []admindomain.RoleChange {
 		t.Fatal(err)
 	}
 	return []admindomain.RoleChange{change}
+}
+
+// TestStepUpStartAcceptsABodylessPost guards the regression that made every
+// privileged admin action unreachable. The BFF sends no body, so no
+// Content-Type; a JSON guard here answered 415 before the handler ran, and
+// enrollment, role changes and suspensions all need a stepped-up session.
+func TestStepUpStartAcceptsABodylessPost(t *testing.T) {
+	session, principal := notifySession(t)
+	handler := stepUpStartHandler(notifyAdminStub{session: session, principal: principal})
+
+	request := httptest.NewRequest(http.MethodPost, "/v1/admin/sessions/sess_1/step-up/start", nil)
+	request.SetPathValue("id", "sess_1")
+	request.Header.Set("Authorization", "Bearer sess_1")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code == http.StatusUnsupportedMediaType {
+		t.Fatal("step-up start rejected a bodyless POST with 415; the whole privileged surface is unreachable again")
+	}
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202, body = %s", recorder.Code, recorder.Body.String())
+	}
 }

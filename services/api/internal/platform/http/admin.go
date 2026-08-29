@@ -411,9 +411,11 @@ func stepUpStartHandler(admin Admin) http.Handler {
 			writeError(w, r, http.StatusForbidden, APIError{Code: "admin_session_mismatch", Message: "You can only step up your current session."})
 			return
 		}
-		if !adminJSONGuard(w, r) {
-			return
-		}
+		// No JSON guard: this endpoint reads no body. Requiring a JSON
+		// Content-Type on a bodyless POST rejected every real caller with
+		// 415 before it did anything, and because enrollment, role changes
+		// and suspensions all require a stepped-up session, that one guard
+		// made the whole privileged surface unreachable.
 		if err := admin.StepUpStart(r.Context(), r.PathValue("id")); err != nil {
 			writeAdminError(w, r, err)
 			return
