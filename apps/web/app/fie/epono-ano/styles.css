@@ -262,12 +262,375 @@
 }
 
 /* Epono Ano held threshold */
-.epono-main { padding-bottom:84px; }.epono-topbar { align-items:flex-end; background:radial-gradient(circle at 84% 12%,rgba(247,130,153,.22),transparent 28%),linear-gradient(128deg,#2b0d22,#531a3d); border:0; border-radius:32px 32px 8px 32px; box-shadow:0 26px 72px rgba(58,14,46,.18); color:#fff3e6; gap:40px; margin-top:28px; min-height:460px; overflow:hidden; padding:clamp(32px,5vw,64px); position:relative; }.epono-topbar::after { background:repeating-linear-gradient(118deg,transparent 0,transparent 35px,rgba(255,255,255,.024) 36px,transparent 37px); content:""; inset:0; pointer-events:none; position:absolute; }.epono-watermark { bottom:-120px; color:#ff849b; height:440px; opacity:.06; position:absolute; right:-55px; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:1.15; transform:rotate(5deg); width:440px; }.epono-hero-copy,.epono-hero-register { position:relative; z-index:1; }.epono-kicker { align-items:center; display:flex; gap:10px; }.epono-kicker svg { color:#ff91a6; height:22px; width:22px; }.epono-kicker .fie-kicker { color:#ff91a6; }.epono-topbar h1 { color:#fff3e6; font-size:clamp(3.25rem,6.5vw,6.8rem); letter-spacing:-.078em; line-height:.83; margin:24px 0 26px; max-width:10.5ch; text-wrap:balance; }.epono-topbar .epono-hero-copy > p:last-child { color:rgba(255,243,230,.62); font-size:.9rem; line-height:1.7; max-width:58ch; }
-.epono-hero-register { backdrop-filter:blur(14px); background:rgba(255,243,230,.055); border:1px solid rgba(255,243,230,.11); border-radius:8px 24px 24px 24px; min-width:min(100%,310px); }.epono-hero-register > div { display:flex; flex-direction:column; min-height:74px; padding:15px 20px; }.epono-hero-register > div + div { border-top:1px solid rgba(255,243,230,.1); }.epono-hero-register > div > span { color:rgba(255,243,230,.4); font-size:.56rem; letter-spacing:.09em; text-transform:uppercase; }.epono-hero-register > div > strong { color:#fff3e6; font-size:.72rem; margin-top:7px; }.epono-hero-register .epono-tier { background:transparent; border:0; border-radius:0; gap:6px; }.epono-hero-register .epono-tier span { color:#ff91a6; font-family:"Outfit",sans-serif; font-size:1.8rem; letter-spacing:-.04em; }.epono-hero-register .epono-tier small { color:rgba(255,243,230,.48); font-size:.58rem; }
-.epono-gate { background:linear-gradient(112deg,#fff0f3,#fff9f6); border-left:4px solid #bd3153; border-radius:0 24px 24px 0; color:var(--door-ink); margin-top:16px; min-height:0; padding:24px 30px; }.epono-gate h2 { color:var(--door-ink); font-size:clamp(1.25rem,2.5vw,1.8rem); margin:8px 0; }
-.epono-review { background:#fffdfb; border-radius:8px 30px 30px 30px; box-shadow:0 22px 64px rgba(58,14,46,.08); color:var(--door-ink); gap:clamp(28px,5vw,68px); margin-top:16px; padding:clamp(28px,5vw,56px); }.epono-portrait { background:radial-gradient(circle at 50% 42%,rgba(255,132,155,.16),transparent 36%),linear-gradient(150deg,#361129,#581c42); border-radius:170px 170px 10px 10px; color:#fff3e6; min-height:540px; overflow:hidden; }.epono-portrait::after { border:1px solid rgba(255,243,230,.11); border-radius:50%; content:""; height:220px; position:absolute; width:220px; }.epono-portrait > svg { color:#ff99ac; height:110px; position:relative; width:110px; z-index:1; }.epono-portrait > strong { bottom:34px; color:rgba(255,243,230,.48); font-family:"Outfit",sans-serif; font-size:.64rem; left:0; letter-spacing:.08em; position:absolute; right:0; text-align:center; text-transform:uppercase; }.epono-portrait span { backdrop-filter:blur(10px); background:rgba(255,243,230,.08); color:rgba(255,243,230,.67); }
-.epono-review article { padding-block:18px; }.epono-review article > .fie-kicker { color:#bd3153; }.epono-review h2 { color:var(--door-ink); font-size:clamp(2.6rem,5vw,5.2rem); max-width:10ch; }.epono-review article > p:not(.fie-kicker) { color:#765f70; font-size:.8rem; line-height:1.65; max-width:55ch; }.epono-context { gap:8px; grid-template-columns:1fr; margin-top:28px; }.epono-context button { align-items:center; background:#f7eeee; border:1px solid transparent; border-radius:7px 16px 16px 16px; color:var(--door-ink); display:grid; font:inherit; font-size:.72rem; font-weight:700; gap:12px; grid-template-columns:28px 1fr; min-height:52px; padding:9px 14px; text-align:left; }.epono-context button > span { color:#b52e4f; font-family:"Outfit",sans-serif; font-size:.56rem; }.epono-context button[aria-pressed="true"] { background:#fff; border-color:rgba(189,49,83,.3); box-shadow:0 7px 22px rgba(58,14,46,.08); }.epono-review label { display:flex; flex-direction:column; margin-top:24px; }.epono-review label input { background:#fff; border:1px solid rgba(58,14,46,.14); border-radius:8px 17px 17px 17px; color:var(--door-ink); font:inherit; font-size:.86rem; margin-top:9px; min-height:56px; padding:0 17px; }.epono-review label input:focus { border-color:#bd3153; outline:3px solid rgba(189,49,83,.1); }.epono-review footer { align-items:stretch; flex-direction:column; }.epono-review footer button { background:#2d1025!important; border-color:#2d1025!important; color:#fff3e6!important; }.epono-review footer a { align-items:center; align-self:flex-start; color:#9c2845; display:flex; font-size:.7rem; font-weight:800; min-height:42px; text-underline-offset:4px; }
-.epono-decision { align-items:center; background:linear-gradient(112deg,#fff0f3,#fffaf7); border-left:4px solid #bd3153; border-radius:0 26px 26px 0; color:var(--door-ink); display:grid; gap:22px; grid-template-columns:58px 1fr; margin-top:16px; min-height:0; padding:clamp(24px,3vw,34px); }.epono-decision-icon { align-items:center; background:rgba(189,49,83,.1); border-radius:8px 18px 18px 18px; color:#a32847; display:flex; height:56px; justify-content:center; width:56px; }.epono-decision-icon svg { height:27px; width:27px; }.epono-decision h2 { color:var(--door-ink); font-size:clamp(1.5rem,3vw,2.35rem); margin:6px 0 8px; }.epono-decision > div:last-child > p:last-child { color:#765f70; font-size:.69rem; line-height:1.6; margin:0; max-width:88ch; }
-@media(max-width:980px){.epono-topbar{align-items:flex-start;flex-direction:column}.epono-hero-register{width:100%}.epono-review{grid-template-columns:1fr}.epono-portrait{min-height:330px}}
-@media(max-width:760px){.epono-topbar{border-radius:24px 24px 8px 24px;margin-top:16px;min-height:0;padding:32px 24px}.epono-topbar h1{font-size:3.55rem}.epono-review{padding:26px 22px}.epono-portrait{min-height:280px}.epono-review h2{font-size:3.25rem}.epono-decision{grid-template-columns:1fr}.epono-review footer{flex-direction:column}}
-@media(max-width:430px){.epono-topbar h1{font-size:3rem}.epono-portrait{border-radius:120px 120px 8px 8px}.epono-context button{grid-template-columns:24px 1fr}}
+.epono-main {
+  padding-bottom: 84px;
+}
+.epono-topbar {
+  align-items: flex-end;
+  background:
+    radial-gradient(
+      circle at 84% 12%,
+      rgba(247, 130, 153, 0.22),
+      transparent 28%
+    ),
+    linear-gradient(128deg, #2b0d22, #531a3d);
+  border: 0;
+  border-radius: 32px 32px 8px 32px;
+  box-shadow: 0 26px 72px rgba(58, 14, 46, 0.18);
+  color: #fff3e6;
+  gap: 40px;
+  margin-top: 28px;
+  min-height: 460px;
+  overflow: hidden;
+  padding: clamp(32px, 5vw, 64px);
+  position: relative;
+}
+.epono-topbar::after {
+  background: repeating-linear-gradient(
+    118deg,
+    transparent 0,
+    transparent 35px,
+    rgba(255, 255, 255, 0.024) 36px,
+    transparent 37px
+  );
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+.epono-watermark {
+  bottom: -120px;
+  color: #ff849b;
+  height: 440px;
+  opacity: 0.06;
+  position: absolute;
+  right: -55px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.15;
+  transform: rotate(5deg);
+  width: 440px;
+}
+.epono-hero-copy,
+.epono-hero-register {
+  position: relative;
+  z-index: 1;
+}
+.epono-kicker {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.epono-kicker svg {
+  color: #ff91a6;
+  height: 22px;
+  width: 22px;
+}
+.epono-kicker .fie-kicker {
+  color: #ff91a6;
+}
+.epono-topbar h1 {
+  color: #fff3e6;
+  font-size: clamp(3.25rem, 6.5vw, 6.8rem);
+  letter-spacing: -0.078em;
+  line-height: 0.83;
+  margin: 24px 0 26px;
+  max-width: 10.5ch;
+  text-wrap: balance;
+}
+.epono-topbar .epono-hero-copy > p:last-child {
+  color: rgba(255, 243, 230, 0.62);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  max-width: 58ch;
+}
+.epono-hero-register {
+  backdrop-filter: blur(14px);
+  background: rgba(255, 243, 230, 0.055);
+  border: 1px solid rgba(255, 243, 230, 0.11);
+  border-radius: 8px 24px 24px 24px;
+  min-width: min(100%, 310px);
+}
+.epono-hero-register > div {
+  display: flex;
+  flex-direction: column;
+  min-height: 74px;
+  padding: 15px 20px;
+}
+.epono-hero-register > div + div {
+  border-top: 1px solid rgba(255, 243, 230, 0.1);
+}
+.epono-hero-register > div > span {
+  color: rgba(255, 243, 230, 0.4);
+  font-size: 0.56rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.epono-hero-register > div > strong {
+  color: #fff3e6;
+  font-size: 0.72rem;
+  margin-top: 7px;
+}
+.epono-hero-register .epono-tier {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  gap: 6px;
+}
+.epono-hero-register .epono-tier span {
+  color: #ff91a6;
+  font-family: "Outfit", sans-serif;
+  font-size: 1.8rem;
+  letter-spacing: -0.04em;
+}
+.epono-hero-register .epono-tier small {
+  color: rgba(255, 243, 230, 0.48);
+  font-size: 0.58rem;
+}
+.epono-gate {
+  background: linear-gradient(112deg, #fff0f3, #fff9f6);
+  border-left: 4px solid #bd3153;
+  border-radius: 0 24px 24px 0;
+  color: var(--door-ink);
+  margin-top: 16px;
+  min-height: 0;
+  padding: 24px 30px;
+}
+.epono-gate h2 {
+  color: var(--door-ink);
+  font-size: clamp(1.25rem, 2.5vw, 1.8rem);
+  margin: 8px 0;
+}
+.epono-review {
+  background: #fffdfb;
+  border-radius: 8px 30px 30px 30px;
+  box-shadow: 0 22px 64px rgba(58, 14, 46, 0.08);
+  color: var(--door-ink);
+  gap: clamp(28px, 5vw, 68px);
+  margin-top: 16px;
+  padding: clamp(28px, 5vw, 56px);
+}
+.epono-portrait {
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      rgba(255, 132, 155, 0.16),
+      transparent 36%
+    ),
+    linear-gradient(150deg, #361129, #581c42);
+  border-radius: 170px 170px 10px 10px;
+  color: #fff3e6;
+  min-height: 540px;
+  overflow: hidden;
+}
+.epono-portrait::after {
+  border: 1px solid rgba(255, 243, 230, 0.11);
+  border-radius: 50%;
+  content: "";
+  height: 220px;
+  position: absolute;
+  width: 220px;
+}
+.epono-portrait > svg {
+  color: #ff99ac;
+  height: 110px;
+  position: relative;
+  width: 110px;
+  z-index: 1;
+}
+.epono-portrait > strong {
+  bottom: 34px;
+  color: rgba(255, 243, 230, 0.48);
+  font-family: "Outfit", sans-serif;
+  font-size: 0.64rem;
+  left: 0;
+  letter-spacing: 0.08em;
+  position: absolute;
+  right: 0;
+  text-align: center;
+  text-transform: uppercase;
+}
+.epono-portrait span {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 243, 230, 0.08);
+  color: rgba(255, 243, 230, 0.67);
+}
+.epono-review article {
+  padding-block: 18px;
+}
+.epono-review article > .fie-kicker {
+  color: #bd3153;
+}
+.epono-review h2 {
+  color: var(--door-ink);
+  font-size: clamp(2.6rem, 5vw, 5.2rem);
+  max-width: 10ch;
+}
+.epono-review article > p:not(.fie-kicker) {
+  color: #765f70;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  max-width: 55ch;
+}
+.epono-context {
+  gap: 8px;
+  grid-template-columns: 1fr;
+  margin-top: 28px;
+}
+.epono-context button {
+  align-items: center;
+  background: #f7eeee;
+  border: 1px solid transparent;
+  border-radius: 7px 16px 16px 16px;
+  color: var(--door-ink);
+  display: grid;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 12px;
+  grid-template-columns: 28px 1fr;
+  min-height: 52px;
+  padding: 9px 14px;
+  text-align: left;
+}
+.epono-context button > span {
+  color: #b52e4f;
+  font-family: "Outfit", sans-serif;
+  font-size: 0.56rem;
+}
+.epono-context button[aria-pressed="true"] {
+  background: #fff;
+  border-color: rgba(189, 49, 83, 0.3);
+  box-shadow: 0 7px 22px rgba(58, 14, 46, 0.08);
+}
+.epono-review label {
+  display: flex;
+  flex-direction: column;
+  margin-top: 24px;
+}
+.epono-review label input {
+  background: #fff;
+  border: 1px solid rgba(58, 14, 46, 0.14);
+  border-radius: 8px 17px 17px 17px;
+  color: var(--door-ink);
+  font: inherit;
+  font-size: 0.86rem;
+  margin-top: 9px;
+  min-height: 56px;
+  padding: 0 17px;
+}
+.epono-review label input:focus {
+  border-color: #bd3153;
+  outline: 3px solid rgba(189, 49, 83, 0.1);
+}
+.epono-review footer {
+  align-items: stretch;
+  flex-direction: column;
+}
+.epono-review footer button {
+  background: #2d1025 !important;
+  border-color: #2d1025 !important;
+  color: #fff3e6 !important;
+}
+.epono-review footer a {
+  align-items: center;
+  align-self: flex-start;
+  color: #9c2845;
+  display: flex;
+  font-size: 0.7rem;
+  font-weight: 800;
+  min-height: 42px;
+  text-underline-offset: 4px;
+}
+.epono-decision {
+  align-items: center;
+  background: linear-gradient(112deg, #fff0f3, #fffaf7);
+  border-left: 4px solid #bd3153;
+  border-radius: 0 26px 26px 0;
+  color: var(--door-ink);
+  display: grid;
+  gap: 22px;
+  grid-template-columns: 58px 1fr;
+  margin-top: 16px;
+  min-height: 0;
+  padding: clamp(24px, 3vw, 34px);
+}
+.epono-decision-icon {
+  align-items: center;
+  background: rgba(189, 49, 83, 0.1);
+  border-radius: 8px 18px 18px 18px;
+  color: #a32847;
+  display: flex;
+  height: 56px;
+  justify-content: center;
+  width: 56px;
+}
+.epono-decision-icon svg {
+  height: 27px;
+  width: 27px;
+}
+.epono-decision h2 {
+  color: var(--door-ink);
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+  margin: 6px 0 8px;
+}
+.epono-decision > div:last-child > p:last-child {
+  color: #765f70;
+  font-size: 0.69rem;
+  line-height: 1.6;
+  margin: 0;
+  max-width: 88ch;
+}
+@media (max-width: 980px) {
+  .epono-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .epono-hero-register {
+    width: 100%;
+  }
+  .epono-review {
+    grid-template-columns: 1fr;
+  }
+  .epono-portrait {
+    min-height: 330px;
+  }
+}
+@media (max-width: 760px) {
+  .epono-topbar {
+    border-radius: 24px 24px 8px 24px;
+    margin-top: 16px;
+    min-height: 0;
+    padding: 32px 24px;
+  }
+  .epono-topbar h1 {
+    font-size: 3.55rem;
+  }
+  .epono-review {
+    padding: 26px 22px;
+  }
+  .epono-portrait {
+    min-height: 280px;
+  }
+  .epono-review h2 {
+    font-size: 3.25rem;
+  }
+  .epono-decision {
+    grid-template-columns: 1fr;
+  }
+  .epono-review footer {
+    flex-direction: column;
+  }
+}
+@media (max-width: 430px) {
+  .epono-topbar h1 {
+    font-size: 3rem;
+  }
+  .epono-portrait {
+    border-radius: 120px 120px 8px 8px;
+  }
+  .epono-context button {
+    grid-template-columns: 24px 1fr;
+  }
+}

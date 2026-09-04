@@ -2273,13 +2273,50 @@ TA-voice-encode-opus, TA-voice-server-pipeline, NFR-301b and RET-01, and it
 composes the finished `internal/introduction` context that is currently
 unreachable.
 
-| Task   | Deliverable                                                                                    | Status | Notes                                                                                        |
-| ------ | ---------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------- |
-| VOI-01 | Object storage port and adapter behind `internal/media`, envelope-encrypted per NFR-301b       | TODO   | The port shape already exists in `internal/introduction/application/ports.go` (MediaManager) |
-| VOI-02 | Compose `internal/introduction`: `NewModule`, mongo repository, media and transcriber adapters | TODO   | Domain and application layers are complete and tested; only wiring is missing                |
-| VOI-03 | HTTP routes and OpenAPI contract for begin-upload / confirm-upload / read                      | TODO   | No introduction route exists in the 174-path contract                                        |
-| VOI-04 | Member recording surface: three prompts, 120 s meter, per-prompt re-record                     | TODO   | Nothing in `apps/` records audio except the single liveness clip                             |
-| VOI-05 | Retention: 180-day crypto-erase for room voice, purge on revoke                                | TODO   | RET-01; the domain already models revoke and purge                                           |
+| Task   | Deliverable                                             | Status  | Notes                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------ | ------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| VOI-01 | Object storage port and adapter behind `internal/media` | DONE    | `internal/media/adapters/outbound/objectstore` signs SigV4 from the standard library — no vendor SDK, so no dependency tree under a release gate that counts reachable advisories, and it signs for S3, R2, B2 and MinIO unchanged. Content type, length and digest sit inside the signature. The published AWS key-derivation vector is asserted, because a wrong-but-stable key is invisible to a self-consistent test |
+| VOI-02 | Compose `internal/introduction`                         | DONE    | `Reconstitute` added to the aggregate (a store cannot restore what the domain gives it no way to rebuild), a mongo store holding references and keyed fingerprints only, a media adapter, and `NewModule`. Media assets gained a `duration`: it is the number the listening gate counts against, and a client-declared one would let a member claim an answer they never recorded                                        |
+| VOI-03 | HTTP routes and OpenAPI contract                        | DONE    | Four routes — the first time this context has been reachable at all. Audio never crosses the API; the client uploads to storage under the signed grant. Another member's recording answers 404, not 403: on a surface built to avoid disclosing who is a member, confirming an id exists is the disclosure. Composition is conditional on a bucket, so the routes are absent rather than present-and-broken              |
+| VOI-04 | Member recording surface                                | DONE    | `/fie/settings/voice`. The 120 s bound is enforced in the reducer so it is testable without a microphone; a failed upload returns to `recorded`, not `idle`, because the take is still in the browser and a network blip must not cost the answer                                                                                                                                                                        |
+| VOI-05 | Retention: 180-day crypto-erase, purge on revoke        | PARTIAL | `RetentionUntil` is set to 180 days at creation and `DueForPurge` is implemented and indexed. Nothing calls it — no worker job invokes `Purge`, so nothing is erased on its own yet                                                                                                                                                                                                                                      |
 
 Sequencing is VOI-01 → VOI-02 → VOI-03 → VOI-04, because each depends on the
 one before it. VOI-05 can be built alongside VOI-02 once the store exists.
+
+### 27.12 Progress, 2026-09-05
+
+VOI-01 through VOI-04 are done, tested and pushed (`e864bcb`, `c1c3d57`,
+`12b867c`). A member can record three answers and have them stored, referenced
+and consented to. VOI-05 is half done: the retention window is recorded and the
+query that finds due recordings exists, but nothing calls it.
+
+Decisions taken without asking, per the founder's instruction to proceed:
+
+- **Storage is provider-neutral, not AWS.** SigV4 is implemented from the
+  standard library. An SDK would have added a large dependency tree to a
+  service whose release gate counts reachable advisories, and would have tied
+  the adapter to one vendor.
+- **`voice.introduction` is its own consent purpose, of its own kind.** It can
+  be withdrawn on its own — a member may keep their account and stop us holding
+  their recording — and the aggregate re-checks it on every transition, so a
+  withdrawal stops work already in flight.
+- **The transcriber is deferred, not blocking.** No speech vendor is
+  contracted, so every request reports uncertain, which the aggregate already
+  routes to its own uncertain state. This is the call already made for
+  liveness. A transcript serves search, accessibility and safety review; the
+  voice is the product, and it must not wait on a vendor nobody has signed.
+- **Media access is owner-only with an explicit purpose list.** An unrecognised
+  purpose is refused rather than waved through, so a future caller cannot
+  inherit access to every member's media by inventing a string.
+
+Still open inside this slice: TA-voice-encode-opus (the client records whatever
+container the browser supports and does not transcode), TA-voice-server-pipeline
+(no virus scan, no Sentinel step) and the retention sweep above.
+
+**Note for the founder.** Commits `e864bcb` and `12b867c` were made with
+`git add -A` and swept in frontend work that was uncommitted in the tree at the
+time — admin desks and Fie shells that look like the redesign in progress.
+Nothing was lost and everything is pushed, but that work is recorded under
+these commit messages rather than its own. Worth a look before building on
+those files.

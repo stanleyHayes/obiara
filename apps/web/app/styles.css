@@ -650,61 +650,274 @@ a {
 }
 
 /* Redesigned member landing — protected zone cards intentionally inherit their existing rules. */
-.landing-redesign { background: #fbf5ed; }
-.landing-redesign::before { background-image: radial-gradient(rgba(58, 14, 46, .15) .7px, transparent .7px); background-size: 14px 14px; mask-image: linear-gradient(to bottom, black, transparent 52%); opacity: .2; }
-.landing-redesign .shell { max-width: 1540px !important; padding-inline: clamp(18px, 4vw, 64px) !important; }
-.landing-redesign .topbar { border: 0; min-height: 104px; }
-.landing-redesign .brand-mark { height: 46px; width: 46px; }
-.landing-redesign .brand-name { font-size: 1.75rem; }
-.landing-redesign .language-button { background: rgba(255,255,255,.58) !important; border: 1px solid rgba(58,14,46,.1) !important; border-radius: 12px !important; }
-.landing-redesign .profile-avatar { border: 0; border-radius: 13px 7px 13px 13px !important; box-shadow: 0 8px 20px rgba(58,14,46,.16); }
-.landing-redesign .home-hero { align-items: stretch; gap: 0; grid-template-columns: minmax(0, 1.3fr) minmax(330px, .55fr); padding: 10px 0 72px; }
-.landing-redesign .welcome-copy { background: radial-gradient(circle at 86% 16%, rgba(255,159,28,.22), transparent 25%), #3a0e2e; border-radius: 10px 34px 0 34px; min-height: 570px; overflow: hidden; padding: clamp(34px, 6vw, 82px); position: relative; }
-.landing-redesign .morning-chip { background: rgba(255,243,230,.09) !important; border-color: rgba(255,243,230,.14); color: #ffc06a !important; position: relative; z-index: 2; }
-.landing-redesign .welcome-title { color: #fff3e6; font-size: clamp(4.2rem, 8vw, 8.2rem) !important; letter-spacing: -.075em !important; line-height: .82 !important; margin: 58px 0 34px !important; max-width: 9ch; position: relative; z-index: 2; }
-.landing-redesign .welcome-title span { color: #ffb450; }
-.landing-redesign .welcome-body { color: rgba(255,243,230,.66); font-size: 1rem !important; max-width: 54ch; position: relative; z-index: 2; }
-.landing-redesign .home-hero-actions { align-items: center; gap: 10px; margin-top: 34px; position: relative; z-index: 2; }
-.landing-redesign .home-hero-actions .MuiButton-contained { background: #ff9f1c !important; color: #3a0e2e !important; }
-.landing-redesign .home-hero-actions .MuiButton-text { color: #fff3e6 !important; }
-.landing-redesign .home-hero-watermark { bottom: -48px; color: rgba(255,243,230,.035); font-size: clamp(7rem, 18vw, 17rem); font-weight: 900; left: -16px; letter-spacing: -.09em; line-height: .8; pointer-events: none; position: absolute; white-space: nowrap; }
-.landing-redesign .dawn-card { align-self: end; background: #ff9f1c !important; border: 0; border-radius: 0 30px 30px 0; box-shadow: 0 24px 52px rgba(77,41,10,.16) !important; margin: 54px 0 34px; min-height: 462px; padding: clamp(26px, 3.5vw, 42px); z-index: 2; }
-.landing-redesign .dawn-card .eyebrow { color: #65320a; }
-.landing-redesign .dawn-title { color: #3a0e2e; font-size: clamp(1.9rem, 3vw, 2.8rem) !important; letter-spacing: -.05em; }
-.landing-redesign .sun-disc { background: rgba(255,243,230,.4); box-shadow: none; }
-.landing-redesign .sun-disc svg { height: 24px; width: 24px; }
-.landing-redesign .dawn-metrics { border-color: rgba(58,14,46,.16); margin-top: auto; }
-.landing-redesign .dawn-metrics > div + div { border-color: rgba(58,14,46,.16); }
-.landing-redesign .dawn-action { border-radius: 10px 18px 18px 18px !important; min-height: 48px; }
-.landing-redesign .protected-zone-heading { margin-top: 0; }
-.landing-redesign .lower-grid { gap: 14px; grid-template-columns: minmax(0, 1.55fr) minmax(330px, .55fr); margin-top: 32px; }
-.landing-redesign .fire-card { border-radius: 30px 10px 30px 30px !important; min-height: 410px; padding: clamp(28px, 4vw, 48px); }
-.landing-redesign .fire-card__glow { height: 340px; opacity: .18; right: -80px; top: -140px; width: 340px; }
-.landing-redesign .fire-copy { margin-top: 80px; }
-.landing-redesign .fire-copy h2 { font-size: clamp(2.8rem, 5vw, 5rem); letter-spacing: -.065em; line-height: .92; max-width: 12ch; text-wrap: balance; }
-.landing-redesign .standing-card { background: #edf7f1 !important; border: 0; border-radius: 10px 28px 28px 28px !important; box-shadow: 0 18px 44px rgba(25,91,68,.09) !important; padding: clamp(26px, 3vw, 38px); }
-.landing-redesign .standing-mark { border-radius: 8px 17px 17px 17px; transform: none; }
-.landing-redesign .standing-mark svg { height: 25px; width: 25px; }
-.landing-redesign .footer { border-color: rgba(58,14,46,.1); min-height: 120px; padding: 34px 0; }
-.landing-redesign .footer > div:first-child { align-items: center; display: flex; gap: 10px; }
-.landing-redesign .footer img { height: 34px; width: 34px; }
-.landing-redesign .footer a { color: var(--plum); font-size: .78rem; font-weight: 700; margin-left: 18px; text-underline-offset: 4px; }
-.landing-redesign .okyeame-button { border-radius: 14px 7px 14px 14px !important; }
-.landing-redesign .okyeame-button svg { height: 19px; width: 19px; }
+.landing-redesign {
+  background: #fbf5ed;
+}
+.landing-redesign::before {
+  background-image: radial-gradient(
+    rgba(58, 14, 46, 0.15) 0.7px,
+    transparent 0.7px
+  );
+  background-size: 14px 14px;
+  mask-image: linear-gradient(to bottom, black, transparent 52%);
+  opacity: 0.2;
+}
+.landing-redesign .shell {
+  max-width: 1540px !important;
+  padding-inline: clamp(18px, 4vw, 64px) !important;
+}
+.landing-redesign .topbar {
+  border: 0;
+  min-height: 104px;
+}
+.landing-redesign .brand-mark {
+  height: 46px;
+  width: 46px;
+}
+.landing-redesign .brand-name {
+  font-size: 1.75rem;
+}
+.landing-redesign .language-button {
+  background: rgba(255, 255, 255, 0.58) !important;
+  border: 1px solid rgba(58, 14, 46, 0.1) !important;
+  border-radius: 12px !important;
+}
+.landing-redesign .profile-avatar {
+  border: 0;
+  border-radius: 13px 7px 13px 13px !important;
+  box-shadow: 0 8px 20px rgba(58, 14, 46, 0.16);
+}
+.landing-redesign .home-hero {
+  align-items: stretch;
+  gap: 0;
+  grid-template-columns: minmax(0, 1.3fr) minmax(330px, 0.55fr);
+  padding: 10px 0 72px;
+}
+.landing-redesign .welcome-copy {
+  background:
+    radial-gradient(
+      circle at 86% 16%,
+      rgba(255, 159, 28, 0.22),
+      transparent 25%
+    ),
+    #3a0e2e;
+  border-radius: 10px 34px 0 34px;
+  min-height: 570px;
+  overflow: hidden;
+  padding: clamp(34px, 6vw, 82px);
+  position: relative;
+}
+.landing-redesign .morning-chip {
+  background: rgba(255, 243, 230, 0.09) !important;
+  border-color: rgba(255, 243, 230, 0.14);
+  color: #ffc06a !important;
+  position: relative;
+  z-index: 2;
+}
+.landing-redesign .welcome-title {
+  color: #fff3e6;
+  font-size: clamp(4.2rem, 8vw, 8.2rem) !important;
+  letter-spacing: -0.075em !important;
+  line-height: 0.82 !important;
+  margin: 58px 0 34px !important;
+  max-width: 9ch;
+  position: relative;
+  z-index: 2;
+}
+.landing-redesign .welcome-title span {
+  color: #ffb450;
+}
+.landing-redesign .welcome-body {
+  color: rgba(255, 243, 230, 0.66);
+  font-size: 1rem !important;
+  max-width: 54ch;
+  position: relative;
+  z-index: 2;
+}
+.landing-redesign .home-hero-actions {
+  align-items: center;
+  gap: 10px;
+  margin-top: 34px;
+  position: relative;
+  z-index: 2;
+}
+.landing-redesign .home-hero-actions .MuiButton-contained {
+  background: #ff9f1c !important;
+  color: #3a0e2e !important;
+}
+.landing-redesign .home-hero-actions .MuiButton-text {
+  color: #fff3e6 !important;
+}
+.landing-redesign .home-hero-watermark {
+  bottom: -48px;
+  color: rgba(255, 243, 230, 0.035);
+  font-size: clamp(7rem, 18vw, 17rem);
+  font-weight: 900;
+  left: -16px;
+  letter-spacing: -0.09em;
+  line-height: 0.8;
+  pointer-events: none;
+  position: absolute;
+  white-space: nowrap;
+}
+.landing-redesign .dawn-card {
+  align-self: end;
+  background: #ff9f1c !important;
+  border: 0;
+  border-radius: 0 30px 30px 0;
+  box-shadow: 0 24px 52px rgba(77, 41, 10, 0.16) !important;
+  margin: 54px 0 34px;
+  min-height: 462px;
+  padding: clamp(26px, 3.5vw, 42px);
+  z-index: 2;
+}
+.landing-redesign .dawn-card .eyebrow {
+  color: #65320a;
+}
+.landing-redesign .dawn-title {
+  color: #3a0e2e;
+  font-size: clamp(1.9rem, 3vw, 2.8rem) !important;
+  letter-spacing: -0.05em;
+}
+.landing-redesign .sun-disc {
+  background: rgba(255, 243, 230, 0.4);
+  box-shadow: none;
+}
+.landing-redesign .sun-disc svg {
+  height: 24px;
+  width: 24px;
+}
+.landing-redesign .dawn-metrics {
+  border-color: rgba(58, 14, 46, 0.16);
+  margin-top: auto;
+}
+.landing-redesign .dawn-metrics > div + div {
+  border-color: rgba(58, 14, 46, 0.16);
+}
+.landing-redesign .dawn-action {
+  border-radius: 10px 18px 18px 18px !important;
+  min-height: 48px;
+}
+.landing-redesign .protected-zone-heading {
+  margin-top: 0;
+}
+.landing-redesign .lower-grid {
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(330px, 0.55fr);
+  margin-top: 32px;
+}
+.landing-redesign .fire-card {
+  border-radius: 30px 10px 30px 30px !important;
+  min-height: 410px;
+  padding: clamp(28px, 4vw, 48px);
+}
+.landing-redesign .fire-card__glow {
+  height: 340px;
+  opacity: 0.18;
+  right: -80px;
+  top: -140px;
+  width: 340px;
+}
+.landing-redesign .fire-copy {
+  margin-top: 80px;
+}
+.landing-redesign .fire-copy h2 {
+  font-size: clamp(2.8rem, 5vw, 5rem);
+  letter-spacing: -0.065em;
+  line-height: 0.92;
+  max-width: 12ch;
+  text-wrap: balance;
+}
+.landing-redesign .standing-card {
+  background: #edf7f1 !important;
+  border: 0;
+  border-radius: 10px 28px 28px 28px !important;
+  box-shadow: 0 18px 44px rgba(25, 91, 68, 0.09) !important;
+  padding: clamp(26px, 3vw, 38px);
+}
+.landing-redesign .standing-mark {
+  border-radius: 8px 17px 17px 17px;
+  transform: none;
+}
+.landing-redesign .standing-mark svg {
+  height: 25px;
+  width: 25px;
+}
+.landing-redesign .footer {
+  border-color: rgba(58, 14, 46, 0.1);
+  min-height: 120px;
+  padding: 34px 0;
+}
+.landing-redesign .footer > div:first-child {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.landing-redesign .footer img {
+  height: 34px;
+  width: 34px;
+}
+.landing-redesign .footer a {
+  color: var(--plum);
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-left: 18px;
+  text-underline-offset: 4px;
+}
+.landing-redesign .okyeame-button {
+  border-radius: 14px 7px 14px 14px !important;
+}
+.landing-redesign .okyeame-button svg {
+  height: 19px;
+  width: 19px;
+}
 @media (max-width: 1100px) {
-  .landing-redesign .home-hero { grid-template-columns: 1fr; }
-  .landing-redesign .welcome-copy { border-radius: 10px 30px 0 0; }
-  .landing-redesign .dawn-card { border-radius: 0 0 30px 30px; margin: 0; min-height: 340px; }
-  .landing-redesign .lower-grid { grid-template-columns: 1fr; }
+  .landing-redesign .home-hero {
+    grid-template-columns: 1fr;
+  }
+  .landing-redesign .welcome-copy {
+    border-radius: 10px 30px 0 0;
+  }
+  .landing-redesign .dawn-card {
+    border-radius: 0 0 30px 30px;
+    margin: 0;
+    min-height: 340px;
+  }
+  .landing-redesign .lower-grid {
+    grid-template-columns: 1fr;
+  }
 }
 @media (max-width: 680px) {
-  .landing-redesign .topbar { min-height: 82px; }
-  .landing-redesign .home-hero { padding-top: 0; }
-  .landing-redesign .welcome-copy { border-radius: 8px 22px 0 0; min-height: 510px; padding: 32px 24px 44px; }
-  .landing-redesign .welcome-title { font-size: clamp(3.7rem, 17vw, 5.2rem) !important; margin-top: 48px !important; }
-  .landing-redesign .home-hero-actions { align-items: stretch; flex-direction: column; }
-  .landing-redesign .dawn-card { border-radius: 0 0 22px 22px; }
-  .landing-redesign .fire-card { min-height: 390px; }
-  .landing-redesign .footer { align-items: flex-start; gap: 18px; }
-  .landing-redesign .footer > .MuiStack-root { margin-left: -18px; }
+  .landing-redesign .topbar {
+    min-height: 82px;
+  }
+  .landing-redesign .home-hero {
+    padding-top: 0;
+  }
+  .landing-redesign .welcome-copy {
+    border-radius: 8px 22px 0 0;
+    min-height: 510px;
+    padding: 32px 24px 44px;
+  }
+  .landing-redesign .welcome-title {
+    font-size: clamp(3.7rem, 17vw, 5.2rem) !important;
+    margin-top: 48px !important;
+  }
+  .landing-redesign .home-hero-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .landing-redesign .dawn-card {
+    border-radius: 0 0 22px 22px;
+  }
+  .landing-redesign .fire-card {
+    min-height: 390px;
+  }
+  .landing-redesign .footer {
+    align-items: flex-start;
+    gap: 18px;
+  }
+  .landing-redesign .footer > .MuiStack-root {
+    margin-left: -18px;
+  }
 }
