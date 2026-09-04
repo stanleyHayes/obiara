@@ -25,7 +25,8 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { SegmentedOtpInput } from "@obiara/ui-web";
 
 import { EmptyState } from "../../empty-state";
-import { AdminCard } from "../../admin-card";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon, UtilityIcon } from "../../admin-icons";
 import { AdminSkeleton } from "../../loading-skeleton";
 import {
   REASON_MAX_LENGTH,
@@ -397,6 +398,8 @@ export function OperatorsDesk({
 
   return (
     <Box
+      component="main"
+      className="operators-redesign"
       sx={{
         bgcolor: "background.default",
         color: "text.primary",
@@ -404,8 +407,10 @@ export function OperatorsDesk({
         py: 4,
       }}
     >
-      <Container maxWidth="lg">
+      <Container maxWidth={false} className="operators-shell">
         <Stack
+          component="header"
+          className="operators-hero"
           direction={{ xs: "column", md: "row" }}
           spacing={2}
           sx={{
@@ -414,17 +419,23 @@ export function OperatorsDesk({
             mb: 5,
           }}
         >
-          <Box>
-            <Typography
-              sx={{
-                color: "#8e3159",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 1.4,
-              }}
-            >
-              ACCESS CONTROL
-            </Typography>
+          <Box className="operators-hero-copy">
+            <Button component={Link} href="/" className="operators-back">
+              Return to command centre
+            </Button>
+            <Box className="operators-kicker">
+              <AdminIcon name="operators" aria-hidden="true" />
+              <Typography
+                sx={{
+                  color: "#8e3159",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: 1.4,
+                }}
+              >
+                Operators &amp; roles · access registry
+              </Typography>
+            </Box>
             <Typography
               component="h1"
               sx={{
@@ -435,26 +446,31 @@ export function OperatorsDesk({
                 mt: 1,
               }}
             >
-              Right people. Right scope.
+              Authority belongs to a person—and a reason.
             </Typography>
-            <Typography sx={{ color: "#69535d", mt: 2 }}>
+            <Typography className="operators-hero-intro">
               Least-privilege operator access. Every enrollment, suspension and
               role change is MFA-gated and audited.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-            {directoryReady ? (
-              <Chip
-                label={`${activeCount} active`}
-                color="success"
-                variant="outlined"
-              />
-            ) : null}
-            <Chip label="MFA enforced" color="primary" variant="outlined" />
-            <Button component={Link} href="/" variant="outlined">
-              Back to command centre
-            </Button>
-          </Stack>
+          <Box
+            className="operators-hero-register"
+            aria-label="Access registry status"
+          >
+            <Box>
+              <span>Active operators</span>
+              <strong>{directoryReady ? activeCount : "—"}</strong>
+            </Box>
+            <Box>
+              <span>Authentication</span>
+              <strong>MFA enforced</strong>
+            </Box>
+            <Box>
+              <span>Grant policy</span>
+              <strong>Deny by default</strong>
+            </Box>
+          </Box>
+          <AdminCardWatermark watermark="identity" />
         </Stack>
 
         {state.notice ? (
@@ -476,7 +492,31 @@ export function OperatorsDesk({
           </Alert>
         ) : null}
 
+        <section
+          className="operators-boundary"
+          aria-label="Access change boundary"
+        >
+          <span className="operators-boundary-icon">
+            <UtilityIcon name="security" aria-hidden="true" />
+          </span>
+          <Box>
+            <Typography className="section-kicker">
+              Retained authority
+            </Typography>
+            <Typography component="h2">
+              Every change has an actor, a reason and a revision.
+            </Typography>
+            <Typography>
+              Enrollment, suspension and role changes remain MFA-gated and
+              audited. Admin-role changes require a distinct second
+              administrator.
+            </Typography>
+          </Box>
+          <span className="operators-boundary-state">Four eyes for admin</span>
+        </section>
+
         <Box
+          className="operators-workspace"
           sx={{
             display: "grid",
             gap: 2,
@@ -490,10 +530,12 @@ export function OperatorsDesk({
             <AdminCard
               variant="panel"
               watermark="identity"
+              className="operators-directory"
               showWatermark={directoryReady && state.operators.length > 0}
               sx={{ borderRadius: 1, p: 3 }}
             >
               <Stack
+                className="operators-panel-heading"
                 direction="row"
                 sx={{
                   alignItems: "center",
@@ -510,16 +552,17 @@ export function OperatorsDesk({
                       letterSpacing: 1.2,
                     }}
                   >
-                    USER MANAGEMENT
+                    Operator directory
                   </Typography>
                   <Typography
                     component="h2"
                     sx={{ fontSize: 24, fontWeight: 800 }}
                   >
-                    Operators
+                    People with platform authority
                   </Typography>
                 </Box>
                 <Button
+                  startIcon={<AdminIcon name="operators" aria-hidden="true" />}
                   variant="contained"
                   onClick={() => dispatch({ type: "open-enroll" })}
                 >
@@ -547,7 +590,7 @@ export function OperatorsDesk({
                         key={operator.id}
                         component={Link}
                         href={`/operators/${encodeURIComponent(operator.id)}?return=%2Foperators`}
-                        className={`operator-row ${operator.id === state.selectedId ? "is-selected" : ""}`}
+                        className={`operator-row operators-directory-row ${operator.id === state.selectedId ? "is-selected" : ""}`}
                         sx={{
                           alignItems: "center",
                           border: "1px solid rgba(43,21,31,0.12)",
@@ -606,6 +649,7 @@ export function OperatorsDesk({
             <AdminCard
               variant="detail"
               watermark="identity"
+              className="operators-detail"
               showWatermark={directoryReady && Boolean(selected)}
               sx={{ borderRadius: 1, p: 3 }}
             >
@@ -617,7 +661,7 @@ export function OperatorsDesk({
                   letterSpacing: 1.2,
                 }}
               >
-                SELECTED OPERATOR
+                Exact operator record
               </Typography>
               {directoryLoading ? (
                 <AdminSkeleton
@@ -823,6 +867,7 @@ export function OperatorsDesk({
         <AdminCard
           variant="panel"
           watermark="identity"
+          className="operators-roles"
           sx={{ borderRadius: 1, mt: 2, p: 3 }}
         >
           <Typography
@@ -833,7 +878,7 @@ export function OperatorsDesk({
               letterSpacing: 1.2,
             }}
           >
-            ROLE MANAGEMENT
+            Role registry
           </Typography>
           <Typography
             component="h2"
@@ -859,6 +904,7 @@ export function OperatorsDesk({
                   <Box
                     component="article"
                     key={role}
+                    className="operators-role-card"
                     sx={{ borderRadius: 1, p: 2 }}
                   >
                     <Typography sx={{ fontWeight: 800 }}>
@@ -900,6 +946,7 @@ export function OperatorsDesk({
         <AdminCard
           variant="panel"
           watermark="evidence"
+          className="operators-approvals"
           sx={{ borderRadius: 1, mt: 2, p: 3 }}
         >
           <Typography
@@ -910,7 +957,7 @@ export function OperatorsDesk({
               letterSpacing: 1.2,
             }}
           >
-            FOUR-EYES QUEUE
+            Four-eyes queue
           </Typography>
           <Typography
             component="h2"
@@ -947,6 +994,7 @@ export function OperatorsDesk({
                   <Box
                     component="article"
                     key={change.changeId}
+                    className="operators-approval-row"
                     sx={{ borderRadius: 1, p: 2 }}
                   >
                     <Stack
@@ -1014,6 +1062,7 @@ export function OperatorsDesk({
         <AdminCard
           variant="policy"
           watermark="safety"
+          className="operators-matrix"
           sx={{ borderRadius: 1, mt: 2, overflow: "hidden", p: 3 }}
         >
           <Typography
@@ -1024,7 +1073,7 @@ export function OperatorsDesk({
               letterSpacing: 1.2,
             }}
           >
-            PERMISSION MANAGEMENT
+            Shipped permission reference
           </Typography>
           <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
             Deny by default. Grants live in code.
@@ -1035,7 +1084,7 @@ export function OperatorsDesk({
             denied. This matrix mirrors the shipped grant table and changes only
             through reviewed code.
           </Typography>
-          <Box sx={{ overflowX: "auto" }}>
+          <Box sx={{ overflowX: "auto" }} className="operators-matrix-scroll">
             <Box
               role="table"
               aria-label="Permission matrix"

@@ -45,18 +45,55 @@ export function MpanyimfoDocket() {
           <Link href="/" className="verification-back">
             Return to command centre
           </Link>
-          <Box className="mpanyimfo-hero-kicker"><AdminIcon name="governance" aria-hidden="true" /><Typography className="section-kicker">Mpanyimfo · evidence council</Typography></Box>
-          <Typography component="h1">Review with weight. Decide with limits.</Typography>
+          <Box className="mpanyimfo-hero-kicker">
+            <AdminIcon name="governance" aria-hidden="true" />
+            <Typography className="section-kicker">
+              Mpanyimfo · evidence council
+            </Typography>
+          </Box>
+          <Typography component="h1">
+            Review with weight. Decide with limits.
+          </Typography>
           <Typography>
             Women-led review of redacted cohort evidence against a current,
             versioned definition. Never a member score or case docket.
           </Typography>
         </Box>
-        <Box className="mpanyimfo-hero-status"><Box><span>Evidence level</span><strong>Cohort only</strong></Box><Box><span>Decision type</span><strong>Neutral readiness</strong></Box></Box>
+        <Box className="mpanyimfo-hero-status">
+          <Box>
+            <span>Evidence level</span>
+            <strong>Cohort only</strong>
+          </Box>
+          <Box>
+            <span>Decision type</span>
+            <strong>Neutral readiness</strong>
+          </Box>
+        </Box>
         <AdminCardWatermark watermark="evidence" />
       </header>
 
-      <section className="mpanyimfo-outcome-boundary" aria-label="Implemented outcomes"><span className="mpanyimfo-boundary-icon"><AdminIcon name="verification" aria-hidden="true" /></span><Box><Typography className="section-kicker">Two bounded outcomes</Typography><Typography component="h2"><strong>Evidence incomplete</strong><i />or<strong>ready for release review</strong></Typography><Typography>Neither outcome releases a market, blocks a member, changes an account, scores a person or decides an appeal.</Typography></Box></section>
+      <section
+        className="mpanyimfo-outcome-boundary"
+        aria-label="Implemented outcomes"
+      >
+        <span className="mpanyimfo-boundary-icon">
+          <AdminIcon name="verification" aria-hidden="true" />
+        </span>
+        <Box>
+          <Typography className="section-kicker">
+            Two bounded outcomes
+          </Typography>
+          <Typography component="h2">
+            <strong>evidence incomplete</strong>
+            <i />
+            or<strong>ready for release review</strong>
+          </Typography>
+          <Typography>
+            Neither outcome releases a market, blocks a member, changes an
+            account, scores a person or decides an appeal.
+          </Typography>
+        </Box>
+      </section>
 
       <AdminCard
         variant="policy"
@@ -72,7 +109,10 @@ export function MpanyimfoDocket() {
               Representative evidence needs complete coverage.
             </Typography>
           </Box>
-          <span className="mpanyimfo-version"><UtilityIcon name="security" aria-hidden="true" />Version-pinned</span>
+          <span className="mpanyimfo-version">
+            <UtilityIcon name="security" aria-hidden="true" />
+            Version-pinned
+          </span>
         </Box>
         <Typography className="mpanyimfo-policy-copy">
           Every assessment revalidates the current reviewed definition, exact
@@ -83,25 +123,32 @@ export function MpanyimfoDocket() {
       </AdminCard>
 
       <Box className="mpanyimfo-evidence-grid">
-        <AdminCard className="mpanyimfo-dimensions" variant="panel" watermark="evidence">
+        <AdminCard
+          className="mpanyimfo-dimensions"
+          variant="panel"
+          watermark="evidence"
+        >
           <Typography className="section-kicker">
             Reviewed dimensions
           </Typography>
-          <Typography component="h2">
-            What the aggregate may cover
-          </Typography>
+          <Typography component="h2">What the aggregate may cover</Typography>
           <Stack spacing={1.25}>
             {dimensions.map(([title, description], index) => (
               <Box className="mpanyimfo-dimension" key={title}>
                 <span>{String(index + 1).padStart(2, "0")}</span>
-                <Box><Typography component="h3">{title}</Typography><Typography>
-                  {description}
-                </Typography></Box>
+                <Box>
+                  <Typography component="h3">{title}</Typography>
+                  <Typography>{description}</Typography>
+                </Box>
               </Box>
             ))}
           </Stack>
         </AdminCard>
-        <AdminCard className="mpanyimfo-gaps" variant="warning" watermark="safety">
+        <AdminCard
+          className="mpanyimfo-gaps"
+          variant="warning"
+          watermark="safety"
+        >
           <Typography className="section-kicker">
             Fail-closed gap codes
           </Typography>
@@ -111,7 +158,8 @@ export function MpanyimfoDocket() {
           <Stack spacing={1}>
             {gaps.map((gap, index) => (
               <Box className="mpanyimfo-gap" key={gap}>
-                <span>{String(index + 1).padStart(2, "0")}</span><Typography>{gap}</Typography>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <Typography>{gap}</Typography>
               </Box>
             ))}
           </Stack>

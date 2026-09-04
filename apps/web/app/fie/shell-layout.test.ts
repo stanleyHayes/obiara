@@ -21,8 +21,14 @@ describe("Fie shell viewport navigation", () => {
     expect(styles).toMatch(
       /@media \(max-width:\s*760px\)[\s\S]*?\.fie-main\s*\{[^}]*margin-left:\s*0;[^}]*padding:[^;]*calc\(86px \+ env\(safe-area-inset-bottom\)\);/s,
     );
+    expect(styles).toMatch(/\.fie-bottom-nav\s*\{[^}]*position:\s*fixed;/s);
+    // Held clear of all three edges, not flush against them.
     expect(styles).toMatch(
-      /@media \(max-width:\s*760px\)[\s\S]*?\.fie-bottom-nav\s*\{[^}]*inset:\s*auto 0 0;[^}]*overflow:\s*hidden;[^}]*position:\s*fixed;[^}]*width:\s*100%;/s,
+      /\.fie-bottom-nav\s*\{[^}]*inset:\s*auto 12px calc\(12px \+ env\(safe-area-inset-bottom\)\);/s,
+    );
+    // Fully rounded: this is the pill, not a bar.
+    expect(styles).toMatch(
+      /\.fie-bottom-nav\s*\{[^}]*border-radius:\s*999px;/s,
     );
   });
 });

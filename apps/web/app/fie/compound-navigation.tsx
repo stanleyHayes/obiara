@@ -200,7 +200,7 @@ export function CompoundBottomNavigation({ current }: CompoundNavigationProps) {
             key={item.zone}
           >
             <FieNavIcon name={primaryIcons[item.zone]} aria-hidden="true" />
-            {item.label}
+            <span className="fie-nav-label">{item.label}</span>
           </Link>
         ))}
         <button
@@ -210,7 +210,7 @@ export function CompoundBottomNavigation({ current }: CompoundNavigationProps) {
           type="button"
         >
           <FieNavIcon name="more" aria-hidden="true" />
-          More
+          <span className="fie-nav-label">More</span>
         </button>
       </nav>
       {drawerOpen ? (

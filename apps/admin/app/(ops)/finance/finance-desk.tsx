@@ -19,7 +19,8 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SegmentedOtpInput } from "@obiara/ui-web";
-import { AdminCard } from "../../admin-card";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon, UtilityIcon } from "../../admin-icons";
 import {
   settlementTermsKey,
   validFinanceOverview,
@@ -290,17 +291,20 @@ export function FinanceDesk() {
   }
 
   return (
-    <main className="verification-shell finance-shell">
-      <header className="verification-header">
-        <Box>
-          <Link href="/" className="verification-back">
+    <main className="verification-shell finance-shell finance-redesign">
+      <header className="verification-header finance-hero">
+        <Box className="finance-hero-copy">
+          <Link href="/" className="verification-back finance-back">
             Return to command centre
           </Link>
-          <Typography className="section-kicker">
-            Finance operations · live
-          </Typography>
+          <Box className="finance-kicker">
+            <AdminIcon name="finance" aria-hidden="true" />
+            <Typography className="section-kicker">
+              Finance operations · live
+            </Typography>
+          </Box>
           <Typography component="h1">
-            Compare evidence. Preserve the books.
+            Money moves only when evidence agrees.
           </Typography>
           <Typography>
             Provider facts and ledger proofs are append-only. This desk exposes
@@ -308,16 +312,40 @@ export function FinanceDesk() {
             evidence-complete escrow settlement.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          {loaded && !error ? (
-            <Chip
-              color={exceptions.length ? "warning" : "success"}
-              label={`${exceptions.length} exceptions`}
-            />
-          ) : null}
-          <Chip label="No balance editing" variant="outlined" />
-        </Stack>
+        <Box className="finance-hero-register" aria-label="Finance desk status">
+          <Box>
+            <span>Exceptions</span>
+            <strong>{loaded && !error ? exceptions.length : "—"}</strong>
+          </Box>
+          <Box>
+            <span>Ledger policy</span>
+            <strong>Append only</strong>
+          </Box>
+          <Box>
+            <span>Balance editing</span>
+            <strong>Unavailable</strong>
+          </Box>
+        </Box>
+        <AdminCardWatermark watermark="analytics" />
       </header>
+
+      <section className="finance-boundary" aria-label="Settlement boundary">
+        <span className="finance-boundary-icon">
+          <UtilityIcon name="security" aria-hidden="true" />
+        </span>
+        <Box>
+          <Typography className="section-kicker">Release boundary</Typography>
+          <Typography component="h2">
+            Provider fact, ledger proof and human authority must agree.
+          </Typography>
+          <Typography>
+            Reconciliation can expose a bounded exception. Settlement requires
+            complete delivery and member-acceptance evidence, no open dispute
+            and fresh finance MFA.
+          </Typography>
+        </Box>
+        <span className="finance-boundary-state">Fail closed</span>
+      </section>
 
       {error ? (
         <AdminCard
@@ -338,6 +366,7 @@ export function FinanceDesk() {
       {!error ? (
         <>
           <Box
+            className="finance-pulse"
             sx={{
               display: "grid",
               gap: 1.5,
@@ -351,6 +380,7 @@ export function FinanceDesk() {
               ["Exceptions", totals.excepted],
             ].map(([label, value]) => (
               <AdminCard
+                className={`finance-pulse-card finance-pulse-card--${String(label).toLowerCase().replace(" ", "-")}`}
                 key={label}
                 variant="metric"
                 watermark="analytics"
@@ -379,7 +409,15 @@ export function FinanceDesk() {
         </>
       ) : null}
 
-      <AdminCard variant="form" watermark="evidence" sx={{ mb: 3, p: 3 }}>
+      <AdminCard
+        className="finance-settlement"
+        variant="form"
+        watermark="evidence"
+        sx={{ mb: 3, p: 3 }}
+      >
+        <span className="finance-settlement-icon">
+          <AdminIcon name="finance" aria-hidden="true" />
+        </span>
         <Typography className="section-kicker">
           Evidence-gated escrow settlement
         </Typography>
@@ -412,7 +450,12 @@ export function FinanceDesk() {
             {new Date(statement.settledAt).toLocaleString()}
           </Alert>
         ) : null}
-        <Stack direction="column" spacing={2} sx={{ mt: 3 }}>
+        <Stack
+          className="finance-settlement-form"
+          direction="column"
+          spacing={2}
+          sx={{ mt: 3 }}
+        >
           <TextField
             fullWidth
             label="Escrow ID"
@@ -467,7 +510,11 @@ export function FinanceDesk() {
                     Provider fact vs ledger proof
                   </Typography>
                 </Box>
-                <Button onClick={() => void load()} variant="outlined">
+                <Button
+                  startIcon={<UtilityIcon name="replay" aria-hidden="true" />}
+                  onClick={() => void load()}
+                  variant="outlined"
+                >
                   Refresh
                 </Button>
               </Box>
@@ -484,6 +531,7 @@ export function FinanceDesk() {
                   {exceptions.map((item) => (
                     <Box
                       component="article"
+                      className="finance-exception-record"
                       key={`${item.factRef}-${item.recordedAt}`}
                       sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}
                     >
@@ -550,6 +598,7 @@ export function FinanceDesk() {
                   checkpoints.map((item) => (
                     <Box
                       component="article"
+                      className="finance-checkpoint-record"
                       key={item.day}
                       sx={{ p: 1.75, borderBottom: 1, borderColor: "divider" }}
                     >
@@ -569,7 +618,7 @@ export function FinanceDesk() {
             </AdminCard>
           </Box>
 
-          <Alert severity="info" sx={{ mt: 3 }}>
+          <Alert className="finance-limit-note" severity="info" sx={{ mt: 3 }}>
             Pricing publication and redacted export preparation are unavailable
             here because no server-authoritative approval or export service is
             composed. The previous local controls were removed; this desk will

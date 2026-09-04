@@ -21,7 +21,8 @@ import { SegmentedOtpInput } from "@obiara/ui-web";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AdminCard } from "../../admin-card";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon, UtilityIcon } from "../../admin-icons";
 import {
   matchmakerFieldErrors,
   normalizedUniqueList,
@@ -340,45 +341,117 @@ export function MatchmakerLicensingDesk({
     ["rating", "Completed-only rating (0–5)"],
   ] as const;
   return (
-    <Box sx={{ minHeight: "100vh", py: 4 }}>
-      <Container maxWidth="lg">
+    <Box
+      component="main"
+      className={`matchmaker-redesign matchmaker-mode-${mode}`}
+      sx={{ minHeight: "100vh", py: 4 }}
+    >
+      <Container maxWidth={false} className="matchmaker-shell">
         <Stack
+          component="header"
+          className="matchmaker-hero"
           direction={{ xs: "column", md: "row" }}
           spacing={2}
           sx={{ justifyContent: "space-between", mb: 4 }}
         >
-          <Box>
-            <Typography className="section-kicker">AGYINA LICENSING</Typography>
+          <Box className="matchmaker-hero-copy">
+            <Button component={Link} href="/" className="matchmaker-back">
+              Return to command centre
+            </Button>
+            <Box className="matchmaker-kicker">
+              <AdminIcon name="matchmakers" aria-hidden="true" />
+              <Typography className="section-kicker">
+                Agyina · matchmaker licensing
+              </Typography>
+            </Box>
             <Typography
               component="h1"
               sx={{ fontSize: { xs: 40, md: 62 }, fontWeight: 800 }}
             >
-              Licence the guide. Never the shortcut.
+              Licence the guide. Keep trust versioned.
             </Typography>
-            <Typography color="text.secondary">
+            <Typography className="matchmaker-hero-intro">
               Only non-expired, versioned records reach the member marketplace.
               Every change requires MFA and is atomically audited.
             </Typography>
           </Box>
-          <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
-            <Button component={Link} href="/matchmakers/new">
+          <Stack
+            className="matchmaker-hero-actions"
+            direction="row"
+            sx={{ gap: 1, flexWrap: "wrap" }}
+          >
+            <Button
+              component={Link}
+              href="/matchmakers/new"
+              startIcon={<AdminIcon name="operators" aria-hidden="true" />}
+            >
               Add matchmaker
             </Button>
-            <Button component={Link} href="/matchmakers/escrow">
+            <Button
+              component={Link}
+              href="/matchmakers/escrow"
+              startIcon={<AdminIcon name="finance" aria-hidden="true" />}
+            >
               Escrow workflows
             </Button>
-            <Button component={Link} href="/">
-              Command centre
-            </Button>
           </Stack>
+          <Box className="matchmaker-hero-register" aria-label="Licensing mode">
+            <Box>
+              <span>Workspace</span>
+              <strong>
+                {mode === "list"
+                  ? "Licence register"
+                  : mode === "form"
+                    ? "Version issuance"
+                    : "Escrow evidence"}
+              </strong>
+            </Box>
+            <Box>
+              <span>Authority</span>
+              <strong>Fresh MFA</strong>
+            </Box>
+            <Box>
+              <span>Marketplace rule</span>
+              <strong>Current versions only</strong>
+            </Box>
+          </Box>
+          <AdminCardWatermark watermark="identity" />
         </Stack>
+
+        <section
+          className="matchmaker-boundary"
+          aria-label="Licensing boundary"
+        >
+          <span className="matchmaker-boundary-icon">
+            <UtilityIcon name="security" aria-hidden="true" />
+          </span>
+          <Box>
+            <Typography className="section-kicker">
+              Credential boundary
+            </Typography>
+            <Typography component="h2">
+              Professional evidence in. Private member data out.
+            </Typography>
+            <Typography>
+              Only non-expired, versioned licensing records reach the
+              marketplace. Every write is confirmed against exact terms,
+              protected by fresh MFA and retained in the audit trail.
+            </Typography>
+          </Box>
+          <span className="matchmaker-boundary-state">Version locked</span>
+        </section>
         {notice ? (
           <Alert severity="success" sx={{ mb: 2 }}>
             {notice}
           </Alert>
         ) : null}
         {loading ? (
-          <AdminCard variant="panel" watermark="identity" showWatermark={false}>
+          <AdminCard
+            className="matchmaker-state-card"
+            variant="panel"
+            watermark="identity"
+            showWatermark={false}
+          >
             <AdminSkeleton
               variant={mode === "form" ? "form" : "card-list"}
               rows={4}
@@ -386,6 +459,7 @@ export function MatchmakerLicensingDesk({
           </AdminCard>
         ) : loadError ? (
           <AdminCard
+            className="matchmaker-state-card"
             variant="warning"
             watermark="identity"
             showWatermark={false}
@@ -401,18 +475,20 @@ export function MatchmakerLicensingDesk({
         ) : null}
         {!loading && !loadError && mode === "list" && loaded ? (
           items.length ? (
-            <Stack spacing={1.5}>
+            <Stack spacing={1.5} className="matchmaker-register">
               {items.map((item) => (
                 <AdminCard
+                  className="matchmaker-record"
                   key={item.matchmakerId}
                   variant="row"
                   watermark="identity"
                 >
                   <Stack
+                    className="matchmaker-record-layout"
                     direction={{ xs: "column", sm: "row" }}
                     sx={{ justifyContent: "space-between", gap: 2 }}
                   >
-                    <Box>
+                    <Box className="matchmaker-record-identity">
                       <Typography
                         component="h2"
                         sx={{ fontSize: 24, fontWeight: 800 }}
@@ -424,7 +500,11 @@ export function MatchmakerLicensingDesk({
                         {item.languages.join(" / ")}
                       </Typography>
                     </Box>
-                    <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
+                    <Stack
+                      className="matchmaker-record-actions"
+                      direction="row"
+                      sx={{ gap: 1, flexWrap: "wrap" }}
+                    >
                       <Chip
                         label={
                           Date.parse(item.licenseValidUntil) > now
@@ -445,6 +525,7 @@ export function MatchmakerLicensingDesk({
             </Stack>
           ) : (
             <AdminCard
+              className="matchmaker-state-card"
               variant="panel"
               watermark="identity"
               showWatermark={false}
@@ -459,13 +540,22 @@ export function MatchmakerLicensingDesk({
         ) : null}
         {!loading && !loadError && mode === "form" && loaded ? (
           !matchmakerId || profile ? (
-            <AdminCard variant="form" watermark="identity">
-              <Stack spacing={2}>
-                <Typography component="h2">
-                  {matchmakerId
-                    ? "Issue next licence version"
-                    : "License a matchmaker"}
-                </Typography>
+            <AdminCard
+              className="matchmaker-license-form"
+              variant="form"
+              watermark="identity"
+            >
+              <Stack spacing={2} className="matchmaker-form-stack">
+                <Box className="matchmaker-form-heading">
+                  <span>
+                    <AdminIcon name="matchmakers" aria-hidden="true" />
+                  </span>
+                  <Typography component="h2">
+                    {matchmakerId
+                      ? "Issue next licence version"
+                      : "License a matchmaker"}
+                  </Typography>
+                </Box>
                 <Alert severity="info">
                   Use public professional information only. Do not enter phone,
                   email, member identity or private review text.
@@ -544,10 +634,21 @@ export function MatchmakerLicensingDesk({
           )
         ) : null}
         {mode === "escrow" ? (
-          <Stack spacing={2}>
+          <Stack spacing={2} className="matchmaker-escrow-grid">
             {(["fund", "delivery"] as const).map((kind) => (
-              <AdminCard key={kind} variant="form" watermark="evidence">
+              <AdminCard
+                className={`matchmaker-escrow-card matchmaker-escrow-card--${kind}`}
+                key={kind}
+                variant="form"
+                watermark="evidence"
+              >
                 <Stack spacing={2}>
+                  <span className="matchmaker-escrow-icon">
+                    <AdminIcon
+                      name={kind === "fund" ? "finance" : "verification"}
+                      aria-hidden="true"
+                    />
+                  </span>
                   <Typography component="h2">
                     {kind === "fund"
                       ? "Retain confirmed funding"

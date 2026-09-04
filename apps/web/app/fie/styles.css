@@ -145,15 +145,20 @@
   border: 1px solid rgba(58, 14, 46, 0.12);
   border-radius: 999px;
   color: #3a0e2e;
-  display: flex;
+  display: inline-flex;
+  flex: 0 0 auto;
   font-weight: 700;
   gap: 8px;
+  /* Matches the round controls beside it, so the row reads as one band. */
+  min-height: 48px;
   padding: 0 16px;
+  white-space: nowrap;
 }
 
 .connection-pill > span {
   background: #ff9f1c;
   border-radius: 50%;
+  flex: 0 0 8px;
   height: 8px;
   width: 8px;
 }
@@ -168,16 +173,41 @@
 
 .fie-tool,
 .fie-avatar {
+  align-items: center;
   background: #fff;
   border: 1px solid rgba(58, 14, 46, 0.12);
   border-radius: 50%;
   color: #3a0e2e;
+  display: inline-flex;
+  /* Fixed on all three axes: a flex item that may shrink stops being round
+     the moment the row runs out of room, which is how these became ovals on
+     the narrow layout. */
+  flex: 0 0 48px;
   font-weight: 800;
+  height: 48px;
+  justify-content: center;
+  line-height: 1;
+  text-decoration: none;
   width: 48px;
+}
+
+.fie-tool:hover,
+.fie-avatar:hover {
+  border-color: rgba(58, 14, 46, 0.3);
+}
+
+.fie-tool:focus-visible,
+.fie-avatar:focus-visible {
+  outline: 3px solid #ff9f1c;
+  outline-offset: 3px;
 }
 
 .fie-avatar {
   background: #ff9f1c;
+  /* The initials are the only thing in the circle; keep them from wearing the
+     link underline the rest of the page gives anchors. */
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
 }
 
 .connection-banner {
@@ -509,6 +539,11 @@
 
   .connection-pill {
     margin-right: auto;
+    /* Free to take the room the row has, but never so little that the label
+       collides with its own dot. */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .fie-hero {
@@ -536,40 +571,73 @@
     flex-direction: column;
   }
 
+  /* A floating pill rather than a bar welded to the bottom edge: it sits
+     above the content it navigates, so the compound reads as something you
+     are holding rather than a chrome strip the page ends at. */
   .fie-bottom-nav {
-    background: rgba(32, 11, 25, 0.97);
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    inset: auto 0 0;
-    max-width: 100vw;
-    overflow: hidden;
-    padding: 8px max(8px, env(safe-area-inset-left))
-      calc(8px + env(safe-area-inset-bottom));
+    /* Glass: the plum is transparent enough for the compound to move behind
+       it, and the blur is what makes that legible rather than noisy. The old
+       bar asked for an 18px blur behind a 0.97 fill, which is opaque — the
+       filter ran and nothing came through it. */
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    backdrop-filter: blur(22px) saturate(170%);
+    background: rgba(32, 11, 25, 0.58);
+    border: 1px solid rgba(255, 243, 230, 0.16);
+    border-radius: 999px;
+    box-shadow:
+      0 18px 44px rgba(26, 7, 19, 0.32),
+      inset 0 1px 0 rgba(255, 243, 230, 0.18);
+    display: flex;
+    gap: 2px;
+    inset: auto 12px calc(12px + env(safe-area-inset-bottom));
+    justify-content: space-between;
+    margin-inline: auto;
+    max-width: 30rem;
+    padding: 6px;
     position: fixed;
-    width: 100%;
     z-index: 20;
   }
 
-  .fie-bottom-nav a {
+  /* Icons only until you are there. Six labelled items in a pill this wide
+     would set every word at a size nobody can read; the one that matters —
+     where you are — says its name. */
+  .fie-bottom-nav a,
+  .fie-bottom-nav button {
     align-items: center;
+    border-radius: 999px;
     color: rgba(255, 243, 230, 0.62);
     display: flex;
-    flex-direction: column;
-    font-size: 0.6rem;
-    gap: 4px;
+    flex: 1 1 auto;
+    gap: 6px;
     justify-content: center;
-    min-height: 54px;
+    min-height: 48px;
+    min-width: 48px;
     text-decoration: none;
+    transition:
+      background 200ms ease,
+      color 200ms ease,
+      flex-grow 200ms ease;
+  }
+
+  .fie-bottom-nav .fie-nav-label {
+    display: none;
+    font-size: 0.72rem;
+    font-weight: 800;
+    white-space: nowrap;
   }
 
   .fie-bottom-nav a[aria-current="page"] {
-    color: #fff3e6;
+    background: #ff9f1c;
+    color: #2a1022;
+    flex-grow: 2.4;
   }
 
-  .fie-bottom-nav span {
-    color: #ffb44f;
-    font-size: 0.9rem;
-    font-weight: 800;
+  .fie-bottom-nav a[aria-current="page"] .fie-nav-label {
+    display: inline;
+  }
+
+  .fie-bottom-nav a[aria-current="page"] svg {
+    color: #2a1022;
   }
 }
 
@@ -602,34 +670,155 @@
 }
 
 /* Mobile primary navigation and secondary account drawer */
-.fie-drawer-backdrop { display: none; }
+.fie-drawer-backdrop {
+  display: none;
+}
 
 @media (max-width: 760px) {
-  .fie-main { padding-bottom: calc(94px + env(safe-area-inset-bottom)); }
-  .fie-bottom-nav { align-items: stretch; backdrop-filter: blur(18px); background: rgba(32, 11, 25, .96); border: 1px solid rgba(255,243,230,.1); border-bottom: 0; border-radius: 22px 22px 0 0; box-shadow: 0 -14px 42px rgba(32,11,25,.18); grid-template-columns: repeat(6, minmax(0, 1fr)); padding-top: 9px; }
+  .fie-main {
+    padding-bottom: calc(94px + env(safe-area-inset-bottom));
+  }
+  /* Where the glass cannot be drawn, the fill has to carry the contrast on
+     its own — an unblurred 0.58 plum would put cream labels over whatever
+     happens to be scrolling underneath. */
+  @supports not (
+    (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+  ) {
+    .fie-bottom-nav {
+      background: rgba(32, 11, 25, 0.96);
+    }
+  }
   .fie-bottom-nav a,
-  .fie-bottom-nav button { align-items: center; background: transparent; border: 0; color: rgba(255,243,230,.58); display: flex; flex-direction: column; font: inherit; font-size: .56rem; gap: 5px; justify-content: center; min-height: 58px; min-width: 0; padding: 3px 1px; text-decoration: none; }
-  .fie-bottom-nav button { cursor: pointer; }
-  .fie-bottom-nav svg { color: #ffb44f; height: 20px; width: 20px; }
-  .fie-bottom-nav a[aria-current="page"] { color: #fff3e6; }
-  .fie-bottom-nav a[aria-current="page"] svg { filter: drop-shadow(0 0 7px rgba(255,180,79,.34)); stroke-width: 2.3; }
-  .fie-drawer-backdrop { align-items: flex-end; background: rgba(26,7,19,.52); display: flex; inset: 0; position: fixed; z-index: 60; }
-  .fie-secondary-drawer { background: #fffaf5; border-radius: 26px 26px 0 0; box-shadow: 0 -24px 64px rgba(32,11,25,.22); max-height: min(82dvh, 680px); overflow-y: auto; padding: 26px 20px calc(26px + env(safe-area-inset-bottom)); width: 100%; }
-  .fie-secondary-drawer header { align-items: flex-start; border-bottom: 1px solid rgba(58,14,46,.1); display: flex; justify-content: space-between; margin-bottom: 12px; padding: 2px 4px 22px; }
-  .fie-secondary-drawer header span { color: #c72f53; font-size: .63rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-  .fie-secondary-drawer header h2 { color: #3a0e2e; font-size: 1.7rem; letter-spacing: -.045em; margin-top: 5px; }
-  .fie-secondary-drawer header button { align-items: center; background: #f2e7df; border: 0; border-radius: 12px; color: #3a0e2e; display: flex; font-size: 1.35rem; height: 42px; justify-content: center; width: 42px; }
-  .fie-secondary-drawer nav { display: grid; gap: 7px; }
-  .fie-secondary-drawer nav a { align-items: center; border-radius: 16px 7px 16px 16px; color: #3a0e2e; display: grid; gap: 13px; grid-template-columns: 44px minmax(0,1fr); min-height: 70px; padding: 10px; text-decoration: none; }
-  .fie-secondary-drawer nav a:hover { background: #f5ece5; }
-  .fie-secondary-drawer nav a > svg { background: rgba(255,159,28,.13); border-radius: 12px 6px 12px 12px; color: #9a5700; height: 44px; padding: 11px; width: 44px; }
-  .fie-secondary-drawer nav a span { display: flex; flex-direction: column; }
-  .fie-secondary-drawer nav strong { font-size: .88rem; }
-  .fie-secondary-drawer nav small { color: #765f70; font-size: .68rem; margin-top: 3px; }
+  .fie-bottom-nav button {
+    background: transparent;
+    border: 0;
+    font: inherit;
+  }
+  .fie-bottom-nav button {
+    cursor: pointer;
+  }
+  .fie-bottom-nav svg {
+    color: #ffb44f;
+    height: 20px;
+    width: 20px;
+  }
+  .fie-bottom-nav a[aria-current="page"] svg {
+    stroke-width: 2.3;
+  }
+  /* A navigation drawer, not a sheet: it comes in from the side the thumb
+     opened it with and covers the pill, so the menu is plainly a different
+     place rather than a taller version of the bar. */
+  .fie-drawer-backdrop {
+    align-items: stretch;
+    background: rgba(26, 7, 19, 0.52);
+    display: flex;
+    inset: 0;
+    justify-content: flex-end;
+    position: fixed;
+    z-index: 60;
+  }
+  .fie-secondary-drawer {
+    animation: fie-drawer-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    background: #fffaf5;
+    border-radius: 26px 0 0 26px;
+    box-shadow: -24px 0 64px rgba(32, 11, 25, 0.28);
+    max-width: 21rem;
+    overflow-y: auto;
+    padding: 26px 20px calc(26px + env(safe-area-inset-bottom));
+    width: min(86vw, 21rem);
+  }
+
+  @keyframes fie-drawer-in {
+    from {
+      transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fie-secondary-drawer {
+      animation: none;
+    }
+  }
+  .fie-secondary-drawer header {
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(58, 14, 46, 0.1);
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 2px 4px 22px;
+  }
+  .fie-secondary-drawer header span {
+    color: #c72f53;
+    font-size: 0.63rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .fie-secondary-drawer header h2 {
+    color: #3a0e2e;
+    font-size: 1.7rem;
+    letter-spacing: -0.045em;
+    margin-top: 5px;
+  }
+  .fie-secondary-drawer header button {
+    align-items: center;
+    background: #f2e7df;
+    border: 0;
+    border-radius: 12px;
+    color: #3a0e2e;
+    display: flex;
+    font-size: 1.35rem;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+  }
+  .fie-secondary-drawer nav {
+    display: grid;
+    gap: 7px;
+  }
+  .fie-secondary-drawer nav a {
+    align-items: center;
+    border-radius: 16px 7px 16px 16px;
+    color: #3a0e2e;
+    display: grid;
+    gap: 13px;
+    grid-template-columns: 44px minmax(0, 1fr);
+    min-height: 70px;
+    padding: 10px;
+    text-decoration: none;
+  }
+  .fie-secondary-drawer nav a:hover {
+    background: #f5ece5;
+  }
+  .fie-secondary-drawer nav a > svg {
+    background: rgba(255, 159, 28, 0.13);
+    border-radius: 12px 6px 12px 12px;
+    color: #9a5700;
+    height: 44px;
+    padding: 11px;
+    width: 44px;
+  }
+  .fie-secondary-drawer nav a span {
+    display: flex;
+    flex-direction: column;
+  }
+  .fie-secondary-drawer nav strong {
+    font-size: 0.88rem;
+  }
+  .fie-secondary-drawer nav small {
+    color: #765f70;
+    font-size: 0.68rem;
+    margin-top: 3px;
+  }
 }
 
 @media (max-width: 390px) {
   .fie-bottom-nav a,
-  .fie-bottom-nav button { font-size: .5rem; }
-  .fie-bottom-nav svg { height: 18px; width: 18px; }
+  .fie-bottom-nav button {
+    font-size: 0.5rem;
+  }
+  .fie-bottom-nav svg {
+    height: 18px;
+    width: 18px;
+  }
 }

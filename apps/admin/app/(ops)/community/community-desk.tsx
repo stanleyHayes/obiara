@@ -1,225 +1,196 @@
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Container,
-  Stack,
-  Typography,
-} from "@mui/material";
-import { AdminCard } from "../../admin-card";
+import { Alert, Box, Button, Stack, Typography } from "@mui/material";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon, UtilityIcon } from "../../admin-icons";
 
 const evidence = [
   {
+    code: "CIRCLE",
     title: "Circle and fire state",
     detail:
       "Current density, capacity, schedule and source versions must come from the community authorities.",
+    icon: "circles",
   },
   {
+    code: "HOST",
     title: "Host eligibility",
     detail:
       "Verification, training, Suban vetting and certification must all be current and versioned.",
+    icon: "community",
   },
   {
+    code: "NOTICE",
     title: "Participant notice",
     detail:
       "The approved template, locale, audience and content digest must be resolved before preview.",
+    icon: "waitlist",
   },
   {
+    code: "REASON",
     title: "Bounded reason",
     detail:
       "Only host unavailable, certification expired, safety capacity or schedule conflict is accepted.",
+    icon: "controls",
   },
   {
+    code: "HUMAN",
     title: "Human acknowledgement",
     detail:
       "The exact notice is acknowledged only after every source version is revalidated.",
+    icon: "verification",
   },
 ] as const;
 
 export function CommunityDesk() {
   return (
-    <Box
-      sx={{
-        bgcolor: "background.default",
-        color: "text.primary",
-        minHeight: "100vh",
-        py: 4,
-      }}
-    >
-      <Container maxWidth="lg">
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          sx={{
-            alignItems: { md: "center" },
-            justifyContent: "space-between",
-            mb: 5,
-          }}
-        >
-          <Box>
-            <Typography
-              sx={{
-                color: "#8e3159",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 1.4,
-              }}
-            >
-              COMMUNITY OPERATIONS
+    <main className="community-redesign">
+      <Box className="community-shell">
+        <header className="community-hero">
+          <Box className="community-hero-copy">
+            <Button href="/" className="community-back">
+              Return to command centre
+            </Button>
+            <Box className="community-kicker">
+              <AdminIcon name="circles" aria-hidden="true" />
+              <Typography className="section-kicker">
+                Circles &amp; hosts · community desk
+              </Typography>
+            </Box>
+            <Typography component="h1">
+              Hold the circle before you move it.
             </Typography>
-            <Typography
-              component="h1"
-              sx={{
-                fontSize: { xs: 44, md: 72 },
-                fontWeight: 800,
-                letterSpacing: "-0.06em",
-                lineHeight: 0.95,
-                mt: 1,
-              }}
-            >
-              Evidence before intervention.
-            </Typography>
-            <Typography sx={{ color: "text.secondary", maxWidth: 720, mt: 2 }}>
-              Community changes stay closed until the runtime can prove the
-              circle, fire, host and participant-notice evidence together.
+            <Typography className="community-hero-intro">
+              One place to understand the host, gathering, capacity and notice
+              evidence that must agree before an operator can propose change.
             </Typography>
           </Box>
-          <Button href="/" variant="outlined">
-            Back to command centre
-          </Button>
-        </Stack>
-
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          Operations proposals are unavailable. Host certification and
-          participant-notice authorities are not yet composed into the API
-          runtime.
-        </Alert>
-
-        <AdminCard
-          variant="policy"
-          watermark="evidence"
-          sx={{ borderRadius: 1, p: { xs: 2.5, md: 4 } }}
-        >
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={2}
-            sx={{ justifyContent: "space-between" }}
-          >
+          <Box className="community-hero-register" aria-label="Desk status">
             <Box>
-              <Typography
-                sx={{
-                  color: "#8e3159",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  letterSpacing: 1.2,
-                }}
-              >
-                REQUIRED EVIDENCE CHAIN
+              <span>Operating mode</span>
+              <strong>Evidence only</strong>
+            </Box>
+            <Box>
+              <span>Proposal authority</span>
+              <strong>Not composed</strong>
+            </Box>
+            <Box>
+              <span>Decision owner</span>
+              <strong>Human operator</strong>
+            </Box>
+          </Box>
+          <AdminCardWatermark watermark="identity" />
+        </header>
+
+        <section
+          className="community-boundary"
+          aria-labelledby="boundary-title"
+        >
+          <span className="community-boundary-icon">
+            <UtilityIcon name="security" aria-hidden="true" />
+          </span>
+          <Box>
+            <Typography className="section-kicker">Current boundary</Typography>
+            <Typography id="boundary-title" component="h2">
+              Observe now. Intervene only when the authorities are connected.
+            </Typography>
+            <Typography>
+              Operations proposals are unavailable. Host certification and
+              participant-notice authorities are not yet composed into the API
+              runtime.
+            </Typography>
+          </Box>
+          <span className="community-boundary-state">Fail closed</span>
+        </section>
+
+        <section className="community-relay" aria-labelledby="relay-title">
+          <Box className="community-section-heading">
+            <Box>
+              <Typography className="section-kicker">
+                Required evidence relay
               </Typography>
-              <Typography
-                component="h2"
-                sx={{ fontSize: { xs: 30, md: 42 }, fontWeight: 800, mt: 1 }}
-              >
+              <Typography id="relay-title" component="h2">
                 Five checks. One bounded proposal.
               </Typography>
             </Box>
-            <Chip
-              color="warning"
-              label="Fail closed"
-              sx={{ alignSelf: "flex-start" }}
-            />
-          </Stack>
-
-          <Box
-            sx={{
-              display: "grid",
-              gap: 1.5,
-              gridTemplateColumns: "1fr",
-              mt: 3,
-            }}
-          >
-            {evidence.map((item, index) => (
-              <Box
-                key={item.title}
-                sx={{
-                  border: "1px solid",
-                  borderColor: "divider",
-                  borderRadius: 1,
-                  p: 2.5,
-                }}
-              >
-                <Typography
-                  sx={{ color: "#8e3159", fontSize: 12, fontWeight: 800 }}
-                >
-                  {String(index + 1).padStart(2, "0")}
-                </Typography>
-                <Typography sx={{ fontSize: 20, fontWeight: 800, mt: 0.5 }}>
-                  {item.title}
-                </Typography>
-                <Typography
-                  sx={{ color: "text.secondary", lineHeight: 1.6, mt: 1 }}
-                >
-                  {item.detail}
-                </Typography>
-              </Box>
-            ))}
+            <Typography>
+              Every handoff stays traceable. A missing or stale source stops the
+              chain before preview.
+            </Typography>
           </Box>
-        </AdminCard>
+          <ol className="community-evidence-list">
+            {evidence.map((item, index) => (
+              <li className="community-evidence-step" key={item.title}>
+                <span className="community-step-number">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="community-step-icon">
+                  <AdminIcon name={item.icon} aria-hidden="true" />
+                </span>
+                <Box className="community-step-copy">
+                  <span>{item.code}</span>
+                  <Typography component="h3">{item.title}</Typography>
+                  <Typography>{item.detail}</Typography>
+                </Box>
+                <span className="community-step-state">Required</span>
+              </li>
+            ))}
+          </ol>
+        </section>
 
-        <Box
-          sx={{
-            display: "grid",
-            gap: 2,
-            gridTemplateColumns: "1fr",
-            mt: 3,
-          }}
-        >
+        <Box className="community-decision-grid">
           <AdminCard
             variant="policy"
             watermark="evidence"
-            sx={{ borderRadius: 1, p: 3 }}
+            className="community-readiness"
           >
-            <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
-              What readiness means
+            <Typography className="section-kicker">Readiness means</Typography>
+            <Typography component="h2">
+              A review packet—not an action.
             </Typography>
-            <Typography
-              sx={{ color: "text.secondary", lineHeight: 1.7, mt: 1 }}
-            >
+            <Typography>
               A successful proposal is ready for human review only. It does not
               assign a host, cancel a fire, change a circle or send a
               notification.
             </Typography>
+            <Box
+              className="community-not-actions"
+              aria-label="Excluded actions"
+            >
+              <span>No host assignment</span>
+              <span>No circle change</span>
+              <span>No participant notice</span>
+            </Box>
           </AdminCard>
           <AdminCard
             variant="panel"
             watermark="queue"
-            sx={{ borderRadius: 1, p: 3 }}
+            className="community-handoff"
           >
-            <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
-              Available controls
+            <Box className="community-handoff-icon">
+              <AdminIcon name="operations" aria-hidden="true" />
+            </Box>
+            <Typography className="section-kicker">Operator handoff</Typography>
+            <Typography component="h2">
+              Use the authority that already exists.
             </Typography>
-            <Typography
-              sx={{ color: "text.secondary", lineHeight: 1.7, mt: 1 }}
-            >
-              Use runtime controls for governed feature changes, or the safety
-              queue for an active safety case.
+            <Typography>
+              Govern feature behavior through runtime controls. Send active harm
+              or safeguarding concerns to the safety desk.
             </Typography>
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1.5}
-              sx={{ mt: 2 }}
-            >
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1.25}>
               <Button href="/controls" variant="contained">
-                Runtime controls
+                Open runtime controls
               </Button>
               <Button href="/safety" variant="outlined">
-                Safety queue
+                Open safety desk
               </Button>
             </Stack>
           </AdminCard>
         </Box>
-      </Container>
-    </Box>
+        <Alert className="community-footnote" severity="info">
+          This desk represents evidence readiness only; it never simulates a
+          host decision or community intervention in the browser.
+        </Alert>
+      </Box>
+    </main>
   );
 }
