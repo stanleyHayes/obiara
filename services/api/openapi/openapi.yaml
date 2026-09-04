@@ -2266,6 +2266,167 @@ paths:
           $ref: "#/components/responses/VerificationRejected"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/introductions:
+    post:
+      operationId: beginVoiceIntroduction
+      tags: [Profile]
+      summary: Open a Voice of Introduction and get an upload grant
+      security:
+        - MemberBearer: []
+      description: |
+        Returns a short-lived signed URL the client uploads the audio to
+        directly. The recording never passes through this service: a
+        two-minute clip on the API's request path costs a timeout instead of a
+        retry. Requires effective consent for the `voice.introduction`
+        purpose, which is re-checked on every later transition.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoiceIntroductionInput"
+      responses:
+        "201":
+          description: Recording opened; upload with the returned grant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceIntroductionEnvelope"
+        "200":
+          description: The same Idempotency-Key already opened this recording.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceIntroductionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Consent for the voice purpose is not effective.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/introductions/{id}/uploaded:
+    post:
+      operationId: confirmVoiceIntroduction
+      tags: [Profile]
+      summary: Confirm the audio landed and start transcription
+      security:
+        - MemberBearer: []
+      description: |
+        Reads back what storage actually accepted — size, duration and digest
+        — rather than trusting the client. The listening gate counts against
+        that duration, so a declared number would let a member claim an answer
+        they never recorded.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Recording confirmed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceIntroductionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such recording for this member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The recording changed while this request was in flight.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/introductions/{id}:
+    get:
+      operationId: getVoiceIntroduction
+      tags: [Profile]
+      summary: Read the member's own Voice of Introduction
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The recording.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceIntroductionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: |
+            No such recording for this member. Another member's recording
+            answers here too: a 403 would confirm the id exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: revokeVoiceIntroduction
+      tags: [Profile]
+      summary: Withdraw a Voice of Introduction
+      security:
+        - MemberBearer: []
+      description: |
+        Stops any transcription in flight and marks the audio for erasure. The
+        audit trail is kept, which is what makes the erasure provable.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Withdrawn.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoiceIntroductionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such recording for this member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/onboarding/status:
     get:
       operationId: getOnboardingStatus
@@ -8533,6 +8694,79 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/MembershipData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    VoiceIntroductionInput:
+      type: object
+      additionalProperties: false
+      required: [contentType]
+      properties:
+        contentType:
+          type: string
+          description: The audio type the client will upload, e.g. audio/ogg.
+    VoiceIntroductionData:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          introductionId,
+          status,
+          dataStatus,
+          assetId,
+          contentType,
+          durationMs,
+          sizeBytes,
+        ]
+      properties:
+        introductionId:
+          type: string
+        status:
+          type: string
+          enum:
+            [
+              draft,
+              upload_authorized,
+              uploaded,
+              transcribing,
+              ready,
+              uncertain,
+              failed,
+              cancelled,
+              revoked,
+            ]
+        dataStatus:
+          type: string
+          enum: [retained, purged]
+        assetId:
+          type: string
+        contentType:
+          type: string
+        durationMs:
+          type: integer
+          format: int64
+          description: |
+            What storage measured, never what the client declared. The
+            listening gate counts against this.
+        sizeBytes:
+          type: integer
+          format: int64
+        transcriptId:
+          type: string
+        uploadUrl:
+          type: string
+          description: |
+            Present only on the response that opens the recording. Short-lived
+            and scoped to one object, content type, length and digest.
+        uploadExpiresAt:
+          type: string
+          format: date-time
+    VoiceIntroductionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/VoiceIntroductionData"
         meta:
           $ref: "#/components/schemas/Metadata"
     OnboardingStepState:

@@ -25,6 +25,7 @@ type Config struct {
 	Environment            string
 	LivenessHMACSecret     string
 	VerificationHMACSecret string
+	ObjectStorage          ObjectStorage
 	AdminConsoleURL        string
 	CommerceHMACSecret     string
 	AdminHMACSecret        string
@@ -81,6 +82,7 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 			getenv("VERIFICATION_HMAC_SECRET"),
 			"obiara-local-verification-key-change-before-production",
 		),
+		ObjectStorage: loadObjectStorage(getenv),
 		CommerceHMACSecret: valueOrDefault(
 			getenv("COMMERCE_HMAC_SECRET"),
 			"obiara-local-commerce-key-change-before-production",

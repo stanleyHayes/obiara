@@ -71,7 +71,10 @@ import (
 	identitymongodb "github.com/stanleyHayes/obiara/services/api/internal/identity/adapters/outbound/mongodb"
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
+	"github.com/stanleyHayes/obiara/services/api/internal/introduction"
 	"github.com/stanleyHayes/obiara/services/api/internal/marketpack"
+	"github.com/stanleyHayes/obiara/services/api/internal/media"
+	"github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/objectstore"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/delivery"
@@ -547,6 +550,46 @@ func run() error {
 	apihttp.RegisterSeedAllowanceRoutes(mux, allowanceModule.Allowances, identityModule.Sessions)
 	apihttp.RegisterLedgerRoutes(mux, ledgerModule.Ledger)
 	apihttp.RegisterCommunityAuditRoutes(mux, communityAuditModule.Audit)
+	// Voice of Introduction. Composed only when a bucket is configured: the
+	// recording has nowhere to go without one, and a half-built surface that
+	// accepts a member's two-minute take and drops it is worse than a surface
+	// that is plainly absent.
+	if cfg.ObjectStorage.Configured() {
+		mediaModule, mediaErr := media.NewModule(
+			ctx,
+			client.Database(cfg.MongoDatabase),
+			objectstore.Config{
+				Endpoint:  cfg.ObjectStorage.Endpoint,
+				Region:    cfg.ObjectStorage.Region,
+				Bucket:    cfg.ObjectStorage.Bucket,
+				AccessKey: cfg.ObjectStorage.AccessKey,
+				SecretKey: cfg.ObjectStorage.SecretKey,
+				PathStyle: cfg.ObjectStorage.PathStyle,
+			},
+			[]string{introduction.ConsentPurposeID},
+		)
+		if mediaErr != nil {
+			return fmt.Errorf("build media module: %w", mediaErr)
+		}
+		introductionModule, introErr := introduction.NewModule(
+			ctx,
+			client.Database(cfg.MongoDatabase),
+			onboardingConsentModule.Consents,
+			mediaModule.Access,
+			mediaModule.Assets,
+			mediaModule.Assets,
+			cfg.LivenessHMACSecret,
+		)
+		if introErr != nil {
+			return fmt.Errorf("build introduction module: %w", introErr)
+		}
+		apihttp.RegisterIntroductionRoutes(
+			mux,
+			introductionModule.Introductions,
+			introductionModule.Store,
+			identityModule.Sessions,
+		)
+	}
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterOnboardingStatusRoutes(
 		mux,

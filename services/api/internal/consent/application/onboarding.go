@@ -11,7 +11,10 @@ const (
 	CommunityPromiseID = "promise.community"
 	ServiceTermsID     = "terms.service"
 	AdultAgeID         = "age.adult"
-	CurrentVersion     = uint64(1)
+	// VoiceIntroductionID is consented to when a member first records, not
+	// during onboarding — it is not one of the three the walk collects.
+	VoiceIntroductionID = "voice.introduction"
+	CurrentVersion      = uint64(1)
 )
 
 type OnboardingService struct {

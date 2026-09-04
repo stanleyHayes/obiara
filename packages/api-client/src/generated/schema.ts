@@ -2510,6 +2510,75 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/introductions": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Open a Voice of Introduction and get an upload grant
+     * @description Returns a short-lived signed URL the client uploads the audio to
+     *     directly. The recording never passes through this service: a
+     *     two-minute clip on the API's request path costs a timeout instead of a
+     *     retry. Requires effective consent for the `voice.introduction`
+     *     purpose, which is re-checked on every later transition.
+     */
+    readonly post: operations["beginVoiceIntroduction"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/introductions/{id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Read the member's own Voice of Introduction */
+    readonly get: operations["getVoiceIntroduction"];
+    readonly put?: never;
+    readonly post?: never;
+    /**
+     * Withdraw a Voice of Introduction
+     * @description Stops any transcription in flight and marks the audio for erasure. The
+     *     audit trail is kept, which is what makes the erasure provable.
+     */
+    readonly delete: operations["revokeVoiceIntroduction"];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/introductions/{id}/uploaded": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Confirm the audio landed and start transcription
+     * @description Reads back what storage actually accepted — size, duration and digest
+     *     — rather than trusting the client. The listening gate counts against
+     *     that duration, so a declared number would let a member claim an answer
+     *     they never recorded.
+     */
+    readonly post: operations["confirmVoiceIntroduction"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/listening/eligibility/{assetId}": {
     readonly parameters: {
       readonly query?: never;
@@ -5455,6 +5524,48 @@ export interface components {
     readonly VerificationEvidenceEnvelope: {
       readonly data: components["schemas"]["VerificationEvidenceData"];
       readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly VoiceIntroductionData: {
+      readonly assetId: string;
+      readonly contentType: string;
+      /** @enum {string} */
+      readonly dataStatus: "retained" | "purged";
+      /**
+       * Format: int64
+       * @description What storage measured, never what the client declared. The
+       *     listening gate counts against this.
+       */
+      readonly durationMs: number;
+      readonly introductionId: string;
+      /** Format: int64 */
+      readonly sizeBytes: number;
+      /** @enum {string} */
+      readonly status:
+        | "draft"
+        | "upload_authorized"
+        | "uploaded"
+        | "transcribing"
+        | "ready"
+        | "uncertain"
+        | "failed"
+        | "cancelled"
+        | "revoked";
+      readonly transcriptId?: string;
+      /** Format: date-time */
+      readonly uploadExpiresAt?: string;
+      /**
+       * @description Present only on the response that opens the recording. Short-lived
+       *     and scoped to one object, content type, length and digest.
+       */
+      readonly uploadUrl?: string;
+    };
+    readonly VoiceIntroductionEnvelope: {
+      readonly data: components["schemas"]["VoiceIntroductionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly VoiceIntroductionInput: {
+      /** @description The audio type the client will upload, e.g. audio/ogg. */
+      readonly contentType: string;
     };
     readonly WebhookResultData: {
       /** @enum {string} */
@@ -11692,6 +11803,182 @@ export interface operations {
         content?: never;
       };
       readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly beginVoiceIntroduction: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["VoiceIntroductionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The same Idempotency-Key already opened this recording. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VoiceIntroductionEnvelope"];
+        };
+      };
+      /** @description Recording opened; upload with the returned grant. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VoiceIntroductionEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description Consent for the voice purpose is not effective. */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly getVoiceIntroduction: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The recording. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VoiceIntroductionEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /**
+       * @description No such recording for this member. Another member's recording
+       *     answers here too: a 403 would confirm the id exists.
+       */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  readonly revokeVoiceIntroduction: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Withdrawn. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VoiceIntroductionEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description No such recording for this member. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly confirmVoiceIntroduction: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Recording confirmed. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VoiceIntroductionEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description No such recording for this member. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The recording changed while this request was in flight. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly getListeningEligibility: {

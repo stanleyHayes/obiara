@@ -207,13 +207,16 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	}
 	// The count is deliberate, not incidental: adding a route to the
 	// contract is a decision, and this guard makes an accidental one fail
-	// loudly. 190 adds getOnboardingStatus, which lets a member resume the
+	// loudly. 194 adds getOnboardingStatus, which lets a member resume the
 	// walk instead of paying for it again after a refresh; adminLogout,
 	// without which signing out of the console left the session id live
-	// upstream until it expired on its own; and submitGhanaCardDocuments,
-	// which moved identity out of signing up so an outage at the card
-	// provider can no longer stop anyone creating an account.
-	if len(seen) != 190 {
-		t.Errorf("operationId count = %d, want 190", len(seen))
+	// upstream until it expired on its own; submitGhanaCardDocuments, which
+	// moved identity out of signing up so an outage at the card provider can
+	// no longer stop anyone creating an account; and the four Voice of
+	// Introduction routes, which is the first time that context has been
+	// reachable at all — its domain and application layers have been
+	// complete and untouchable since S2-021.
+	if len(seen) != 194 {
+		t.Errorf("operationId count = %d, want 194", len(seen))
 	}
 }

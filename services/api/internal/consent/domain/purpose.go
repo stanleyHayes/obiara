@@ -18,6 +18,12 @@ const (
 	PurposePromise PurposeKind = "promise"
 	PurposeTerms   PurposeKind = "terms"
 	PurposeAge     PurposeKind = "age"
+	// PurposeVoice covers a recording of the member's own voice. It is its
+	// own kind rather than folded into the Promise because it can be
+	// withdrawn on its own: a member may keep their account and stop us
+	// holding their recording, and the introduction context re-checks this
+	// on every transition so a withdrawal stops work already in flight.
+	PurposeVoice PurposeKind = "voice"
 )
 
 type PurposeStatus string
@@ -58,7 +64,7 @@ func NewPurpose(params NewPurposeParams) (Purpose, error) {
 		return Purpose{}, ErrInvalidPurpose
 	}
 	switch params.Kind {
-	case PurposePromise, PurposeTerms, PurposeAge:
+	case PurposePromise, PurposeTerms, PurposeAge, PurposeVoice:
 	default:
 		return Purpose{}, ErrInvalidPurpose
 	}
