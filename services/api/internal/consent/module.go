@@ -13,6 +13,10 @@ import (
 
 type Module struct {
 	Onboarding application.OnboardingService
+	// Consents is the same record service the onboarding writer sits on,
+	// exposed so a resuming member can be told which acknowledgements they
+	// have already given rather than asked for them a second time.
+	Consents application.Service
 }
 
 func NewModule(ctx context.Context, database *mongo.Database) (Module, error) {
@@ -34,5 +38,8 @@ func NewModule(ctx context.Context, database *mongo.Database) (Module, error) {
 		purposes = append(purposes, purpose)
 	}
 	service := application.NewService(store, mongodb.NewCatalog(purposes...), time.Now)
-	return Module{Onboarding: application.NewOnboardingService(service)}, nil
+	return Module{
+		Onboarding: application.NewOnboardingService(service),
+		Consents:   service,
+	}, nil
 }

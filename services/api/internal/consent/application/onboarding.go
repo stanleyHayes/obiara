@@ -50,10 +50,33 @@ func (service OnboardingService) Accept(ctx context.Context, command OnboardingC
 		if err != nil {
 			return OnboardingResult{}, err
 		}
+		// Target the revision that is actually stored. This used to be a
+		// hardcoded zero, which meant "I expect no prior record" — true only
+		// on a member's very first attempt. Anyone who accepted the Promise
+		// and then dropped off before finishing the walk came back to a
+		// permanent 409: the receipt they had already given was read as a
+		// stale write, and there was no way past the step that produced it.
+		revision, err := service.consents.Revision(ctx, command.SubjectID, spec.id)
+		if err != nil {
+			return OnboardingResult{}, fmt.Errorf("%s: %w", spec.id, err)
+		}
+
+		// Already given, at this exact version: the end state this command
+		// asks for is the one that holds. Re-granting would either conflict
+		// or write a second receipt for a choice made once.
+		effective, err := service.consents.Effective(ctx, command.SubjectID, spec.id, CurrentVersion)
+		if err != nil {
+			return OnboardingResult{}, fmt.Errorf("%s: %w", spec.id, err)
+		}
+		if effective {
+			revisions = append(revisions, revision)
+			continue
+		}
+
 		result, err := service.consents.Grant(ctx, Command{
 			CommandID: command.CommandID + ":" + spec.id,
 			SubjectID: command.SubjectID, PurposeID: spec.id,
-			PurposeVersion: CurrentVersion, ExpectedRevision: 0,
+			PurposeVersion: CurrentVersion, ExpectedRevision: revision,
 			ActorID: command.SubjectID, ActorKind: domain.ActorSubject,
 			Source: command.Source, Evidence: evidence,
 		})

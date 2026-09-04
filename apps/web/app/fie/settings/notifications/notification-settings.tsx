@@ -12,6 +12,7 @@ import {
   CompoundBottomNavigation,
   CompoundRail,
 } from "../../compound-navigation";
+import { ObiaraCheckbox, ObiaraTimeField } from "@obiara/ui-web";
 
 const categories: ReadonlyArray<{
   id: NotificationCategory;
@@ -174,23 +175,18 @@ export function NotificationSettings() {
                 {categories.map((category) => {
                   const checked = state.enabledCategories.includes(category.id);
                   return (
-                    <label key={category.id}>
-                      <input
-                        checked={checked}
-                        onChange={() =>
-                          dispatch({
-                            type: "toggle-category",
-                            value: category.id,
-                          })
-                        }
-                        type="checkbox"
-                      />
-                      <span aria-hidden="true">{checked ? "On" : "Off"}</span>
-                      <div>
-                        <strong>{category.label}</strong>
-                        <small>{category.detail}</small>
-                      </div>
-                    </label>
+                    <ObiaraCheckbox
+                      checked={checked}
+                      description={category.detail}
+                      key={category.id}
+                      label={category.label}
+                      onChange={() =>
+                        dispatch({
+                          type: "toggle-category",
+                          value: category.id,
+                        })
+                      }
+                    />
                   );
                 })}
               </div>
@@ -226,34 +222,16 @@ export function NotificationSettings() {
               <p className="fie-kicker">Quiet hours · Accra time</p>
               <h2>Rest without losing anything.</h2>
               <div className="quiet-grid">
-                <label>
-                  <span>From</span>
-                  <input
-                    aria-label="Quiet hours start"
-                    onChange={(event) =>
-                      dispatch({
-                        type: "quiet-start",
-                        value: event.target.value,
-                      })
-                    }
-                    type="time"
-                    value={state.quietStart}
-                  />
-                </label>
-                <label>
-                  <span>Until</span>
-                  <input
-                    aria-label="Quiet hours end"
-                    onChange={(event) =>
-                      dispatch({
-                        type: "quiet-end",
-                        value: event.target.value,
-                      })
-                    }
-                    type="time"
-                    value={state.quietEnd}
-                  />
-                </label>
+                <ObiaraTimeField
+                  label="From"
+                  onChange={(value) => dispatch({ type: "quiet-start", value })}
+                  value={state.quietStart}
+                />
+                <ObiaraTimeField
+                  label="Until"
+                  onChange={(value) => dispatch({ type: "quiet-end", value })}
+                  value={state.quietEnd}
+                />
               </div>
             </div>
             <div className="cap-block">

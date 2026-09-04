@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
+import { ObiaraSelect } from "@obiara/ui-web";
 
 type CircleType =
   "community" | "campus" | "professional" | "interest" | "support";
@@ -180,20 +181,15 @@ export function AdiwoShell() {
           ) : null}
           {creating ? (
             <div className="adiwo-request">
-              <label htmlFor="circle-type">
-                <strong>Circle type</strong>
-              </label>
-              <select
-                id="circle-type"
-                onChange={(event) => setType(event.target.value as CircleType)}
+              <ObiaraSelect
+                label="Circle type"
+                onChange={(value) => setType(value as CircleType)}
+                options={Object.entries(typeLabels).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
                 value={type}
-              >
-                {Object.entries(typeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              />
               <button
                 disabled={busy !== null}
                 onClick={() =>

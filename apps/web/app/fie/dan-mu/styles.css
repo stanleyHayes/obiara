@@ -75,7 +75,7 @@
   border-radius: 999px;
   color: var(--room-ink);
   font-size: 0.72rem;
-  font-weight: 850;
+  font-weight: 900;
   padding: 0 15px;
 }
 
@@ -134,7 +134,7 @@
   border: 1px solid rgba(255, 243, 230, 0.22);
   border-radius: 999px;
   font-size: 0.72rem;
-  font-weight: 850;
+  font-weight: 900;
   margin-left: auto;
   padding: 10px 13px;
 }

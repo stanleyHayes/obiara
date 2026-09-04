@@ -7,6 +7,7 @@ import {
   CompoundBottomNavigation,
   CompoundRail,
 } from "../../compound-navigation";
+import { ObiaraSelect } from "@obiara/ui-web";
 
 type Relationship = "aunt" | "uncle" | "mother" | "father" | "elder";
 type Nomination = {
@@ -132,21 +133,15 @@ export function NnoboaShell() {
                   value={kinPhone}
                 />
               </label>
-              <label>
-                Relationship
-                <select
-                  onChange={(event) =>
-                    setRelationship(event.target.value as Relationship)
-                  }
-                  value={relationship}
-                >
-                  {relationships.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <ObiaraSelect
+                label="Relationship"
+                onChange={(value) => setRelationship(value as Relationship)}
+                options={relationships.map((item) => ({
+                  value: item,
+                  label: item,
+                }))}
+                value={relationship}
+              />
               <button className="nnoboa-add" disabled={saving} type="submit">
                 {saving ? "Sending…" : "Send private invitation"}
               </button>

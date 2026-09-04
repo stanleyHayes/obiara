@@ -63,7 +63,7 @@
   border-radius: 999px;
   color: #705c67;
   font-size: 0.75rem;
-  font-weight: 750;
+  font-weight: 800;
   padding: 8px 12px;
 }
 .story-paper h2 {
@@ -112,7 +112,7 @@
 .story-compose label span {
   display: block;
   font-size: 0.78rem;
-  font-weight: 750;
+  font-weight: 800;
   margin-bottom: 8px;
 }
 .story-compose textarea {
@@ -132,7 +132,7 @@
   border: 0;
   border-radius: 999px;
   color: #291720;
-  font-weight: 850;
+  font-weight: 900;
   justify-self: start;
   padding: 0 20px;
 }

@@ -17,6 +17,15 @@ type verificationStub struct {
 	submit func(context.Context, string, string, time.Time) (verificationdomain.VerificationCase, error)
 }
 
+// The document path is exercised in the application package; this stub only
+// has to satisfy the port so the card-number handler's tests still compile.
+func (verificationStub) SubmitDocuments(
+	context.Context,
+	verificationapplication.SubmitDocumentsRequest,
+) (verificationapplication.SubmitDocumentsResult, error) {
+	panic("not used by the card-number handler tests")
+}
+
 func (stub verificationStub) SubmitGhanaCard(ctx context.Context, accountID, cardNumber string, dateOfBirth time.Time) (verificationdomain.VerificationCase, error) {
 	return stub.submit(ctx, accountID, cardNumber, dateOfBirth)
 }

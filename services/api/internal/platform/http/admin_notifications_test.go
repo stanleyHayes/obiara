@@ -59,6 +59,9 @@ func (notifyAdminStub) CompleteLogin(context.Context, string, string) (admindoma
 	panic("not used by the inbox")
 }
 func (notifyAdminStub) StepUpStart(context.Context, string) error { return nil }
+func (notifyAdminStub) Logout(context.Context, string) error {
+	panic("not used by the inbox")
+}
 func (notifyAdminStub) StepUpComplete(context.Context, string, string) (admindomain.Session, error) {
 	panic("not used by the inbox")
 }

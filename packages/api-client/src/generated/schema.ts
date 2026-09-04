@@ -577,6 +577,29 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/logout": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Revoke the caller's admin session
+     * @description Closes the session the bearer token names. A console that only drops
+     *     its own cookie leaves the session id valid for the rest of its
+     *     lifetime; this is what actually ends it. Idempotent — a repeated or
+     *     already-expired sign-out still reports success. Reads no body.
+     */
+    readonly post: operations["adminLogout"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/market-packs": {
     readonly parameters: {
       readonly query?: never;
@@ -2894,6 +2917,29 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/onboarding/status": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Report where the member stands in the onboarding walk
+     * @description Projects the acknowledgements, identity case and liveness attempt the
+     *     member already has, so a console can resume the walk instead of
+     *     restarting it. Carries no provider reasoning, card value or capture
+     *     reference — three coarse states and a boolean.
+     */
+    readonly get: operations["getOnboardingStatus"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/photo-vault/{ownerId}": {
     readonly parameters: {
       readonly query?: never;
@@ -3229,6 +3275,30 @@ export interface paths {
      *     never a silent pass. Rejections return 422 verification_rejected.
      */
     readonly post: operations["submitGhanaCard"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/verifications/ghana-card/documents": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Submit both sides of a Ghana Card for human review
+     * @description Opens a verification case that goes straight to a reviewer. No issuer
+     *     lookup is performed: the automated check used to sit inside signing up,
+     *     and an outage at that provider stopped anyone creating an account at
+     *     all. Images are encrypted at the application boundary and never stored
+     *     in the clear. The outcome decides a verified badge, not access.
+     */
+    readonly post: operations["submitGhanaCardDocuments"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -3740,6 +3810,13 @@ export interface components {
       readonly data: components["schemas"]["AdminSessionData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly AdminSignOutData: {
+      readonly signedOut: boolean;
+    };
+    readonly AdminSignOutEnvelope: {
+      readonly data: components["schemas"]["AdminSignOutData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
     readonly AdminStatusData: {
       readonly status: string;
     };
@@ -3890,6 +3967,8 @@ export interface components {
       readonly data: components["schemas"]["CancelRsvpData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    /** @enum {string} */
+    readonly CardImageMediaType: "image/jpeg" | "image/png" | "image/webp";
     readonly CatalogChangeInput: {
       readonly commandId: string;
       /** Format: int64 */
@@ -4526,6 +4605,17 @@ export interface components {
       readonly data: components["schemas"]["GardenSummaryData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly GhanaCardDocumentsInput: {
+      /** @description Base64 of the back of the card, at most 4MB decoded. */
+      readonly backBase64: string;
+      readonly backMediaType: components["schemas"]["CardImageMediaType"];
+      readonly cardNumber: string;
+      /** Format: date */
+      readonly dateOfBirth: string;
+      /** @description Base64 of the front of the card, at most 4MB decoded. */
+      readonly frontBase64: string;
+      readonly frontMediaType: components["schemas"]["CardImageMediaType"];
+    };
     readonly GhanaCardInput: {
       readonly cardNumber: string;
       /** @description Date of birth as YYYY-MM-DD. */
@@ -4854,6 +4944,28 @@ export interface components {
       readonly data: components["schemas"]["OnboardingConsentData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly OnboardingStatusData: {
+      /**
+       * @description True only when the Promise, the terms and the adult affirmation
+       *     are all effective at the current version. Two of three is not
+       *     consent.
+       */
+      readonly consentsAccepted: boolean;
+      readonly identity: components["schemas"]["OnboardingStepState"];
+      readonly liveness: components["schemas"]["OnboardingStepState"];
+    };
+    readonly OnboardingStatusEnvelope: {
+      readonly data: components["schemas"]["OnboardingStatusData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    /**
+     * @description unstarted — never attempted; pending — opened, undecided; in_review —
+     *     with a human reviewer; passed — decided in the member's favour;
+     *     rejected — decided against.
+     * @enum {string}
+     */
+    readonly OnboardingStepState:
+      "unstarted" | "pending" | "in_review" | "passed" | "rejected";
     readonly OtpRequestData: {
       readonly challengeId: string;
       /** Format: date-time */
@@ -7399,6 +7511,32 @@ export interface operations {
       readonly 400: components["responses"]["InvalidJSON"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly adminLogout: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The session is revoked. */
+      readonly 200: {
+        headers: {
+          readonly "X-Correlation-ID": components["headers"]["CorrelationId"];
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminSignOutEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["SessionClosed"];
       readonly 500: components["responses"]["InternalError"];
     };
   };
@@ -12427,6 +12565,39 @@ export interface operations {
       readonly 500: components["responses"]["InternalError"];
     };
   };
+  readonly getOnboardingStatus: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The member's standing onboarding progress. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["OnboardingStatusEnvelope"];
+        };
+      };
+      /** @description A valid member session is required. */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 500: components["responses"]["InternalError"];
+    };
+  };
   readonly viewVault: {
     readonly parameters: {
       readonly query?: never;
@@ -13072,6 +13243,63 @@ export interface operations {
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["VerificationRejected"];
       readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly submitGhanaCardDocuments: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["GhanaCardDocumentsInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Both sides stored and queued for a reviewer. */
+      readonly 202: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VerificationCaseEnvelope"];
+        };
+      };
+      /** @description A valid member session is required. */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description This identity is already verified on another account. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The submission exceeded the size limit. */
+      readonly 413: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly submitLiveness: {

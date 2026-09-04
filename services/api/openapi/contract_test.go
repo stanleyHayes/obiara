@@ -207,10 +207,13 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	}
 	// The count is deliberate, not incidental: adding a route to the
 	// contract is a decision, and this guard makes an accidental one fail
-	// loudly. 187 covers the operator notification inbox (read and
-	// acknowledge), which the admin console's notification panel needs to
-	// stop being a truthful "unavailable" placeholder.
-	if len(seen) != 187 {
-		t.Errorf("operationId count = %d, want 187", len(seen))
+	// loudly. 190 adds getOnboardingStatus, which lets a member resume the
+	// walk instead of paying for it again after a refresh; adminLogout,
+	// without which signing out of the console left the session id live
+	// upstream until it expired on its own; and submitGhanaCardDocuments,
+	// which moved identity out of signing up so an outage at the card
+	// provider can no longer stop anyone creating an account.
+	if len(seen) != 190 {
+		t.Errorf("operationId count = %d, want 190", len(seen))
 	}
 }

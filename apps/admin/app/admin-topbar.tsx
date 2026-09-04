@@ -7,11 +7,19 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { AdminSkeleton } from "./loading-skeleton";
 import { EmptyState } from "./empty-state";
 import {
+  AdminIcon,
+  ChevronIcon,
+  PanelToggleIcon,
+  UtilityIcon,
+  type UtilityIconName,
+} from "./admin-icons";
+import {
   getAdminPageTitle,
   getWrappedFocusIndex,
   isFocusCandidateState,
 } from "./admin-shell-model";
 import { useThemeMode } from "./theme-mode-provider";
+import { adminFetch } from "./lib/admin-fetch";
 
 type OpenPanel = "notifications" | "account" | null;
 type Account = { email: string; roles: string[] };
@@ -32,30 +40,35 @@ type NotificationsData = {
 
 const accountMenuItems = [
   {
-    icon: "◉",
+    icon: "profile",
     label: "My profile",
     description: "Your operator identity",
     href: "/account",
   },
   {
-    icon: "⚿",
+    icon: "security",
     label: "Security",
     description: "Sign-in and session details",
     href: "/account?tab=security",
   },
   {
-    icon: "◐",
+    icon: "appearance",
     label: "Appearance",
     description: "Theme and display preferences",
     href: "/account?tab=appearance",
   },
   {
-    icon: "↻",
+    icon: "replay",
     label: "Replay tour",
     description: "Run the desk walkthrough",
     href: "/?tour=1",
   },
-] as const;
+] as const satisfies readonly {
+  icon: UtilityIconName;
+  label: string;
+  description: string;
+  href: string;
+}[];
 
 const roleNames: Record<string, string> = {
   verifier: "Verification",
@@ -114,7 +127,10 @@ export function AdminTopbar({
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/account", { cache: "no-store", signal: controller.signal })
+    void adminFetch("/api/account", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
       .then(async (response) => {
         const body = (await response
           .json()
@@ -133,7 +149,7 @@ export function AdminTopbar({
       return;
     }
     const controller = new AbortController();
-    void fetch("/api/notifications", {
+    void adminFetch("/api/notifications", {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -257,7 +273,7 @@ export function AdminTopbar({
     setSigningOut(true);
     setSignOutError(null);
     try {
-      const response = await fetch("/api/auth", { method: "DELETE" });
+      const response = await adminFetch("/api/auth", { method: "DELETE" });
       if (!response.ok)
         throw new Error(
           "Sign out could not be completed. Check your connection and try again.",
@@ -278,7 +294,7 @@ export function AdminTopbar({
 
   async function markNotificationsAsSeen() {
     try {
-      const response = await fetch("/api/notifications", {
+      const response = await adminFetch("/api/notifications", {
         method: "POST",
         cache: "no-store",
       });
@@ -322,9 +338,10 @@ export function AdminTopbar({
           aria-expanded={mobileViewport ? mobileOpen : !collapsed}
           onClick={onToggleNavigation}
         >
-          <span aria-hidden="true">
-            {mobileViewport ? "≡" : collapsed ? "»" : "≡"}
-          </span>
+          <PanelToggleIcon
+            collapsed={mobileViewport ? !mobileOpen : collapsed}
+            aria-hidden="true"
+          />
         </button>
         <Box>
           <Typography className="admin-topbar-kicker">
@@ -349,9 +366,10 @@ export function AdminTopbar({
             )
           }
         >
-          <span aria-hidden="true">
-            {theme.resolved === "dark" ? "☾" : "☼"}
-          </span>
+          <UtilityIcon
+            name={theme.resolved === "dark" ? "moon" : "sun"}
+            aria-hidden="true"
+          />
         </button>
         <Box className="topbar-panel-anchor">
           <button
@@ -373,7 +391,7 @@ export function AdminTopbar({
               );
             }}
           >
-            <span aria-hidden="true">♢</span>
+            <UtilityIcon name="bell" aria-hidden="true" />
             {notifications && notifications.unreadCount > 0 ? (
               <span className="topbar-badge">{notifications.unreadCount}</span>
             ) : null}
@@ -418,14 +436,14 @@ export function AdminTopbar({
                   />
                 ) : notificationsError ? (
                   <EmptyState
-                    icon="⚠"
+                    icon={<AdminIcon name="incidents" />}
                     title="Notifications unavailable"
                     description={notificationsError}
                     variant="neutral"
                   />
                 ) : notifications && notifications.items.length === 0 ? (
                   <EmptyState
-                    icon="◇"
+                    icon={<UtilityIcon name="bell" />}
                     title="Nothing needs your attention"
                     description="All queues are clear."
                     variant="neutral"
@@ -510,7 +528,7 @@ export function AdminTopbar({
               className={`topbar-chevron ${panel === "account" ? "is-open" : ""}`}
               aria-hidden="true"
             >
-              ⌄
+              <ChevronIcon />
             </span>
           </button>
           {panel === "account" ? (
@@ -556,13 +574,13 @@ export function AdminTopbar({
                     onClick={() => navigate(item.href)}
                   >
                     <span className="account-menu-icon" aria-hidden="true">
-                      {item.icon}
+                      <UtilityIcon name={item.icon} />
                     </span>
                     <span>
                       <strong>{item.label}</strong>
                       <small>{item.description}</small>
                     </span>
-                    <span aria-hidden="true">›</span>
+                    <UtilityIcon name="chevron-right" aria-hidden="true" />
                   </button>
                 ))}
               </Box>
@@ -577,7 +595,7 @@ export function AdminTopbar({
                 disabled={signingOut}
                 onClick={() => void signOut()}
               >
-                <span aria-hidden="true">→</span>
+                <UtilityIcon name="sign-out" aria-hidden="true" />
                 <span>
                   <strong>{signingOut ? "Signing out…" : "Sign out"}</strong>
                   <small>End this session on this device</small>

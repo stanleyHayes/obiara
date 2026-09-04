@@ -8,6 +8,7 @@ import {
   Chip,
   Container,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
@@ -18,7 +19,9 @@ import { TourDialog } from "./tour-dialog";
 import { EmptyState } from "../empty-state";
 import { AdminSkeleton } from "../loading-skeleton";
 import { buildCasePath } from "../case-route-model";
-import { AdminCard } from "../admin-card";
+import { AdminCard, type AdminWatermark } from "../admin-card";
+import { AdminIcon, UtilityIcon } from "../admin-icons";
+import type { RailIconName } from "../rail-model";
 
 type VerificationCase = {
   caseId: string;
@@ -116,6 +119,8 @@ function MetricCard({
   value,
   note,
   accent,
+  icon,
+  watermark,
   href,
   loading,
   trusted,
@@ -124,6 +129,8 @@ function MetricCard({
   value: string;
   note: string;
   accent: string;
+  icon: RailIconName;
+  watermark: AdminWatermark;
   href: string;
   loading?: boolean;
   trusted: boolean;
@@ -136,14 +143,8 @@ function MetricCard({
     >
       <AdminCard
         variant="metric"
-        watermark={
-          label.includes("safety")
-            ? "safety"
-            : label.includes("Care")
-              ? "care"
-              : "verification"
-        }
-        showWatermark={trusted}
+        watermark={watermark}
+        showWatermark
         interactive
         className="metric-card"
         sx={{ "--metric-accent": accent }}
@@ -155,9 +156,22 @@ function MetricCard({
           />
         ) : (
           <>
-            <Typography className="metric-label">{label}</Typography>
+            <Box className="metric-card-topline">
+              <span className="metric-icon" aria-hidden="true">
+                <AdminIcon name={icon} />
+              </span>
+              <Typography className="metric-label">{label}</Typography>
+              <span className={`metric-trust ${trusted ? "is-live" : ""}`}>
+                {trusted ? "Live" : "Standby"}
+              </span>
+            </Box>
             <Typography className="metric-value">{value}</Typography>
-            <Typography className="metric-note">{note}</Typography>
+            <Box className="metric-card-footer">
+              <Typography className="metric-note">{note}</Typography>
+              <span className="metric-arrow" aria-hidden="true">
+                ↗
+              </span>
+            </Box>
           </>
         )}
       </AdminCard>
@@ -239,13 +253,13 @@ export default function AdminHome() {
     : "";
 
   return (
-    <Box component="main">
+    <Box component="main" className="command-center">
       <Suspense>
         <TourDialog />
       </Suspense>
       <Container maxWidth={false} className="admin-shell">
-        <Box component="header" className="admin-header">
-          <Box>
+        <Box component="header" className="admin-header command-hero">
+          <Box className="command-hero-copy">
             <Typography className="date-line">
               {new Date().toLocaleDateString("en-GH", {
                 weekday: "long",
@@ -253,12 +267,22 @@ export default function AdminHome() {
                 month: "long",
               })}
             </Typography>
-            <Typography component="h1">{greeting()}</Typography>
-            <Typography>Here is what needs a human pair of eyes.</Typography>
+            <Typography component="h1">
+              {greeting()} <span>Let’s keep Obiara moving.</span>
+            </Typography>
+            <Typography className="command-hero-summary">
+              Live operational signals, human review queues and response work in
+              one place.
+            </Typography>
           </Box>
-          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+          <Stack
+            direction="row"
+            spacing={1.25}
+            className="command-hero-actions"
+            sx={{ alignItems: "center" }}
+          >
             <Button className="search-button" href="/verification?search=1">
-              ⌕ Search cases
+              Search cases
             </Button>
             <HandoverButton />
             {!account && !accountFailed ? (
@@ -306,6 +330,8 @@ export default function AdminHome() {
                   : "live queue"
             }
             accent="#FF9F1C"
+            icon="verification"
+            watermark="verification"
             href="/verification"
           />
           <MetricCard
@@ -323,6 +349,8 @@ export default function AdminHome() {
                 : `${openSafety.filter((item) => item.tier === "A").length} tier A`
             }
             accent="#FF4D6D"
+            icon="safety"
+            watermark="safety"
             href="/safety"
           />
           <MetricCard
@@ -340,6 +368,8 @@ export default function AdminHome() {
                 : `${openCare.filter((item) => item.status === "open").length} awaiting engagement`
             }
             accent="#12A67C"
+            icon="care"
+            watermark="care"
             href="/care"
           />
         </Box>
@@ -387,52 +417,63 @@ export default function AdminHome() {
               ) : null}
               {queuedVerifications.slice(0, 5).map((item) => (
                 <Box className="queue-row" key={item.caseId}>
-                  <Box className="queue-person">
-                    <Typography sx={{ fontWeight: 800 }}>
-                      {item.subjectRef}
-                    </Typography>
-                    <Typography>
-                      {item.caseId} · {reasonLabels[item.reasonCode]}
-                    </Typography>
+                  <Box className="queue-case-identity">
+                    <span className="queue-case-icon" aria-hidden="true">
+                      <AdminIcon name="verification" />
+                    </span>
+                    <Box className="queue-person">
+                      <Typography className="queue-case-reference">
+                        {item.caseId}
+                      </Typography>
+                      <Typography className="queue-case-subject">
+                        {item.subjectRef}
+                      </Typography>
+                      <Typography>{reasonLabels[item.reasonCode]}</Typography>
+                    </Box>
                   </Box>
-                  <Typography className="wait-time">
-                    {waitLabel(item.submittedAt)}
-                  </Typography>
+                  <Tooltip title="Time waiting for review" arrow>
+                    <span
+                      className="queue-wait"
+                      aria-label={`${waitLabel(item.submittedAt)} waiting for review`}
+                    >
+                      <UtilityIcon name="clock" aria-hidden="true" />
+                      <Typography className="wait-time">
+                        {waitLabel(item.submittedAt)}
+                      </Typography>
+                    </span>
+                  </Tooltip>
                   <Chip className="tone-gold" label="Queued" />
-                  <Button
-                    className="review-button"
-                    href={buildCasePath("verification", item.caseId)}
-                  >
-                    Review
-                  </Button>
+                  <Tooltip title="Review case" arrow>
+                    <Button
+                      className="review-button review-icon-button"
+                      aria-label={`Review ${item.caseId}`}
+                      href={buildCasePath("verification", item.caseId)}
+                    >
+                      <UtilityIcon name="arrow-right" aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
                 </Box>
               ))}
             </Box>
-          </AdminCard>
 
-          <AdminCard
-            variant="warning"
-            watermark="clock"
-            showWatermark={false}
-            className="sla-panel"
-          >
-            <Box className="panel-heading compact">
+            <Box component="section" className="command-inline-sla">
+              <span className="command-inline-sla-icon" aria-hidden="true">
+                <UtilityIcon name="clock" />
+              </span>
               <Box>
                 <Typography className="section-kicker">
                   Today’s response
                 </Typography>
                 <Typography component="h2">SLA pulse</Typography>
+                <Typography>
+                  Response-time evidence is not yet available. No substitute
+                  percentage is shown.
+                </Typography>
               </Box>
+              <Button className="plain-action" href="/analytics">
+                Open analytics desk
+              </Button>
             </Box>
-            <EmptyState
-              icon="◷"
-              title="SLA evidence unavailable"
-              description="Response-time evidence is not composed into this command centre. This page does not invent substitute percentages."
-              variant="neutral"
-            />
-            <Button className="plain-action" href="/analytics">
-              Open analytics desk
-            </Button>
           </AdminCard>
         </Box>
 

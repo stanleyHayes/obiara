@@ -15,6 +15,7 @@ import {
   validateProfileForm,
   type FieldVisibility,
 } from "./profile-model";
+import { ObiaraSelect } from "@obiara/ui-web";
 
 const visibilityOptions: ReadonlyArray<{
   value: FieldVisibility;
@@ -367,25 +368,17 @@ export function ProfileSettings() {
                 required
                 value={state.displayName}
               />
-              <label htmlFor="name-visibility" className="profile-vis-label">
-                Visible to
-              </label>
-              <select
-                id="name-visibility"
-                onChange={(event) =>
+              <ObiaraSelect
+                label="Visible to"
+                onChange={(value) =>
                   dispatch({
                     type: "name-visibility",
-                    value: event.target.value as FieldVisibility,
+                    value: value as FieldVisibility,
                   })
                 }
+                options={visibilityOptions}
                 value={state.nameVisibility}
-              >
-                {visibilityOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div className="profile-field-row">
@@ -403,25 +396,17 @@ export function ProfileSettings() {
                 rows={4}
                 value={state.introduction}
               />
-              <label htmlFor="intro-visibility" className="profile-vis-label">
-                Visible to
-              </label>
-              <select
-                id="intro-visibility"
-                onChange={(event) =>
+              <ObiaraSelect
+                label="Visible to"
+                onChange={(value) =>
                   dispatch({
                     type: "intro-visibility",
-                    value: event.target.value as FieldVisibility,
+                    value: value as FieldVisibility,
                   })
                 }
+                options={visibilityOptions}
                 value={state.introVisibility}
-              >
-                {visibilityOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <p className="profile-note">
@@ -513,6 +498,10 @@ export function ProfileSettings() {
         </section>
 
         <nav className="profile-settings-links" aria-label="More settings">
+          <Link href="/fie/settings/verification">
+            <strong>Verification</strong>
+            <span>Add your Ghana Card to earn a verified badge</span>
+          </Link>
           <Link href="/fie/settings/notifications">
             <strong>Notifications</strong>
             <span>Quiet hours, caps and channels</span>

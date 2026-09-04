@@ -119,19 +119,19 @@ describe("Command centre and triage designed states", () => {
     expect(verification).toContain("filteredCases");
   });
 
-  it("stacks dashboard work regions and suppresses aborted hook failures", () => {
+  it("keeps dashboard work full-width and KPI signals responsive", () => {
     expect(styles).toMatch(
       /\.work-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);/s,
     );
     expect(dashboard).toMatch(
       /if \(\s*!controller\.signal\.aborted &&\s*\(error as Error\)\.name !== "AbortError"/,
     );
-    const metricRules = styles.match(/\.metrics-grid\s*\{[^}]*\}/gs) ?? [];
-    expect(metricRules.length).toBeGreaterThan(0);
-    for (const rule of metricRules) {
-      expect(rule).toMatch(/grid-template-columns:\s*1fr/);
-      expect(rule).not.toMatch(/repeat\(/);
-    }
+    expect(styles).toMatch(
+      /\.command-center \.metrics-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1\.35fr\) repeat\(2, minmax\(0, 1fr\)\);/s,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width:\s*560px\)[\s\S]*?\.command-center \.metrics-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);/s,
+    );
     expect(dashboard).toContain('trusted={verifications.state === "ready"}');
   });
 

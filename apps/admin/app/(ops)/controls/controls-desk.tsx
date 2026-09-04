@@ -25,6 +25,7 @@ import { SegmentedOtpInput } from "@obiara/ui-web";
 import { AdminCard } from "../../admin-card";
 import { AdminSkeleton } from "../../loading-skeleton";
 import { EmptyState } from "../../empty-state";
+import { adminFetch } from "../../lib/admin-fetch";
 
 type Capability = "sow" | "fires" | "ai" | "payments" | "gate";
 type Environment = "staging" | "production";
@@ -98,7 +99,7 @@ export function ControlsDesk() {
     setLoaded(false);
     setLoadError("");
     try {
-      const response = await fetch("/api/controls", {
+      const response = await adminFetch("/api/controls", {
         signal: controller.signal,
       });
       const payload = (await response.json()) as {
@@ -160,7 +161,7 @@ export function ControlsDesk() {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/controls", {
+      const response = await adminFetch("/api/controls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
@@ -239,7 +240,7 @@ export function ControlsDesk() {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/step-up", {
+      const response = await adminFetch("/api/step-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(

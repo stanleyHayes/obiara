@@ -74,7 +74,7 @@ export const obiaraSemanticColors = {
 } as const;
 
 export const obiaraTypography = {
-  fontFamily: "Outfit Variable, Outfit, sans-serif",
+  fontFamily: "Outfit, sans-serif",
   nativeFamilies: {
     regular: "Outfit_400Regular",
     medium: "Outfit_500Medium",

@@ -44,6 +44,10 @@ type AttemptStore interface {
 	// ErrCommandConflict.
 	Create(context.Context, domain.Attempt) (domain.Attempt, bool, error)
 	FindByID(context.Context, string) (domain.Attempt, error)
+	// LatestBySubjectKey returns the subject's newest attempt, or
+	// ErrAttemptNotFound when they have never made one. Attempts are stored
+	// against the keyed subject, never the raw member id.
+	LatestBySubjectKey(context.Context, string) (domain.Attempt, error)
 	Update(context.Context, domain.Attempt, uint64) error
 }
 

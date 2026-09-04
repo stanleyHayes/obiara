@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { apiClient, apiErrorMessage } from "../../../lib/api-server";
+import { cookieMaxAge } from "../../../lib/session-cookie";
 
 const secure = process.env.NODE_ENV === "production";
 
@@ -57,7 +58,7 @@ export async function POST() {
     sameSite: "lax",
     secure,
     path: "/",
-    expires: new Date(data.data.accessExpiresAt),
+    maxAge: cookieMaxAge(data.data.accessExpiresAt),
   });
   // Rotation is single use: the previous refresh token is now dead, so the
   // cookie must carry the new one or the next refresh reads as theft.
@@ -70,14 +71,14 @@ export async function POST() {
     // browser never sends it. httpOnly, sameSite=strict and secure remain, so
     // the token is still unreadable by scripts and never sent cross-site.
     path: "/",
-    expires: new Date(data.data.refreshExpiresAt),
+    maxAge: cookieMaxAge(data.data.refreshExpiresAt),
   });
   result.cookies.set("obiara_member", data.data.memberId, {
     httpOnly: true,
     sameSite: "lax",
     secure,
     path: "/",
-    expires: new Date(data.data.refreshExpiresAt),
+    maxAge: cookieMaxAge(data.data.refreshExpiresAt),
   });
   return result;
 }

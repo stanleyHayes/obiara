@@ -90,6 +90,24 @@ func (repository *CaseRepository) ApprovedAccountByCardKey(ctx context.Context, 
 	return document.AccountID, nil
 }
 
+// LatestByAccount returns the account's newest case. Served by the
+// verifications_account index, which already sorts createdAt descending.
+func (repository *CaseRepository) LatestByAccount(ctx context.Context, accountID string) (domain.VerificationCase, error) {
+	var document caseDocument
+	err := repository.collection().FindOne(
+		ctx,
+		bson.M{"accountId": accountID},
+		options.FindOne().SetSort(bson.D{{Key: "createdAt", Value: -1}}),
+	).Decode(&document)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return domain.VerificationCase{}, application.ErrCaseNotFound
+		}
+		return domain.VerificationCase{}, err
+	}
+	return toDomain(document), nil
+}
+
 func (repository *CaseRepository) Create(ctx context.Context, verificationCase domain.VerificationCase) error {
 	_, err := repository.collection().InsertOne(ctx, toDocument(verificationCase))
 	return err

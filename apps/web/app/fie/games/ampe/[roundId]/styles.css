@@ -63,7 +63,7 @@
   border-radius: 999px;
   color: #705c67;
   font-size: 0.75rem;
-  font-weight: 750;
+  font-weight: 800;
   padding: 8px 12px;
 }
 .ampe-players {
@@ -92,7 +92,7 @@
 }
 .ampe-players small {
   color: #168565;
-  font-weight: 750;
+  font-weight: 800;
 }
 .ampe-stage h2 {
   font-size: clamp(3.5rem, 7vw, 7rem);
@@ -108,7 +108,7 @@
   border-radius: 999px;
   color: #fff3e6;
   display: block;
-  font-weight: 850;
+  font-weight: 900;
   margin: 32px auto 0;
   padding: 0 24px;
 }

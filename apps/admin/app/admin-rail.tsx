@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { forwardRef, useEffect, useState } from "react";
 
 import brandMark from "../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-ondark_transparent.png";
+import { AdminIcon, ChevronIcon, CloseIcon } from "./admin-icons";
 import { isRailGroupVisible } from "./admin-shell-model";
 import { isActiveLink, railGroups, type RailGroup } from "./rail-model";
 
@@ -41,9 +42,16 @@ function RailGroupSection({
         onClick={() => setOpen((current) => !current)}
         tabIndex={collapsed ? -1 : 0}
       >
-        <span className="rail-group-label">{group.title}</span>
+        <span className="rail-group-heading">
+          <AdminIcon
+            name={group.icon}
+            className="rail-group-icon"
+            aria-hidden="true"
+          />
+          <span className="rail-group-label">{group.title}</span>
+        </span>
         <span className="rail-group-chevron" aria-hidden="true">
-          ▾
+          <ChevronIcon />
         </span>
       </button>
       <Box
@@ -77,7 +85,9 @@ function RailGroupSection({
                 }
                 onBlur={onTooltipHide}
               >
-                <span aria-hidden="true">{link.icon}</span>
+                <span className="rail-link-icon" aria-hidden="true">
+                  <AdminIcon name={link.icon} />
+                </span>
                 <span>{link.label}</span>
               </Button>
             );
@@ -191,7 +201,7 @@ export const AdminRail = forwardRef<
             aria-label="Close navigation menu"
             onClick={onClose}
           >
-            ×
+            <CloseIcon aria-hidden="true" />
           </button>
         ) : null}
       </Box>

@@ -30,6 +30,7 @@ import { AdminSkeleton } from "../../loading-skeleton";
 import {
   REASON_MAX_LENGTH,
   REASON_MIN_LENGTH,
+  enrollEmailIsValid,
   initialOperatorsState,
   matrixRoles,
   operatorsReducer,
@@ -37,6 +38,7 @@ import {
   roleCatalog,
   type OperatorRole,
 } from "./operators-model";
+import { adminFetch } from "../../lib/admin-fetch";
 
 const roleOrder: readonly OperatorRole[] = [
   "verifier",
@@ -118,7 +120,7 @@ export function OperatorsDesk({
     setDirectoryLoaded(false);
     setDirectoryError("");
     try {
-      const response = await fetch("/api/operators", {
+      const response = await adminFetch("/api/operators", {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -178,7 +180,7 @@ export function OperatorsDesk({
     setRoleChangesLoaded(false);
     setRoleChangesError("");
     try {
-      const response = await fetch("/api/operators?kind=role-changes", {
+      const response = await adminFetch("/api/operators?kind=role-changes", {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -264,7 +266,7 @@ export function OperatorsDesk({
         };
         delete (requestBody as Record<string, unknown>).operation;
       }
-      const response = await fetch("/api/operators", {
+      const response = await adminFetch("/api/operators", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -343,7 +345,7 @@ export function OperatorsDesk({
     setBusy(true);
     setStepUpError("");
     try {
-      const response = await fetch("/api/step-up", {
+      const response = await adminFetch("/api/step-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
@@ -1083,7 +1085,7 @@ export function OperatorsDesk({
                   <Box role="rowheader">
                     <Typography
                       sx={{
-                        fontFamily: "monospace",
+                        fontFamily: "Geist Mono",
                         fontSize: 13,
                         fontWeight: 700,
                       }}
@@ -1280,7 +1282,7 @@ export function OperatorsDesk({
           <Button
             disabled={
               busy ||
-              !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.enrollEmail.trim()) ||
+              !enrollEmailIsValid(state.enrollEmail) ||
               state.enrollRoles.length === 0
             }
             onClick={() =>

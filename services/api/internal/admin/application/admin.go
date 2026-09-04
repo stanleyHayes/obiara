@@ -404,6 +404,34 @@ func (service AdminService) StepUpComplete(ctx context.Context, sessionID, code 
 	return session, nil
 }
 
+// Logout revokes an admin session server-side.
+//
+// A console that only drops its own cookie has not signed anybody out: the
+// session id it discarded stays valid for the rest of its lifetime, and
+// anyone holding a copy — a shared browser profile, a captured backup, an
+// operator whose access was withdrawn mid-shift — keeps every desk grant it
+// carries. Revocation is idempotent so a retried sign-out, or one racing the
+// session's own expiry, still reports success rather than stranding the
+// operator on a page that will not close.
+func (service AdminService) Logout(ctx context.Context, sessionID string) error {
+	session, err := service.sessions.FindByID(ctx, sessionID)
+	if err != nil {
+		// A session that is already gone is already signed out.
+		if errors.Is(err, ErrSessionNotFound) {
+			return nil
+		}
+		return err
+	}
+	if session.Revoked() {
+		return nil
+	}
+	session.Revoke()
+	if err := service.sessions.Update(ctx, session); err != nil {
+		return err
+	}
+	return service.audit.Append(ctx, session.PrincipalID(), "admin.logout", session.ID(), service.now().UTC())
+}
+
 // Authenticate resolves a short-lived bearer session and its active principal.
 // Transport adapters use this instead of trusting caller-supplied roles.
 func (service AdminService) Authenticate(ctx context.Context, sessionID string) (domain.Session, domain.Principal, error) {

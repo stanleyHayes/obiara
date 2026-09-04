@@ -15,7 +15,10 @@ import { useEffect, useRef, useState } from "react";
 import { isAdminSessionResult, isCodeSent } from "../auth-model";
 import { AdminSkeleton } from "../loading-skeleton";
 
-export function AdminLogin() {
+export function AdminLogin({
+  expired = false,
+  next = null,
+}: Readonly<{ expired?: boolean; next?: string | null }> = {}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,7 +61,12 @@ export function AdminLogin() {
         signal: requestController.signal,
       });
       const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok)
+      if (!response.ok) {
+        // A rejected code is cleared rather than left in the boxes. The API
+        // counts attempts and locks the challenge after a few, so leaving the
+        // wrong digits sitting under an enabled button invites the operator
+        // to spend the rest of them on the same failure.
+        if (action === "complete" && mounted.current) setCode("");
         throw new Error(
           payload &&
             typeof payload === "object" &&
@@ -67,6 +75,7 @@ export function AdminLogin() {
             ? payload.message
             : "Admin sign-in could not continue.",
         );
+      }
       if (action === "start") {
         if (!isCodeSent(payload))
           throw new Error("Admin sign-in could not continue.");
@@ -78,7 +87,10 @@ export function AdminLogin() {
         if (!isAdminSessionResult(payload))
           throw new Error("Admin sign-in could not continue.");
         if (!mounted.current || run !== generation.current) return;
-        router.replace("/");
+        // Back to the desk the expiry interrupted. A session that dies
+        // mid-triage used to land the operator on the dashboard, with the
+        // case they were working on left to be found again by hand.
+        router.replace(next ?? "/");
         router.refresh();
       }
     } catch (error) {
@@ -126,6 +138,12 @@ export function AdminLogin() {
           {stage === "email" ? "Account details" : "Identity check"}
         </Typography>
       </div>
+      {expired && stage === "email" ? (
+        <Alert severity="info">
+          Your previous session ended. Signing in again will return you to where
+          you left off.
+        </Alert>
+      ) : null}
       {stage === "code" ? (
         <div className="admin-code-intro">
           <Typography component="h2">Check your inbox</Typography>
@@ -236,7 +254,7 @@ export function AdminLogin() {
           }}
           type="button"
         >
-          Use another email
+          Use a different email or resend the code
         </Button>
       ) : null}
     </form>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   initialOnboardingState,
+  normalizeGhanaPhone,
   onboardingReducer,
   type OnboardingState,
 } from "./onboarding-model";
@@ -100,49 +101,50 @@ describe("identity onboarding", () => {
     );
   });
 
-  it("stores only an opaque card reference and routes uncertainty to review", () => {
-    const state: OnboardingState = {
-      ...initialOnboardingState,
-      stage: "card",
-    };
-    const reviewed = onboardingReducer(state, {
-      type: "card-result",
-      outcome: "uncertain",
-      reference: "vc_9fT3mQ2xZkL1pR8wN4yH-A",
-    });
-    expect(reviewed.stage).toBe("manual-review");
-    expect(reviewed.cardReference).toBe("vc_9fT3mQ2xZkL1pR8wN4yH-A");
-    expect(JSON.stringify(reviewed)).not.toContain("GHA-");
-  });
-
-  it("accepts a server-issued approved case id and advances to liveness", () => {
-    const state: OnboardingState = {
-      ...initialOnboardingState,
-      stage: "card",
-    };
-    const approved = onboardingReducer(state, {
-      type: "card-result",
-      outcome: "approved",
-      reference: "vc_QWx0Z2ViZXJ0X21lbWJlcg",
-    });
-    expect(approved.stage).toBe("liveness");
-    expect(approved.cardReference).toBe("vc_QWx0Z2ViZXJ0X21lbWJlcg");
-  });
-
-  it("ignores card results with malformed references", () => {
-    const state: OnboardingState = {
-      ...initialOnboardingState,
-      stage: "card",
-    };
-    for (const reference of ["", "ref_72ca18", "vc_short", "GHA-123456789-0"]) {
-      expect(
-        onboardingReducer(state, {
-          type: "card-result",
-          outcome: "approved",
-          reference,
-        }),
-      ).toEqual(state);
+  it("accepts a Ghana number in international form", () => {
+    // A contact card and an autofill suggestion both offer +233 …; stripping
+    // to digits alone left 2332412345, which no local pattern accepts.
+    for (const typed of [
+      "+233 24 123 4567",
+      "233241234567",
+      "00233241234567",
+      "024 123 4567",
+    ]) {
+      expect(normalizeGhanaPhone(typed)).toBe("0241234567");
     }
+    const contact = onboardingReducer(initialOnboardingState, {
+      type: "contact-changed",
+      contact: "+233 24 123 4567",
+    });
+    expect(onboardingReducer(contact, { type: "request-code" }).stage).toBe(
+      "otp",
+    );
+  });
+
+  it("lets a member step back to the contact they sent the code to", () => {
+    const waiting: OnboardingState = {
+      ...initialOnboardingState,
+      stage: "otp",
+      contact: "0241234567",
+      otp: "123456",
+    };
+    const back = onboardingReducer(waiting, { type: "go-back" });
+    expect(back.stage).toBe("phone");
+    expect(back.otp).toBe("");
+    // The number is kept so it can be corrected rather than retyped.
+    expect(back.contact).toBe("0241234567");
+    expect(
+      onboardingReducer(initialOnboardingState, { type: "go-back" }),
+    ).toEqual(initialOnboardingState);
+  });
+
+  it("clears a rejected code so it cannot be resubmitted", () => {
+    const rejected = onboardingReducer(
+      { ...initialOnboardingState, stage: "otp", otp: "000000" },
+      { type: "code-rejected" },
+    );
+    expect(rejected.otp).toBe("");
+    expect(rejected.stage).toBe("otp");
   });
 
   it("allows completion only after explicit liveness consent", () => {

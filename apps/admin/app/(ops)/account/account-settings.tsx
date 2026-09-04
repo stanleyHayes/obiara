@@ -26,6 +26,7 @@ import {
   useThemeMode,
   type ThemeModePreference,
 } from "../../theme-mode-provider";
+import { adminFetch } from "../../lib/admin-fetch";
 
 type Account = {
   email: string;
@@ -131,7 +132,7 @@ export function AccountSettings() {
     setError(null);
     setAccount(null);
     try {
-      const response = await fetch("/api/account", {
+      const response = await adminFetch("/api/account", {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -383,8 +384,8 @@ export function AccountSettings() {
             </AdminCard>
             <Alert severity="info">
               The service does not infer device names or locations and does not
-              expose other sessions through this account view. Use sign out to
-              end the current browser session.
+              expose other sessions through this account view. Signing out ends
+              this session everywhere, not only in this browser.
             </Alert>
             <Button
               color="warning"
@@ -394,14 +395,25 @@ export function AccountSettings() {
                 setSignOutBusy(true);
                 setSignOutError(null);
                 try {
-                  const response = await fetch("/api/auth", {
+                  const response = await adminFetch("/api/auth", {
                     method: "DELETE",
                   });
                   if (!response.ok)
                     throw new Error(
                       "This browser could not be signed out. Your session remains active.",
                     );
-                  window.location.assign("/signed-out");
+                  // The cookie is gone either way, but the session itself is
+                  // only closed if the API answered. Saying "signed out" when
+                  // the id is still live upstream is the one claim this page
+                  // must not make wrongly.
+                  const result = (await response.json().catch(() => null)) as {
+                    revoked?: boolean;
+                  } | null;
+                  window.location.assign(
+                    result?.revoked === false
+                      ? "/signed-out?revoked=0"
+                      : "/signed-out",
+                  );
                 } catch (cause) {
                   setSignOutError(
                     cause instanceof Error

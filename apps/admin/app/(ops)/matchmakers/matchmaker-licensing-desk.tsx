@@ -35,6 +35,7 @@ import {
 } from "../../commercial-model";
 import { EmptyState } from "../../empty-state";
 import { AdminSkeleton } from "../../loading-skeleton";
+import { adminFetch } from "../../lib/admin-fetch";
 
 export type { MatchmakerProfile } from "../../commercial-model";
 type Mode = "list" | "form" | "escrow";
@@ -124,7 +125,7 @@ export function MatchmakerLicensingDesk({
     setLoaded(false);
     setLoadError("");
     try {
-      const response = await fetch("/api/matchmakers", {
+      const response = await adminFetch("/api/matchmakers", {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -290,7 +291,7 @@ export function MatchmakerLicensingDesk({
     setBusy(true);
     setLocalError("");
     try {
-      const response = await fetch("/api/step-up", {
+      const response = await adminFetch("/api/step-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(

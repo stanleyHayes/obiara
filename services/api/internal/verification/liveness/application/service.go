@@ -51,6 +51,23 @@ type Result struct {
 	Replayed bool
 }
 
+// LatestAttempt reports where a member's liveness check stands.
+//
+// The camera step is the last of four, and it is the one most likely to be
+// abandoned mid-way — a denied permission, a flat battery, a tab closed while
+// a reviewer looks at the capture. Reading the standing attempt back is what
+// lets the member return to the answer instead of to the beginning.
+func (service Service) LatestAttempt(ctx context.Context, subjectID string) (domain.Attempt, error) {
+	if service.store == nil || service.keyer == nil {
+		return domain.Attempt{}, ErrServiceUnavailable
+	}
+	subjectKey, err := service.keyer.Key(strings.TrimSpace(subjectID))
+	if err != nil {
+		return domain.Attempt{}, ErrServiceUnavailable
+	}
+	return service.store.LatestBySubjectKey(ctx, subjectKey)
+}
+
 func (service Service) Submit(ctx context.Context, request SubmitRequest) (Result, error) {
 	if service.store == nil || service.provider == nil || service.reviews == nil ||
 		service.keyer == nil || service.ids == nil || service.now == nil {

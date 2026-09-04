@@ -109,6 +109,30 @@ func (service Service) execute(ctx context.Context, command Command, action doma
 	return Result{}, ErrRepositoryUnavailable
 }
 
+// Revision reports the subject's current revision for a purpose, and zero
+// when they have no record of it yet.
+//
+// A writer that assumes zero can only ever succeed on a subject's first
+// attempt: the domain refuses a change whose ExpectedRevision does not match
+// what is stored, so a second pass over an existing receipt is rejected as
+// stale rather than recognised as a repeat.
+func (service Service) Revision(ctx context.Context, subjectID, purposeID string) (uint64, error) {
+	if service.records == nil {
+		return 0, ErrRepositoryUnavailable
+	}
+	record, err := service.records.Find(ctx, Key{
+		SubjectID: strings.TrimSpace(subjectID),
+		PurposeID: strings.TrimSpace(purposeID),
+	})
+	if errors.Is(err, ErrNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, ErrRepositoryUnavailable
+	}
+	return record.Revision(), nil
+}
+
 func (service Service) Effective(ctx context.Context, subjectID, purposeID string, version uint64) (bool, error) {
 	if service.records == nil || service.purposes == nil || service.now == nil {
 		return false, ErrRepositoryUnavailable

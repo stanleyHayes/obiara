@@ -43,9 +43,22 @@ func NewModule(ctx context.Context, database *mongo.Database, provider applicati
 	if err := caseRepository.EnsureIndexes(ctx); err != nil {
 		return Module{}, err
 	}
+	documents := mongodb.NewDocumentRepository(database)
+	if err := documents.EnsureIndexes(ctx); err != nil {
+		return Module{}, err
+	}
+	// Card photographs are sealed under a key derived from the same secret but
+	// a different label, so the identity store and the liveness store cannot
+	// be opened with each other's key.
+	sealer, err := privacy.NewAESGCMSealer(cardSecret)
+	if err != nil {
+		return Module{}, err
+	}
 	return Module{
-		Verification: application.NewVerificationService(caseRepository, provider, tiers, keyer, time.Now, newID),
-		Provider:     provider,
+		Verification: application.
+			NewVerificationService(caseRepository, provider, tiers, keyer, time.Now, newID).
+			WithDocuments(documents, sealer, sealer),
+		Provider: provider,
 	}, nil
 }
 

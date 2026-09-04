@@ -1,12 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { ObiaraCheckbox } from "@obiara/ui-web";
 
 type FormState = "idle" | "submitting" | "success" | "error";
 
 export function WaitlistForm() {
   const [state, setState] = useState<FormState>("idle");
   const [message, setMessage] = useState("");
+  const [consent, setConsent] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,13 +76,15 @@ export function WaitlistForm() {
           />
         </label>
       </div>
-      <label className="consent-field">
-        <input name="consent" required type="checkbox" />
-        <span>
-          Email me once Obiara is available. No newsletters or unrelated
-          messages.
-        </span>
-      </label>
+      <div className="consent-field">
+        <ObiaraCheckbox
+          checked={consent}
+          label="Email me once Obiara is available. No newsletters or unrelated messages."
+          name="consent"
+          onChange={setConsent}
+          required
+        />
+      </div>
       <button disabled={state === "submitting"} type="submit">
         {state === "submitting" ? "Saving your place…" : "Join the waitlist"}
         <span aria-hidden="true">↗</span>

@@ -548,6 +548,13 @@ func run() error {
 	apihttp.RegisterLedgerRoutes(mux, ledgerModule.Ledger)
 	apihttp.RegisterCommunityAuditRoutes(mux, communityAuditModule.Audit)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
+	apihttp.RegisterOnboardingStatusRoutes(
+		mux,
+		onboardingConsentModule.Consents,
+		verificationModule.Verification,
+		livenessModule.Liveness,
+		identityModule.Sessions,
+	)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)
 	apihttp.RegisterPrivacyRoutes(mux, privacyModule.Privacy, identityModule.Sessions)

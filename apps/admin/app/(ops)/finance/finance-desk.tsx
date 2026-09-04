@@ -29,6 +29,7 @@ import {
 } from "../../commercial-model";
 import { AdminSkeleton } from "../../loading-skeleton";
 import { EmptyState } from "../../empty-state";
+import { adminFetch } from "../../lib/admin-fetch";
 
 type ReconciliationException = {
   factRef: string;
@@ -98,7 +99,7 @@ export function FinanceDesk() {
     setLoaded(false);
     setError(null);
     try {
-      const response = await fetch("/api/finance", {
+      const response = await adminFetch("/api/finance", {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -187,7 +188,7 @@ export function FinanceDesk() {
     setSettlementError(null);
     setStatement(null);
     try {
-      const response = await fetch("/api/escrows", {
+      const response = await adminFetch("/api/escrows", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -253,7 +254,7 @@ export function FinanceDesk() {
     setSettlementBusy(true);
     setSettlementError(null);
     try {
-      const response = await fetch("/api/step-up", {
+      const response = await adminFetch("/api/step-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
@@ -493,7 +494,7 @@ export function FinanceDesk() {
                       >
                         <Box>
                           <Typography
-                            sx={{ fontFamily: "monospace", fontWeight: 800 }}
+                            sx={{ fontFamily: "Geist Mono", fontWeight: 800 }}
                           >
                             {item.factRef}
                           </Typography>

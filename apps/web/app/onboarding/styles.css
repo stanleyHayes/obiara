@@ -84,7 +84,7 @@
 .onboarding-brand > span {
   color: rgba(255, 243, 230, 0.52);
   font-size: 0.68rem;
-  font-weight: 750;
+  font-weight: 800;
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
@@ -99,7 +99,7 @@
 .onboarding-kicker {
   color: #c72f53;
   font-size: 0.69rem;
-  font-weight: 850;
+  font-weight: 900;
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
@@ -111,7 +111,7 @@
 .onboarding-intro h1 {
   color: #fff3e6;
   font-size: clamp(3rem, 5.25vw, 5.8rem);
-  font-weight: 820;
+  font-weight: 800;
   letter-spacing: -0.075em;
   line-height: 0.91;
   margin: 1.2rem 0 1.65rem;
@@ -252,7 +252,7 @@
 .onboarding-card h2 {
   color: #3a0e2e;
   font-size: clamp(2.7rem, 5vw, 4.8rem);
-  font-weight: 820;
+  font-weight: 800;
   letter-spacing: -0.07em;
   line-height: 0.95;
   margin: 0.9rem 0 1.4rem;
@@ -305,7 +305,7 @@
   margin-top: 0.15rem;
 }
 
-.onboarding-card label:not(.onboarding-check) {
+.onboarding-card label:not(.onboarding-check, .obiara-check, .obiara-radio) {
   color: #3a0e2e;
   display: flex;
   flex-direction: column;
@@ -314,10 +314,12 @@
   gap: 0.55rem;
 }
 
-.onboarding-card label:not(.onboarding-check) > small {
+.onboarding-card
+  label:not(.onboarding-check, .obiara-check, .obiara-radio)
+  > small {
   color: #8b7782;
   font-size: 0.68rem;
-  font-weight: 550;
+  font-weight: 600;
 }
 
 .onboarding-otp-field {
@@ -328,7 +330,7 @@
 .onboarding-otp-field > small {
   color: #8b7782;
   font-size: 0.68rem;
-  font-weight: 550;
+  font-weight: 600;
 }
 
 .onboarding-otp-field .obiara-otp-fieldset {
@@ -407,7 +409,7 @@
   color: #6f5063;
   display: flex;
   font-size: 0.72rem;
-  font-weight: 850;
+  font-weight: 900;
   justify-content: center;
   letter-spacing: 0.08em;
 }
@@ -428,7 +430,7 @@
   border-radius: 0;
   font-size: 1.25rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 720;
+  font-weight: 700;
   min-width: 0;
   outline: none;
 }
@@ -512,7 +514,7 @@
   display: inline-flex;
   font: inherit;
   font-size: 0.87rem;
-  font-weight: 820;
+  font-weight: 800;
   justify-content: center;
   margin-top: 2rem;
   min-height: 3.7rem;
@@ -542,6 +544,38 @@
   color: #7d6674;
   cursor: not-allowed;
   transform: none;
+}
+
+.onboarding-otp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.4rem;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.onboarding-text-button {
+  background: none;
+  border: 0;
+  color: #3a0e2e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-height: 2.75rem;
+  padding: 0.25rem 0;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+}
+
+.onboarding-text-button:hover {
+  color: #541441;
+}
+
+.onboarding-text-button:disabled {
+  color: #9a8790;
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 .onboarding-check {
@@ -577,7 +611,7 @@
   border-left: 3px solid #9f2d35;
   color: #8c2933;
   font-size: 0.82rem;
-  font-weight: 650;
+  font-weight: 700;
   line-height: 1.45;
   margin: 0.85rem 0 0;
   padding: 0.75rem 0.9rem;
@@ -626,7 +660,7 @@
   .onboarding-mobile-brand span {
     color: #8a7480;
     font-size: 0.68rem;
-    font-weight: 750;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }

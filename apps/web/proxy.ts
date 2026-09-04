@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { cookieMaxAge } from "./app/lib/session-cookie";
+
 /**
  * Keeps a signed-in session alive across access-token expiry.
  *
@@ -48,13 +50,21 @@ interface RotatedSession {
  * and render the member area to a signed-out visitor.
  */
 function endSession(request: NextRequest): NextResponse {
-  const isApiRequest = request.nextUrl.pathname.startsWith("/api/");
-  const response = isApiRequest
-    ? NextResponse.json(
-        { message: "Your sign-in has expired. Please sign in again." },
-        { status: 401 },
-      )
-    : NextResponse.redirect(new URL("/onboarding", request.url));
+  const path = request.nextUrl.pathname;
+  let response: NextResponse;
+  if (path.startsWith("/api/")) {
+    response = NextResponse.json(
+      { message: "Your sign-in has expired. Please sign in again." },
+      { status: 401 },
+    );
+  } else if (path === "/onboarding" || path.startsWith("/onboarding/")) {
+    // Already at the doorway. Redirecting here would send the request back to
+    // the address it came from, and the cookies would be cleared on a response
+    // that never arrives — a loop the member cannot break out of.
+    response = NextResponse.next();
+  } else {
+    response = NextResponse.redirect(new URL("/onboarding", request.url));
+  }
   for (const name of sessionCookies) {
     response.cookies.delete(name);
   }
@@ -119,7 +129,7 @@ export async function proxy(request: NextRequest) {
     sameSite: "lax",
     secure,
     path: "/",
-    expires: new Date(rotated.accessExpiresAt),
+    maxAge: cookieMaxAge(rotated.accessExpiresAt),
   });
   // Rotation is single use: the presented token is now dead, so the cookie
   // must carry the new one or the next refresh reads as theft.
@@ -128,14 +138,14 @@ export async function proxy(request: NextRequest) {
     sameSite: "strict",
     secure,
     path: "/",
-    expires: new Date(rotated.refreshExpiresAt),
+    maxAge: cookieMaxAge(rotated.refreshExpiresAt),
   });
   result.cookies.set(memberCookie, rotated.memberId, {
     httpOnly: true,
     sameSite: "lax",
     secure,
     path: "/",
-    expires: new Date(rotated.refreshExpiresAt),
+    maxAge: cookieMaxAge(rotated.refreshExpiresAt),
   });
   return result;
 }
@@ -143,5 +153,12 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Only paths that can act on a session. Static assets and the auth routes
   // themselves are excluded; the auth routes own the cookies directly.
-  matcher: ["/fie/:path*", "/api/((?!auth/).*)"],
+  //
+  // /onboarding is here because it resumes the walk from the member's server
+  // state, and it can only read that with a live access token. Access tokens
+  // last fifteen minutes and the walk takes longer than that to abandon and
+  // come back to, so without rotation the one member the resume exists for —
+  // the one returning later — would arrive holding a dead cookie and be sent
+  // round the whole walk again.
+  matcher: ["/onboarding", "/fie/:path*", "/api/((?!auth/).*)"],
 };

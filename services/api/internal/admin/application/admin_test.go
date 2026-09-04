@@ -394,3 +394,43 @@ func TestChangeRolesStillRefusesAnAdminRoleFlip(t *testing.T) {
 		t.Fatalf("ChangeRoles = %v, want ErrFourEyesRequired", err)
 	}
 }
+
+func TestLogoutRevokesTheSessionAndAudits(t *testing.T) {
+	service, _, _, sessions, audit, _ := newService(t)
+	live := steppedUpSession("sess_1", "adm_root", []domain.Role{domain.RoleAdmin})
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_1").Return(live, nil)
+	sessions.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, session domain.Session) error {
+			// Dropping the console's cookie is not signing out: unless the
+			// stored session is actually revoked, the id it discarded keeps
+			// every desk grant it carries until it expires on its own.
+			if !session.Revoked() || session.Active(adminSvcNow) {
+				t.Fatalf("session left usable after logout: %+v", session)
+			}
+			return nil
+		})
+	audit.EXPECT().Append(gomock.Any(), "adm_root", "admin.logout", "sess_1", adminSvcNow).Return(nil)
+
+	if err := service.Logout(context.Background(), "sess_1"); err != nil {
+		t.Fatalf("Logout = %v", err)
+	}
+}
+
+func TestLogoutIsIdempotent(t *testing.T) {
+	// A retried sign-out, or one racing the session's own expiry, must not
+	// strand the operator on a page that will not close.
+	service, _, _, sessions, _, _ := newService(t)
+	revoked := domain.ReconstituteSession(
+		"sess_2", "adm_root", []domain.Role{domain.RoleAdmin}, true,
+		adminSvcNow.Add(time.Hour), true, 3, adminSvcNow,
+	)
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_2").Return(revoked, nil)
+	if err := service.Logout(context.Background(), "sess_2"); err != nil {
+		t.Fatalf("Logout on a revoked session = %v", err)
+	}
+
+	sessions.EXPECT().FindByID(gomock.Any(), "sess_gone").Return(domain.Session{}, ErrSessionNotFound)
+	if err := service.Logout(context.Background(), "sess_gone"); err != nil {
+		t.Fatalf("Logout on a missing session = %v", err)
+	}
+}

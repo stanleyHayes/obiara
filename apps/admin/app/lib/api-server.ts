@@ -14,7 +14,23 @@ async function failClosedFetch(
 ): Promise<Response> {
   try {
     return await fetch(input, init);
-  } catch {
+  } catch (cause) {
+    // The synthetic 503 is what every desk renders as "unavailable — fail
+    // closed", and swallowing the cause made that indistinguishable from a
+    // slow API, a wrong base URL, a DNS failure and an aborted request. The
+    // operator sees the same words either way; without this line so does
+    // whoever they report it to.
+    console.error("[obiara-admin] upstream fetch failed", {
+      url: typeof input === "string" ? input : String(input),
+      error:
+        cause instanceof Error
+          ? `${cause.name}: ${cause.message}`
+          : String(cause),
+      cause:
+        cause instanceof Error && cause.cause instanceof Error
+          ? `${cause.cause.name}: ${cause.cause.message}`
+          : undefined,
+    });
     return new Response(null, { status: 503 });
   }
 }

@@ -7,6 +7,7 @@ import {
   CompoundBottomNavigation,
   CompoundRail,
 } from "../../compound-navigation";
+import { ObiaraSelect } from "@obiara/ui-web";
 
 interface VisibleEvent {
   id: string;
@@ -256,24 +257,25 @@ export function SubanExplanation() {
               </div>
             ) : (
               <div>
-                <label htmlFor="appeal-reason">Reason for review</label>
-                <select
-                  id="appeal-reason"
-                  onChange={(event) =>
-                    setAppealReason(event.target.value as AppealReason)
-                  }
+                <ObiaraSelect
+                  label="Reason for review"
+                  onChange={(value) => setAppealReason(value as AppealReason)}
+                  options={[
+                    {
+                      value: "event_inaccurate",
+                      label: "The event is inaccurate",
+                    },
+                    {
+                      value: "wrong_subject",
+                      label: "It belongs to someone else",
+                    },
+                    {
+                      value: "finding_overturned",
+                      label: "The finding was overturned",
+                    },
+                  ]}
                   value={appealReason}
-                >
-                  <option value="event_inaccurate">
-                    The event is inaccurate
-                  </option>
-                  <option value="wrong_subject">
-                    It belongs to someone else
-                  </option>
-                  <option value="finding_overturned">
-                    The finding was overturned
-                  </option>
-                </select>
+                />
                 <button
                   disabled={status === "filing"}
                   onClick={fileAppeal}

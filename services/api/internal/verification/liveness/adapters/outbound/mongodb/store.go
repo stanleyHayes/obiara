@@ -68,6 +68,13 @@ func (store *Store) EnsureIndexes(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	if _, err := store.attempts.Indexes().CreateOne(ctx, mongo.IndexModel{
+		// Reads the subject's most recent attempt when onboarding resumes.
+		Keys:    bson.D{{Key: "subjectKey", Value: 1}, {Key: "createdAt", Value: -1}},
+		Options: options.Index().SetName("liveness_subject_recent"),
+	}); err != nil {
+		return err
+	}
 	if _, err := store.reviews.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "expiresAt", Value: 1}},
 		Options: options.Index().SetName("liveness_review_ttl").
@@ -157,6 +164,22 @@ func (store *Store) Create(ctx context.Context, attempt domain.Attempt) (domain.
 func (store *Store) FindByID(ctx context.Context, id string) (domain.Attempt, error) {
 	var document attemptDocument
 	if err := store.attempts.FindOne(ctx, bson.M{"_id": id}).Decode(&document); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return domain.Attempt{}, application.ErrAttemptNotFound
+		}
+		return domain.Attempt{}, application.ErrServiceUnavailable
+	}
+	return fromDocument(document)
+}
+
+func (store *Store) LatestBySubjectKey(ctx context.Context, subjectKey string) (domain.Attempt, error) {
+	var document attemptDocument
+	err := store.attempts.FindOne(
+		ctx,
+		bson.M{"subjectKey": subjectKey},
+		options.FindOne().SetSort(bson.D{{Key: "createdAt", Value: -1}}),
+	).Decode(&document)
+	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return domain.Attempt{}, application.ErrAttemptNotFound
 		}

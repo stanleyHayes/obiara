@@ -25,6 +25,8 @@ import { EmptyState } from "../../empty-state";
 import { AdminSkeleton } from "../../loading-skeleton";
 import { buildCasePath } from "../../case-route-model";
 import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon, UtilityIcon } from "../../admin-icons";
+import { adminFetch } from "../../lib/admin-fetch";
 
 type EvidencePurpose = "triage" | "appeal" | "legal";
 
@@ -58,29 +60,35 @@ function deadlineLabel(value: string) {
 }
 
 function SafetyQueueItem({ item }: Readonly<{ item: SafetyCase }>) {
+  const queueLabel = item.queue === "care" ? "Care response" : "Safety triage";
+
   return (
     <Button
       className="safety-case"
       href={buildCasePath("safety", item.caseId, "/safety")}
     >
-      <Box className="admin-watermarked-row">
-        <AdminCardWatermark watermark="safety" />
-        <Stack direction="row" spacing={1}>
-          <Typography component="strong">{item.caseId}</Typography>
-          <Chip
-            color={item.tier === "A" ? "error" : "warning"}
-            label={`Tier ${item.tier}`}
-            size="small"
-          />
-        </Stack>
-        <Typography>
-          {item.queue === "care" ? "Care response" : "Safety triage"}
-        </Typography>
-        <Typography className="safety-reference">
-          {item.subjectRef} · {deadlineLabel(item.slaDueAt)}
-        </Typography>
+      <Box
+        className={`safety-case-tier safety-case-tier--${item.tier.toLowerCase()}`}
+      >
+        <span>Tier</span>
+        <strong>{item.tier}</strong>
       </Box>
-      <span aria-hidden="true">›</span>
+      <Box className="admin-watermarked-row safety-case-copy">
+        <AdminCardWatermark watermark="safety" />
+        <Typography className="safety-case-id">{item.caseId}</Typography>
+        <Typography component="strong" className="safety-case-title">
+          {queueLabel}
+        </Typography>
+        <Typography className="safety-reference">{item.subjectRef}</Typography>
+      </Box>
+      <Box className="safety-case-deadline">
+        <UtilityIcon name="clock" aria-hidden="true" />
+        <span>{deadlineLabel(item.slaDueAt)}</span>
+        <small>{item.assigned ? "Owned case" : "Awaiting owner"}</small>
+      </Box>
+      <span className="safety-case-open" aria-hidden="true">
+        <UtilityIcon name="arrow-right" />
+      </span>
     </Button>
   );
 }
@@ -118,7 +126,7 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
     setLoading(true);
     window.queueMicrotask(() => setLoadError(""));
     try {
-      const response = await fetch("/api/safety");
+      const response = await adminFetch("/api/safety");
       const payload = (await response.json()) as {
         cases?: SafetyCase[];
         message?: string;
@@ -151,7 +159,7 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
     const generation = ++loadGeneration.current;
     const controller = new AbortController();
     window.queueMicrotask(() => setLoadError(""));
-    void fetch("/api/safety", { signal: controller.signal })
+    void adminFetch("/api/safety", { signal: controller.signal })
       .then(async (response) => {
         const payload = (await response.json()) as {
           cases?: SafetyCase[];
@@ -193,7 +201,7 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/safety", {
+      const response = await adminFetch("/api/safety", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "assign", caseId: selected.caseId }),
@@ -231,7 +239,7 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/safety", {
+      const response = await adminFetch("/api/safety", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -272,7 +280,7 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/step-up", {
+      const response = await adminFetch("/api/step-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
@@ -312,24 +320,28 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
   }
 
   return (
-    <main className="verification-shell safety-desk-shell" aria-busy={busy}>
-      <header className="verification-header">
-        <Box>
+    <main
+      className={`verification-shell safety-desk-shell safety-redesign ${detailMode ? "is-detail" : "is-queue"}`}
+      aria-busy={busy}
+    >
+      <header className="verification-header safety-hero">
+        <Box className="safety-hero-copy">
           <Link
             href={detailMode ? "/safety" : "/"}
             className="verification-back"
           >
             {detailMode ? "Back to safety queue" : "Return to command centre"}
           </Link>
-          <Typography className="section-kicker">
-            Trust and safety desk
-          </Typography>
-          <Typography component="h1">
-            See enough to act, never everything.
-          </Typography>
+          <Box className="safety-hero-kicker">
+            <AdminIcon name="safety" aria-hidden="true" />
+            <Typography className="section-kicker">
+              Trust &amp; safety
+            </Typography>
+          </Box>
+          <Typography component="h1">Protect the room.</Typography>
           <Typography>
-            Real queued cases, privacy-keyed subjects and purpose-bound evidence
-            access.
+            A privacy-first response desk for urgent signals, accountable
+            decisions and purpose-bound evidence.
           </Typography>
         </Box>
         {loading ? (
@@ -339,11 +351,18 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
             className="triage-header-skeleton"
           />
         ) : loadError ? null : (
-          <Stack direction="row" spacing={1}>
-            <Chip label={`${cases.length} queued`} color="warning" />
-            <Chip label="Evidence access audited" color="success" />
-          </Stack>
+          <Box className="safety-hero-status">
+            <Box>
+              <strong>{cases.length}</strong>
+              <span>open signals</span>
+            </Box>
+            <Box>
+              <AdminIcon name="verification" aria-hidden="true" />
+              <span>Access is audited</span>
+            </Box>
+          </Box>
         )}
+        <AdminCardWatermark watermark="safety" />
       </header>
 
       {loadError ? (
@@ -372,10 +391,18 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
             variant="panel"
             watermark="queue"
             showWatermark={!loading && !loadError && cases.length > 0}
-            className="verification-list"
+            className="verification-list safety-queue-panel"
           >
             <Box className="verification-panel-heading">
-              <Typography component="h2">Priority queue</Typography>
+              <Box>
+                <Typography className="section-kicker">
+                  Incident stream
+                </Typography>
+                <Typography component="h2">Priority signals</Typography>
+                <Typography>
+                  Ordered by severity and response deadline.
+                </Typography>
+              </Box>
               <Button
                 disabled={loading}
                 onClick={() => void loadQueue()}
@@ -397,7 +424,7 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
                 ))
               ) : (
                 <EmptyState
-                  icon="✓"
+                  icon={<AdminIcon name="safety" aria-hidden="true" />}
                   title="Triage queue is clear"
                   description="No trust and safety cases are waiting. New priority work will appear here in SLA order."
                   variant="success"
@@ -411,17 +438,21 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
             variant="detail"
             watermark="safety"
             showWatermark={!loading && !loadError && Boolean(selected)}
-            className="verification-review"
+            className="verification-review safety-review-panel"
           >
             {selected ? (
-              <Stack spacing={3}>
-                <Box className="verification-panel-heading">
+              <Stack spacing={3} className="safety-review-stack">
+                <Box className="verification-panel-heading safety-review-heading">
                   <Box>
-                    <Typography className="section-kicker">
-                      Case {selected.caseId}
-                    </Typography>
-                    <Typography component="h2">
-                      Controlled evidence review
+                    <Box className="safety-case-overline">
+                      <span
+                        className={`safety-tier-dot safety-tier-dot--${selected.tier.toLowerCase()}`}
+                      />
+                      <Typography>Tier {selected.tier} incident</Typography>
+                    </Box>
+                    <Typography component="h2">Controlled review</Typography>
+                    <Typography className="safety-detail-id">
+                      {selected.caseId}
                     </Typography>
                   </Box>
                   <Chip
@@ -435,7 +466,7 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
                     color={selected.assignedToMe ? "success" : "default"}
                   />
                 </Box>
-                <Box className="verification-facts">
+                <Box className="verification-facts safety-facts">
                   <Box>
                     <Typography>Private subject</Typography>
                     <Typography component="strong">
@@ -449,62 +480,64 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography>SLA</Typography>
+                    <Typography>Response clock</Typography>
                     <Typography component="strong">
                       {deadlineLabel(selected.slaDueAt)}
                     </Typography>
                   </Box>
                 </Box>
-                {!selected.assigned ? (
-                  <Alert severity="info">
-                    Claim the case before requesting its least-exposure evidence
-                    bundle.
-                  </Alert>
-                ) : !selected.assignedToMe ? (
-                  <Alert severity="warning">
-                    This case belongs to another agent. Evidence access is
-                    blocked.
-                  </Alert>
-                ) : (
-                  <Alert severity="info">
-                    Choose the exact review purpose. Opening evidence requires
-                    fresh MFA and creates an immutable access record.
-                  </Alert>
-                )}
-                <Box className="verification-actions">
+                <Box className="safety-access-stage">
                   {!selected.assigned ? (
+                    <Alert severity="info">
+                      Claim the case before requesting its least-exposure
+                      evidence bundle.
+                    </Alert>
+                  ) : !selected.assignedToMe ? (
+                    <Alert severity="warning">
+                      This case belongs to another agent. Evidence access is
+                      blocked.
+                    </Alert>
+                  ) : (
+                    <Alert severity="info">
+                      Choose the exact review purpose. Opening evidence requires
+                      fresh MFA and creates an immutable access record.
+                    </Alert>
+                  )}
+                  <Box className="verification-actions safety-review-actions">
+                    {!selected.assigned ? (
+                      <Button
+                        disabled={busy}
+                        onClick={() => void assignCase()}
+                        variant="contained"
+                      >
+                        Assign to me
+                      </Button>
+                    ) : null}
+                    <FormControl sx={{ minWidth: 180 }}>
+                      <InputLabel id="safety-purpose-label">
+                        Access purpose
+                      </InputLabel>
+                      <Select
+                        label="Access purpose"
+                        labelId="safety-purpose-label"
+                        onChange={(event) =>
+                          setPurpose(event.target.value as EvidencePurpose)
+                        }
+                        value={purpose}
+                      >
+                        <MenuItem value="triage">Triage</MenuItem>
+                        <MenuItem value="appeal">Appeal</MenuItem>
+                        <MenuItem value="legal">Legal</MenuItem>
+                      </Select>
+                    </FormControl>
                     <Button
-                      disabled={busy}
-                      onClick={() => void assignCase()}
-                      variant="contained"
+                      disabled={busy || !selected.assignedToMe}
+                      onClick={() => void requestEvidence()}
+                      variant="outlined"
                     >
-                      Assign to me
+                      Open redacted evidence
                     </Button>
-                  ) : null}
-                  <FormControl sx={{ minWidth: 180 }}>
-                    <InputLabel id="safety-purpose-label">
-                      Access purpose
-                    </InputLabel>
-                    <Select
-                      label="Access purpose"
-                      labelId="safety-purpose-label"
-                      onChange={(event) =>
-                        setPurpose(event.target.value as EvidencePurpose)
-                      }
-                      value={purpose}
-                    >
-                      <MenuItem value="triage">Triage</MenuItem>
-                      <MenuItem value="appeal">Appeal</MenuItem>
-                      <MenuItem value="legal">Legal</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <Button
-                    disabled={busy || !selected.assignedToMe}
-                    onClick={() => void requestEvidence()}
-                    variant="outlined"
-                  >
-                    Open redacted evidence
-                  </Button>
+                  </Box>
                 </Box>
               </Stack>
             ) : loading ? (
@@ -514,7 +547,7 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
               />
             ) : loadError ? (
               <EmptyState
-                icon="!"
+                icon={<AdminIcon name="incidents" aria-hidden="true" />}
                 title="Safety case unavailable"
                 description={loadError}
                 variant="warning"
@@ -522,7 +555,7 @@ export function SafetyDesk({ caseId }: Readonly<{ caseId?: string }>) {
               />
             ) : (
               <EmptyState
-                icon="⌁"
+                icon={<AdminIcon name="safety" aria-hidden="true" />}
                 title="Safety case not found"
                 description="This case is no longer in the active queue, or the link is invalid."
                 variant="warning"

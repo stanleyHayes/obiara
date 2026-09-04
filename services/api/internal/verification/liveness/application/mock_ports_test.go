@@ -111,6 +111,21 @@ func (mr *MockAttemptStoreMockRecorder) FindByID(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByID", reflect.TypeOf((*MockAttemptStore)(nil).FindByID), arg0, arg1)
 }
 
+// LatestBySubjectKey mocks base method.
+func (m *MockAttemptStore) LatestBySubjectKey(arg0 context.Context, arg1 string) (domain.Attempt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LatestBySubjectKey", arg0, arg1)
+	ret0, _ := ret[0].(domain.Attempt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LatestBySubjectKey indicates an expected call of LatestBySubjectKey.
+func (mr *MockAttemptStoreMockRecorder) LatestBySubjectKey(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestBySubjectKey", reflect.TypeOf((*MockAttemptStore)(nil).LatestBySubjectKey), arg0, arg1)
+}
+
 // Update mocks base method.
 func (m *MockAttemptStore) Update(arg0 context.Context, arg1 domain.Attempt, arg2 uint64) error {
 	m.ctrl.T.Helper()

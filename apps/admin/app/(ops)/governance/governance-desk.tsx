@@ -31,6 +31,7 @@ import {
   type Pack,
   type PendingPack,
 } from "../../content-model";
+import { adminFetch } from "../../lib/admin-fetch";
 const labels: Record<Market, string> = {
     gh_en: "Ghana · English",
     gh_tw: "Ghana · Twi",
@@ -71,7 +72,7 @@ export function GovernanceDesk() {
     setLoading(true);
     setLoadError("");
     try {
-      const r = await fetch("/api/governance", {
+      const r = await adminFetch("/api/governance", {
           cache: "no-store",
           signal: c.signal,
         }),
@@ -125,7 +126,7 @@ export function GovernanceDesk() {
     setError("");
     setNotice("");
     try {
-      const r = await fetch("/api/governance", {
+      const r = await adminFetch("/api/governance", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
@@ -181,7 +182,7 @@ export function GovernanceDesk() {
     const gen = ++stepGen.current;
     setBusy(true);
     try {
-      const r = await fetch("/api/step-up", {
+      const r = await adminFetch("/api/step-up", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
@@ -280,7 +281,10 @@ export function GovernanceDesk() {
                   <Box>
                     <Typography
                       component="h2"
-                      sx={{ fontFamily: "monospace", overflowWrap: "anywhere" }}
+                      sx={{
+                        fontFamily: "Geist Mono",
+                        overflowWrap: "anywhere",
+                      }}
                     >
                       {pack.packId}
                     </Typography>

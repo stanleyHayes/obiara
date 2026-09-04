@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { apiClient, apiErrorBody } from "../../lib/api-server";
 import { isCodeSent, isUpstreamAdminSession } from "../../auth-model";
+import { cookieMaxAge } from "../../lib/session-cookie";
 
 const sessionCookie = "obiara_admin_session";
 const exactKeys = (value: Record<string, unknown>, keys: readonly string[]) => {
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
       sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      expires: new Date(data.data.expiresAt),
+      maxAge: cookieMaxAge(data.data.expiresAt),
     });
     return result;
   }
@@ -96,8 +97,29 @@ export async function POST(request: Request) {
   );
 }
 
+/**
+ * Signs the operator out of this device and of the API.
+ *
+ * Dropping the cookie alone was not signing out: the session id the console
+ * discarded stayed valid for the rest of its lifetime, carrying every desk
+ * grant it held, and the "You're signed out" page said otherwise. Revocation
+ * happens upstream first.
+ *
+ * The cookie is cleared either way. A revoke the API could not answer is a
+ * reason to tell the operator, not a reason to leave them holding a session
+ * cookie on a page that claims they are out — and the API treats a repeated
+ * or already-expired sign-out as success, so the retry is safe.
+ */
 export async function DELETE() {
   const jar = await cookies();
+  const session = jar.get(sessionCookie)?.value;
+  let revoked = true;
+  if (session) {
+    const { data } = await apiClient().POST("/v1/admin/logout", {
+      headers: { Authorization: `Bearer ${session}` },
+    });
+    revoked = Boolean(data);
+  }
   jar.delete(sessionCookie);
-  return NextResponse.json({ signedOut: true });
+  return NextResponse.json({ signedOut: true, revoked });
 }

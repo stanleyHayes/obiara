@@ -32,6 +32,7 @@ import {
   type Competition,
   type PendingTournament,
 } from "../../content-model";
+import { adminFetch } from "../../lib/admin-fetch";
 type Mode = "landing" | "cohort" | "competition";
 const command = (kind: string) => `${kind}.${crypto.randomUUID()}`;
 export function TournamentDesk({
@@ -156,7 +157,7 @@ export function TournamentDesk({
     setBusy(true);
     setActionError("");
     try {
-      const r = await fetch("/api/game-cohorts", {
+      const r = await adminFetch("/api/game-cohorts", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -278,7 +279,7 @@ export function TournamentDesk({
     const gen = ++stepGen.current;
     setBusy(true);
     try {
-      const r = await fetch("/api/step-up", {
+      const r = await adminFetch("/api/step-up", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(

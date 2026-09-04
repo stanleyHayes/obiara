@@ -13,7 +13,7 @@ import {
 } from "@mui/material";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode, type SVGProps } from "react";
 import brandMark from "../../../Obiara_Handover_Package/3_Brand/assets/logo/png/mark-color-onlight_transparent.png";
 
 const zones = [
@@ -54,6 +54,55 @@ const zones = [
     href: "/fie/dan-mu",
   },
 ];
+
+type HomeGlyphName = "sun" | "garden" | "standing" | "okyeame" | "arrow";
+
+function HomeGlyph({
+  name,
+  ...props
+}: SVGProps<SVGSVGElement> & { name: HomeGlyphName }) {
+  const paths: Record<HomeGlyphName, ReactNode> = {
+    sun: (
+      <>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2" />
+      </>
+    ),
+    garden: (
+      <>
+        <path d="M12 21V9" />
+        <path d="M12 13c-5 0-7-3-7-7 4 0 7 2 7 6m0 5c5 0 7-3 7-7-4 0-7 2-7 6" />
+      </>
+    ),
+    standing: (
+      <>
+        <path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6Z" />
+        <path d="m9 12 2 2 4-5" />
+      </>
+    ),
+    okyeame: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M8 12h8M12 8v8" />
+      </>
+    ),
+    arrow: <path d="M5 12h14m-5-5 5 5-5 5" />,
+  };
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      focusable="false"
+      {...props}
+    >
+      {paths[name]}
+    </svg>
+  );
+}
 
 function ZoneCard({
   zone,
@@ -110,7 +159,7 @@ export default function Home() {
   const [language, setLanguage] = useState<"EN" | "TWI">("EN");
   const hero = heroCopy[language];
   return (
-    <Box component="main" className="fie-page">
+    <Box component="main" className="fie-page landing-redesign">
       <Container maxWidth={false} className="shell">
         <Box component="header" className="topbar">
           <Stack
@@ -149,7 +198,7 @@ export default function Home() {
           </Stack>
         </Box>
 
-        <Box className="welcome-grid">
+        <Box className="welcome-grid home-hero">
           <Box className="welcome-copy">
             <Chip
               className="morning-chip"
@@ -161,6 +210,15 @@ export default function Home() {
               <span>{hero.outline}</span>
             </Typography>
             <Typography className="welcome-body">{hero.body}</Typography>
+            <Stack className="home-hero-actions" direction="row">
+              <Button variant="contained" href="/fie">
+                Enter my home
+              </Button>
+              <Button href="/fie/abonten">See what is happening</Button>
+            </Stack>
+            <span className="home-hero-watermark" aria-hidden="true">
+              OBIARA
+            </span>
           </Box>
 
           <Card className="dawn-card">
@@ -175,7 +233,7 @@ export default function Home() {
                 </Typography>
               </Box>
               <Box className="sun-disc" aria-hidden="true">
-                ☼
+                <HomeGlyph name="sun" />
               </Box>
             </Stack>
             <Stack className="dawn-metrics" direction="row">
@@ -202,7 +260,7 @@ export default function Home() {
           </Card>
         </Box>
 
-        <Box className="section-heading">
+        <Box className="section-heading protected-zone-heading">
           <Box>
             <Typography component="h2">Walk through your compound</Typography>
             <Typography>
@@ -214,7 +272,7 @@ export default function Home() {
           </Typography>
         </Box>
 
-        <Box className="zone-grid">
+        <Box className="zone-grid protected-zone-grid">
           {zones.map((zone, index) => (
             <ZoneCard key={zone.name} zone={zone} index={index} />
           ))}
@@ -272,7 +330,7 @@ export default function Home() {
                 <Typography component="h2">You walk well here.</Typography>
               </Box>
               <Box className="standing-mark" aria-label="Trusted voucher mark">
-                ✣
+                <HomeGlyph name="standing" />
               </Box>
             </Stack>
             <Box className="standing-progress">
@@ -298,10 +356,17 @@ export default function Home() {
         </Box>
 
         <Box component="footer" className="footer">
-          <Typography>Meet properly.</Typography>
+          <Box>
+            <Image src={brandMark} alt="" />
+            <Typography>Meet properly.</Typography>
+          </Box>
           <Typography>
             Verified people · Voice first · No money passes here
           </Typography>
+          <Stack direction="row">
+            <Link href="/fie/settings/privacy">Privacy</Link>
+            <Link href="/fie/okyeame">Help</Link>
+          </Stack>
         </Box>
       </Container>
 
@@ -310,7 +375,7 @@ export default function Home() {
         aria-label="Open the Okyeame"
         href="/fie/okyeame"
       >
-        <span aria-hidden="true">◉</span>
+        <HomeGlyph name="okyeame" aria-hidden="true" />
         <span>Ask the okyeame</span>
       </Button>
     </Box>

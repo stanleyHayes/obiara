@@ -7,12 +7,15 @@ import {
   Chip,
   Container,
   Stack,
+  TextField,
   Typography,
 } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AdminCard } from "../../admin-card";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon, UtilityIcon } from "../../admin-icons";
 import { EmptyState } from "../../empty-state";
 import { AdminSkeleton } from "../../loading-skeleton";
+import { adminFetch } from "../../lib/admin-fetch";
 
 type WaitlistEntry = {
   name: string;
@@ -34,6 +37,10 @@ export function WaitlistDesk() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "sent">(
+    "all",
+  );
   const mounted = useRef(true);
   const loadGeneration = useRef(0);
   const requestController = useRef<AbortController | null>(null);
@@ -45,7 +52,7 @@ export function WaitlistDesk() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/waitlist", {
+      const response = await adminFetch("/api/waitlist", {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -89,97 +96,73 @@ export function WaitlistDesk() {
       entries.filter((entry) => entry.notificationState === "pending").length,
     [entries],
   );
+  const matchesEntry = (entry: WaitlistEntry) => {
+    const normalized = query.trim().toLowerCase();
+    const matchesQuery =
+      !normalized ||
+      entry.name.toLowerCase().includes(normalized) ||
+      entry.email.toLowerCase().includes(normalized);
+    return (
+      matchesQuery &&
+      (statusFilter === "all" || entry.notificationState === statusFilter)
+    );
+  };
 
   return (
-    <Box
-      sx={{
-        bgcolor: "background.default",
-        color: "text.primary",
-        minHeight: "100vh",
-        py: 4,
-      }}
-    >
-      <Container maxWidth="lg">
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          sx={{
-            alignItems: { md: "end" },
-            justifyContent: "space-between",
-            mb: 5,
-          }}
-        >
-          <Box sx={{ maxWidth: 760 }}>
-            <Typography
-              sx={{
-                color: "#8e3159",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 1.4,
-              }}
-            >
-              LAUNCH AUDIENCE · CONSENTED
+    <Box className="waitlist-redesign">
+      <Container maxWidth={false} className="waitlist-shell">
+        <header className="waitlist-hero">
+          <Box className="waitlist-hero-copy">
+            <Box className="waitlist-hero-kicker">
+              <AdminIcon name="waitlist" aria-hidden="true" />
+              <Typography className="section-kicker">
+                Launch audience · consented
+              </Typography>
+            </Box>
+            <Typography component="h1">
+              The first people through the door.
             </Typography>
-            <Typography
-              component="h1"
-              sx={{
-                fontSize: { xs: 40, md: 64 },
-                fontWeight: 800,
-                letterSpacing: "-0.055em",
-                lineHeight: 0.95,
-                mt: 1,
-              }}
-            >
-              People waiting for Obiara.
-            </Typography>
-            <Typography sx={{ color: "#69535d", mt: 2, maxWidth: "68ch" }}>
-              These people asked for one availability email. Their details must
-              not be reused for newsletters, profiling or unrelated campaigns.
+            <Typography>
+              One promise, one availability email. These details are never
+              reused for newsletters, profiling or unrelated campaigns.
             </Typography>
           </Box>
-          <Button
-            disabled={loading}
-            onClick={() => void load()}
-            variant="outlined"
-          >
-            Refresh
-          </Button>
-        </Stack>
+          <Box className="waitlist-hero-side">
+            <span>Consent scope</span>
+            <strong>Launch availability only</strong>
+            <Button
+              disabled={loading}
+              onClick={() => void load()}
+              variant="outlined"
+            >
+              Refresh list
+            </Button>
+          </Box>
+          <AdminCardWatermark watermark="queue" />
+        </header>
+
         {error ? (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity="error" className="waitlist-alert">
             {error}
           </Alert>
         ) : null}
-        <Box
-          sx={{
-            display: "grid",
-            gap: 1.5,
-            gridTemplateColumns: "1fr",
-            mb: 3,
-          }}
-        >
+
+        <Box className="waitlist-pulse">
           <AdminCard
             variant="metric"
             watermark="identity"
             showWatermark={loaded && !loading && !error}
-            sx={{ p: 2.5 }}
+            className="waitlist-pulse-card is-total"
           >
             {loading ? (
               <AdminSkeleton variant="metric" label="Loading total signups" />
             ) : (
               <>
-                <Typography
-                  sx={{
-                    color: "text.secondary",
-                    fontSize: 12,
-                    fontWeight: 800,
-                  }}
-                >
-                  TOTAL SIGNUPS
-                </Typography>
-                <Typography sx={{ fontSize: 36, fontWeight: 800 }}>
+                <Typography>Total people</Typography>
+                <Typography component="strong">
                   {error || !loaded ? "Unavailable" : entries.length}
                 </Typography>
+                <span>Consented launch audience</span>
               </>
             )}
           </AdminCard>
@@ -187,7 +170,7 @@ export function WaitlistDesk() {
             variant="metric"
             watermark="queue"
             showWatermark={loaded && !loading && !error}
-            sx={{ p: 2.5 }}
+            className="waitlist-pulse-card is-pending"
           >
             {loading ? (
               <AdminSkeleton
@@ -196,96 +179,134 @@ export function WaitlistDesk() {
               />
             ) : (
               <>
-                <Typography
-                  sx={{
-                    color: "text.secondary",
-                    fontSize: 12,
-                    fontWeight: 800,
-                  }}
-                >
-                  AWAITING LAUNCH EMAIL
-                </Typography>
-                <Typography sx={{ fontSize: 36, fontWeight: 800 }}>
+                <Typography>Awaiting email</Typography>
+                <Typography component="strong">
                   {error || !loaded ? "Unavailable" : pending}
                 </Typography>
+                <span>Notification still pending</span>
               </>
             )}
           </AdminCard>
+          <aside className="waitlist-promise">
+            <AdminIcon name="verification" aria-hidden="true" />
+            <div>
+              <span>Audience rule</span>
+              <strong>No campaign reuse.</strong>
+              <p>Original consent evidence stays attached to every signup.</p>
+            </div>
+          </aside>
         </Box>
-        <Stack spacing={1.25}>
-          {!loading && loaded && !error && entries.length === 0 ? (
-            <EmptyState
-              icon="⌁"
-              title="No one is waiting yet"
-              description="New marketing signups will appear here."
-              variant="neutral"
+
+        <AdminCard
+          variant="panel"
+          watermark="queue"
+          showWatermark={loaded && !loading && !error && entries.length > 0}
+          className="waitlist-directory-panel"
+        >
+          <Box className="waitlist-directory-heading">
+            <Box>
+              <Typography className="section-kicker">Arrival ledger</Typography>
+              <Typography component="h2">Waiting list</Typography>
+              <Typography>
+                Newest consented signups and their notification state.
+              </Typography>
+            </Box>
+            {loaded && !error ? (
+              <Chip
+                label={`${entries.length} people`}
+                size="small"
+                variant="outlined"
+              />
+            ) : null}
+          </Box>
+          <Box className="waitlist-controls">
+            <TextField
+              fullWidth
+              label="Search name or email"
+              onChange={(event) => setQuery(event.target.value)}
+              value={query}
             />
-          ) : null}
-          {loading ? (
-            <AdminSkeleton
-              variant="card-list"
-              rows={5}
-              label="Loading waitlist entries"
-            />
-          ) : null}
-          {!loading && loaded && !error
-            ? entries.map((entry) => (
-                <AdminCard
-                  key={entry.email}
-                  variant="row"
-                  watermark="identity"
-                  sx={{ p: 2.25 }}
+            <Box
+              className="waitlist-filters"
+              aria-label="Filter notification status"
+            >
+              {(["all", "pending", "sent"] as const).map((status) => (
+                <Button
+                  className={statusFilter === status ? "is-active" : ""}
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
                 >
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={2}
-                    sx={{
-                      alignItems: { sm: "center" },
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <Box>
-                      <Typography sx={{ fontWeight: 800 }}>
-                        {entry.name}
-                      </Typography>
-                      <Typography
-                        sx={{
-                          color: "text.secondary",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {entry.email}
-                      </Typography>
-                    </Box>
-                    <Stack
-                      direction="row"
-                      spacing={1.5}
-                      sx={{ alignItems: "center" }}
+                  {status}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+
+          <Stack spacing={1.25} className="waitlist-records">
+            {!loading && loaded && !error && entries.length === 0 ? (
+              <EmptyState
+                icon={<AdminIcon name="waitlist" aria-hidden="true" />}
+                title="No one is waiting yet"
+                description="New marketing signups will appear here."
+                variant="neutral"
+              />
+            ) : null}
+            {loading ? (
+              <AdminSkeleton
+                variant="card-list"
+                rows={5}
+                label="Loading waitlist entries"
+              />
+            ) : null}
+            {!loading && loaded && !error
+              ? entries.map((entry) =>
+                  matchesEntry(entry) ? (
+                    <AdminCard
+                      key={entry.email}
+                      variant="row"
+                      watermark="identity"
+                      className="waitlist-record"
                     >
-                      <Typography
-                        sx={{ color: "text.secondary", fontSize: 13 }}
+                      <span className="waitlist-record-mark" aria-hidden="true">
+                        <AdminIcon name="waitlist" />
+                      </span>
+                      <Box className="waitlist-record-person">
+                        <Typography component="strong">{entry.name}</Typography>
+                        <Typography sx={{ overflowWrap: "anywhere" }}>
+                          {entry.email}
+                        </Typography>
+                      </Box>
+                      <Box className="waitlist-record-date">
+                        <UtilityIcon name="clock" aria-hidden="true" />
+                        <span>Joined</span>
+                        <strong>{dateLabel(entry.signedUpAt)}</strong>
+                      </Box>
+                      <span
+                        className={`waitlist-record-state is-${entry.notificationState}`}
                       >
-                        {dateLabel(entry.signedUpAt)}
-                      </Typography>
-                      <Chip
-                        color={
-                          entry.notificationState === "sent"
-                            ? "success"
-                            : "warning"
-                        }
-                        label={
-                          entry.notificationState === "sent"
-                            ? "Notified"
-                            : "Pending"
-                        }
-                        size="small"
-                      />
-                    </Stack>
-                  </Stack>
-                </AdminCard>
-              ))
-            : null}
-        </Stack>
+                        <i />
+                        {entry.notificationState === "sent"
+                          ? "Notified"
+                          : "Pending"}
+                      </span>
+                    </AdminCard>
+                  ) : null,
+                )
+              : null}
+            {!loading &&
+            loaded &&
+            !error &&
+            entries.length > 0 &&
+            !entries.some(matchesEntry) ? (
+              <EmptyState
+                icon={<AdminIcon name="waitlist" aria-hidden="true" />}
+                title="No matching signups"
+                description="Try another name, email or notification state."
+                variant="neutral"
+              />
+            ) : null}
+          </Stack>
+        </AdminCard>
       </Container>
     </Box>
   );

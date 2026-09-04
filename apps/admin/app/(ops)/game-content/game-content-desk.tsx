@@ -20,6 +20,7 @@ import {
   validPromptResult,
   type PromptInput,
 } from "../../content-model";
+import { adminFetch } from "../../lib/admin-fetch";
 const initial: PromptInput = {
   id: "",
   version: 1,
@@ -87,7 +88,7 @@ export function GameContentDesk() {
     setBusy(true);
     setConfirmError("");
     try {
-      const response = await fetch("/api/ebe-prompts", {
+      const response = await adminFetch("/api/ebe-prompts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(value),

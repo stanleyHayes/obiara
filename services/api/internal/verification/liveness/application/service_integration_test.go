@@ -38,6 +38,25 @@ func (store *memoryStore) Create(_ context.Context, attempt domain.Attempt) (dom
 	return attempt, false, nil
 }
 
+func (store *memoryStore) LatestBySubjectKey(_ context.Context, subjectKey string) (domain.Attempt, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	var latest domain.Attempt
+	var found bool
+	for _, attempt := range store.attempts {
+		if attempt.SubjectKey() != subjectKey {
+			continue
+		}
+		if !found || attempt.CreatedAt().After(latest.CreatedAt()) {
+			latest, found = attempt, true
+		}
+	}
+	if !found {
+		return domain.Attempt{}, application.ErrAttemptNotFound
+	}
+	return latest, nil
+}
+
 func (store *memoryStore) FindByID(_ context.Context, id string) (domain.Attempt, error) {
 	store.mu.Lock()
 	defer store.mu.Unlock()

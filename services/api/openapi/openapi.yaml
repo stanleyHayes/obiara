@@ -2266,6 +2266,35 @@ paths:
           $ref: "#/components/responses/VerificationRejected"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/onboarding/status:
+    get:
+      operationId: getOnboardingStatus
+      tags: [Privacy]
+      summary: Report where the member stands in the onboarding walk
+      security:
+        - MemberBearer: []
+      description: |
+        Projects the acknowledgements, identity case and liveness attempt the
+        member already has, so a console can resume the walk instead of
+        restarting it. Carries no provider reasoning, card value or capture
+        reference — three coarse states and a boolean.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: The member's standing onboarding progress.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingStatusEnvelope"
+        "401":
+          description: A valid member session is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          $ref: "#/components/responses/InternalError"
   /v1/onboarding/consents:
     post:
       operationId: acceptOnboardingConsents
@@ -2303,6 +2332,58 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/verifications/ghana-card/documents:
+    post:
+      operationId: submitGhanaCardDocuments
+      tags: [Verification]
+      summary: Submit both sides of a Ghana Card for human review
+      security:
+        - MemberBearer: []
+      description: |
+        Opens a verification case that goes straight to a reviewer. No issuer
+        lookup is performed: the automated check used to sit inside signing up,
+        and an outage at that provider stopped anyone creating an account at
+        all. Images are encrypted at the application boundary and never stored
+        in the clear. The outcome decides a verified badge, not access.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GhanaCardDocumentsInput"
+      responses:
+        "202":
+          description: Both sides stored and queued for a reviewer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationCaseEnvelope"
+        "401":
+          description: A valid member session is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: This identity is already verified on another account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "413":
+          description: The submission exceeded the size limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/verifications/liveness:
     post:
       operationId: submitLiveness
@@ -5336,6 +5417,34 @@ paths:
           $ref: "#/components/responses/MfaInvalid"
         "415":
           $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /v1/admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [Admin]
+      summary: Revoke the caller's admin session
+      security:
+        - AdminBearer: []
+      description: |
+        Closes the session the bearer token names. A console that only drops
+        its own cookie leaves the session id valid for the rest of its
+        lifetime; this is what actually ends it. Idempotent — a repeated or
+        already-expired sign-out still reports success. Reads no body.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      responses:
+        "200":
+          description: The session is revoked.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSignOutEnvelope"
+        "401":
+          $ref: "#/components/responses/SessionClosed"
         "500":
           $ref: "#/components/responses/InternalError"
   /v1/admin/sessions/{id}/step-up/start:
@@ -8426,6 +8535,37 @@ components:
           $ref: "#/components/schemas/MembershipData"
         meta:
           $ref: "#/components/schemas/Metadata"
+    OnboardingStepState:
+      type: string
+      description: |
+        unstarted — never attempted; pending — opened, undecided; in_review —
+        with a human reviewer; passed — decided in the member's favour;
+        rejected — decided against.
+      enum: [unstarted, pending, in_review, passed, rejected]
+    OnboardingStatusData:
+      type: object
+      additionalProperties: false
+      required: [consentsAccepted, identity, liveness]
+      properties:
+        consentsAccepted:
+          type: boolean
+          description: |
+            True only when the Promise, the terms and the adult affirmation
+            are all effective at the current version. Two of three is not
+            consent.
+        identity:
+          $ref: "#/components/schemas/OnboardingStepState"
+        liveness:
+          $ref: "#/components/schemas/OnboardingStepState"
+    OnboardingStatusEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/OnboardingStatusData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
     OnboardingConsentData:
       type: object
       additionalProperties: false
@@ -8449,6 +8589,39 @@ components:
           $ref: "#/components/schemas/OnboardingConsentData"
         meta:
           $ref: "#/components/schemas/Metadata"
+    GhanaCardDocumentsInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          cardNumber,
+          dateOfBirth,
+          frontMediaType,
+          frontBase64,
+          backMediaType,
+          backBase64,
+        ]
+      properties:
+        cardNumber:
+          type: string
+          minLength: 1
+          maxLength: 32
+        dateOfBirth:
+          type: string
+          format: date
+        frontMediaType:
+          $ref: "#/components/schemas/CardImageMediaType"
+        frontBase64:
+          type: string
+          description: Base64 of the front of the card, at most 4MB decoded.
+        backMediaType:
+          $ref: "#/components/schemas/CardImageMediaType"
+        backBase64:
+          type: string
+          description: Base64 of the back of the card, at most 4MB decoded.
+    CardImageMediaType:
+      type: string
+      enum: [image/jpeg, image/png, image/webp]
     LivenessInput:
       type: object
       additionalProperties: false
@@ -11485,7 +11658,8 @@ components:
     CatalogSKUData:
       type: object
       additionalProperties: false
-      required: [skuId, skuKey, version, kind, currency, amountMinor, status, revision]
+      required:
+        [skuId, skuKey, version, kind, currency, amountMinor, status, revision]
       properties:
         skuId:
           type: string
@@ -11591,7 +11765,15 @@ components:
     RunSheetData:
       type: object
       additionalProperties: false
-      required: [runSheetId, version, status, currentIndex, remainingSeconds, serverTime]
+      required:
+        [
+          runSheetId,
+          version,
+          status,
+          currentIndex,
+          remainingSeconds,
+          serverTime,
+        ]
       properties:
         runSheetId:
           type: string
@@ -12127,6 +12309,22 @@ components:
         expiresAt:
           type: string
           format: date-time
+    AdminSignOutData:
+      type: object
+      additionalProperties: false
+      required: [signedOut]
+      properties:
+        signedOut:
+          type: boolean
+    AdminSignOutEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminSignOutData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
     AdminSessionEnvelope:
       type: object
       additionalProperties: false

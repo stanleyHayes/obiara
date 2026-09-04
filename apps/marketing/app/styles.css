@@ -21,7 +21,7 @@ html {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: "Outfit Variable", Outfit, sans-serif;
+  font-family: Outfit, sans-serif;
   margin: 0;
 }
 
@@ -67,7 +67,7 @@ a {
 .site-header nav a,
 .member-link {
   font-size: 0.78rem;
-  font-weight: 750;
+  font-weight: 800;
   text-decoration: none;
 }
 
@@ -271,7 +271,7 @@ a {
   color: var(--ink);
   display: inline-flex;
   font-size: 0.85rem;
-  font-weight: 850;
+  font-weight: 900;
   margin-top: 28px;
   min-height: 56px;
   padding: 0 24px;
@@ -286,7 +286,7 @@ a {
 .hero-place {
   bottom: 72px;
   font-size: 0.72rem;
-  font-weight: 750;
+  font-weight: 800;
   letter-spacing: 0.13em;
   margin: 0;
   position: absolute;
@@ -309,7 +309,7 @@ a {
 .section-number {
   color: var(--rose);
   font-size: 0.72rem;
-  font-weight: 850;
+  font-weight: 900;
   letter-spacing: 0.14em;
 }
 
@@ -394,7 +394,7 @@ a {
 
 .voice-note p {
   font-size: 0.8rem;
-  font-weight: 750;
+  font-weight: 800;
 }
 
 .voice-wave {
@@ -559,7 +559,7 @@ a {
 .trust-principles span {
   color: var(--rose);
   font-size: 0.7rem;
-  font-weight: 850;
+  font-weight: 900;
 }
 
 .trust-principles strong {
@@ -665,7 +665,7 @@ a {
 .waitlist-promises span {
   color: var(--rose);
   font-size: 0.7rem;
-  font-weight: 850;
+  font-weight: 900;
 }
 .difference-list h3 {
   font-size: 1.35rem;
@@ -680,7 +680,7 @@ a {
 .inline-cta {
   display: inline-block;
   font-size: 0.85rem;
-  font-weight: 850;
+  font-weight: 900;
   margin-top: 46px;
   text-underline-offset: 6px;
 }
@@ -698,7 +698,7 @@ a {
 .closing-section > .waitlist-copy > p:first-child {
   color: var(--rose);
   font-size: 0.75rem;
-  font-weight: 850;
+  font-weight: 900;
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }

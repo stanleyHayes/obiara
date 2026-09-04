@@ -11,7 +11,9 @@ describe("Admin rail navigation model", () => {
     expect(railGroups.length).toBeGreaterThan(1);
     for (const group of railGroups) {
       expect(group.title.trim()).not.toBe("");
+      expect(group.icon.trim()).not.toBe("");
       expect(group.links.length).toBeGreaterThan(0);
+      for (const link of group.links) expect(link.icon.trim()).not.toBe("");
     }
   });
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { Alert, Box, Button, Chip, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Stack, Typography } from "@mui/material";
 import Link from "next/link";
-import { AdminCard } from "../../admin-card";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon, UtilityIcon } from "../../admin-icons";
 
 const severities = [
   [
@@ -75,47 +76,61 @@ const clock = [
 
 export function IncidentRunbook() {
   return (
-    <main className="verification-shell incident-shell">
-      <header className="verification-header">
-        <Box>
+    <main className="verification-shell incident-shell incident-redesign">
+      <header className="verification-header incident-hero">
+        <Box className="incident-hero-copy">
           <Link href="/" className="verification-back">
             Return to command centre
           </Link>
-          <Typography className="section-kicker">
-            Incident response · runbook v0
-          </Typography>
-          <Typography component="h1">
-            Protect people. Preserve evidence. Coordinate humans.
-          </Typography>
+          <Box className="incident-hero-kicker">
+            <AdminIcon name="incidents" aria-hidden="true" />
+            <Typography className="section-kicker">Incident command</Typography>
+          </Box>
+          <Typography component="h1">Move with clarity.</Typography>
           <Typography>
-            Operational guidance from the checked-in pre-P0 baseline. This page
-            does not declare incidents, page staff, place holds, contact
-            regulators, or close records.
+            Protect people, preserve evidence and coordinate the human response
+            from one operational baseline.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Chip color="warning" label="Pre-P0 baseline" />
-          <Chip label="Prepared 27 Jul 2026" variant="outlined" />
-        </Stack>
+        <Box className="incident-hero-meta">
+          <Box>
+            <span>Runbook</span>
+            <strong>v0</strong>
+          </Box>
+          <Box>
+            <span>Prepared</span>
+            <strong>27 Jul 2026</strong>
+          </Box>
+          <Box className="incident-baseline">
+            <span>State</span>
+            <strong>Pre-P0 baseline</strong>
+          </Box>
+        </Box>
+        <AdminCardWatermark watermark="safety" />
       </header>
 
-      <AdminCard
+      <section
         className="incident-priority"
-        variant="warning"
-        watermark="safety"
+        aria-labelledby="incident-priority-title"
       >
+        <span className="incident-priority-mark">
+          <AdminIcon name="safety" aria-hidden="true" />
+        </span>
         <Box className="incident-priority-copy">
-          <Typography className="section-kicker">Incident priority</Typography>
+          <Typography className="section-kicker">First principle</Typography>
+          <Typography component="h2" id="incident-priority-title">
+            People before platform.
+          </Typography>
           <Typography>
-            Priority in every conflict: member physical safety, member dignity
-            and privacy, platform integrity, then growth. A confirmed or
-            reasonably suspected personal-data breach starts the reporting
-            clock; certainty is not required.
+            Member physical safety comes first, followed by dignity and privacy,
+            platform integrity, then growth. Reasonable suspicion of a
+            personal-data breach starts the clock—certainty is not required.
           </Typography>
         </Box>
-      </AdminCard>
+      </section>
 
       <Box
+        className="incident-severity-grid"
         sx={{
           display: "grid",
           gap: 1.5,
@@ -128,80 +143,79 @@ export function IncidentRunbook() {
             key={severity}
             variant="warning"
             watermark="safety"
-            sx={{ p: 2.5 }}
+            className={`incident-severity-card incident-severity-card--${severity.toLowerCase()}`}
           >
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ alignItems: "center", justifyContent: "space-between" }}
-            >
-              <Typography component="h2" sx={{ fontSize: 24, fontWeight: 800 }}>
-                {severity}
-              </Typography>
-              <Chip
-                label={response}
-                color={
-                  severity === "SEV-1"
-                    ? "error"
-                    : severity === "SEV-2"
-                      ? "warning"
-                      : "default"
-                }
-                size="small"
-              />
-            </Stack>
-            <Typography sx={{ color: "text.secondary", mt: 1 }}>
-              {definition}
-            </Typography>
+            <Box className="incident-severity-code">
+              <span>Severity</span>
+              <strong>{severity.slice(-1)}</strong>
+            </Box>
+            <Box className="incident-severity-copy">
+              <Typography component="h2">{severity}</Typography>
+              <Typography>{definition}</Typography>
+            </Box>
+            <Box className="incident-severity-time">
+              <UtilityIcon name="clock" aria-hidden="true" />
+              <span>Respond within</span>
+              <strong>{response}</strong>
+            </Box>
           </AdminCard>
         ))}
       </Box>
 
       <Box className="incident-runbook-grid">
-        <AdminCard variant="timeline" watermark="queue">
+        <AdminCard
+          className="incident-flow-panel"
+          variant="timeline"
+          watermark="queue"
+        >
           <Box className="verification-panel-heading">
-            <Typography component="h2">Ordered response</Typography>
-            <Chip label="Human-owned" variant="outlined" />
+            <Box>
+              <Typography className="section-kicker">
+                Seven movements
+              </Typography>
+              <Typography component="h2">Ordered response</Typography>
+            </Box>
+            <Box className="incident-human-owned">
+              <AdminIcon name="operators" aria-hidden="true" />
+              <span>Human-owned</span>
+            </Box>
           </Box>
           <Stack spacing={1.25}>
             {responseFlow.map(([title, detail], index) => (
-              <Box
-                key={title}
-                sx={{
-                  borderBottom: "1px solid",
-                  borderColor: "divider",
-                  display: "grid",
-                  gap: 1.5,
-                  gridTemplateColumns: "32px minmax(0,1fr)",
-                  pb: 1.25,
-                }}
-              >
-                <Typography sx={{ color: "primary.main", fontWeight: 900 }}>
-                  {index + 1}
-                </Typography>
+              <Box className="incident-flow-step" key={title}>
+                <span className="incident-step-number">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
                 <Box>
-                  <Typography sx={{ fontWeight: 800 }}>{title}</Typography>
-                  <Typography sx={{ color: "text.secondary", fontSize: 13 }}>
-                    {detail}
-                  </Typography>
+                  <Typography component="h3">{title}</Typography>
+                  <Typography>{detail}</Typography>
                 </Box>
               </Box>
             ))}
           </Stack>
         </AdminCard>
 
-        <AdminCard variant="timeline" watermark="clock">
+        <AdminCard
+          className="incident-clock-panel"
+          variant="timeline"
+          watermark="clock"
+        >
           <Box className="verification-panel-heading">
-            <Typography component="h2">72-hour clock</Typography>
-            <Chip color="error" label="From reasonable suspicion" />
+            <Box>
+              <Typography className="section-kicker">
+                Regulatory clock
+              </Typography>
+              <Typography component="h2">72 hours</Typography>
+            </Box>
+            <span className="incident-clock-trigger">
+              Starts at reasonable suspicion
+            </span>
           </Box>
           <Stack spacing={1.25}>
             {clock.map(([time, action]) => (
-              <Box key={time} sx={{ bgcolor: "action.hover", p: 1.5 }}>
-                <Typography sx={{ color: "#8e3159", fontWeight: 900 }}>
-                  {time}
-                </Typography>
-                <Typography sx={{ fontSize: 13 }}>{action}</Typography>
+              <Box className="incident-clock-step" key={time}>
+                <Typography component="strong">{time}</Typography>
+                <Typography>{action}</Typography>
               </Box>
             ))}
           </Stack>
@@ -209,11 +223,14 @@ export function IncidentRunbook() {
       </Box>
 
       <AdminCard
-        className="incident-packet"
+        className="incident-packet incident-control-panel"
         variant="policy"
         watermark="evidence"
       >
         <Box>
+          <Box className="incident-control-icon">
+            <AdminIcon name="controls" aria-hidden="true" />
+          </Box>
           <Typography className="section-kicker">
             Available control surfaces
           </Typography>
@@ -227,13 +244,13 @@ export function IncidentRunbook() {
           </Typography>
         </Box>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-          <Button component={Link} href="/controls" variant="contained">
+          <Button href="/controls" variant="contained">
             Runtime controls
           </Button>
-          <Button component={Link} href="/safety" variant="outlined">
+          <Button href="/safety" variant="outlined">
             Safety queue
           </Button>
-          <Button component={Link} href="/care" variant="outlined">
+          <Button href="/care" variant="outlined">
             Care queue
           </Button>
         </Stack>
@@ -247,12 +264,12 @@ export function IncidentRunbook() {
           mt: 3,
         }}
       >
-        <Alert severity="info">
+        <Alert className="incident-boundary-note" severity="info">
           Evidence access belongs in the assigned safety case and requires a
           declared triage, appeal, or legal purpose plus fresh MFA. This runbook
           does not expose evidence.
         </Alert>
-        <Alert severity="warning">
+        <Alert className="incident-boundary-note" severity="warning">
           Pager dispatch, legal holds, regulatory packet generation/submission,
           external incident channels, and incident closure remain external or
           uncomposed authorities. Record them in the approved systems of record;

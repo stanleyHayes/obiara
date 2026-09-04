@@ -134,7 +134,14 @@ export type OperatorsAction =
   | { type: "grant-role"; role: OperatorRole }
   | { type: "revoke-role"; role: OperatorRole };
 
+// One definition of "this is an address we can send an invitation to",
+// shared by the reducer and the Enroll button that calls it. The dialog kept
+// its own copy of the pattern, and two copies of a rule drift.
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function enrollEmailIsValid(email: string): boolean {
+  return emailPattern.test(email.trim());
+}
 
 export const initialOperatorsState: OperatorsState = {
   actorId: "",

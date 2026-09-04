@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { apiClient, apiErrorMessage } from "../../../../lib/api-server";
+import { cookieMaxAge } from "../../../../lib/session-cookie";
 
 const secure = process.env.NODE_ENV === "production";
 
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
     sameSite: "lax",
     secure,
     path: "/",
-    expires: new Date(data.data.accessExpiresAt),
+    maxAge: cookieMaxAge(data.data.accessExpiresAt),
   });
   result.cookies.set("obiara_refresh", data.data.refreshToken, {
     httpOnly: true,
@@ -115,14 +116,14 @@ export async function POST(request: Request) {
     // browser never sends it. httpOnly, sameSite=strict and secure remain, so
     // the token is still unreadable by scripts and never sent cross-site.
     path: "/",
-    expires: new Date(data.data.refreshExpiresAt),
+    maxAge: cookieMaxAge(data.data.refreshExpiresAt),
   });
   result.cookies.set("obiara_member", data.data.memberId, {
     httpOnly: true,
     sameSite: "lax",
     secure,
     path: "/",
-    expires: new Date(data.data.refreshExpiresAt),
+    maxAge: cookieMaxAge(data.data.refreshExpiresAt),
   });
   return result;
 }

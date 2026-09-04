@@ -28,6 +28,8 @@ import {
   terminalQueuePath,
 } from "../../case-route-model";
 import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon, UtilityIcon } from "../../admin-icons";
+import { adminFetch } from "../../lib/admin-fetch";
 
 type ScriptKey =
   | "helpline_directory_gh"
@@ -94,6 +96,39 @@ function ageLabel(value: string) {
   return `${Math.floor(minutes / 60)}h waiting`;
 }
 
+function CareQueueItem({ item }: Readonly<{ item: CareCase }>) {
+  return (
+    <Button
+      className="care-case"
+      href={buildCasePath("care", item.caseId, "/care")}
+    >
+      <span className="care-case-mark" aria-hidden="true">
+        <AdminIcon name="care" />
+      </span>
+      <Box className="admin-watermarked-row care-case-copy">
+        <AdminCardWatermark watermark="care" />
+        <Typography className="care-case-id">{item.caseId}</Typography>
+        <Typography component="strong" className="care-case-title">
+          {signalLabels[item.signal]}
+        </Typography>
+        <Typography className="care-case-reference">
+          {item.subjectRef}
+        </Typography>
+      </Box>
+      <Box className="care-case-wait">
+        <UtilityIcon name="clock" aria-hidden="true" />
+        <span>{ageLabel(item.createdAt)}</span>
+        <small>
+          {item.status === "engaged" ? "Care in progress" : "Needs response"}
+        </small>
+      </Box>
+      <span className="care-case-open" aria-hidden="true">
+        <UtilityIcon name="arrow-right" />
+      </span>
+    </Button>
+  );
+}
+
 export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
   const router = useRouter();
   const [cases, setCases] = useState<CareCase[]>([]);
@@ -127,7 +162,7 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
     setLoading(true);
     window.queueMicrotask(() => setLoadError(""));
     try {
-      const response = await fetch("/api/care");
+      const response = await adminFetch("/api/care");
       const payload = (await response.json()) as {
         cases?: CareCase[];
         message?: string;
@@ -172,7 +207,7 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
         `${window.location.pathname}${params.size ? `?${params}` : ""}`,
       );
     }
-    void fetch("/api/care", { signal: controller.signal })
+    void adminFetch("/api/care", { signal: controller.signal })
       .then(async (response) => {
         const payload = (await response.json()) as {
           cases?: CareCase[];
@@ -214,7 +249,7 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/care", {
+      const response = await adminFetch("/api/care", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, caseId: selected.caseId, scripts }),
@@ -274,7 +309,7 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/step-up", {
+      const response = await adminFetch("/api/step-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
@@ -321,19 +356,23 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
   }
 
   return (
-    <main className="verification-shell care-shell" aria-busy={busy}>
-      <header className="verification-header">
-        <Box>
+    <main
+      className={`verification-shell care-shell care-redesign ${detailMode ? "is-detail" : "is-queue"}`}
+      aria-busy={busy}
+    >
+      <header className="verification-header care-hero">
+        <Box className="care-hero-copy">
           <Link href={detailMode ? "/care" : "/"} className="verification-back">
             {detailMode ? "Back to care queue" : "Return to command centre"}
           </Link>
-          <Typography className="section-kicker">Care queue</Typography>
-          <Typography component="h1">
-            Resources first. People always.
-          </Typography>
+          <Box className="care-hero-kicker">
+            <AdminIcon name="care" aria-hidden="true" />
+            <Typography className="section-kicker">Care response</Typography>
+          </Box>
+          <Typography component="h1">Hold space. Act with care.</Typography>
           <Typography>
-            Persisted care signals stay separate from enforcement, diagnosis and
-            message delivery.
+            A calm, non-punitive workspace for responding to people who may need
+            support—without diagnosis or enforcement.
           </Typography>
         </Box>
         {loading ? (
@@ -343,11 +382,24 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
             className="triage-status-skeleton"
           />
         ) : loadError ? null : (
-          <Stack direction="row" spacing={1}>
-            <Chip label={`${cases.length} active`} color="warning" />
-            <Chip label="Care is non-punitive" color="success" />
-          </Stack>
+          <Box className="care-hero-status">
+            <Box>
+              <strong>{cases.length}</strong>
+              <span>people waiting</span>
+            </Box>
+            <Box>
+              <strong>
+                {cases.filter((item) => item.status === "engaged").length}
+              </strong>
+              <span>responses active</span>
+            </Box>
+            <Box className="care-principle">
+              <AdminIcon name="verification" aria-hidden="true" />
+              <span>non-punitive</span>
+            </Box>
+          </Box>
         )}
+        <AdminCardWatermark watermark="care" />
       </header>
 
       {loadError ? (
@@ -376,10 +428,18 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
             variant="panel"
             watermark="queue"
             showWatermark={!loading && !loadError && cases.length > 0}
-            className="verification-list"
+            className="verification-list care-queue-panel"
           >
             <Box className="verification-panel-heading">
-              <Typography component="h2">Oldest first</Typography>
+              <Box>
+                <Typography className="section-kicker">
+                  Response order
+                </Typography>
+                <Typography component="h2">People waiting</Typography>
+                <Typography>
+                  Oldest signals come first. Every response stays human-led.
+                </Typography>
+              </Box>
               <Button
                 disabled={loading}
                 onClick={() => void loadQueue()}
@@ -397,29 +457,11 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
                 />
               ) : loadError ? null : cases.length ? (
                 cases.map((item) => (
-                  <Button
-                    className="care-case"
-                    href={buildCasePath("care", item.caseId, "/care")}
-                    key={item.caseId}
-                  >
-                    <Box className="admin-watermarked-row">
-                      <AdminCardWatermark watermark="care" />
-                      <Typography component="strong">{item.caseId}</Typography>
-                      <Typography>{signalLabels[item.signal]}</Typography>
-                      <Typography className="safety-reference">
-                        {item.subjectRef} · {ageLabel(item.createdAt)}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label={item.status}
-                      color={item.status === "engaged" ? "success" : "warning"}
-                      size="small"
-                    />
-                  </Button>
+                  <CareQueueItem item={item} key={item.caseId} />
                 ))
               ) : (
                 <EmptyState
-                  icon="♡"
+                  icon={<AdminIcon name="care" aria-hidden="true" />}
                   title="Care queue is clear"
                   description="No care follow-ups are waiting. New support signals will appear here oldest first."
                   variant="success"
@@ -433,17 +475,25 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
             variant="detail"
             watermark="care"
             showWatermark={!loading && !loadError && Boolean(selected)}
-            className="verification-review"
+            className="verification-review care-review-panel"
           >
             {selected ? (
-              <Stack spacing={3}>
-                <Box className="verification-panel-heading">
+              <Stack spacing={3} className="care-review-stack">
+                <Box className="verification-panel-heading care-review-heading">
                   <Box>
-                    <Typography className="section-kicker">
-                      Case {selected.caseId}
-                    </Typography>
+                    <Box className="care-detail-overline">
+                      <AdminIcon name="care" aria-hidden="true" />
+                      <Typography>
+                        {selected.status === "engaged"
+                          ? "Response in progress"
+                          : "Awaiting first response"}
+                      </Typography>
+                    </Box>
                     <Typography component="h2">
                       {signalLabels[selected.signal]}
+                    </Typography>
+                    <Typography className="care-detail-id">
+                      {selected.caseId}
                     </Typography>
                   </Box>
                   <Chip
@@ -453,7 +503,7 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
                     }
                   />
                 </Box>
-                <Box className="verification-facts">
+                <Box className="verification-facts care-facts">
                   <Box>
                     <Typography>Private subject</Typography>
                     <Typography component="strong">
@@ -461,7 +511,7 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography>Created</Typography>
+                    <Typography>Waiting since</Typography>
                     <Typography component="strong">
                       {new Date(selected.createdAt).toLocaleString()}
                     </Typography>
@@ -473,57 +523,77 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
                     </Typography>
                   </Box>
                 </Box>
-                {selected.status === "open" ? (
-                  <>
-                    <Alert severity="info">
-                      Engaging acknowledges that trained staff have begun this
-                      care case. It does not contact the member or create an
-                      enforcement record.
-                    </Alert>
-                    <Button
-                      disabled={busy}
-                      onClick={() => void mutate("engage")}
-                      variant="contained"
-                    >
-                      Engage care case
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Alert severity="info">
-                      Record only resources actually used. This closes the care
-                      case; it does not claim that any message was delivered.
-                    </Alert>
-                    <Stack>
-                      {resources.map((resource) => (
-                        <FormControlLabel
-                          key={resource.key}
-                          control={
-                            <Checkbox
-                              checked={scripts.includes(resource.key)}
-                              onChange={() => toggleScript(resource.key)}
-                            />
-                          }
-                          label={
-                            <Box>
-                              <Typography component="strong">
-                                {resource.label}
-                              </Typography>
-                              <Typography>{resource.detail}</Typography>
-                            </Box>
-                          }
-                        />
-                      ))}
-                    </Stack>
-                    <Button
-                      disabled={busy || scripts.length === 0}
-                      onClick={() => void mutate("resolve")}
-                      variant="contained"
-                    >
-                      Resolve with selected resources
-                    </Button>
-                  </>
-                )}
+                <Box className="care-action-stage">
+                  {selected.status === "open" ? (
+                    <>
+                      <Alert severity="info">
+                        Engaging acknowledges that trained staff have begun this
+                        care case. It does not contact the member or create an
+                        enforcement record.
+                      </Alert>
+                      <Button
+                        className="care-primary-action"
+                        disabled={busy}
+                        onClick={() => void mutate("engage")}
+                        variant="contained"
+                      >
+                        Engage care case
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Alert severity="info">
+                        Record only resources actually used. This closes the
+                        care case; it does not claim that any message was
+                        delivered.
+                      </Alert>
+                      <Box className="care-resource-intro">
+                        <Typography className="section-kicker">
+                          Resource record
+                        </Typography>
+                        <Typography component="h3">
+                          What support was used?
+                        </Typography>
+                      </Box>
+                      <Stack className="care-resource-list">
+                        {resources.map((resource) => (
+                          <FormControlLabel
+                            className="care-resource-option"
+                            key={resource.key}
+                            control={
+                              <Checkbox
+                                checked={scripts.includes(resource.key)}
+                                onChange={() => toggleScript(resource.key)}
+                              />
+                            }
+                            label={
+                              <Box>
+                                <span
+                                  className="care-resource-icon"
+                                  aria-hidden="true"
+                                >
+                                  <AdminIcon name="care" />
+                                </span>
+                                <Typography component="strong">
+                                  {resource.label}
+                                </Typography>
+                                <Typography>{resource.detail}</Typography>
+                              </Box>
+                            }
+                          />
+                        ))}
+                      </Stack>
+                      <Button
+                        className="care-primary-action"
+                        disabled={busy || scripts.length === 0}
+                        onClick={() => void mutate("resolve")}
+                        variant="contained"
+                      >
+                        Resolve with selected resources
+                      </Button>
+                    </>
+                  )}
+                </Box>
               </Stack>
             ) : loading ? (
               <AdminSkeleton
@@ -532,7 +602,7 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
               />
             ) : loadError ? (
               <EmptyState
-                icon="!"
+                icon={<AdminIcon name="incidents" aria-hidden="true" />}
                 title="Care case unavailable"
                 description={loadError}
                 variant="warning"
@@ -540,7 +610,7 @@ export function CareQueue({ caseId }: Readonly<{ caseId?: string }>) {
               />
             ) : (
               <EmptyState
-                icon="♡"
+                icon={<AdminIcon name="care" aria-hidden="true" />}
                 title="Care case not found"
                 description="This case is no longer active, or the link is invalid."
                 variant="warning"

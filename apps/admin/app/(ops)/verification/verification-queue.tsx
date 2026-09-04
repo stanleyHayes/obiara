@@ -28,6 +28,8 @@ import {
   terminalQueuePath,
 } from "../../case-route-model";
 import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon, UtilityIcon } from "../../admin-icons";
+import { adminFetch } from "../../lib/admin-fetch";
 
 type Outcome = "approve" | "reject";
 
@@ -52,6 +54,18 @@ const reasonLabels: Record<VerificationCase["reasonCode"], string> = {
   provider_outage: "Provider was unavailable",
   manual_review: "Manual review requested",
 };
+
+function waitingTime(submittedAt: string): string {
+  const minutes = Math.max(
+    0,
+    Math.round((Date.now() - new Date(submittedAt).getTime()) / 60000),
+  );
+  if (minutes < 1) return "Just arrived";
+  if (minutes < 60) return `${minutes} min waiting`;
+  const hours = Math.floor(minutes / 60);
+  const remaining = minutes % 60;
+  return `${hours}h ${remaining}m waiting`;
+}
 
 export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
   const router = useRouter();
@@ -112,7 +126,7 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
         );
       }
     });
-    void fetch("/api/verifications", { signal: controller.signal })
+    void adminFetch("/api/verifications", { signal: controller.signal })
       .then(async (response) => {
         const payload = (await response.json()) as {
           cases?: VerificationCase[];
@@ -185,7 +199,7 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/verifications", {
+      const response = await adminFetch("/api/verifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -227,7 +241,7 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/step-up", {
+      const response = await adminFetch("/api/step-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "start" }),
@@ -261,7 +275,7 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/step-up", {
+      const response = await adminFetch("/api/step-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "complete", code: stepUpCode }),
@@ -301,7 +315,7 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
     setMessage("");
     setDialogError("");
     try {
-      const response = await fetch("/api/verifications", {
+      const response = await adminFetch("/api/verifications", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -345,9 +359,12 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
   }
 
   return (
-    <main className="verification-shell" aria-busy={busy}>
-      <header className="verification-header">
-        <Box>
+    <main
+      className={`verification-shell verification-redesign ${detailMode ? "is-detail" : "is-queue"}`}
+      aria-busy={busy}
+    >
+      <header className="verification-header verification-hero">
+        <Box className="verification-hero-copy">
           <Link
             href={detailMode ? returnHref : "/"}
             className="verification-back"
@@ -356,12 +373,23 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
               ? "Back to verification queue"
               : "Return to command centre"}
           </Link>
-          <Typography className="section-kicker">Verification desk</Typography>
+          <Box className="verification-hero-kicker">
+            <span aria-hidden="true">
+              <AdminIcon name="verification" />
+            </span>
+            <Typography className="section-kicker">
+              Verification desk
+            </Typography>
+          </Box>
           <Typography component="h1">
-            Human review, with less exposed.
+            {detailMode
+              ? "A careful decision, one case at a time."
+              : "Uncertainty stops here."}
           </Typography>
           <Typography>
-            Provider uncertainty comes here. Approval never happens silently.
+            {detailMode
+              ? "Review bounded proof, protect private data and leave a clear audit trail."
+              : "Provider uncertainty comes here for a human decision. Approval never happens silently."}
           </Typography>
         </Box>
         {loading ? (
@@ -371,11 +399,14 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
             className="triage-status-skeleton"
           />
         ) : loadError ? null : (
-          <Chip
-            label={`${cases.length} waiting`}
-            color={cases.length ? "warning" : "success"}
-          />
+          <Box className="verification-hero-status">
+            <Typography component="strong">{cases.length}</Typography>
+            <span>{cases.length === 1 ? "case waiting" : "cases waiting"}</span>
+          </Box>
         )}
+        <span className="verification-hero-watermark" aria-hidden="true">
+          <AdminIcon name={detailMode ? "safety" : "verification"} />
+        </span>
       </header>
 
       {loadError ? (
@@ -407,8 +438,20 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
             className="verification-list"
           >
             <Box className="verification-panel-heading">
-              <Typography component="h2">Waiting cases</Typography>
-              <Typography>Oldest first</Typography>
+              <Box>
+                <Typography className="section-kicker">
+                  Manual review queue
+                </Typography>
+                <Typography component="h2">What needs your eyes</Typography>
+                <Typography>
+                  Ordered by arrival. Open a case to inspect bounded evidence.
+                </Typography>
+              </Box>
+              {!loading && !loadError ? (
+                <span className="verification-order">
+                  <UtilityIcon name="clock" aria-hidden="true" /> Oldest first
+                </span>
+              ) : null}
             </Box>
             {!loading ? (
               <TextField
@@ -432,7 +475,7 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
               ) : null}
               {!loading && !loadError && cases.length === 0 ? (
                 <EmptyState
-                  icon="✓"
+                  icon={<AdminIcon name="verification" />}
                   title="Verification queue is clear"
                   description="No uncertain verification cases are waiting. New cases will appear here oldest first."
                   variant="success"
@@ -443,7 +486,7 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
               cases.length > 0 &&
               filteredCases.length === 0 ? (
                 <EmptyState
-                  icon="⌕"
+                  icon={<AdminIcon name="analytics" />}
                   title="No matching cases"
                   description="Try another case ID, private reference or review reason."
                   variant="search"
@@ -467,17 +510,40 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
                       )}
                       key={item.caseId}
                     >
-                      <Box className="admin-watermarked-row">
+                      <Box
+                        className="verification-case-mark"
+                        aria-hidden="true"
+                      >
+                        <AdminIcon name="verification" />
+                      </Box>
+                      <Box className="admin-watermarked-row verification-case-copy">
                         <AdminCardWatermark watermark="verification" />
-                        <Typography component="strong">
+                        <Typography className="verification-case-id">
                           {item.caseId}
                         </Typography>
-                        <Typography>{reasonLabels[item.reasonCode]}</Typography>
+                        <Typography
+                          component="strong"
+                          className="verification-case-reason"
+                        >
+                          {reasonLabels[item.reasonCode]}
+                        </Typography>
                         <Typography className="verification-reference">
                           {item.subjectRef}
                         </Typography>
                       </Box>
-                      <span aria-hidden="true">›</span>
+                      <Box className="verification-case-meta">
+                        <span className="verification-case-wait">
+                          <UtilityIcon name="clock" aria-hidden="true" />
+                          {waitingTime(item.submittedAt)}
+                        </span>
+                        <Chip label={item.status || "queued"} size="small" />
+                      </Box>
+                      <span
+                        className="verification-case-open"
+                        aria-hidden="true"
+                      >
+                        <UtilityIcon name="arrow-right" />
+                      </span>
                     </Button>
                   ))
                 : null}
@@ -493,12 +559,26 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
           >
             {selected ? (
               <>
-                <Box className="verification-panel-heading">
+                <Box className="verification-panel-heading verification-review-heading">
                   <Box>
-                    <Typography className="section-kicker">
-                      Case {selected.caseId}
-                    </Typography>
-                    <Typography component="h2">Review bounded proof</Typography>
+                    <span
+                      className="verification-review-icon"
+                      aria-hidden="true"
+                    >
+                      <AdminIcon name="verification" />
+                    </span>
+                    <Box>
+                      <Typography className="section-kicker">
+                        Case {selected.caseId}
+                      </Typography>
+                      <Typography component="h2">
+                        Review bounded proof
+                      </Typography>
+                      <Typography>
+                        Only the minimum evidence needed for this decision is
+                        available.
+                      </Typography>
+                    </Box>
                   </Box>
                   <Chip label={selected.status || "queued"} />
                 </Box>
@@ -522,31 +602,45 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
                     </Typography>
                   </Box>
                 </Box>
-                <Alert severity="info">
-                  Full card numbers, raw media and contact details are not
-                  shown. Opening evidence creates an operator audit event.
-                </Alert>
-                <Button
-                  variant="outlined"
-                  onClick={() => setEvidenceOpen(true)}
-                >
-                  Open redacted evidence
-                </Button>
-                <Box className="verification-actions">
+                <Box className="verification-review-flow">
+                  <Box className="verification-privacy-note">
+                    <span aria-hidden="true">
+                      <AdminIcon name="safety" />
+                    </span>
+                    <Box>
+                      <Typography component="strong">
+                        Privacy boundary
+                      </Typography>
+                      <Typography>
+                        Full card numbers, raw media and contact details are not
+                        shown. Opening evidence creates an operator audit event.
+                      </Typography>
+                    </Box>
+                  </Box>
                   <Button
-                    variant="contained"
-                    color="success"
-                    onClick={() => setPendingOutcome("approve")}
-                  >
-                    Propose approval
-                  </Button>
-                  <Button
+                    className="verification-evidence-button"
                     variant="outlined"
-                    color="error"
-                    onClick={() => setPendingOutcome("reject")}
+                    onClick={() => setEvidenceOpen(true)}
                   >
-                    Propose rejection
+                    <AdminIcon name="verification" aria-hidden="true" />
+                    Open redacted evidence
                   </Button>
+                  <Box className="verification-actions">
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={() => setPendingOutcome("approve")}
+                    >
+                      Propose approval
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      onClick={() => setPendingOutcome("reject")}
+                    >
+                      Propose rejection
+                    </Button>
+                  </Box>
                 </Box>
               </>
             ) : loading ? (
@@ -556,7 +650,7 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
               />
             ) : loadError ? (
               <EmptyState
-                icon="!"
+                icon={<AdminIcon name="incidents" />}
                 title="Verification case unavailable"
                 description={loadError}
                 variant="warning"
@@ -568,7 +662,7 @@ export function VerificationQueue({ caseId }: Readonly<{ caseId?: string }>) {
               />
             ) : (
               <EmptyState
-                icon="⌁"
+                icon={<AdminIcon name="verification" />}
                 title="Verification case not found"
                 description="This case is no longer in the active manual-review queue, or the link is invalid."
                 variant="warning"

@@ -60,6 +60,9 @@ type CaseRepository interface {
 	// ApprovedAccountByCardKey returns the account already verified with this
 	// card, or ErrCaseNotFound when the identity is unclaimed.
 	ApprovedAccountByCardKey(ctx context.Context, cardKey string) (string, error)
+	// LatestByAccount returns the account's most recent case, or
+	// ErrCaseNotFound when it has never submitted one.
+	LatestByAccount(ctx context.Context, accountID string) (domain.VerificationCase, error)
 }
 
 // CardKeyer derives the stable, non-reversible key a card is recognised by.
@@ -81,10 +84,39 @@ type VerificationService struct {
 	keyer    CardKeyer
 	now      func() time.Time
 	newID    func() string
+	// The document path is optional so a deployment that has not configured
+	// encrypted storage still builds; SubmitDocuments refuses rather than
+	// writing card photographs somewhere they were never meant to go.
+	documents DocumentRepository
+	sealer    DocumentSealer
+	opener    DocumentOpener
 }
 
 func NewVerificationService(cases CaseRepository, provider VerificationProvider, tiers TierTransitions, keyer CardKeyer, now func() time.Time, newID func() string) VerificationService {
 	return VerificationService{cases: cases, provider: provider, tiers: tiers, keyer: keyer, now: now, newID: newID}
+}
+
+// WithDocuments enables the member-uploaded card path.
+func (service VerificationService) WithDocuments(
+	documents DocumentRepository,
+	sealer DocumentSealer,
+	opener DocumentOpener,
+) VerificationService {
+	service.documents = documents
+	service.sealer = sealer
+	service.opener = opener
+	return service
+}
+
+// LatestCase reports where an account's identity check stands.
+//
+// Onboarding is four steps long and a member can close the tab between any
+// two of them. Without a way to read back what has already been decided, the
+// only thing the console could do on their return was start the walk from the
+// beginning — a second SMS, a second Ghana Card submission, and a case queued
+// for a reviewer who has already seen the first one.
+func (service VerificationService) LatestCase(ctx context.Context, accountID string) (domain.VerificationCase, error) {
+	return service.cases.LatestByAccount(ctx, accountID)
 }
 
 // SubmitGhanaCard opens a case and asks the provider. Provider outage or

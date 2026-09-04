@@ -47,7 +47,7 @@ describe("semantic admin card foundation", () => {
     expect(styles).not.toMatch(/\.MuiCard-root::(?:before|after)/);
   });
 
-  it("suppresses decoration for loading, empty and not-found card states", () => {
+  it("suppresses contextual decoration while keeping requested KPI watermarks", () => {
     expect(surfaces).toContain(
       "showWatermark={!loading && !loadError && filteredCases.length > 0}",
     );
@@ -59,8 +59,8 @@ describe("semantic admin card foundation", () => {
     expect(surfaces).toContain(
       "showWatermark={!loading && !loadError && Boolean(selected)}",
     );
-    expect(surfaces).toContain("showWatermark={trusted}");
-    expect(surfaces).toContain("showWatermark={false}");
+    expect(surfaces).toContain("watermark={watermark}");
+    expect(surfaces).toMatch(/watermark=\{watermark\}\s*showWatermark/);
     expect(surfaces).toMatch(
       /showWatermark=\{\s*verifications\.state === "ready" && queuedVerifications\.length > 0\s*\}/,
     );

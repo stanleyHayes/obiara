@@ -20,6 +20,7 @@ import {
   type FunnelReport,
   type GateMetric,
 } from "./analytics-model";
+import { adminFetch } from "../../lib/admin-fetch";
 function Metric({ metric }: { metric: GateMetric }) {
   // Use the same rounding as percent() so pass/fail agrees with displayed value
   const percentValue = Math.round(metric.rate * 1000) / 10,
@@ -67,7 +68,7 @@ export function AnalyticsDashboard() {
     setError("");
     setReport(null);
     try {
-      const response = await fetch("/api/analytics?days=30", {
+      const response = await adminFetch("/api/analytics?days=30", {
           cache: "no-store",
           signal: c.signal,
         }),

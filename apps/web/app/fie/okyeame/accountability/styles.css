@@ -12,14 +12,14 @@
 
 .accountability-topbar a {
   color: #2d1025;
-  font-weight: 850;
+  font-weight: 900;
   text-underline-offset: 5px;
 }
 
 .accountability-topbar span {
   color: #6c5965;
   font-size: 0.82rem;
-  font-weight: 750;
+  font-weight: 800;
 }
 
 .accountability-intro {
@@ -82,7 +82,7 @@
 .accountability-cards article > header p {
   color: #bd3153;
   font-size: 0.76rem;
-  font-weight: 850;
+  font-weight: 900;
 }
 
 .accountability-cards article h2 {
@@ -118,7 +118,7 @@
 .accountability-cards dt {
   color: #6c5965;
   font-size: 0.76rem;
-  font-weight: 850;
+  font-weight: 900;
   text-transform: uppercase;
 }
 

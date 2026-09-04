@@ -24,6 +24,7 @@ type Admin interface {
 	StartLogin(ctx context.Context, email, password string) error
 	CompleteLogin(ctx context.Context, email, code string) (domain.Session, error)
 	StepUpStart(ctx context.Context, sessionID string) error
+	Logout(ctx context.Context, sessionID string) error
 	StepUpComplete(ctx context.Context, sessionID, code string) (domain.Session, error)
 	Authenticate(ctx context.Context, sessionID string) (domain.Session, domain.Principal, error)
 }
@@ -39,6 +40,7 @@ func RegisterAdminRoutes(mux *http.ServeMux, admin Admin) {
 	mux.Handle("POST /v1/admin/role-changes/{id}/approve", approveRoleChangeHandler(admin))
 	mux.Handle("POST /v1/admin/login/start", loginStartHandler(admin))
 	mux.Handle("POST /v1/admin/login/complete", loginCompleteHandler(admin))
+	mux.Handle("POST /v1/admin/logout", logoutHandler(admin))
 	mux.Handle("POST /v1/admin/sessions/{id}/step-up/start", stepUpStartHandler(admin))
 	mux.Handle("POST /v1/admin/sessions/{id}/step-up/complete", stepUpCompleteHandler(admin))
 }
@@ -398,6 +400,30 @@ func loginCompleteHandler(admin Admin) http.Handler {
 			return
 		}
 		writeSuccess(w, r, http.StatusOK, toSessionResponse(session))
+	})
+}
+
+// logoutHandler revokes the caller's own session.
+//
+// The console used to sign out by deleting its cookie, which left the session
+// id it was holding valid until it expired on its own. Revocation happens
+// here, against the session the bearer token names, so no caller can close
+// anybody else's.
+func logoutHandler(admin Admin) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, _, ok := authenticatedAdmin(w, r, admin)
+		if !ok {
+			return
+		}
+		// No JSON guard: this endpoint reads no body, and requiring a JSON
+		// Content-Type on a bodyless POST rejects every real caller with 415
+		// — the same fault that once made the whole step-up surface
+		// unreachable.
+		if err := admin.Logout(r.Context(), session.ID()); err != nil {
+			writeAdminError(w, r, err)
+			return
+		}
+		writeSuccess(w, r, http.StatusOK, map[string]bool{"signedOut": true})
 	})
 }
 
