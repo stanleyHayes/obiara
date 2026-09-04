@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { ReactNode, SVGProps } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
 
@@ -19,6 +20,46 @@ const suggestedQuestions = [
   "What do you protect time for?",
   "What kind of community are you building?",
 ] as const;
+
+function DoorIcon({
+  name,
+  ...props
+}: SVGProps<SVGSVGElement> & { name: "door" | "question" | "consent" }) {
+  const paths: Record<"door" | "question" | "consent", ReactNode> = {
+    door: (
+      <>
+        <path d="M6 21V5l12-2v18" />
+        <path d="M3 21h18M14 12h.01" />
+      </>
+    ),
+    question: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.8 9a2.4 2.4 0 1 1 3.4 2.2c-.8.4-1.2.9-1.2 1.8m0 3h.01" />
+      </>
+    ),
+    consent: (
+      <>
+        <path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6Z" />
+        <path d="m9 12 2 2 4-5" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      focusable="false"
+      {...props}
+    >
+      {paths[name]}
+    </svg>
+  );
+}
 
 export function EponoShell() {
   const [question, setQuestion] = useState<DoorwayQuestion | null>(null);
@@ -129,8 +170,21 @@ export function EponoShell() {
       <CompoundRail current="epono-ano" />
       <section className="fie-main epono-main">
         <header className="epono-topbar">
-          <div>
-            <p className="fie-kicker">Ɛpono ano · the doorway</p>
+          <svg
+            className="epono-watermark"
+            viewBox="0 0 260 260"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M62 230V50l136-24v204" />
+            <path d="M30 230h200M154 132h1" />
+            <path d="M104 230V96l50-9v143" />
+          </svg>
+          <div className="epono-hero-copy">
+            <div className="epono-kicker">
+              <DoorIcon name="door" />
+              <p className="fie-kicker">Ɛpono ano · the doorway</p>
+            </div>
             <h1>Prepare the doorway. Never invent who waits behind it.</h1>
             <p>
               Obiara has not composed the retained introduction queue yet. This
@@ -139,9 +193,19 @@ export function EponoShell() {
               personalization.
             </p>
           </div>
-          <div className="epono-tier">
-            <span>{ready ? "Ready" : "Not ready"}</span>
-            Server-authoritative prerequisites
+          <div className="epono-hero-register">
+            <div className="epono-tier">
+              <span>{ready ? "Ready" : "Not ready"}</span>
+              <small>Server-authoritative prerequisites</small>
+            </div>
+            <div>
+              <span>Doorway question</span>
+              <strong>{question ? "Retained" : "Required"}</strong>
+            </div>
+            <div>
+              <span>Personalization</span>
+              <strong>{personalization ? "Consented" : "Optional"}</strong>
+            </div>
           </div>
         </header>
 
@@ -155,7 +219,8 @@ export function EponoShell() {
         <section className="epono-review" aria-labelledby="doorway-title">
           <div className="epono-portrait">
             <span>Candidate identity stays absent</span>
-            <strong aria-hidden="true">?</strong>
+            <DoorIcon name="door" />
+            <strong aria-hidden="true">Threshold held</strong>
           </div>
           <article>
             <p className="fie-kicker">Your retained context</p>
@@ -165,7 +230,7 @@ export function EponoShell() {
               score, candidate answer, or promise that an introduction exists.
             </p>
             <div className="epono-context">
-              {suggestedQuestions.map((item) => (
+              {suggestedQuestions.map((item, index) => (
                 <button
                   aria-pressed={draft === item}
                   disabled={loading || busy}
@@ -173,6 +238,7 @@ export function EponoShell() {
                   onClick={() => setDraft(item)}
                   type="button"
                 >
+                  <span>{(index + 1).toString().padStart(2, "0")}</span>
                   {item}
                 </button>
               ))}
@@ -212,17 +278,22 @@ export function EponoShell() {
         </section>
 
         <section className="epono-decision" role="status">
-          <p className="fie-kicker">Introduction availability</p>
-          <h2>
-            {ready
-              ? "Your prerequisites are retained."
-              : "Complete both prerequisites when you choose."}
-          </h2>
-          <p>
-            No person, photo, voice, transcript, shared path, recommendation
-            reason, accept action, or pass action is displayed until a real
-            consent-governed introduction store is composed.
-          </p>
+          <div className="epono-decision-icon">
+            <DoorIcon name={ready ? "consent" : "question"} />
+          </div>
+          <div>
+            <p className="fie-kicker">Introduction availability</p>
+            <h2>
+              {ready
+                ? "Your prerequisites are retained."
+                : "Complete both prerequisites when you choose."}
+            </h2>
+            <p>
+              No person, photo, voice, transcript, shared path, recommendation
+              reason, accept action, or pass action is displayed until a real
+              consent-governed introduction store is composed.
+            </p>
+          </div>
         </section>
 
         <CompoundBottomNavigation current="epono-ano" />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SafetySheet } from "../../../safety-sheet";
+import { FieEmptyState } from "../../../empty-state";
 
 interface RoomEntry {
   id: string;
@@ -250,17 +251,13 @@ export function RoomShell({ roomId }: Readonly<{ roomId: string }>) {
         </section>
       ) : null}
       {!loading && !message && entries.length === 0 ? (
-        <section className="room-composer">
-          <div>
-            <p className="fie-kicker">Nothing retained</p>
-            <h2>This room is quiet.</h2>
-            <p>
-              Media upload and live-room providers are not simulated here. New
-              entries will appear only after an authorized host or member
-              creates a durable record.
-            </p>
-          </div>
-        </section>
+        <FieEmptyState
+          action={{ href: "/fie/adiwo", label: "Return to your circles" }}
+          description="New entries will appear only after an authorized room member creates a durable record."
+          eyebrow="Nothing retained"
+          mark="room"
+          title="This room is quiet."
+        />
       ) : null}
       {entries.length ? (
         <section

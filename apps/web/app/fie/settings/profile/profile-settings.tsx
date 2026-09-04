@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
+import type { ReactNode, SVGProps } from "react";
 
 import {
   CompoundBottomNavigation,
@@ -25,6 +26,77 @@ const visibilityOptions: ReadonlyArray<{
   { value: "circles", label: "My circles" },
   { value: "community", label: "Community" },
 ];
+
+type ProfileIconName =
+  "verified" | "bell" | "pass" | "record" | "privacy" | "consent";
+
+function ProfileIcon({
+  name,
+  ...props
+}: SVGProps<SVGSVGElement> & { name: ProfileIconName }) {
+  const paths: Record<ProfileIconName, ReactNode> = {
+    verified: (
+      <>
+        <path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6Z" />
+        <path d="m9 12 2 2 4-5" />
+      </>
+    ),
+    bell: (
+      <>
+        <path d="M6 10a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7" />
+        <path d="M10 21h4" />
+      </>
+    ),
+    pass: (
+      <>
+        <path d="M4 7h16v12H4Z" />
+        <path d="M4 11h16M8 15h4" />
+      </>
+    ),
+    record: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12h8M12 8v8" />
+      </>
+    ),
+    privacy: (
+      <>
+        <path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6Z" />
+        <path d="M9 12h6" />
+      </>
+    ),
+    consent: (
+      <>
+        <path d="M7 4h10v16H7Z" />
+        <path d="M10 9h4m-4 4h4m-4 4h2" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      {paths[name]}
+    </svg>
+  );
+}
+
+function SavingDots() {
+  return (
+    <span className="button-loading-dots" role="status" aria-label="Saving">
+      <i />
+      <i />
+      <i />
+    </span>
+  );
+}
 
 export function ProfileSettings() {
   const [state, dispatch] = useReducer(
@@ -283,8 +355,19 @@ export function ProfileSettings() {
             <Link href="/fie">Back to Fie</Link>
           </header>
           <section className="profile-hero" role="status">
-            <p className="fie-kicker">Your profile</p>
-            <h1>{requestError || "Loading your profile…"}</h1>
+            {requestError ? (
+              <h1>{requestError}</h1>
+            ) : (
+              <div
+                className="profile-loading-skeleton"
+                aria-label="Loading profile"
+              >
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
+            )}
           </section>
         </section>
         <CompoundBottomNavigation contextLabel="Profile" />
@@ -302,6 +385,16 @@ export function ProfileSettings() {
         </header>
 
         <section className="profile-hero">
+          <svg
+            className="profile-hero-watermark"
+            viewBox="0 0 420 300"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="255" cy="104" r="55" />
+            <path d="M124 285c10-91 54-137 131-137s121 46 131 137" />
+            <path d="M38 246c43-72 68-110 124-169" />
+          </svg>
           <p className="fie-kicker">Your profile</p>
           <h1>Be known on your own terms.</h1>
           <p>
@@ -319,6 +412,9 @@ export function ProfileSettings() {
               <h2>{account.displayName}</h2>
               <p>{revision ? `Revision ${revision}` : "Create your profile"}</p>
             </div>
+            <span className="profile-identity-state">
+              <i /> Account active
+            </span>
           </div>
           <dl className="profile-tiles">
             <div>
@@ -341,186 +437,229 @@ export function ProfileSettings() {
           </dl>
         </section>
 
-        <section className="profile-edit" aria-label="Edit profile">
-          <header>
-            <p className="fie-kicker">Edit profile</p>
-            <h2>Only what you choose to share.</h2>
-          </header>
-
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void saveProfile();
-            }}
+        <div className="profile-workspace">
+          <section
+            className="profile-edit profile-details"
+            aria-label="Edit profile"
           >
-            <div className="profile-field-row">
-              <label htmlFor="display-name">
-                Display name
-                <span className="profile-count">
-                  {[...state.displayName].length}/{displayNameLimit}
-                </span>
-              </label>
-              <input
-                id="display-name"
-                onChange={(event) =>
-                  dispatch({ type: "display-name", value: event.target.value })
-                }
-                required
-                value={state.displayName}
-              />
-              <ObiaraSelect
-                label="Visible to"
-                onChange={(value) =>
-                  dispatch({
-                    type: "name-visibility",
-                    value: value as FieldVisibility,
-                  })
-                }
-                options={visibilityOptions}
-                value={state.nameVisibility}
-              />
-            </div>
+            <header>
+              <p className="fie-kicker">Edit profile</p>
+              <h2>Only what you choose to share.</h2>
+            </header>
 
-            <div className="profile-field-row">
-              <label htmlFor="introduction">
-                Introduction
-                <span className="profile-count">
-                  {[...state.introduction].length}/{introductionLimit}
-                </span>
-              </label>
-              <textarea
-                id="introduction"
-                onChange={(event) =>
-                  dispatch({ type: "introduction", value: event.target.value })
-                }
-                rows={4}
-                value={state.introduction}
-              />
-              <ObiaraSelect
-                label="Visible to"
-                onChange={(value) =>
-                  dispatch({
-                    type: "intro-visibility",
-                    value: value as FieldVisibility,
-                  })
-                }
-                options={visibilityOptions}
-                value={state.introVisibility}
-              />
-            </div>
-
-            <p className="profile-note">
-              Profile fields never carry phone numbers, emails or links — Obiara
-              connects people itself. Choosing Community records a consent
-              receipt for that field.
-            </p>
-
-            {requestError ? (
-              <p className="profile-error" role="alert">
-                {requestError}
-              </p>
-            ) : null}
-            {state.saved && requestState === "ready" ? (
-              <p className="profile-saved" role="status">
-                Profile saved. Your circle sees the change on their next view.
-              </p>
-            ) : null}
-
-            <button
-              className="profile-save"
-              disabled={requestState === "loading" || requestState === "saving"}
-              type="submit"
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveProfile();
+              }}
             >
-              {requestState === "saving" ? "Saving securely" : "Save changes"}
-            </button>
-          </form>
-        </section>
+              <div className="profile-field-row">
+                <label htmlFor="display-name">
+                  Display name
+                  <span className="profile-count">
+                    {[...state.displayName].length}/{displayNameLimit}
+                  </span>
+                </label>
+                <input
+                  id="display-name"
+                  onChange={(event) =>
+                    dispatch({
+                      type: "display-name",
+                      value: event.target.value,
+                    })
+                  }
+                  required
+                  value={state.displayName}
+                />
+                <ObiaraSelect
+                  label="Visible to"
+                  onChange={(value) =>
+                    dispatch({
+                      type: "name-visibility",
+                      value: value as FieldVisibility,
+                    })
+                  }
+                  options={visibilityOptions}
+                  value={state.nameVisibility}
+                />
+              </div>
 
-        <section
-          className="profile-edit"
-          aria-labelledby="doorway-question-title"
-        >
-          <header>
-            <p className="fie-kicker">Doorway question</p>
-            <h2 id="doorway-question-title">Choose what a seed must answer.</h2>
-          </header>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void saveDoorwayQuestion();
-            }}
+              <div className="profile-field-row">
+                <label htmlFor="introduction">
+                  Introduction
+                  <span className="profile-count">
+                    {[...state.introduction].length}/{introductionLimit}
+                  </span>
+                </label>
+                <textarea
+                  id="introduction"
+                  onChange={(event) =>
+                    dispatch({
+                      type: "introduction",
+                      value: event.target.value,
+                    })
+                  }
+                  rows={4}
+                  value={state.introduction}
+                />
+                <ObiaraSelect
+                  label="Visible to"
+                  onChange={(value) =>
+                    dispatch({
+                      type: "intro-visibility",
+                      value: value as FieldVisibility,
+                    })
+                  }
+                  options={visibilityOptions}
+                  value={state.introVisibility}
+                />
+              </div>
+
+              <p className="profile-note">
+                Profile fields never carry phone numbers, emails or links —
+                Obiara connects people itself. Choosing Community records a
+                consent receipt for that field.
+              </p>
+
+              {requestError ? (
+                <p className="profile-error" role="alert">
+                  {requestError}
+                </p>
+              ) : null}
+              {state.saved && requestState === "ready" ? (
+                <p className="profile-saved" role="status">
+                  Profile saved. Your circle sees the change on their next view.
+                </p>
+              ) : null}
+
+              <button
+                className="profile-save"
+                disabled={
+                  requestState === "loading" || requestState === "saving"
+                }
+                type="submit"
+              >
+                {requestState === "saving" ? <SavingDots /> : "Save changes"}
+              </button>
+            </form>
+          </section>
+
+          <section
+            className="profile-edit profile-doorway"
+            aria-labelledby="doorway-question-title"
           >
-            <div className="profile-field-row">
-              <label htmlFor="doorway-question">
-                Your question
-                <span className="profile-count">
-                  {[...doorwayQuestion].length}/60
-                </span>
-              </label>
-              <input
-                disabled={doorwayState === "loading"}
-                id="doorway-question"
-                maxLength={60}
-                onChange={(event) => {
-                  setDoorwayQuestion(event.target.value);
-                  setDoorwayState("ready");
-                  setDoorwayMessage("");
-                }}
-                placeholder="What does care look like on an ordinary day?"
-                required
-                value={doorwayQuestion}
-              />
-            </div>
-            <p className="profile-note">
-              This is the one bounded prompt a person answers before sowing a
-              seed. Contact details and links are rejected.
-            </p>
-            {doorwayMessage ? (
-              <p className="profile-error" role="alert">
-                {doorwayMessage}
-              </p>
-            ) : null}
-            {doorwayState === "saved" ? (
-              <p className="profile-saved" role="status">
-                Doorway question saved.
-              </p>
-            ) : null}
-            <button
-              className="profile-save"
-              disabled={doorwayState === "loading" || doorwayState === "saving"}
-              type="submit"
+            <header>
+              <p className="fie-kicker">Doorway question</p>
+              <h2 id="doorway-question-title">
+                Choose what a seed must answer.
+              </h2>
+            </header>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveDoorwayQuestion();
+              }}
             >
-              {doorwayState === "saving"
-                ? "Saving question"
-                : "Save doorway question"}
-            </button>
-          </form>
-        </section>
+              <div className="profile-field-row">
+                <label htmlFor="doorway-question">
+                  Your question
+                  <span className="profile-count">
+                    {[...doorwayQuestion].length}/60
+                  </span>
+                </label>
+                <input
+                  disabled={doorwayState === "loading"}
+                  id="doorway-question"
+                  maxLength={60}
+                  onChange={(event) => {
+                    setDoorwayQuestion(event.target.value);
+                    setDoorwayState("ready");
+                    setDoorwayMessage("");
+                  }}
+                  placeholder="What does care look like on an ordinary day?"
+                  required
+                  value={doorwayQuestion}
+                />
+              </div>
+              <p className="profile-note">
+                This is the one bounded prompt a person answers before sowing a
+                seed. Contact details and links are rejected.
+              </p>
+              {doorwayMessage ? (
+                <p className="profile-error" role="alert">
+                  {doorwayMessage}
+                </p>
+              ) : null}
+              {doorwayState === "saved" ? (
+                <p className="profile-saved" role="status">
+                  Doorway question saved.
+                </p>
+              ) : null}
+              <button
+                className="profile-save"
+                disabled={
+                  doorwayState === "loading" || doorwayState === "saving"
+                }
+                type="submit"
+              >
+                {doorwayState === "saving" ? (
+                  <SavingDots />
+                ) : (
+                  "Save doorway question"
+                )}
+              </button>
+            </form>
+          </section>
+        </div>
 
         <nav className="profile-settings-links" aria-label="More settings">
           <Link href="/fie/settings/verification">
-            <strong>Verification</strong>
-            <span>Add your Ghana Card to earn a verified badge</span>
+            <ProfileIcon name="verified" />
+            <div>
+              <strong>Verification</strong>
+              <span>Add your Ghana Card to earn a verified badge</span>
+            </div>
+            <i>↗</i>
           </Link>
           <Link href="/fie/settings/notifications">
-            <strong>Notifications</strong>
-            <span>Quiet hours, caps and channels</span>
+            <ProfileIcon name="bell" />
+            <div>
+              <strong>Notifications</strong>
+              <span>Quiet hours, caps and channels</span>
+            </div>
+            <i>↗</i>
           </Link>
           <Link href="/fie/settings/membership">
-            <strong>Membership</strong>
-            <span>Terms, receipts and renewal</span>
+            <ProfileIcon name="pass" />
+            <div>
+              <strong>Membership</strong>
+              <span>Terms, receipts and renewal</span>
+            </div>
+            <i>↗</i>
           </Link>
           <Link href="/fie/settings/suban">
-            <strong>Suban</strong>
-            <span>Your character marks and history</span>
+            <ProfileIcon name="record" />
+            <div>
+              <strong>Suban</strong>
+              <span>Your character marks and history</span>
+            </div>
+            <i>↗</i>
           </Link>
           <Link href="/fie/settings/privacy">
-            <strong>Privacy requests</strong>
-            <span>Export, deletion and request status</span>
+            <ProfileIcon name="privacy" />
+            <div>
+              <strong>Privacy requests</strong>
+              <span>Export, deletion and request status</span>
+            </div>
+            <i>↗</i>
           </Link>
           <Link href="/fie/settings/consent">
-            <strong>Consent controls</strong>
-            <span>Purpose-bound processing choices</span>
+            <ProfileIcon name="consent" />
+            <div>
+              <strong>Consent controls</strong>
+              <span>Purpose-bound processing choices</span>
+            </div>
+            <i>↗</i>
           </Link>
         </nav>
       </section>

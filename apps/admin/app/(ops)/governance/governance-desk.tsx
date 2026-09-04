@@ -20,7 +20,8 @@ import {
 } from "@mui/material";
 import { SegmentedOtpInput } from "@obiara/ui-web";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AdminCard } from "../../admin-card";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon } from "../../admin-icons";
 import { AdminSkeleton } from "../../loading-skeleton";
 import { EmptyState } from "../../empty-state";
 import {
@@ -205,22 +206,72 @@ export function GovernanceDesk() {
       if (mounted.current && gen === stepGen.current) setBusy(false);
     }
   }
+  const counts = {
+    draft: packs.filter((pack) => pack.status === "draft").length,
+    published: packs.filter((pack) => pack.status === "published").length,
+    retired: packs.filter((pack) => pack.status === "retired").length,
+  };
   return (
-    <Stack spacing={3}>
-      <Box>
-        <Typography className="section-kicker">
-          MARKET GOVERNANCE · LIVE
-        </Typography>
-        <Typography component="h1">
-          Configuration needs a second set of eyes.
-        </Typography>
-        <Typography color="text.secondary">
-          Draft bounded market configuration, publish only through a distinct
-          operator, and retire without erasing history.
-        </Typography>
+    <Box className="governance-redesign">
+      <Box component="header" className="governance-hero">
+        <AdminCardWatermark watermark="evidence" />
+        <Box className="governance-hero-copy">
+          <Box className="governance-kicker">
+            <AdminIcon name="governance" aria-hidden="true" />
+            <Typography className="section-kicker">
+              LANGUAGE AUTHORITY · LIVE
+            </Typography>
+          </Box>
+          <Typography component="h1">Every word carries authority.</Typography>
+          <Typography className="governance-hero-intro">
+            Govern the vocabulary and capabilities each market receives. Every
+            release is versioned, independently approved, and permanently
+            traceable.
+          </Typography>
+        </Box>
+        <Box className="governance-hero-register" aria-label="Authority rules">
+          <div>
+            <span>Release rule</span>
+            <strong>Two operators</strong>
+            <Typography>Proposer and publisher stay distinct</Typography>
+          </div>
+          <div>
+            <span>Source of truth</span>
+            <strong>Terminology registry</strong>
+            <Typography>Language assets remain separately reviewed</Typography>
+          </div>
+          <div>
+            <span>History</span>
+            <strong>Immutable</strong>
+            <Typography>Retired packs remain on the record</Typography>
+          </div>
+        </Box>
       </Box>
+
+      <Box component="section" className="governance-boundary">
+        <Box className="governance-boundary-icon">
+          <AdminIcon name="governance" aria-hidden="true" />
+        </Box>
+        <Box>
+          <Typography className="section-kicker">CONTROL BOUNDARY</Typography>
+          <Typography component="h2">
+            Configuration, not translation.
+          </Typography>
+          <Typography>
+            This desk references reviewed language assets. It never uploads,
+            rewrites, or invents market terminology.
+          </Typography>
+        </Box>
+        <span className="governance-boundary-state">SEPARATION ENFORCED</span>
+      </Box>
+
       {loadError ? (
-        <AdminCard variant="warning" watermark="evidence" showWatermark={false}>
+        <AdminCard
+          className="governance-state-card"
+          variant="warning"
+          watermark="evidence"
+          showWatermark={false}
+        >
           <EmptyState
             icon="!"
             title="Governance unavailable"
@@ -231,33 +282,55 @@ export function GovernanceDesk() {
         </AdminCard>
       ) : null}
       {notice ? <Alert severity="success">{notice}</Alert> : null}
-      <Button
-        onClick={() => setDraftOpen(true)}
-        variant="contained"
-        sx={{ alignSelf: "flex-start" }}
-      >
-        Draft market pack
-      </Button>
       {!loading && !loadError ? (
-        <Stack spacing={1.25}>
-          {(["draft", "published", "retired"] as const).map((status) => (
-            <AdminCard key={status} variant="metric" watermark="analytics">
-              <Typography color="text.secondary">
-                {status.toUpperCase()}
+        <Box className="governance-register">
+          <Box className="governance-register-heading">
+            <Box>
+              <Typography className="section-kicker">
+                MARKET REGISTER
               </Typography>
-              <Typography sx={{ fontSize: 30, fontWeight: 800 }}>
-                {packs.filter((pack) => pack.status === status).length}
-              </Typography>
-            </AdminCard>
-          ))}
-        </Stack>
+              <Typography component="h2">Language pack ledger</Typography>
+            </Box>
+            <Button onClick={() => setDraftOpen(true)} variant="contained">
+              Draft market pack
+            </Button>
+          </Box>
+          <Box className="governance-metrics">
+            {(["draft", "published", "retired"] as const).map((status) => (
+              <Box
+                key={status}
+                className={`governance-metric governance-metric--${status}`}
+              >
+                <span>{status}</span>
+                <strong>{counts[status].toString().padStart(2, "0")}</strong>
+                <small>
+                  {status === "draft"
+                    ? "awaiting an independent decision"
+                    : status === "published"
+                      ? "active market authorities"
+                      : "preserved historical records"}
+                </small>
+              </Box>
+            ))}
+          </Box>
+        </Box>
       ) : null}
       {loading ? (
-        <AdminCard variant="panel" watermark="evidence" showWatermark={false}>
+        <AdminCard
+          className="governance-state-card"
+          variant="panel"
+          watermark="evidence"
+          showWatermark={false}
+        >
           <AdminSkeleton variant="card-list" rows={4} />
         </AdminCard>
       ) : !loadError && packs.length === 0 ? (
-        <AdminCard variant="panel" watermark="evidence" showWatermark={false}>
+        <AdminCard
+          className="governance-empty"
+          variant="panel"
+          watermark="evidence"
+          showWatermark={false}
+        >
           <EmptyState
             icon="✓"
             title="No market packs"
@@ -265,46 +338,48 @@ export function GovernanceDesk() {
           />
         </AdminCard>
       ) : !loadError ? (
-        <Stack spacing={1.5}>
+        <Stack className="governance-pack-list" spacing={1.5}>
           {packs.map((pack) => (
             <AdminCard
               key={pack.packId}
               component="article"
               variant="row"
               watermark="evidence"
+              className={`governance-pack governance-pack--${pack.status}`}
             >
-              <Stack spacing={1}>
-                <Stack
-                  direction={{ xs: "column", sm: "row" }}
-                  sx={{ justifyContent: "space-between", gap: 1 }}
-                >
-                  <Box>
-                    <Typography
-                      component="h2"
-                      sx={{
-                        fontFamily: "Geist Mono",
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {pack.packId}
-                    </Typography>
-                    <Typography>
-                      {labels[pack.market]} · v{pack.version}
-                    </Typography>
-                  </Box>
+              <Stack spacing={0}>
+                <Box className="governance-pack-topline">
+                  <span>{labels[pack.market]}</span>
                   <Chip label={pack.status} />
-                </Stack>
-                <Typography color="text.secondary">
-                  {pack.terminologyRef}
-                </Typography>
-                <Typography>
-                  {Object.entries(pack.features)
-                    .filter(([, v]) => v)
-                    .map(([k]) => k)
-                    .join(" · ") || "No capabilities enabled"}
-                </Typography>
+                </Box>
+                <Box className="governance-pack-body">
+                  <Box className="governance-pack-identity">
+                    <Typography component="h3">
+                      {labels[pack.market].split(" · ")[1]}
+                    </Typography>
+                    <Typography>{pack.packId}</Typography>
+                  </Box>
+                  <Box className="governance-pack-fact">
+                    <span>Version</span>
+                    <strong>v{pack.version}</strong>
+                  </Box>
+                  <Box className="governance-pack-fact governance-pack-fact--reference">
+                    <span>Terminology reference</span>
+                    <strong>{pack.terminologyRef}</strong>
+                  </Box>
+                  <Box className="governance-pack-fact">
+                    <span>Capabilities</span>
+                    <strong>
+                      {Object.entries(pack.features)
+                        .filter(([, v]) => v)
+                        .map(([k]) => k)
+                        .join(" · ") || "None enabled"}
+                    </strong>
+                  </Box>
+                </Box>
                 {pack.status === "draft" ? (
                   <Button
+                    className="governance-pack-action"
                     disabled={busy || Boolean(pack.proposedByMe)}
                     onClick={() => setPending({ action: "publish", pack })}
                   >
@@ -314,6 +389,7 @@ export function GovernanceDesk() {
                   </Button>
                 ) : pack.status === "published" ? (
                   <Button
+                    className="governance-pack-action"
                     color="warning"
                     disabled={busy}
                     onClick={() => setPending({ action: "retire", pack })}
@@ -325,6 +401,15 @@ export function GovernanceDesk() {
             </AdminCard>
           ))}
         </Stack>
+      ) : null}
+      {!loading && !loadError && packs.length === 0 ? (
+        <Button
+          className="governance-empty-action"
+          onClick={() => setDraftOpen(true)}
+          variant="contained"
+        >
+          Draft market pack
+        </Button>
       ) : null}
       <Dialog
         open={draftOpen}
@@ -551,6 +636,6 @@ export function GovernanceDesk() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Stack>
+    </Box>
   );
 }

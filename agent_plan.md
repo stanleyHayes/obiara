@@ -2085,3 +2085,201 @@ limitation recorded at S1-001 and S4-005, not a code failure; the test passed
 live earlier the same day and CI executes it on a clean runner. Production
 remains blocked exclusively on the external gates in
 `internal/quality/external-gate-handoff.md`.
+
+## 27. Handover-pack reconciliation (2026-09-04)
+
+The founder asked for the Build Pack to be checked against what is actually
+implemented. Every testable requirement in the twelve
+`Obiara_Handover_Package/2_Build_Pack` documents was extracted and traced into
+the repository: **888 requirements**. The trace returned 112 built, 391
+partial, 254 missing, 122 drifted and 9 undocumented.
+
+The 80 requirements whose absence is launch-critical were then handed to
+independent verifiers instructed to _refute_ the finding, because the
+expensive error in this repository is declaring something missing that is
+built under an Akan name. **74 of 80 were confirmed; 6 were overturned.**
+Sizes on the confirmed set: 46 large, 26 medium, 2 small.
+
+The 391 partial and 254 missing requirements below the critical tier were NOT
+individually verified. They are indicative and must be re-checked before any
+of them is worked; the trace was deliberately generous with "partial", and
+anything begun-but-incomplete earned that label.
+
+**The finding underneath every area is one shape: the domain layer is real and
+the outbound adapters are not.** Aggregates, state machines, invariants,
+optimistic versioning and consent re-checks are modelled carefully and tested.
+What is absent is everything that speaks to the outside world — object
+storage, transcription, payment rails, media encoding — and, in several
+cases, the composition that would make a finished context reachable at all.
+`services/api/internal/introduction/` is the clearest instance: a 397-line
+domain aggregate, a 410-line application service, defined ports and tests,
+whose `module.go` is two lines of package doc with no constructor, which
+nothing imports, and which appears in none of the route registrations in
+`services/api/main.go`.
+
+This is the same failure that closed the front door on 2026-09-04: the Ghana
+Card and liveness providers were both stubs, and signing up could not be
+completed while they were unreachable.
+
+### 27.1 Voice & media (4)
+
+| Req                   | Deliverable                                                                      | State   | Size   | Verified finding                                                                                                                                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TA-object-storage-cdn | Object storage + CDN for media                                                   | MISSING | LARGE  | Verified; the claim holds. services/api/internal/media/ has only domain/ (asset.go, asset_test.go) and application/ (access.go, access_test.go, ports.go, mock_ports_test.go) — no adapters/ dir. ports.go…        |
+| TA-voice-encode-opus  | Client records AAC, transcodes to Opus 16–24 kbps adaptive on-device             | MISSING | LARGE  | I could not refute this. The spec item is real (Obiara_Handover_Package/2_Build_Pack/Obiara_07_Technical_Architecture.docx §3.2: "Client records AAC→transcodes to Opus 16–24 kbps adaptive on-device; upload via… |
+| CC-01                 | Every voice surface: playback speed, re-record before send, transcription toggle | MISSING | LARGE  | Claim stands. No voice capture or playback UI exists in any client: a repo-wide grep for playbackRate / <audio / new Audio( / AudioContext (excluding node_modules and .worktrees) returns zero hits, and the…     |
+| CL-REG-07             | No machine-only translation in production for launch languages                   | MISSING | MEDIUM | Claim confirmed, and it slightly understates the gap. (1) The gate is real but unconsumed: packages/i18n/src/index.ts enforces reviewed+value+reviewer+ISO date+placeholder parity in isApprovedTranslation,…      |
+
+### 27.2 Matching & introductions (26)
+
+| Req                          | Deliverable                                                                                 | State   | Size   | Verified finding                                                                                                                                                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S-21                         | S-21 Person page (pre-acceptance) elements                                                  | MISSING | LARGE  | Claim verified, not refuted. No person-page route exists in any client: the full route listing of apps/web/app and apps/mobile/app contains garden, epono-ano, introductions/[introId], abonten, adiwo, games and… |
+| S-20                         | S-20 Weekly Introductions delivers 3–7 story-cards                                          | MISSING | LARGE  | I searched under every plausible Akan alias (fie, abonten, adiwo, epono-ano, dan-mu, garden, nnoboa) and every bounded context, and the claim holds. SPEC (what S-20 actually is): extracted from…                 |
+| S-31                         | S-31 Pod open — full-screen hold-to-listen, release pauses                                  | MISSING | LARGE  | Claim confirmed after searching the Akan-named contexts, both client route trees, OpenAPI, main.go wiring and the authz grant table. NO pod screen exists in either client:…                                       |
+| S-22                         | S-22 Sow composer — question on top, 30–90 s record, one re-record                          | MISSING | LARGE  | Verified, claim stands. NOT BUILT: (1) No composer route/component in any client. apps/web/app/fie/garden/garden-shell.tsx:102-113 states it outright — "The former candidate cards and 'preview server…           |
+| S-40                         | S-40 Room header with cloth strip, stage chip and honesty ribbon                            | MISSING | LARGE  | Claim verified in full; nothing found under an Akan or alternate name. Backend room mechanics are real and mounted: services/api/internal/platform/http/courtship_room.go registers POST /v1/courtship/rooms,…     |
+| FR-201a                      | Seed allowance enforced server-side                                                         | MISSING | LARGE  | I went looking for a spend path under every Akan/seed name and could not find one on the running surface; the claim holds, and if anything the reachable surface is looser than described. What is built (claim's… |
+| FR-202                       | Sow requires 20s verified playback of Voice of Introduction                                 | MISSING | LARGE  | I tried hard to find the gate under another name and could not. What IS built is exactly as the claim describes: services/api/internal/seed/listening/domain/playback.go defines `RequiredSeconds = 20.0`,…        |
+| M4-03                        | Sow flow: ≥20s listen gate, 30–90s answer with one re-record, drag-release gesture          | MISSING | LARGE  | I tried to find this built under Akan/domain names (sprout, epono ano/doorway, garden, sow, pod, listening) and it is not. All three legs of PRD M4-03 / UX S-22 hold up as claimed. (1) Listen gate is advisory.… |
+| M5-01                        | Room creation on mutual water with cloth strip, stage and okyeame door in header            | MISSING | LARGE  | Searched under every Akan alias and could not refute any part of this. (1) Gating: services/api/internal/platform/http/courtship_room.go:113-163 (startRoomHandler) checks only opaque-id shape for…               |
+| P0-M4-SOW-FLOW               | Sow flow                                                                                    | MISSING | LARGE  | I could not refute it — the claim holds on every leg, and the gap is if anything larger than stated. NOT COMPOSED. services/api/internal/seed/module.go is the seed-stage composition root and its StageModule…    |
+| P0-M4-PODS                   | Pods                                                                                        | MISSING | LARGE  | Claim confirmed, and the exit-gate half is worse than stated. The slice is genuinely built: services/api/internal/seed/pod/domain/pod.go is a full event-sourced aggregate (owner/media keys, MaxRecipients=25,…   |
+| P0-M5-VOICE-FIRST            | Rooms are voice-first                                                                       | MISSING | LARGE  | Claim confirmed. services/api/internal/courtship/drum/domain/stage.go is a complete voice-first turn model (Medium voice/text, ErrVoiceRequired, Open() forces first beat MediumVoice, Add() enforces alternation… |
+| P0-M4-DECLINE-SPROUT-WATER   | Decline / sprout / water actions                                                            | MISSING | LARGE  | Claim verified on every point. Water: services/api/internal/seed/water/{domain/water.go, application/service.go, application/ports.go, adapters/outbound/mongodb/repository.go,…                                   |
+| P0-EXIT-PODS-HEARD           | Pods heard rate ≥65%                                                                        | MISSING | LARGE  | The core claim holds: nothing in production code emits epono.pod_heard or epono.seed_sown, so GET /v1/metrics/funnel always returns podsHeardRate 0. services/api/internal/analytics/application/analytics.go:52…  |
+| IM-009                       | The Sow is the atomic gesture; aba replaces the swipe and the like                          | MISSING | LARGE  | The claim stands. The sow slice is built to depth but is unreachable end to end. Built: services/api/internal/seed/sow/domain/sow.go (Accept with commandID/fingerprint/allowanceUnits invariants; confirmed…      |
+| IM-022                       | Received seeds rest at the house front as closed pods                                       | MISSING | LARGE  | Claim stands. Pack requirement confirmed from Obiara_Handover_Package/2_Build_Pack/Obiara_06_UX_Flows_Screens.docx (S-14 "Ɛpono ano hub. Two panes: House Front (pods) / My Garden"; S-30 "House Front. Pods as…   |
+| TA-state-engine-enforces-frs | State engine enforces FR-201/203/206/301/302 by construction                                | MISSING | MEDIUM | Claim stands, with one correction to its wording: the FR-301 alternation engine EXISTS and is fuzz-proven, it is simply not composed. services/api/internal/courtship/drum/domain/stage.go implements strict…      |
+| FR-301                       | Alternation: consecutive sends impossible at API layer                                      | MISSING | MEDIUM | Could not refute — I traced the whole composed path. services/api/main.go:205 builds courtship.NewRoomModule and :543 registers the room routes; services/api/internal/platform/http/courtship_room.go:43,192…     |
+| FR-303                       | Active-rooms honesty count server-computed and unsuppressible                               | MISSING | MEDIUM | Claim confirmed; I could not refute it. PRD M5-06 (extracted from Obiara_Handover_Package/2_Build_Pack/Obiara_01_PRD.docx, line 87) requires "each member sees the other's count of currently active rooms…        |
+| M4-01                        | 7 seeds per week, Monday renewal, +3 suban bonus, no rollover, never purchasable            | DRIFTED | MEDIUM | The claim stands on its two substantive limbs; only its third limb is overstated, and not in a way that changes the runtime outcome. CONFIRMED — allowance is 3, not 7.…                                           |
+| M5-02                        | Alternation engine: one drum holder, composer disabled without drum, voice-only first…      | PARTIAL | MEDIUM | Claim stands on the live path; only its "missing" label is too strong. The engine EXISTS and is fully tested but is dead code. services/api/internal/courtship/drum/domain/stage.go implements it: Open() refuses… |
+| M4-06                        | Sprout: doorway conversation capped at three alternating exchanges, mutual water opens room | PARTIAL | MEDIUM | The claim's status ("partial") stands, but one sentence of its gap text is factually wrong and should be corrected. WRONG: "There is no Water action and no mutual-water gate." A complete mutual-water slice…     |
+| M4-AC-01                     | Server-side enforcement of listen gate, allowance, no purchase, 90-day lock                 | PARTIAL | MEDIUM | The claim's substance holds: no reachable API path enforces the listen gate, the allowance spend, or the 90-day decline lock. I dumped every registered route (`grep mux.Handle` across…                           |
+| P0-M5-ALTERNATION-ENGINE     | Room alternation engine                                                                     | MISSING | MEDIUM | Claim verified, not refuted. The shipped courtship-room turn path enforces only optimistic ordering: main.go:543 registers RegisterCourtshipRoomRoutes over courtship.NewRoomModule (main.go:205);…                |
+| P0-EXIT-SEED-SPROUT          | Seed→sprout ≥25%                                                                            | MISSING | MEDIUM | Claim confirmed, and if anything understated. Measurement side is real: services/api/internal/analytics/application/metrics.go computes SeedToSproutRate =…                                                        |
+| P0-EXIT-SPROUT-ROOM          | Sprout→room ≥35%                                                                            | MISSING | MEDIUM | Could not refute; if anything the gap is wider than claimed. The metric arithmetic is real: services/api/internal/analytics/application/metrics.go computes SproutToRoomRate = rate(rooms, sprouted) from…         |
+
+### 27.3 Onboarding (1)
+
+| Req  | Deliverable                                                                   | State   | Size  | Verified finding                                                                                                                                                   |
+| ---- | ----------------------------------------------------------------------------- | ------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S-06 | S-06 Voice of Introduction — three prompts, 120 s meter, per-prompt re-record | MISSING | LARGE | I searched under every Akan alias and under seed/garden/listening, and the claim holds; if anything the gap is slightly larger than stated. Backend, what exists:… |
+
+### 27.4 Identity & verification (12)
+
+| Req                        | Deliverable                                                                     | State   | Size   | Verified finding                                                                                                                                                                                                   |
+| -------------------------- | ------------------------------------------------------------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TA-ghana-id-partner        | Ghana identity verification via accredited partner API                          | MISSING | LARGE  | I could not refute this. There is no accredited-partner adapter anywhere in the repo, under any name. What I opened: - services/api/internal/platform/delivery/verification.go — the composition-root selector…    |
+| FR-103b                    | Presentation-attack rejection at Sentinel thresholds                            | MISSING | LARGE  | Claim stands, and the gap is slightly larger than stated. Pack requirement confirmed in Obiara_Handover_Package/2_Build_Pack/Obiara_02_SRS.docx (FR-103: randomized spoken-phrase + face challenge, reject…        |
+| SENT-02                    | Deepfake screen on enrollment and step-ups                                      | MISSING | LARGE  | Could not refute; the gap is real and the same size as claimed. The requirement is real and specified in two places the claim's grep missed: internal/architecture/threat-model-v0.md:100-102 ("face+voice…        |
+| M1-07                      | Voice of Introduction: 120s guided recording, transcribed and values-tagged     | MISSING | LARGE  | Searched by feature name, by Akan naming, and by mechanism (audio/transcribe/record/listen/tag) — the claim holds and is if anything generous. The context is domain + application only:…                          |
+| P0-M1-VOICE-INTRO          | Voice of Introduction                                                           | MISSING | LARGE  | I searched for the feature under every plausible alias (introduction, voice, sow/seed, epono-ano, media, asset, transcribe) and the claim holds. Built: services/api/internal/introduction/domain/introduction.go… |
+| TA-integration-national-id | Integration: National ID verify partner, launch-blocking, human-review fallback | MISSING | MEDIUM | The claim is accurate on both halves. Absent integration: services/api/internal/verification/adapters/outbound/ holds only manual, simulator, mongodb and privacy — no vendor adapter under any name.…             |
+| FR-101a                    | Romantic surfaces gated below Tier 1                                            | MISSING | MEDIUM | The claim holds exactly as written; I could not find the gate under any other name. The policy table is real (services/api/internal/authz/domain/policy.go: introductions.view/rooms.participate/fires.attend at…  |
+| FR-102a                    | National ID verified against issuer service                                     | MISSING | MEDIUM | The claim holds. `services/api/internal/verification/application/service.go` (lines 46-49) defines `VerificationProvider` as "the outbound port for the national-ID issuer service", and `SubmitGhanaCard` calls…  |
+| M1-02                      | Age gate from national ID; under-18 hard block and ID data deletion             | MISSING | MEDIUM | Claim confirmed, and the deletion half is worse than claimed. (1) The safeguarding package has zero importers: `grep -rln "safeguarding" --include="*.go" services/` returns only files under…                     |
+| M1-AC-01                   | Tier-0 accounts fully gated from member surfaces                                | MISSING | MEDIUM | Verified: the claim holds. services/api/internal/platform/http/fire.go is the only route file that gates on tier — RegisterFireRoutes takes a TierReader (fire.go:26-36), rsvpHandler reads tiers.Tier at :206…    |
+| TS-AGE-ASSURANCE           | Age assurance via ID-derived DOB with audit trail                               | MISSING | MEDIUM | Claim confirmed, and if anything the gap is marginally larger than stated. DOB capture and audit exist: services/api/internal/platform/http/verification.go:77,163 parse dateOfBirth,…                             |
+| FR-101b                    | Sowing gated below Tier 2                                                       | MISSING | SMALL  | The claim holds under a wide search (Akan names included: seed/sprout "doorway", sow, garden, water, source, listening, safety). 1. No tier check on the live path.…                                               |
+
+### 27.5 Trust & safety (13)
+
+| Req                       | Deliverable                                                                               | State   | Size   | Verified finding                                                                                                                                                                                                   |
+| ------------------------- | ----------------------------------------------------------------------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S-43-MEET                 | Meeting flow: verified venue picker, trusted-contact toggle, next-day mutual confirmation | MISSING | LARGE  | Claim confirmed after searching under Akan naming too. What exists: services/api/internal/courtship/proposal/domain/proposal.go defines TypeMeeting as one of three proposal kinds, with State carrying only…      |
+| TA-voice-server-pipeline  | Server voice pipeline order: virus scan → Sentinel → transcription → storage+waveform →…  | MISSING | LARGE  | I went looking under every Akan and English name and the claim holds; the repo even documents it itself. Spec source (extracted from the docx):…                                                                   |
+| M4-ABUSE-01               | Sentinel screening of sow recordings before delivery, seed refunded on failure            | MISSING | LARGE  | I went looking for the screened-sow path under every Akan/English name and could not find it on any live route. What exists is a library, not a feature. Built (library only): -…                                  |
+| P0-SENTINEL-SOW-SCREENING | Sentinel v0: sow-screening                                                                | PARTIAL | LARGE  | Claim stands; I could not refute it. The policy IS fully written and unit-tested: services/api/internal/seed/screening/application/policy.go carries the reason codes (contact_exfiltration, payment_request,…     |
+| P0-SIKA-SHIELD            | Sika Shield keyword/pattern rules                                                         | MISSING | LARGE  | Could not refute; the claim is accurate. The harness is real: services/api/internal/safety/sikashield/domain/sikashield.go defines Pattern{Key,Version,Source,ExpressionRef,ReviewedByKey}, Metrics with…          |
+| TS-BLOCK-PROPAGATION      | Blocks propagate across alternate accounts                                                | MISSING | LARGE  | I could not refute this; the claim holds and is if anything slightly understated. Source requirement is real: Obiara_Handover_Package/1_Strategy/Obiara_Founding_Blueprint.docx asks for "a blocklist that…        |
+| LO-25                     | Two upheld coercion/ethics findings ends a license                                        | MISSING | MEDIUM | Could not refute; the claim holds. The rule comes from Obiara_Handover_Package/2_Build_Pack/Obiara_11_Launch_Operations.docx §4 (Agyina program): "post-engagement ratings, mystery-shop audits, annual…           |
+| TS-TIER-D                 | Tier D — Care (not punishment)                                                            | PARTIAL | MEDIUM | Claim stands and is slightly understated. Built: internal/safety/domain/care.go (CareCase, 5 signals, open→engaged→resolved, script allowlist, 72h QuieteningWindow), internal/safety/application/care.go…         |
+| TS-CARE-ROUTING           | Care-flag immediate routing with 24/7 rota                                                | MISSING | MEDIUM | The claim holds. What IS built is the back half of the flow: internal/safety/domain/care.go (CareCase, five Signals incl. self_harm_indication and okyeame_escalation, four ScriptKeys, 72h QuieteningWindow),…    |
+| TS-CARE-QUEUE-SIGNALS     | Care queue signal sources                                                                 | MISSING | MEDIUM | Claim confirmed; if anything it is understated. internal/safety/domain/care.go and internal/safety/application/care.go do build the full care aggregate (five signals, engage/resolve, scripts, 72h quietening),…  |
+| CL-LIB-08                 | Banned doorway-question rules                                                             | MISSING | MEDIUM | The claim holds; I could not find the rule implemented under any other name. Source of the requirement: Obiara_Handover_Package/2_Build_Pack/Obiara_10_Content_Localization.docx — "Doorway question bank: 40…     |
+| IM-029                    | Strict alternation — you may not send again until answered                                | MISSING | MEDIUM | Claim stands. A complete strict-alternation aggregate exists but is unreachable, and the live send path has no turn check. BUILT BUT UNWIRED: services/api/internal/courtship/drum/domain/stage.go implements it…  |
+| TS-TIER-A                 | Tier A — account-ending conduct                                                           | MISSING | SMALL  | Claim verified, not refuted. The ladder itself is genuinely built: internal/safety/domain/action.go (CheckLadder — Tier A = ActionBan only; SuspensionDuration 14/30/90d), internal/safety/application/actions.go… |
+
+### 27.6 Privacy & retention (6)
+
+| Req                 | Deliverable                                                                      | State   | Size  | Verified finding                                                                                                                                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------- | ------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S-30                | S-30 House Front — pods as closed forms showing trust path + first name/age only | MISSING | LARGE | I searched under every Akan alias and found no House Front anywhere; the claim stands. Spec (extracted from the pack): Obiara_Handover_Package/2_Build_Pack/Obiara_06_UX_Flows_Screens.docx — "S-14 Ɛpono ano…   |
+| TA-data-residency   | Data residency in-region                                                         | PARTIAL | LARGE | The claim substantively stands: no in-region deployment exists. But one sub-clause is wrong, so I corrected "missing" to "partial". What is genuinely absent (claim upheld): - render.yaml:85 and :185 —…        |
+| NFR-301b            | Voice/biometric blobs envelope-encrypted with per-user keys                      | MISSING | LARGE | Verified, and the search was exhaustive rather than name-based: `grep -rln "crypto/aes/crypto/cipher/chacha20/nacl/secretbox"` across all of services/api returns exactly two files —…                           |
+| RET-01              | Voice in closed rooms retained 180 days then crypto-erased                       | PARTIAL | LARGE | I looked for this under every name I could find and the headline gap is real, but two of the claim's supporting statements are wrong. CONFIRMED ABSENT: - No 180-day room-voice policy anywhere.…                |
+| NFR-401b            | In-region data residency with approved DR replica                                | MISSING | LARGE | Every factual element of the claim holds up. render.yaml:85 and :185 pin `region: frankfurt` for obiara-api-production and obiara-worker-production, and internal/quality/renderblueprint/blueprint_test.go:107… |
+| TS-E2E-ROOM-CONTENT | Encrypted room content                                                           | MISSING | LARGE | Confirmed after reading the actual E07 room code, not just greps. The room is services/api/internal/courtship/room (state machine) plus services/api/internal/courtship/queue (turn log behind POST…             |
+
+### 27.7 Commerce & payments (6)
+
+| Req                          | Deliverable                                                                    | State   | Size   | Verified finding                                                                                                                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------ | ------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S-90                         | S-90 Checkout MoMo sheet                                                       | MISSING | LARGE  | Claim stands; I searched widely (Akan route names, catalog/membership/escrow contexts, marketing, mobile, packages) and every one of the five named checkout elements is genuinely absent. Backend:…              |
+| TA-momo-aggregator           | MoMo rails: direct MTN MoMo API + Telecel/AT via aggregator                    | MISSING | LARGE  | Claim confirmed and, if anything, understated. services/api/internal/commerce/momo/ holds exactly nine files (README.md, domain/intent.go + test,…                                                                |
+| TA-integration-momo-networks | Integration: MTN MoMo / Telecel / AT with cross-network retry and grace states | MISSING | LARGE  | Claim stands; I could not refute it under any alias. What exists is a deliberately provider-neutral shell: services/api/internal/commerce/momo/application/ports.go declares `Provider.RequestCollection`, and a… |
+| RPM-32-MOMO-AGGREGATION      | MoMo aggregation across MTN MoMo, Telecel Cash, AT Money                       | MISSING | LARGE  | I tried hard to find this under another name (Akan naming, aggregator brands, "rail"/"gateway"/"charge"/"payer"/"psp") and it genuinely is not there. What exists:…                                               |
+| RPM-05-MICRO-BILLING         | MoMo-native micro-billing at familiar price anchors                            | MISSING | LARGE  | I could not refute this; every specific assertion checks out. (1) Orphaned MoMo: services/api/internal/commerce/momo/ has domain/intent.go, application/{service.go,ports.go} (Create/Confirm/Callback, HMAC…     |
+| RPM-25-MATCHMAKER-TAKE-RATE  | Platform take on matchmaker marketplace: 20% standard, 15% top-suban           | MISSING | MEDIUM | Confirmed. services/api/internal/platform/http/admin_escrow.go:66-72 (escrowTermsFromEngagement) is the only production builder of escrow terms — it sets `escrowdomain.MilestoneTerm{ID: milestone.ID,…          |
+
+### 27.8 Platform (3)
+
+| Req                  | Deliverable                                   | State   | Size   | Verified finding                                                                                                                                                                                                   |
+| -------------------- | --------------------------------------------- | ------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| EVT-11               | Events ceremony.gate_crossed / aseda_declared | PARTIAL | LARGE  | Claim substantially stands; only its "schema and nothing else" wording overstates. CONFIRMED: `ceremony.gate_crossed` / `ceremony.aseda_declared` occur only at…                                                   |
+| P0-M9-AUDIO-ROOMS-V1 | Audio rooms v1                                | MISSING | LARGE  | Verified: the gap is real and is if anything slightly understated. (1) The LiveKit token adapter (services/api/internal/realtime/livekit/adapter.go, application/ports.go with RoleListener/RoleSpeaker/RoleHost)… |
+| EVT-03               | Event epono.pod_heard                         | MISSING | MEDIUM | I looked for a producer under every plausible Akan/English name and found none; if anything the gap is wider than claimed. Schema and consumer exist as the claim says:…                                           |
+
+### 27.9 Other (3)
+
+| Req                   | Deliverable                                                               | State   | Size   | Verified finding                                                                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------- | ------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S-62                  | S-62 Fire live room — stage, audience grid, hand-raise, bounded reactions | MISSING | LARGE  | I went looking for the live room under every name I could think of (fire, room, stage, speaker, audience, raise, reaction, livekit, realtime, dan-mu) and the claim holds. CLIENTS — schedule + RSVP only,… |
+| M9-02                 | Live audio engine with stage controls, bounded reactions, live captions   | MISSING | LARGE  | Claim stands. CONFIRMED MISSING: (1) No audio join for a fire — the only fire routes are services/api/internal/platform/http/fire.go:31-35 (schedule, list, rsvp, cancel, close), ember.go:23, and…         |
+| P0-EXIT-D30-RETENTION | Day-30 retention ≥45%                                                     | PARTIAL | MEDIUM | I could not refute this one; the substance holds, though the evidence understates what exists. What IS built (more than "an unreferenced threshold constant"):…                                             |
+
+### 27.10 Overturned by verification (6)
+
+Claimed critical, found further along than the trace reported. None came back
+clean — all six are partial rather than absent, and the two safety guarantees
+among them should be read as unfinished, not satisfied.
+
+| Req           | Deliverable                                                                  | Actually | Verified finding                                                                                                                                                                                                   |
+| ------------- | ---------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TA-drum-token | Drum possession is a token transferred only by opposing-party message events | PARTIAL  | Both supporting facts in the claim's "gap" are wrong, and the real gap is one stage narrower than stated. 1) "The handler does not even verify the caller is a participant of the room" is false.…                 |
+| FR-104b       | Purge biometric/ID artifacts within 24h on age failure                       | PARTIAL  | The claim looked only at internal/platform/retention and services/worker/internal/jobs and missed an entire bounded context that implements FR-104b under an unsearched name: services/api/internal/safeguarding…  |
+| FR-104a       | Age from ID must be 18 or older, hard-block on failure                       | PARTIAL  | The claim's evidence ("no server-side age computation"; "the only age computation in the whole repo is a display band, ageBand()") is false. A complete, tested, fail-closed age gate exists as its own bounded…   |
+| NFR-301c      | Room content E2E-encrypted with safety-processing design                     | PARTIAL  | The encryption half of NFR-301c is genuinely absent, but the claim's gap statement is wrong on two of its points, so "missing" overstates it. WHAT IS ACTUALLY BUILT (files opened): 1. Consent-gated safety…      |
+| FR-602        | Sika Shield blocks member-to-member payment and payment-detail exchange      | PARTIAL  | The claim's facts about the sikashield package are correct, but its conclusion ("nothing technically blocks member-to-member payment, gifting or payment-detail exchange") is wrong on two of three counts. MONEY… |
+| PRODUCT-LAW   | Five product laws binding on every ticket                                    | PARTIAL  | The gap statement ("no enforced implementation on any reachable path") is wrong for alternation and half-wrong for voice-before-face. STRICT ALTERNATION — enforced, server-side, on a wired route.…               |
+
+### 27.11 Goal: make the Voice of Introduction real, end to end
+
+The confirmed gaps are not independent. One absence sits underneath the
+largest cluster of them: there is no object storage anywhere in the API
+(`services/api/internal/media` has `application/` and `domain/` and no
+`adapters/`; no S3/GCS/R2 client exists in the tree). Every voice, photo and
+document surface in the Build Pack rests on it, and the product's central
+mechanic — a member is introduced by their recorded voice, not their photo —
+cannot exist until it does.
+
+The goal is therefore a vertical slice rather than a sweep: **a member records
+a Voice of Introduction, it is stored encrypted, transcribed, and played back
+under the listening gate that Sow already enforces.** It closes S-06 and
+TA-object-storage-cdn directly, unblocks S-20, S-21, S-22, FR-202,
+TA-voice-encode-opus, TA-voice-server-pipeline, NFR-301b and RET-01, and it
+composes the finished `internal/introduction` context that is currently
+unreachable.
+
+| Task   | Deliverable                                                                                    | Status | Notes                                                                                        |
+| ------ | ---------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------- |
+| VOI-01 | Object storage port and adapter behind `internal/media`, envelope-encrypted per NFR-301b       | TODO   | The port shape already exists in `internal/introduction/application/ports.go` (MediaManager) |
+| VOI-02 | Compose `internal/introduction`: `NewModule`, mongo repository, media and transcriber adapters | TODO   | Domain and application layers are complete and tested; only wiring is missing                |
+| VOI-03 | HTTP routes and OpenAPI contract for begin-upload / confirm-upload / read                      | TODO   | No introduction route exists in the 174-path contract                                        |
+| VOI-04 | Member recording surface: three prompts, 120 s meter, per-prompt re-record                     | TODO   | Nothing in `apps/` records audio except the single liveness clip                             |
+| VOI-05 | Retention: 180-day crypto-erase for room voice, purge on revoke                                | TODO   | RET-01; the domain already models revoke and purge                                           |
+
+Sequencing is VOI-01 → VOI-02 → VOI-03 → VOI-04, because each depends on the
+one before it. VOI-05 can be built alongside VOI-02 once the store exists.

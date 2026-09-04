@@ -46,6 +46,16 @@ function textMinutes(value: string) {
   return Number(hour) * 60 + Number(minute);
 }
 
+function SavingDots() {
+  return (
+    <span className="button-loading-dots" role="status" aria-label="Saving">
+      <i />
+      <i />
+      <i />
+    </span>
+  );
+}
+
 export function NotificationSettings() {
   const [state, dispatch] = useReducer(
     notificationSettingsReducer,
@@ -143,6 +153,33 @@ export function NotificationSettings() {
     }
   }
 
+  if (status === "loading") {
+    return (
+      <main className="fie-shell notification-shell">
+        <CompoundRail contextLabel="Notifications" />
+        <section className="fie-main notification-main">
+          <header className="notification-topbar">
+            <Link href="/fie">Back to Fie</Link>
+          </header>
+          <section
+            className="notification-page-skeleton"
+            aria-label="Loading notification preferences"
+            aria-busy="true"
+          >
+            <i />
+            <i />
+            <i />
+            <div>
+              <i />
+              <i />
+            </div>
+          </section>
+        </section>
+        <CompoundBottomNavigation contextLabel="Notifications" />
+      </main>
+    );
+  }
+
   return (
     <main className="fie-shell notification-shell">
       <CompoundRail contextLabel="Notifications" />
@@ -153,6 +190,16 @@ export function NotificationSettings() {
         </header>
 
         <section className="notification-hero">
+          <svg
+            className="notification-hero-watermark"
+            viewBox="0 0 420 320"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M104 139c0-68 41-108 106-108s106 40 106 108c0 94 54 102 54 102H50s54-8 54-102Z" />
+            <path d="M166 274c11 21 27 31 44 31s33-10 44-31" />
+            <path d="M210 31V8M77 83 58 69m285 14 19-14" />
+          </svg>
           <p className="fie-kicker">Attention belongs to you</p>
           <h1>Choose what may knock.</h1>
           <p>
@@ -204,11 +251,11 @@ export function NotificationSettings() {
                 server-owned category choices, quiet hours and daily cap.
               </p>
               <button
-                disabled={status === "loading" || status === "saving"}
+                disabled={status === "saving"}
                 onClick={savePreferences}
                 type="button"
               >
-                {status === "saving" ? "Saving" : "Save preferences"}
+                {status === "saving" ? <SavingDots /> : "Save preferences"}
               </button>
               {status === "saved" ? (
                 <p role="status">Preferences saved.</p>
@@ -218,6 +265,16 @@ export function NotificationSettings() {
           </div>
 
           <aside className="notification-rules">
+            <svg
+              className="notification-rules-watermark"
+              viewBox="0 0 300 300"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle cx="150" cy="150" r="104" />
+              <circle cx="150" cy="150" r="66" />
+              <path d="M150 150V82m0 68 46 28" />
+            </svg>
             <div>
               <p className="fie-kicker">Quiet hours · Accra time</p>
               <h2>Rest without losing anything.</h2>

@@ -21,7 +21,8 @@ import { SegmentedOtpInput } from "@obiara/ui-web";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { AdminCard } from "../../admin-card";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon } from "../../admin-icons";
 import { AdminSkeleton } from "../../loading-skeleton";
 import { EmptyState } from "../../empty-state";
 import {
@@ -314,24 +315,40 @@ export function TournamentDesk({
   }
   if (mode === "landing")
     return (
-      <Stack spacing={3}>
+      <Box className="tournament-redesign">
         <Heading />
         {notice ? <Alert severity="success">{notice}</Alert> : null}
-        <Button
-          variant="contained"
-          sx={{ alignSelf: "flex-start" }}
-          onClick={() => setCreateOpen(true)}
-        >
-          Create private cohort
-        </Button>
-        <AdminCard
-          component="form"
-          onSubmit={resume}
-          variant="form"
-          watermark="identity"
-        >
-          <Stack spacing={2}>
+        <Box className="tournament-command-deck">
+          <Box className="tournament-create-command">
+            <AdminCardWatermark watermark="identity" />
+            <Typography className="section-kicker">
+              NEW INVITATION FIELD
+            </Typography>
+            <Typography component="h2">Open a private bracket.</Typography>
+            <Typography>
+              Set the seat count now. The cohort locks itself only when every
+              invited place is claimed.
+            </Typography>
+            <Button variant="contained" onClick={() => setCreateOpen(true)}>
+              Create private cohort
+            </Button>
+          </Box>
+          <AdminCard
+            component="form"
+            onSubmit={resume}
+            variant="form"
+            watermark="evidence"
+            className="tournament-resume-command"
+          >
+            <Box className="tournament-command-icon">
+              <AdminIcon name="tournaments" aria-hidden="true" />
+            </Box>
+            <Typography className="section-kicker">EXACT LOOKUP</Typography>
             <Typography component="h2">Resume control</Typography>
+            <Typography className="tournament-command-copy">
+              Return directly to a known private cohort. No directory or public
+              discovery is exposed.
+            </Typography>
             <TextField
               label="Private cohort reference"
               value={reference}
@@ -341,8 +358,8 @@ export function TournamentDesk({
             <Button type="submit" disabled={!reference.trim()}>
               Open exact cohort
             </Button>
-          </Stack>
-        </AdminCard>
+          </AdminCard>
+        </Box>
         <Dialog
           open={createOpen}
           aria-labelledby="cohort-create-title"
@@ -395,10 +412,10 @@ export function TournamentDesk({
           }}
           run={execute}
         />
-      </Stack>
+      </Box>
     );
   return (
-    <Stack spacing={3}>
+    <Box className="tournament-redesign">
       <Heading />
       {notice ? <Alert severity="success">{notice}</Alert> : null}
       {loading ? (
@@ -536,19 +553,46 @@ export function TournamentDesk({
           </Button>
         </DialogActions>
       </Dialog>
-    </Stack>
+    </Box>
   );
 }
 function Heading() {
   return (
-    <Box>
-      <Typography className="section-kicker">
-        PRIVATE COMPETITION CONTROL
-      </Typography>
-      <Typography component="h1">Run invitation-only tournaments.</Typography>
-      <Typography color="text.secondary">
-        No discovery, popularity ranking, or member directory is exposed.
-      </Typography>
+    <Box component="header" className="tournament-hero">
+      <AdminCardWatermark watermark="identity" />
+      <Box className="tournament-hero-copy">
+        <Box className="tournament-kicker">
+          <AdminIcon name="tournaments" aria-hidden="true" />
+          <Typography className="section-kicker">
+            PRIVATE COMPETITION CONTROL
+          </Typography>
+        </Box>
+        <Typography component="h1">Competition without the crowd.</Typography>
+        <Typography className="tournament-hero-intro">
+          Run invitation-only tournaments with exact cohort access, locked
+          brackets, privacy-safe ladders, and accountable human review.
+        </Typography>
+      </Box>
+      <Box
+        className="tournament-hero-register"
+        aria-label="Tournament privacy controls"
+      >
+        <div>
+          <span>Discovery</span>
+          <strong>None</strong>
+          <Typography>Exact references only</Typography>
+        </div>
+        <div>
+          <span>Matching effect</span>
+          <strong>None</strong>
+          <Typography>Performance stays isolated</Typography>
+        </div>
+        <div>
+          <span>Disputes</span>
+          <strong>Human reviewed</strong>
+          <Typography>Fresh authority for decisions</Typography>
+        </div>
+      </Box>
     </Box>
   );
 }
@@ -562,13 +606,27 @@ function CohortView({
   review: () => void;
 }) {
   return (
-    <AdminCard component="article" variant="detail" watermark="identity">
-      <Stack spacing={2}>
-        <Typography component="h2" sx={{ overflowWrap: "anywhere" }}>
-          {cohort.id}
-        </Typography>
+    <AdminCard
+      component="article"
+      variant="detail"
+      watermark="identity"
+      className="tournament-cohort-dossier"
+    >
+      <Box className="tournament-dossier-topline">
+        <Typography className="section-kicker">COHORT DOSSIER</Typography>
         <Chip label={cohort.status} />
-        <Typography>Revision {cohort.revision}</Typography>
+      </Box>
+      <Box className="tournament-dossier-heading">
+        <Box>
+          <Typography component="h2">Private field</Typography>
+          <Typography>{cohort.id}</Typography>
+        </Box>
+        <div>
+          <span>Revision</span>
+          <strong>{cohort.revision.toString().padStart(2, "0")}</strong>
+        </div>
+      </Box>
+      <Box className="tournament-seat-control">
         <Box
           role="progressbar"
           aria-label="Seats claimed"
@@ -577,14 +635,20 @@ function CohortView({
           aria-valuenow={cohort.enrolled}
           aria-valuetext={`${cohort.enrolled} of ${cohort.capacity} seats claimed`}
         >
-          <Typography>
-            {cohort.enrolled} / {cohort.capacity} seats claimed
-          </Typography>
+          <Box className="tournament-seat-label">
+            <span>SEAT CLAIM</span>
+            <strong>
+              {cohort.enrolled} / {cohort.capacity}
+            </strong>
+            <Typography>seats claimed</Typography>
+          </Box>
           <LinearProgress
             value={(cohort.enrolled / cohort.capacity) * 100}
             variant="determinate"
           />
         </Box>
+      </Box>
+      <Box className="tournament-dossier-actions">
         {cohort.competitionId ? (
           <Button
             component={Link}
@@ -607,7 +671,7 @@ function CohortView({
               ? "Waiting for every seat"
               : "Bracket already started"}
         </Button>
-      </Stack>
+      </Box>
     </AdminCard>
   );
 }
@@ -621,64 +685,97 @@ function CompetitionView({
   review: (id: string, d: "no_action" | "rules_action", a: boolean) => void;
 }) {
   return (
-    <Stack spacing={2}>
-      <AdminCard variant="detail" watermark="evidence">
-        <Typography component="h2">Competition {competition.id}</Typography>
-        <Typography>
-          {competition.status} · revision {competition.revision}
-        </Typography>
-        <Typography>
-          {competition.matches.length} matches · {competition.ladder.length}{" "}
-          ladder entries
-        </Typography>
+    <Stack className="tournament-competition" spacing={2}>
+      <AdminCard
+        variant="detail"
+        watermark="evidence"
+        className="tournament-competition-header"
+      >
+        <Box>
+          <Typography className="section-kicker">ACTIVE BRACKET</Typography>
+          <Typography component="h2">Competition {competition.id}</Typography>
+          <Typography>
+            {competition.status} · revision {competition.revision}
+          </Typography>
+        </Box>
+        <Box className="tournament-competition-counts">
+          <div>
+            <strong>
+              {competition.matches.length.toString().padStart(2, "0")}
+            </strong>
+            <span>matches</span>
+          </div>
+          <div>
+            <strong>
+              {competition.ladder.length.toString().padStart(2, "0")}
+            </strong>
+            <span>ladder entries</span>
+          </div>
+        </Box>
       </AdminCard>
-      <AdminCard variant="panel" watermark="analytics">
-        <Stack spacing={1}>
-          <Typography component="h3">Privacy-safe ladder</Typography>
-          {competition.ladder.map((entry, index) => (
-            <Box
-              component="article"
-              key={`${entry.label}-${index}`}
-              sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}
-            >
-              <Typography sx={{ fontWeight: 800 }}>
-                {entry.label}
-                {entry.you ? " · you" : ""}
-              </Typography>
-              <Typography color="text.secondary">
-                {entry.wins} wins · {entry.played} played
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
-      </AdminCard>
-      <AdminCard variant="panel" watermark="clock">
-        <Stack spacing={1}>
-          <Typography component="h3">Bracket matches</Typography>
-          {competition.matches.map((match) => (
-            <Box
-              component="article"
-              key={match.id}
-              sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}
-            >
-              <Typography sx={{ fontWeight: 800 }}>
-                Round {match.round} · slot {match.slot}
-              </Typography>
-              <Typography>
-                {match.firstLabel} vs {match.secondLabel}
-              </Typography>
-              <Typography color="text.secondary">
-                {match.resultRecorded
-                  ? `Winner: ${match.winnerLabel ?? "Recorded"}`
-                  : "Result pending"}
-                {match.youArePlaying ? " · your match" : ""}
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
-      </AdminCard>
+      <Box className="tournament-competition-grid">
+        <AdminCard
+          variant="panel"
+          watermark="analytics"
+          className="tournament-ladder"
+        >
+          <Stack spacing={1}>
+            <Typography component="h3">Privacy-safe ladder</Typography>
+            {competition.ladder.map((entry, index) => (
+              <Box
+                className={entry.you ? "is-you" : ""}
+                component="article"
+                key={`${entry.label}-${index}`}
+                sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}
+              >
+                <Typography sx={{ fontWeight: 800 }}>
+                  {entry.label}
+                  {entry.you ? " · you" : ""}
+                </Typography>
+                <Typography color="text.secondary">
+                  {entry.wins} wins · {entry.played} played
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        </AdminCard>
+        <AdminCard
+          variant="panel"
+          watermark="clock"
+          className="tournament-matches"
+        >
+          <Stack spacing={1}>
+            <Typography component="h3">Bracket matches</Typography>
+            {competition.matches.map((match) => (
+              <Box
+                component="article"
+                key={match.id}
+                sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}
+              >
+                <Typography sx={{ fontWeight: 800 }}>
+                  Round {match.round} · slot {match.slot}
+                </Typography>
+                <Typography>
+                  {match.firstLabel} vs {match.secondLabel}
+                </Typography>
+                <Typography color="text.secondary">
+                  {match.resultRecorded
+                    ? `Winner: ${match.winnerLabel ?? "Recorded"}`
+                    : "Result pending"}
+                  {match.youArePlaying ? " · your match" : ""}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        </AdminCard>
+      </Box>
       {competition.reviews.length === 0 ? (
-        <AdminCard variant="panel" watermark="evidence" showWatermark={false}>
+        <AdminCard
+          variant="panel"
+          watermark="evidence"
+          showWatermark={false}
+          className="tournament-review-empty"
+        >
           <EmptyState
             icon="✓"
             title="No neutral reviews"
@@ -692,6 +789,7 @@ function CompetitionView({
             key={r.id}
             variant="row"
             watermark="evidence"
+            className="tournament-review-record"
           >
             <Stack spacing={1}>
               <Typography component="h3">{r.matchId}</Typography>

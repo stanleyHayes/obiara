@@ -63,10 +63,15 @@ type Asset struct {
 	contentType string
 	size        int64
 	checksum    Checksum
-	createdAt   time.Time
-	expiresAt   time.Time
-	retention   Retention
-	deletedAt   time.Time
+	// duration is zero for media that has none (an image). For audio it is
+	// the only account of length the server will trust: the listening gate
+	// that Sow enforces counts against this, and a client-declared number
+	// would let a member claim an answer they never recorded.
+	duration  time.Duration
+	createdAt time.Time
+	expiresAt time.Time
+	retention Retention
+	deletedAt time.Time
 }
 
 type NewAssetParams struct {
@@ -76,6 +81,7 @@ type NewAssetParams struct {
 	ContentType string
 	Size        int64
 	Checksum    Checksum
+	Duration    time.Duration
 	CreatedAt   time.Time
 	ExpiresAt   time.Time
 	Retention   Retention
@@ -87,7 +93,7 @@ func NewAsset(params NewAssetParams) (Asset, error) {
 	params.OwnerID = strings.TrimSpace(params.OwnerID)
 	params.ContentType = strings.ToLower(strings.TrimSpace(params.ContentType))
 	if params.ID == "" || params.ObjectKey == "" || params.OwnerID == "" || params.Size <= 0 ||
-		params.Checksum.algorithm == "" || params.CreatedAt.IsZero() {
+		params.Checksum.algorithm == "" || params.CreatedAt.IsZero() || params.Duration < 0 {
 		return Asset{}, ErrInvalidAsset
 	}
 	if parsed, _, err := mime.ParseMediaType(params.ContentType); err != nil || parsed == "" {
@@ -108,23 +114,25 @@ func NewAsset(params NewAssetParams) (Asset, error) {
 		contentType: params.ContentType,
 		size:        params.Size,
 		checksum:    params.Checksum,
+		duration:    params.Duration,
 		createdAt:   createdAt,
 		expiresAt:   expiresAt,
 		retention:   params.Retention,
 	}, nil
 }
 
-func (asset Asset) ID() string           { return asset.id }
-func (asset Asset) ObjectKey() string    { return asset.objectKey }
-func (asset Asset) OwnerID() string      { return asset.ownerID }
-func (asset Asset) ContentType() string  { return asset.contentType }
-func (asset Asset) Size() int64          { return asset.size }
-func (asset Asset) Checksum() Checksum   { return asset.checksum }
-func (asset Asset) CreatedAt() time.Time { return asset.createdAt }
-func (asset Asset) ExpiresAt() time.Time { return asset.expiresAt }
-func (asset Asset) Retention() Retention { return asset.retention }
-func (asset Asset) DeletedAt() time.Time { return asset.deletedAt }
-func (asset Asset) IsDeleted() bool      { return !asset.deletedAt.IsZero() }
+func (asset Asset) ID() string              { return asset.id }
+func (asset Asset) ObjectKey() string       { return asset.objectKey }
+func (asset Asset) OwnerID() string         { return asset.ownerID }
+func (asset Asset) ContentType() string     { return asset.contentType }
+func (asset Asset) Size() int64             { return asset.size }
+func (asset Asset) Checksum() Checksum      { return asset.checksum }
+func (asset Asset) Duration() time.Duration { return asset.duration }
+func (asset Asset) CreatedAt() time.Time    { return asset.createdAt }
+func (asset Asset) ExpiresAt() time.Time    { return asset.expiresAt }
+func (asset Asset) Retention() Retention    { return asset.retention }
+func (asset Asset) DeletedAt() time.Time    { return asset.deletedAt }
+func (asset Asset) IsDeleted() bool         { return !asset.deletedAt.IsZero() }
 func (asset Asset) AvailableAt(now time.Time) bool {
 	return !asset.IsDeleted() && (asset.expiresAt.IsZero() || now.Before(asset.expiresAt))
 }

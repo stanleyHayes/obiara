@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import "./styles.css";
+import { CompoundUtilityNavbar } from "./compound-navigation";
 
 export default async function FieLayout({
   children,
@@ -16,5 +17,10 @@ export default async function FieLayout({
   ) {
     redirect("/onboarding");
   }
-  return children;
+  return (
+    <>
+      <CompoundUtilityNavbar />
+      {children}
+    </>
+  );
 }

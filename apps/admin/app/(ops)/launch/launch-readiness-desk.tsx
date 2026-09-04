@@ -1,13 +1,6 @@
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Container,
-  Stack,
-  Typography,
-} from "@mui/material";
-import { AdminCard } from "../../admin-card";
+import { Box, Button, Chip, Typography } from "@mui/material";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon } from "../../admin-icons";
 
 const repositoryEvidence = [
   "Exact candidate and full engineering checks",
@@ -34,195 +27,160 @@ const externalGates = [
 
 export function LaunchReadinessDesk() {
   return (
-    <Box
-      sx={{
-        bgcolor: "background.default",
-        color: "text.primary",
-        minHeight: "100vh",
-        py: 4,
-      }}
-    >
-      <Container maxWidth="lg">
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          sx={{
-            alignItems: { md: "center" },
-            justifyContent: "space-between",
-            mb: 5,
-          }}
-        >
-          <Box>
-            <Typography
-              sx={{
-                color: "#8e3159",
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 1.4,
-              }}
-            >
-              LAUNCH READINESS
-            </Typography>
-            <Typography
-              component="h1"
-              sx={{
-                fontSize: { xs: 44, md: 72 },
-                fontWeight: 800,
-                letterSpacing: "-0.06em",
-                lineHeight: 0.95,
-                mt: 1,
-              }}
-            >
-              Repository handoff. Production not cleared.
-            </Typography>
-            <Typography sx={{ color: "text.secondary", maxWidth: 760, mt: 2 }}>
-              This static inventory records repository handoffs prepared for
-              staging review. It is not live verification or production
-              approval; named authorities must provide current evidence.
+    <Box className="launch-redesign">
+      <Box component="header" className="launch-hero">
+        <AdminCardWatermark watermark="safety" />
+        <Box className="launch-hero-copy">
+          <Button className="launch-back" href="/">
+            ← Command centre
+          </Button>
+          <Box className="launch-kicker">
+            <AdminIcon name="launch" aria-hidden="true" />
+            <Typography className="section-kicker">
+              LAUNCH READINESS · STATIC INVENTORY
             </Typography>
           </Box>
-          <Button href="/" variant="outlined">
-            Back to command centre
-          </Button>
-        </Stack>
-
-        <Alert severity="error" sx={{ mb: 3 }}>
-          There is no launch action here. Green repository checks cannot approve
-          legal posture, purchase providers, create credentials, recruit people
-          or activate production.
-        </Alert>
-
-        <Box
-          sx={{
-            display: "grid",
-            gap: 2,
-            gridTemplateColumns: "1fr",
-          }}
-        >
-          <AdminCard
-            variant="policy"
-            watermark="evidence"
-            sx={{
-              p: { xs: 2.5, md: 3.5 },
-            }}
-          >
-            <Chip label="Repository-controlled" variant="outlined" />
-            <Typography
-              component="h2"
-              sx={{ fontSize: 34, fontWeight: 800, lineHeight: 1.05, mt: 2 }}
-            >
-              Evidence ready for staging.
-            </Typography>
-            <Stack
-              component="ul"
-              spacing={1.25}
-              sx={{ mt: 3, p: 0, listStyle: "none" }}
-            >
-              {repositoryEvidence.map((item) => (
-                <Box
-                  component="li"
-                  key={item}
-                  sx={{
-                    borderTop: "1px solid",
-                    borderColor: "divider",
-                    pt: 1.25,
-                  }}
-                >
-                  <Typography sx={{ fontWeight: 700 }}>✓ {item}</Typography>
-                </Box>
-              ))}
-            </Stack>
-            <Typography
-              sx={{
-                color: "text.secondary",
-                fontSize: 13,
-                lineHeight: 1.6,
-                mt: 3,
-              }}
-            >
-              Exact-candidate evidence must remain current. This is staging
-              evidence, not production approval.
-            </Typography>
-          </AdminCard>
-
-          <AdminCard
-            variant="warning"
-            watermark="evidence"
-            sx={{ p: { xs: 2.5, md: 3.5 } }}
-          >
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              sx={{ justifyContent: "space-between" }}
-            >
-              <Box>
-                <Typography
-                  sx={{
-                    color: "#8e3159",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    letterSpacing: 1.2,
-                  }}
-                >
-                  EXTERNAL HANDOFF
-                </Typography>
-                <Typography
-                  component="h2"
-                  sx={{ fontSize: 34, fontWeight: 800, mt: 1 }}
-                >
-                  Named authority must close each gate.
-                </Typography>
-              </Box>
-              <Chip
-                color="error"
-                label="Production blocked"
-                sx={{ alignSelf: "flex-start" }}
-              />
-            </Stack>
-            <Box
-              component="ul"
-              sx={{ display: "grid", gap: 1, mt: 2.5, p: 0, listStyle: "none" }}
-            >
-              {externalGates.map(([gate, owner]) => (
-                <Stack
-                  component="li"
-                  key={gate}
-                  direction={{ xs: "column", sm: "row" }}
-                  spacing={0.75}
-                  sx={{
-                    borderTop: "1px solid",
-                    borderColor: "divider",
-                    justifyContent: "space-between",
-                    py: 1.25,
-                  }}
-                >
-                  <Typography sx={{ fontWeight: 800 }}>{gate}</Typography>
-                  <Typography
-                    sx={{ color: "text.secondary", textAlign: { sm: "right" } }}
-                  >
-                    {owner}
-                  </Typography>
-                </Stack>
-              ))}
-            </Box>
-          </AdminCard>
+          <Typography component="h1">
+            Ready to review. Not cleared to launch.
+          </Typography>
+          <Typography className="launch-hero-intro">
+            Repository handoffs are prepared for staging review. Production
+            remains blocked until every named authority supplies current
+            evidence.
+          </Typography>
         </Box>
+        <Box className="launch-verdict" aria-label="Current launch verdict">
+          <span>CURRENT VERDICT</span>
+          <strong>NO GO</strong>
+          <Typography>External authority remains outstanding</Typography>
+          <div>
+            <i /> Production activation unavailable
+          </div>
+        </Box>
+      </Box>
 
-        <AdminCard variant="policy" watermark="safety" sx={{ mt: 3, p: 3 }}>
-          <Typography sx={{ fontSize: 24, fontWeight: 800 }}>
-            Decision integrity
+      <Box component="section" className="launch-boundary">
+        <Box className="launch-boundary-icon">
+          <AdminIcon name="launch" aria-hidden="true" />
+        </Box>
+        <Box>
+          <Typography className="section-kicker">AUTHORITY BOUNDARY</Typography>
+          <Typography component="h2">
+            This desk cannot launch production.
           </Typography>
-          <Typography sx={{ color: "text.secondary", lineHeight: 1.7, mt: 1 }}>
-            Synthetic, stale, wrong-environment, wrong-kind, duplicate,
-            self-approved or dependency-bypassing evidence must remain blocked.
-            Even valid production-authorization evidence returns a decision
-            only; it never deploys or mutates infrastructure.
+          <Typography>
+            Green repository checks cannot approve legal posture, purchase
+            providers, create credentials, recruit people, or activate
+            infrastructure.
           </Typography>
-          <Button href="/controls" sx={{ mt: 2 }} variant="outlined">
-            Review runtime controls
-          </Button>
+        </Box>
+        <span>NO LAUNCH ACTION</span>
+      </Box>
+
+      <Box className="launch-overview">
+        <AdminCard
+          variant="policy"
+          watermark="evidence"
+          className="launch-evidence-packet"
+        >
+          <Box className="launch-section-heading">
+            <Box>
+              <Typography className="section-kicker">
+                ENGINEERING PACKET
+              </Typography>
+              <Typography component="h2">
+                Evidence ready for staging.
+              </Typography>
+            </Box>
+            <Chip label="Repository-controlled" variant="outlined" />
+          </Box>
+          <Box component="ul" className="launch-evidence-list">
+            {repositoryEvidence.map((item, index) => (
+              <Box component="li" key={item}>
+                <span>{(index + 1).toString().padStart(2, "0")}</span>
+                <Typography>{item}</Typography>
+                <strong>READY</strong>
+              </Box>
+            ))}
+          </Box>
+          <Typography className="launch-evidence-note">
+            Exact-candidate evidence must remain current. This is staging
+            evidence, not production approval.
+          </Typography>
         </AdminCard>
-      </Container>
+        <Box component="aside" className="launch-tally">
+          <AdminCardWatermark watermark="evidence" />
+          <Typography className="section-kicker">CLOSURE TALLY</Typography>
+          <strong>{externalGates.length.toString().padStart(2, "0")}</strong>
+          <Typography>external gates still require named authority</Typography>
+          <div>
+            <span>Repository packet</span>
+            <b>READY</b>
+          </div>
+          <div>
+            <span>Production authority</span>
+            <b>BLOCKED</b>
+          </div>
+        </Box>
+      </Box>
+
+      <AdminCard
+        variant="warning"
+        watermark="evidence"
+        className="launch-gate-ledger"
+      >
+        <Box className="launch-ledger-heading">
+          <Box>
+            <Typography className="section-kicker">EXTERNAL HANDOFF</Typography>
+            <Typography component="h2">
+              Named authority must close each gate.
+            </Typography>
+          </Box>
+          <Chip color="error" label="Production blocked" />
+        </Box>
+        <Box
+          component="ol"
+          className="launch-gate-list"
+          sx={{ gridTemplateColumns: "1fr" }}
+        >
+          {externalGates.map(([gate, owner], index) => (
+            <Box component="li" key={gate}>
+              <span>{(index + 1).toString().padStart(2, "0")}</span>
+              <Typography>{gate}</Typography>
+              <div>
+                <small>ACCOUNTABLE AUTHORITY</small>
+                <strong>{owner}</strong>
+              </div>
+              <i>OPEN</i>
+            </Box>
+          ))}
+        </Box>
+      </AdminCard>
+
+      <AdminCard
+        variant="policy"
+        watermark="safety"
+        className="launch-integrity"
+      >
+        <Box className="launch-integrity-icon">
+          <AdminIcon name="governance" aria-hidden="true" />
+        </Box>
+        <Box>
+          <Typography className="section-kicker">DECISION INTEGRITY</Typography>
+          <Typography component="h2">
+            Evidence may inform a decision. It never performs deployment.
+          </Typography>
+          <Typography>
+            Synthetic, stale, wrong-environment, wrong-kind, duplicate,
+            self-approved, or dependency-bypassing evidence must remain blocked.
+            Even valid production-authorization evidence returns a decision
+            only.
+          </Typography>
+        </Box>
+        <Button href="/controls" variant="outlined">
+          Review runtime controls
+        </Button>
+      </AdminCard>
     </Box>
   );
 }

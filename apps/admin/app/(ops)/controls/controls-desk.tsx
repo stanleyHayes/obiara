@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Chip,
-  Container,
   Dialog,
   DialogActions,
   DialogContent,
@@ -22,7 +21,8 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { SegmentedOtpInput } from "@obiara/ui-web";
-import { AdminCard } from "../../admin-card";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon } from "../../admin-icons";
 import { AdminSkeleton } from "../../loading-skeleton";
 import { EmptyState } from "../../empty-state";
 import { adminFetch } from "../../lib/admin-fetch";
@@ -284,328 +284,342 @@ export function ControlsDesk() {
   }
 
   return (
-    <Box
-      sx={{
-        bgcolor: "background.default",
-        color: "text.primary",
-        minHeight: "100vh",
-        py: 4,
-      }}
-    >
-      <Container maxWidth="lg">
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          sx={{
-            alignItems: { md: "center" },
-            justifyContent: "space-between",
-            mb: 5,
-          }}
-        >
-          <Box>
-            <Typography className="section-kicker">Runtime controls</Typography>
-            <Typography
-              component="h1"
-              sx={{
-                fontSize: { xs: 44, md: 72 },
-                fontWeight: 800,
-                letterSpacing: "-0.06em",
-                lineHeight: 0.95,
-                mt: 1,
-              }}
-            >
-              Small scope. Clear expiry.
-            </Typography>
-            <Typography sx={{ color: "text.secondary", mt: 2 }}>
-              Durable two-person controls for one capability, environment and
-              market.
+    <Box className="controls-redesign">
+      <Box component="header" className="controls-hero">
+        <AdminCardWatermark watermark="analytics" />
+        <Box className="controls-hero-copy">
+          <Button className="controls-back" component={Link} href="/">
+            ← Command centre
+          </Button>
+          <Box className="controls-kicker">
+            <AdminIcon name="controls" aria-hidden="true" />
+            <Typography className="section-kicker">
+              RUNTIME AUTHORITY · LIVE
             </Typography>
           </Box>
-          <Button component={Link} href="/" variant="outlined">
-            Back to command centre
-          </Button>
-        </Stack>
-
-        {message ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {message}
-          </Alert>
-        ) : null}
-        {success ? (
-          <Alert
-            severity="success"
-            onClose={() => setSuccess("")}
-            sx={{ mb: 2 }}
-          >
-            {success}
-          </Alert>
-        ) : null}
-
-        <AdminCard
-          variant="form"
-          watermark="evidence"
-          sx={{ borderRadius: 1, p: 3 }}
-        >
-          <Typography component="h2" sx={{ fontSize: 30, fontWeight: 800 }}>
-            Propose exact terms
+          <Typography component="h1">
+            Change less. Know when it ends.
           </Typography>
-          <Typography sx={{ color: "text.secondary", mb: 3 }}>
+          <Typography className="controls-hero-intro">
+            Durable two-person controls for one capability, one environment, and
+            one market—with automatic fail-closed expiry.
+          </Typography>
+        </Box>
+        <Box
+          className="controls-hero-register"
+          aria-label="Runtime control guarantees"
+        >
+          <div>
+            <span>Approval</span>
+            <strong>Two operators</strong>
+            <Typography>Proposal and approval remain distinct</Typography>
+          </div>
+          <div>
+            <span>Maximum lifetime</span>
+            <strong>02 hours</strong>
+            <Typography>Every command expires automatically</Typography>
+          </div>
+          <div>
+            <span>Expiry posture</span>
+            <strong>Disabled + killed</strong>
+            <Typography>The platform fails closed</Typography>
+          </div>
+        </Box>
+      </Box>
+
+      <Box component="section" className="controls-boundary">
+        <Box className="controls-boundary-icon">
+          <AdminIcon name="controls" aria-hidden="true" />
+        </Box>
+        <Box>
+          <Typography className="section-kicker">CHANGE BOUNDARY</Typography>
+          <Typography component="h2">
+            Exact terms, retained before action.
+          </Typography>
+          <Typography>
+            No broad switches. Every command fixes the capability, environment,
+            market, reason, and expiry before another administrator reviews it.
+          </Typography>
+        </Box>
+        <span className="controls-boundary-state">FAIL-CLOSED</span>
+      </Box>
+
+      {message ? <Alert severity="error">{message}</Alert> : null}
+      {success ? (
+        <Alert severity="success" onClose={() => setSuccess("")}>
+          {success}
+        </Alert>
+      ) : null}
+
+      <AdminCard
+        variant="form"
+        watermark="evidence"
+        className="controls-proposal-launcher"
+      >
+        <Box className="controls-launcher-copy">
+          <Typography className="section-kicker">
+            NEW RETAINED COMMAND
+          </Typography>
+          <Typography component="h2">Propose exact terms</Typography>
+          <Typography>
             Every proposal expires within two hours. Expiry publishes disabled
             plus killed, regardless of the requested action.
           </Typography>
-          <Button
-            disabled={!loaded || Boolean(loadError)}
-            onClick={() => setProposalOpen(true)}
-            variant="contained"
-          >
-            Create proposal
-          </Button>
-        </AdminCard>
+        </Box>
+        <Box className="controls-launcher-sequence">
+          <div>
+            <span>01</span>Propose
+          </div>
+          <i />
+          <div>
+            <span>02</span>Approve
+          </div>
+          <i />
+          <div>
+            <span>03</span>Apply
+          </div>
+        </Box>
+        <Button
+          disabled={!loaded || Boolean(loadError)}
+          onClick={() => setProposalOpen(true)}
+          variant="contained"
+        >
+          Create proposal
+        </Button>
+      </AdminCard>
 
-        <Dialog
-          fullWidth
-          maxWidth="sm"
-          open={proposalOpen}
-          onClose={() => {
-            if (!busy) {
+      <Dialog
+        fullWidth
+        maxWidth="sm"
+        open={proposalOpen}
+        onClose={() => {
+          if (!busy) {
+            setProposalOpen(false);
+            setDialogError("");
+          }
+        }}
+        aria-labelledby="control-proposal-title"
+      >
+        <DialogTitle id="control-proposal-title">
+          Propose exact terms
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <FormControl>
+              <InputLabel>Capability</InputLabel>
+              <Select
+                label="Capability"
+                value={capability}
+                onChange={(event) =>
+                  setCapability(event.target.value as Capability)
+                }
+              >
+                {Object.entries(labels).map(([key, label]) => (
+                  <MenuItem key={key} value={key}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl>
+              <InputLabel>Environment</InputLabel>
+              <Select
+                label="Environment"
+                value={environment}
+                onChange={(event) =>
+                  setEnvironment(event.target.value as Environment)
+                }
+              >
+                <MenuItem value="staging">Staging</MenuItem>
+                <MenuItem value="production">Production</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <InputLabel>Action</InputLabel>
+              <Select
+                label="Action"
+                value={controlAction}
+                onChange={(event) =>
+                  setControlAction(event.target.value as ControlAction)
+                }
+              >
+                <MenuItem value="enable">Enable</MenuItem>
+                <MenuItem value="disable">Disable</MenuItem>
+                <MenuItem value="kill">Kill immediately</MenuItem>
+                <MenuItem value="unkill">Remove runtime kill</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl>
+              <InputLabel>Reason</InputLabel>
+              <Select
+                label="Reason"
+                value={reason}
+                onChange={(event) => setReason(event.target.value as Reason)}
+              >
+                <MenuItem value="staged_rollout">Staged rollout</MenuItem>
+                <MenuItem value="incident">Incident</MenuItem>
+                <MenuItem value="maintenance">Maintenance</MenuItem>
+              </Select>
+            </FormControl>
+            <Alert
+              severity={
+                controlAction === "kill" || controlAction === "disable"
+                  ? "warning"
+                  : "info"
+              }
+            >
+              {labels[capability]} will be {actionVerbs[controlAction]} in{" "}
+              {environment} for Ghana. The retained command expires within two
+              hours and then fails closed.
+            </Alert>
+            {dialogError ? (
+              <Alert severity="error" role="alert" aria-live="assertive">
+                {dialogError}
+              </Alert>
+            ) : null}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={busy}
+            onClick={() => {
               setProposalOpen(false);
               setDialogError("");
-            }
-          }}
-          aria-labelledby="control-proposal-title"
-        >
-          <DialogTitle id="control-proposal-title">
-            Propose exact terms
-          </DialogTitle>
-          <DialogContent>
-            <Stack spacing={2} sx={{ pt: 1 }}>
-              <FormControl>
-                <InputLabel>Capability</InputLabel>
-                <Select
-                  label="Capability"
-                  value={capability}
-                  onChange={(event) =>
-                    setCapability(event.target.value as Capability)
-                  }
-                >
-                  {Object.entries(labels).map(([key, label]) => (
-                    <MenuItem key={key} value={key}>
-                      {label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl>
-                <InputLabel>Environment</InputLabel>
-                <Select
-                  label="Environment"
-                  value={environment}
-                  onChange={(event) =>
-                    setEnvironment(event.target.value as Environment)
-                  }
-                >
-                  <MenuItem value="staging">Staging</MenuItem>
-                  <MenuItem value="production">Production</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl>
-                <InputLabel>Action</InputLabel>
-                <Select
-                  label="Action"
-                  value={controlAction}
-                  onChange={(event) =>
-                    setControlAction(event.target.value as ControlAction)
-                  }
-                >
-                  <MenuItem value="enable">Enable</MenuItem>
-                  <MenuItem value="disable">Disable</MenuItem>
-                  <MenuItem value="kill">Kill immediately</MenuItem>
-                  <MenuItem value="unkill">Remove runtime kill</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl>
-                <InputLabel>Reason</InputLabel>
-                <Select
-                  label="Reason"
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value as Reason)}
-                >
-                  <MenuItem value="staged_rollout">Staged rollout</MenuItem>
-                  <MenuItem value="incident">Incident</MenuItem>
-                  <MenuItem value="maintenance">Maintenance</MenuItem>
-                </Select>
-              </FormControl>
-              <Alert
-                severity={
-                  controlAction === "kill" || controlAction === "disable"
-                    ? "warning"
-                    : "info"
-                }
-              >
-                {labels[capability]} will be {actionVerbs[controlAction]} in{" "}
-                {environment} for Ghana. The retained command expires within two
-                hours and then fails closed.
-              </Alert>
-              {dialogError ? (
-                <Alert severity="error" role="alert" aria-live="assertive">
-                  {dialogError}
-                </Alert>
-              ) : null}
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              disabled={busy}
-              onClick={() => {
-                setProposalOpen(false);
-                setDialogError("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              aria-busy={busy}
-              disabled={busy}
-              onClick={() => void mutate("propose")}
-              variant="contained"
-            >
-              Submit retained proposal
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Stack spacing={2} sx={{ mt: 3 }}>
-          <Stack
-            direction="row"
-            sx={{ alignItems: "center", justifyContent: "space-between" }}
+            }}
           >
-            <Typography component="h2" sx={{ fontSize: 30, fontWeight: 800 }}>
-              Active proposals
+            Cancel
+          </Button>
+          <Button
+            aria-busy={busy}
+            disabled={busy}
+            onClick={() => void mutate("propose")}
+            variant="contained"
+          >
+            Submit retained proposal
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Stack className="controls-proposal-register" spacing={2}>
+        <Box className="controls-register-heading">
+          <Box>
+            <Typography className="section-kicker">
+              RETAINED REGISTER
             </Typography>
-            <Button disabled={loading} onClick={() => void load()}>
-              Refresh
-            </Button>
-          </Stack>
-          {loading ? (
-            <AdminCard variant="panel" watermark="queue" showWatermark={false}>
-              <AdminSkeleton
-                variant="card-list"
-                rows={2}
-                label="Loading runtime-control proposals"
-              />
-            </AdminCard>
-          ) : loadError ? (
-            <AdminCard
+            <Typography component="h2">Active proposals</Typography>
+          </Box>
+          <Button disabled={loading} onClick={() => void load()}>
+            Refresh
+          </Button>
+        </Box>
+        {loading ? (
+          <AdminCard variant="panel" watermark="queue" showWatermark={false}>
+            <AdminSkeleton
+              variant="card-list"
+              rows={2}
+              label="Loading runtime-control proposals"
+            />
+          </AdminCard>
+        ) : loadError ? (
+          <AdminCard variant="warning" watermark="queue" showWatermark={false}>
+            <EmptyState
+              icon="!"
+              title="Controls unavailable"
+              description={loadError}
               variant="warning"
+              action={
+                <Button onClick={() => void load()} variant="outlined">
+                  Retry
+                </Button>
+              }
+            />
+          </AdminCard>
+        ) : loaded && proposals.length ? (
+          proposals.map((proposal) => (
+            <AdminCard
+              key={proposal.proposalId}
+              variant="row"
               watermark="queue"
-              showWatermark={false}
+              className={`controls-proposal controls-proposal--${proposal.status}`}
             >
-              <EmptyState
-                icon="!"
-                title="Controls unavailable"
-                description={loadError}
-                variant="warning"
-                action={
-                  <Button onClick={() => void load()} variant="outlined">
-                    Retry
-                  </Button>
-                }
-              />
-            </AdminCard>
-          ) : loaded && proposals.length ? (
-            proposals.map((proposal) => (
-              <AdminCard
-                key={proposal.proposalId}
-                variant="row"
-                watermark="queue"
-                sx={{ borderRadius: 1, p: 2.5 }}
-              >
-                <Stack
-                  direction={{ xs: "column", md: "row" }}
-                  spacing={2}
-                  sx={{
-                    alignItems: { md: "center" },
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Box>
-                    <Stack direction="row" spacing={1}>
-                      <Chip
-                        label={proposal.status}
-                        color={
-                          proposal.status === "applied" ? "success" : "warning"
-                        }
-                        size="small"
-                      />
-                      <Chip
-                        label={`${proposal.environment} · ${proposal.market}`}
-                        size="small"
-                      />
-                    </Stack>
-                    <Typography
-                      component="h3"
-                      sx={{ fontSize: 24, fontWeight: 800, mt: 1 }}
-                    >
-                      {labels[proposal.capability]} · {proposal.action}
-                    </Typography>
-                    <Typography sx={{ color: "text.secondary" }}>
-                      {proposal.reason.replaceAll("_", " ")} · expires{" "}
-                      {new Date(proposal.expiresAt).toLocaleString()}
-                    </Typography>
-                  </Box>
+              <Box className="controls-proposal-layout">
+                <Box className="controls-proposal-copy">
                   <Stack
+                    className="controls-proposal-chips"
                     direction="row"
                     spacing={1}
-                    sx={{ flexWrap: "wrap", gap: 1 }}
                   >
-                    {proposal.status === "proposed" ? (
-                      <Button
-                        disabled={busy}
-                        onClick={() => {
-                          setDialogError("");
-                          setConfirmProposal(proposal);
-                          setConfirmAction("approve");
-                        }}
-                        variant="outlined"
-                      >
-                        Approve as second admin
-                      </Button>
-                    ) : null}
-                    {proposal.status === "approved" ? (
-                      <Button
-                        disabled={busy || !proposal.approvedByMe}
-                        onClick={() => {
-                          setDialogError("");
-                          setConfirmProposal(proposal);
-                          setConfirmAction("apply");
-                        }}
-                        variant="contained"
-                      >
-                        Apply retained terms
-                      </Button>
-                    ) : null}
-                    {proposal.status === "applied" ? (
-                      <Chip
-                        label="Live until fail-closed expiry"
-                        color="success"
-                      />
-                    ) : null}
+                    <Chip
+                      label={proposal.status}
+                      color={
+                        proposal.status === "applied" ? "success" : "warning"
+                      }
+                      size="small"
+                    />
+                    <Chip
+                      label={`${proposal.environment} · ${proposal.market}`}
+                      size="small"
+                    />
                   </Stack>
+                  <Typography component="h3">
+                    {labels[proposal.capability]} · {proposal.action}
+                  </Typography>
+                  <Typography>
+                    {proposal.reason.replaceAll("_", " ")} · expires{" "}
+                    {new Date(proposal.expiresAt).toLocaleString()}
+                  </Typography>
+                </Box>
+                <Stack
+                  className="controls-proposal-actions"
+                  direction="row"
+                  spacing={1}
+                >
+                  {proposal.status === "proposed" ? (
+                    <Button
+                      disabled={busy}
+                      onClick={() => {
+                        setDialogError("");
+                        setConfirmProposal(proposal);
+                        setConfirmAction("approve");
+                      }}
+                      variant="outlined"
+                    >
+                      Approve as second admin
+                    </Button>
+                  ) : null}
+                  {proposal.status === "approved" ? (
+                    <Button
+                      disabled={busy || !proposal.approvedByMe}
+                      onClick={() => {
+                        setDialogError("");
+                        setConfirmProposal(proposal);
+                        setConfirmAction("apply");
+                      }}
+                      variant="contained"
+                    >
+                      Apply retained terms
+                    </Button>
+                  ) : null}
+                  {proposal.status === "applied" ? (
+                    <Chip
+                      label="Live until fail-closed expiry"
+                      color="success"
+                    />
+                  ) : null}
                 </Stack>
-              </AdminCard>
-            ))
-          ) : loaded ? (
-            <AdminCard variant="panel" watermark="queue" showWatermark={false}>
-              <EmptyState
-                icon="✓"
-                title="No active proposals"
-                description="There are no retained runtime-control proposals awaiting review or application."
-              />
+              </Box>
             </AdminCard>
-          ) : null}
-        </Stack>
-      </Container>
-
+          ))
+        ) : loaded ? (
+          <AdminCard variant="panel" watermark="queue" showWatermark={false}>
+            <EmptyState
+              icon="✓"
+              title="No active proposals"
+              description="There are no retained runtime-control proposals awaiting review or application."
+            />
+          </AdminCard>
+        ) : null}
+      </Stack>
       <Dialog
         fullWidth
         maxWidth="sm"

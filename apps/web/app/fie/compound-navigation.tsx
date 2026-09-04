@@ -2,20 +2,13 @@
 
 import { fieRoutes, type FieRouteId } from "@obiara/fie-routing";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode, type SVGProps } from "react";
 
 export type FieZone = Exclude<
   FieRouteId,
   "welcome" | "garden" | "abusua-gate" | "okyeame"
 >;
-
-const marks: Record<FieZone, string> = {
-  home: "F",
-  abonten: "A",
-  adiwo: "D",
-  "epono-ano": "Ɛ",
-  "dan-mu": "M",
-};
 
 type NavigationIcon =
   | "home"
@@ -29,7 +22,11 @@ type NavigationIcon =
   | "privacy"
   | "membership"
   | "help"
-  | "close";
+  | "close"
+  | "collapse"
+  | "expand"
+  | "bell"
+  | "sliders";
 
 function FieNavIcon({
   name,
@@ -101,6 +98,22 @@ function FieNavIcon({
       </>
     ),
     close: <path d="m6 6 12 12M18 6 6 18" />,
+    collapse: <path d="m15 6-6 6 6 6" />,
+    expand: <path d="m9 6 6 6-6 6" />,
+    bell: (
+      <>
+        <path d="M6 10a6 6 0 0 1 12 0c0 7 3 7 3 7H3s3 0 3-7" />
+        <path d="M10 21h4" />
+      </>
+    ),
+    sliders: (
+      <>
+        <path d="M4 6h8m4 0h4M4 12h3m4 0h9M4 18h10m4 0h2" />
+        <circle cx="14" cy="6" r="2" />
+        <circle cx="9" cy="12" r="2" />
+        <circle cx="16" cy="18" r="2" />
+      </>
+    ),
   } satisfies Record<NavigationIcon, ReactNode>;
   return (
     <svg
@@ -118,17 +131,24 @@ function FieNavIcon({
   );
 }
 
+const primaryIcons: Record<FieZone, NavigationIcon> = {
+  home: "home",
+  abonten: "fire",
+  adiwo: "people",
+  "epono-ano": "door",
+  "dan-mu": "room",
+};
+
 const navigation = fieRoutes
   .filter(
     (route): route is (typeof fieRoutes)[number] & { id: FieZone } =>
-      route.id in marks,
+      route.id in primaryIcons,
   )
   .map((route) => ({
     label: route.label,
     gloss: route.gloss,
     zone: route.id,
     href: route.webPath,
-    mark: marks[route.id],
   }));
 
 interface CompoundNavigationProps {
@@ -140,14 +160,54 @@ export function CompoundRail({
   current,
   contextLabel,
 }: CompoundNavigationProps) {
+  const [collapsed, setCollapsed] = useState(false);
   const currentLabel =
     contextLabel ?? navigation.find((item) => item.zone === current)?.label;
 
+  useEffect(() => {
+    const stored = window.localStorage.getItem("obiara-fie-rail-collapsed");
+    const next = stored === "true";
+    document.documentElement.dataset.fieRail = next ? "collapsed" : "open";
+    const frame = window.requestAnimationFrame(() => setCollapsed(next));
+    return () => {
+      window.cancelAnimationFrame(frame);
+      delete document.documentElement.dataset.fieRail;
+    };
+  }, []);
+
+  const toggleRail = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    window.localStorage.setItem("obiara-fie-rail-collapsed", String(next));
+    document.documentElement.dataset.fieRail = next ? "collapsed" : "open";
+  };
+
   return (
-    <aside className="fie-rail">
+    <aside className="fie-rail" data-collapsed={collapsed || undefined}>
+      <svg
+        className="fie-rail-watermark"
+        viewBox="0 0 240 240"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path d="M28 112 120 31l92 81" />
+        <path d="M49 101v105h142V101M91 206v-68h58v68" />
+        <path d="M120 31v175" />
+      </svg>
       <Link className="fie-wordmark" href="/">
-        obiara
+        <span>obiara</span>
+        <small>my compound</small>
       </Link>
+      <button
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className="fie-rail-toggle"
+        onClick={toggleRail}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        type="button"
+      >
+        <FieNavIcon name={collapsed ? "expand" : "collapse"} />
+      </button>
       <nav aria-label="Compound navigation">
         {navigation.map((item) => (
           <Link
@@ -155,9 +215,14 @@ export function CompoundRail({
             href={item.href}
             key={item.zone}
           >
-            <span aria-hidden="true">{item.mark}</span>
-            <strong>{item.label}</strong>
-            <small>{item.gloss}</small>
+            <span aria-hidden="true">
+              <FieNavIcon name={primaryIcons[item.zone]} />
+            </span>
+            <div>
+              <strong>{item.label}</strong>
+              <small>{item.gloss}</small>
+            </div>
+            <i aria-hidden="true" />
           </Link>
         ))}
       </nav>
@@ -167,6 +232,58 @@ export function CompoundRail({
         <small>Last safe sync 2 min ago</small>
       </div>
     </aside>
+  );
+}
+
+export function CompoundUtilityNavbar() {
+  const pathname = usePathname();
+  const utilities: Array<{
+    href: string;
+    icon: NavigationIcon;
+    label: string;
+  }> = [
+    {
+      href: "/fie/settings/notifications",
+      icon: "bell",
+      label: "Notifications",
+    },
+    { href: "/fie/settings/profile", icon: "profile", label: "Profile" },
+    {
+      href: "/fie/settings/privacy",
+      icon: "privacy",
+      label: "Account management",
+    },
+    {
+      href: "/fie/settings",
+      icon: "sliders",
+      label: "Settings",
+    },
+  ];
+  const activeHref =
+    utilities.find((item) => pathname === item.href)?.href ??
+    (pathname.startsWith("/fie/settings/") ? "/fie/settings" : undefined);
+
+  return (
+    <nav className="fie-utility-nav" aria-label="Account shortcuts">
+      <span className="fie-utility-status">
+        <i /> Private compound
+      </span>
+      <div>
+        {utilities.map((item) => (
+          <Link
+            aria-current={activeHref === item.href ? "page" : undefined}
+            aria-label={item.label}
+            className={activeHref === item.href ? "is-active" : undefined}
+            href={item.href}
+            key={item.label}
+            title={item.label}
+          >
+            <FieNavIcon name={item.icon} aria-hidden="true" />
+            <span role="tooltip">{item.label}</span>
+          </Link>
+        ))}
+      </div>
+    </nav>
   );
 }
 
@@ -181,14 +298,6 @@ export function CompoundBottomNavigation({ current }: CompoundNavigationProps) {
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [drawerOpen]);
-
-  const primaryIcons: Record<FieZone, NavigationIcon> = {
-    home: "home",
-    abonten: "fire",
-    adiwo: "people",
-    "epono-ano": "door",
-    "dan-mu": "room",
-  };
 
   return (
     <>

@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { ReactNode, SVGProps } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
+import { FieEmptyState } from "../empty-state";
 import { ObiaraSelect } from "@obiara/ui-web";
 
 type CircleType =
@@ -26,6 +28,47 @@ const typeLabels: Record<CircleType, string> = {
   interest: "Interest",
   support: "Support",
 };
+
+function CourtyardIcon({
+  name,
+  ...props
+}: SVGProps<SVGSVGElement> & { name: "circle" | "people" | "gate" }) {
+  const paths: Record<"circle" | "people" | "gate", ReactNode> = {
+    circle: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <circle cx="12" cy="12" r="2" />
+        <path d="M12 4v2m8 6h-2m-6 8v-2m-8-6h2" />
+      </>
+    ),
+    people: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 20c.5-4 2.5-6 6-6s5.5 2 6 6m1-11a3 3 0 0 1 0 6m1 1c2 .6 3.4 2 3.8 4" />
+      </>
+    ),
+    gate: (
+      <>
+        <path d="M4 21V8l8-5 8 5v13" />
+        <path d="M8 21v-9h8v9M2 21h20" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      focusable="false"
+      {...props}
+    >
+      {paths[name]}
+    </svg>
+  );
+}
 
 export function AdiwoShell() {
   const [view, setView] = useState<"mine" | "discover">("mine");
@@ -117,8 +160,22 @@ export function AdiwoShell() {
       <CompoundRail current="adiwo" />
       <section className="fie-main adiwo-main">
         <header className="adiwo-topbar">
-          <div>
-            <p className="fie-kicker">Adiwo · the courtyard</p>
+          <svg
+            className="adiwo-watermark"
+            viewBox="0 0 260 260"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="130" cy="130" r="98" />
+            <circle cx="130" cy="130" r="65" />
+            <circle cx="130" cy="130" r="28" />
+            <path d="M130 32v196M32 130h196" />
+          </svg>
+          <div className="adiwo-hero-copy">
+            <div className="adiwo-kicker">
+              <CourtyardIcon name="circle" />
+              <p className="fie-kicker">Adiwo · the courtyard</p>
+            </div>
             <h1>Belonging is deliberate.</h1>
             <p>
               Private circles reveal nothing before entry. Discoverable circles
@@ -126,9 +183,19 @@ export function AdiwoShell() {
               approves a request.
             </p>
           </div>
-          <div className="adiwo-count">
-            <strong>{circles.length}</strong>
-            <span>{view === "mine" ? "Your circles" : "Available now"}</span>
+          <div className="adiwo-hero-register">
+            <div className="adiwo-count">
+              <strong>{circles.length.toString().padStart(2, "0")}</strong>
+              <span>{view === "mine" ? "Your circles" : "Available now"}</span>
+            </div>
+            <div>
+              <span>Default boundary</span>
+              <strong>Private at creation</strong>
+            </div>
+            <div>
+              <span>Entry</span>
+              <strong>Host approved</strong>
+            </div>
           </div>
         </header>
 
@@ -164,6 +231,9 @@ export function AdiwoShell() {
 
           {view === "mine" ? (
             <div className="adiwo-request">
+              <span className="adiwo-request-icon">
+                <CourtyardIcon name="gate" />
+              </span>
               <div>
                 <strong>Open a private courtyard</strong>
                 <p>
@@ -180,7 +250,7 @@ export function AdiwoShell() {
             </div>
           ) : null}
           {creating ? (
-            <div className="adiwo-request">
+            <div className="adiwo-request adiwo-create-form">
               <ObiaraSelect
                 label="Circle type"
                 onChange={(value) => setType(value as CircleType)}
@@ -216,24 +286,31 @@ export function AdiwoShell() {
           ) : null}
           {busy === "load" ? <p role="status">Opening the courtyard…</p> : null}
           {busy !== "load" && circles.length === 0 ? (
-            <div className="adiwo-now">
-              <div>
-                <p className="fie-kicker">Quiet for now</p>
-                <h2>No circles in this view.</h2>
-                <p>
-                  {view === "mine"
-                    ? "Create a private circle or browse discoverable courtyards."
-                    : "No hosts have opened a discoverable courtyard yet."}
-                </p>
-              </div>
-            </div>
+            <FieEmptyState
+              action={
+                view === "mine"
+                  ? {
+                      href: "/fie/adiwo?view=discover",
+                      label: "Browse courtyards",
+                    }
+                  : undefined
+              }
+              className="adiwo-now"
+              description={
+                view === "mine"
+                  ? "Create a private circle or browse discoverable courtyards."
+                  : "No hosts have opened a discoverable courtyard yet."
+              }
+              mark="circle"
+              title="No circles in this view."
+            />
           ) : null}
 
           <div className="adiwo-grid" aria-live="polite">
             {circles.map((circle) => (
               <article className="adiwo-card" key={circle.id}>
                 <div className="adiwo-mark" aria-hidden="true">
-                  {typeLabels[circle.type].slice(0, 2).toUpperCase()}
+                  <CourtyardIcon name="people" />
                 </div>
                 <p className="fie-kicker">{typeLabels[circle.type]} circle</p>
                 <h3>{circle.id.slice(0, 18)}</h3>

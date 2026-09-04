@@ -199,6 +199,71 @@ func New(id, ownerID string, consent ConsentSnapshot, media MediaRef, retention 
 	return introduction, nil
 }
 
+// NewEvent rebuilds one audit entry from storage. The aggregate's history is
+// part of its identity — replay safety and the command-mismatch checks are
+// both decided from it — so a store that could not restore events would
+// restore an aggregate that accepts a command it has already applied.
+func NewEvent(commandID, fingerprint string, action Action, occurredAt time.Time, version uint64) Event {
+	return Event{
+		commandID: commandID, fingerprint: fingerprint, action: action,
+		occurredAt: occurredAt.UTC(), version: version,
+	}
+}
+
+// ReconstituteParams carries stored state into Reconstitute. A struct rather
+// than thirteen positional arguments: the four timestamps and two enums are
+// indistinguishable by type, and a transposed pair would restore a plausible
+// aggregate in the wrong state.
+type ReconstituteParams struct {
+	ID            string
+	OwnerID       string
+	Consent       ConsentSnapshot
+	Media         MediaRef
+	Transcript    TranscriptRef
+	Status        Status
+	DataStatus    DataStatus
+	Retention     Retention
+	DeletionDueAt time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Version       uint64
+	Events        []Event
+}
+
+// Reconstitute rebuilds a stored aggregate without re-running its invariants,
+// which is correct only because they were enforced on the way in. It is for
+// repositories; application code creates through New and transitions through
+// the methods below.
+func Reconstitute(params ReconstituteParams) Introduction {
+	return Introduction{
+		id: params.ID, ownerID: params.OwnerID, consent: params.Consent,
+		media: params.Media, transcript: params.Transcript,
+		status: params.Status, dataStatus: params.DataStatus,
+		retention: params.Retention, deletionDueAt: params.DeletionDueAt.UTC(),
+		createdAt: params.CreatedAt.UTC(), updatedAt: params.UpdatedAt.UTC(),
+		version: params.Version, events: append([]Event(nil), params.Events...),
+	}
+}
+
+// ReconstituteConsentSnapshot, ReconstituteMediaRef and ReconstituteTranscriptRef
+// rebuild the value objects from storage. The New* constructors validate, and
+// a stored value that has already been validated must not be re-rejected by a
+// rule that has since tightened — that would make old rows unreadable.
+func ReconstituteConsentSnapshot(purposeID string, version uint64, evaluatedAt time.Time) ConsentSnapshot {
+	return ConsentSnapshot{purposeID: purposeID, version: version, evaluatedAt: evaluatedAt.UTC()}
+}
+
+func ReconstituteMediaRef(assetID, contentType string, size int64, duration time.Duration, checksum string) MediaRef {
+	return MediaRef{
+		assetID: assetID, contentType: contentType, size: size,
+		duration: duration, checksum: checksum,
+	}
+}
+
+func ReconstituteTranscriptRef(id, language string, confidence uint8) TranscriptRef {
+	return TranscriptRef{id: id, language: language, confidence: confidence}
+}
+
 func (introduction Introduction) AuthorizeUpload(command Command, expectedVersion uint64) (Introduction, error) {
 	if introduction.status != StatusDraft {
 		return Introduction{}, ErrInvalidTransition

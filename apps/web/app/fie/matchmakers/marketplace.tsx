@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useReducer, useState } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
+import { FieEmptyState } from "../empty-state";
 
 type Profile = {
   matchmakerId: string;
@@ -172,13 +173,12 @@ export function MatchmakerMarketplace() {
         <section className="matchmaker-grid">
           <div className="profile-list">
             {visible.length === 0 ? (
-              <article>
-                <div>
-                  <span className="license">Licensing register</span>
-                  <h2>No current matchmaker is available.</h2>
-                  <p>Expired, future or incomplete licences are never shown.</p>
-                </div>
-              </article>
+              <FieEmptyState
+                description="Try another language. Expired, future, or incomplete licences remain hidden."
+                eyebrow="Licensing register"
+                mark="people"
+                title="No matchmaker fits this view."
+              />
             ) : (
               visible.map((profile) => (
                 <article key={profile.matchmakerId}>

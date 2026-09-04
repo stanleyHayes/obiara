@@ -9,12 +9,12 @@ import {
   DialogContentText,
   DialogTitle,
   MenuItem,
-  Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { AdminCard } from "../../admin-card";
+import { AdminCard, AdminCardWatermark } from "../../admin-card";
+import { AdminIcon } from "../../admin-icons";
 import {
   promptErrors,
   validPromptResult,
@@ -129,118 +129,260 @@ export function GameContentDesk() {
     helperText: errors[name] ?? fallback,
   });
   return (
-    <Stack spacing={3}>
-      <Box>
-        <Typography className="section-kicker">
-          REVIEWED GAME CONTENT
-        </Typography>
-        <Typography component="h1">Approve sourced Ɛbɛ prompts.</Typography>
-        <Typography color="text.secondary">
-          Accepted forms remain server-private. Approval creates an immutable
-          version tied to this authenticated operator and supplied source.
-        </Typography>
+    <Box className="game-content-redesign">
+      <Box component="header" className="game-content-hero">
+        <AdminCardWatermark watermark="evidence" />
+        <Box className="game-content-hero-copy">
+          <Box className="game-content-kicker">
+            <AdminIcon name="games" aria-hidden="true" />
+            <Typography className="section-kicker">
+              REVIEWED GAME CONTENT
+            </Typography>
+          </Box>
+          <Typography component="h1">
+            Preserve the cue. Prove the source.
+          </Typography>
+          <Typography className="game-content-hero-intro">
+            Approve sourced Ɛbɛ prompts for private play. Each decision binds a
+            public cue to a reviewed source and a server-private answer set.
+          </Typography>
+        </Box>
+        <Box
+          className="game-content-hero-register"
+          aria-label="Review doctrine"
+        >
+          <div>
+            <span>Public surface</span>
+            <strong>Prompt cue only</strong>
+            <Typography>Players never receive accepted forms</Typography>
+          </div>
+          <div>
+            <span>Revision model</span>
+            <strong>Append, never overwrite</strong>
+            <Typography>Corrections require a higher version</Typography>
+          </div>
+          <div>
+            <span>Authority</span>
+            <strong>Authenticated reviewer</strong>
+            <Typography>Every approval retains operator provenance</Typography>
+          </div>
+        </Box>
       </Box>
+
+      <Box component="section" className="game-content-boundary">
+        <Box className="game-content-boundary-icon">
+          <AdminIcon name="games" aria-hidden="true" />
+        </Box>
+        <Box>
+          <Typography className="section-kicker">REVIEW BOUNDARY</Typography>
+          <Typography component="h2">
+            The answer key stays backstage.
+          </Typography>
+          <Typography>
+            Reviewers may verify normalized answers here. Members only receive
+            the approved cue, while evaluation remains server-side.
+          </Typography>
+        </Box>
+        <span className="game-content-boundary-state">PRIVATE BY DESIGN</span>
+      </Box>
+
       {message ? (
         <Alert severity={success ? "success" : "error"} role="alert">
           {message}
         </Alert>
       ) : null}
-      <AdminCard
-        component="form"
-        onSubmit={review}
-        variant="form"
-        watermark="evidence"
-      >
-        <Stack spacing={2.5}>
-          <TextField
-            label="Stable prompt ID"
-            value={form.id}
-            onChange={(e) => setForm({ ...form, id: e.target.value })}
-            {...field("id")}
-          />
-          <TextField
-            label="Version"
-            type="number"
-            value={form.version}
-            onChange={(e) =>
-              setForm({ ...form, version: Number(e.target.value) })
-            }
-            slotProps={{ htmlInput: { min: 1, step: 1, inputMode: "numeric" } }}
-            {...field("version")}
-          />
-          <TextField
-            label="Language"
-            value={form.language}
-            onChange={(e) => setForm({ ...form, language: e.target.value })}
-            {...field("language", "BCP 47, for example tw or en-GH")}
-          />
-          <TextField
-            label="Prompt or proverb cue"
-            multiline
-            rows={4}
-            value={form.cue}
-            onChange={(e) => setForm({ ...form, cue: e.target.value })}
-            {...field("cue", "The reviewed prompt shown to both players")}
-          />
-          <TextField
-            label="Accepted answer forms"
-            multiline
-            rows={5}
-            value={answers}
-            onChange={(e) => setAnswers(e.target.value)}
-            {...field(
-              "acceptedAnswers",
-              "One accepted normalized form per line. Never projected to members.",
-            )}
-          />
-          <TextField
-            select
-            label="Source type"
-            value={form.source.kind}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                source: {
-                  ...form.source,
-                  kind: e.target.value as PromptInput["source"]["kind"],
-                },
-              })
-            }
-          >
-            <MenuItem value="book">Book</MenuItem>
-            <MenuItem value="oral_archive">Oral archive</MenuItem>
-            <MenuItem value="institutional_archive">
-              Institutional archive
-            </MenuItem>
-          </TextField>
-          <TextField
-            label="Full source citation"
-            value={form.source.citation}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                source: { ...form.source, citation: e.target.value },
-              })
-            }
-            {...field("citation")}
-          />
-          <TextField
-            label="Source locator"
-            type="url"
-            value={form.source.locator ?? ""}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                source: { ...form.source, locator: e.target.value },
-              })
-            }
-            {...field("locator", "Optional HTTPS archive or catalogue record")}
-          />
-          <Alert severity="warning">
-            Approval is final for this ID and version. Corrections require a
-            higher version; existing duels keep their reviewed snapshot.
-          </Alert>
+      <Box className="game-content-workspace">
+        <Box component="aside" className="game-content-review-rail">
+          <Typography className="section-kicker">APPROVAL SEQUENCE</Typography>
+          <Typography component="h2">One record, three proofs.</Typography>
+          <ol>
+            <li>
+              <span>01</span>
+              <div>
+                <strong>Identity</strong>
+                <Typography>
+                  Fix the stable ID, version, and language.
+                </Typography>
+              </div>
+            </li>
+            <li>
+              <span>02</span>
+              <div>
+                <strong>Substance</strong>
+                <Typography>
+                  Review the cue and normalized private answers.
+                </Typography>
+              </div>
+            </li>
+            <li>
+              <span>03</span>
+              <div>
+                <strong>Provenance</strong>
+                <Typography>
+                  Attach a source another operator can verify.
+                </Typography>
+              </div>
+            </li>
+          </ol>
+          <Box className="game-content-rail-note">
+            <AdminCardWatermark watermark="evidence" />
+            <span>Decision effect</span>
+            <strong>Immediate for new private duels</strong>
+            <Typography>
+              Existing duels retain their original reviewed snapshot.
+            </Typography>
+          </Box>
+        </Box>
+        <AdminCard
+          component="form"
+          onSubmit={review}
+          variant="form"
+          watermark="evidence"
+          className="game-content-form"
+        >
+          <Box className="game-content-form-heading">
+            <Box>
+              <Typography className="section-kicker">NEW REVIEW</Typography>
+              <Typography component="h2">Build the approval record</Typography>
+            </Box>
+            <span>ALL REQUIRED EXCEPT LOCATOR</span>
+          </Box>
+          <section className="game-content-form-section">
+            <Box className="game-content-section-index">
+              <span>01</span>
+              <div>
+                <strong>Record identity</strong>
+                <Typography>
+                  The durable coordinates for this revision.
+                </Typography>
+              </div>
+            </Box>
+            <Box className="game-content-field-grid game-content-field-grid--identity">
+              <TextField
+                label="Stable prompt ID"
+                value={form.id}
+                onChange={(e) => setForm({ ...form, id: e.target.value })}
+                {...field("id")}
+              />
+              <TextField
+                label="Version"
+                type="number"
+                value={form.version}
+                onChange={(e) =>
+                  setForm({ ...form, version: Number(e.target.value) })
+                }
+                slotProps={{
+                  htmlInput: { min: 1, step: 1, inputMode: "numeric" },
+                }}
+                {...field("version")}
+              />
+              <TextField
+                label="Language"
+                value={form.language}
+                onChange={(e) => setForm({ ...form, language: e.target.value })}
+                {...field("language", "BCP 47, for example tw or en-GH")}
+              />
+            </Box>
+          </section>
+          <section className="game-content-form-section">
+            <Box className="game-content-section-index">
+              <span>02</span>
+              <div>
+                <strong>Prompt substance</strong>
+                <Typography>
+                  What members see and what only the server knows.
+                </Typography>
+              </div>
+            </Box>
+            <Box className="game-content-field-grid">
+              <TextField
+                label="Prompt or proverb cue"
+                multiline
+                rows={4}
+                value={form.cue}
+                onChange={(e) => setForm({ ...form, cue: e.target.value })}
+                {...field("cue", "The reviewed prompt shown to both players")}
+              />
+              <TextField
+                className="game-content-private-field"
+                label="Accepted answer forms"
+                multiline
+                rows={5}
+                value={answers}
+                onChange={(e) => setAnswers(e.target.value)}
+                {...field(
+                  "acceptedAnswers",
+                  "One accepted normalized form per line. Never projected to members.",
+                )}
+              />
+            </Box>
+          </section>
+          <section className="game-content-form-section">
+            <Box className="game-content-section-index">
+              <span>03</span>
+              <div>
+                <strong>Source provenance</strong>
+                <Typography>The evidence supporting this prompt.</Typography>
+              </div>
+            </Box>
+            <Box className="game-content-field-grid game-content-field-grid--source">
+              <TextField
+                select
+                label="Source type"
+                value={form.source.kind}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    source: {
+                      ...form.source,
+                      kind: e.target.value as PromptInput["source"]["kind"],
+                    },
+                  })
+                }
+              >
+                <MenuItem value="book">Book</MenuItem>
+                <MenuItem value="oral_archive">Oral archive</MenuItem>
+                <MenuItem value="institutional_archive">
+                  Institutional archive
+                </MenuItem>
+              </TextField>
+              <TextField
+                label="Full source citation"
+                value={form.source.citation}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    source: { ...form.source, citation: e.target.value },
+                  })
+                }
+                {...field("citation")}
+              />
+              <TextField
+                label="Source locator"
+                type="url"
+                value={form.source.locator ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    source: { ...form.source, locator: e.target.value },
+                  })
+                }
+                {...field(
+                  "locator",
+                  "Optional HTTPS archive or catalogue record",
+                )}
+              />
+            </Box>
+          </section>
+          <Box className="game-content-finality">
+            <AdminIcon name="governance" aria-hidden="true" />
+            <Typography>
+              Approval is final for this ID and version. Corrections require a
+              higher version; existing duels keep their reviewed snapshot.
+            </Typography>
+          </Box>
           <Button
+            className="game-content-submit"
             type="submit"
             variant="contained"
             disabled={busy}
@@ -248,10 +390,13 @@ export function GameContentDesk() {
           >
             Review immutable prompt
           </Button>
-        </Stack>
-      </AdminCard>
+        </AdminCard>
+      </Box>
       <Dialog
+        className="game-content-confirm-dialog"
         open={Boolean(pending)}
+        fullWidth
+        maxWidth="md"
         onClose={() => {
           if (!busy) {
             setPending(null);
@@ -261,11 +406,22 @@ export function GameContentDesk() {
         aria-labelledby="prompt-confirm-title"
         aria-describedby="prompt-confirm-description"
       >
-        <DialogTitle id="prompt-confirm-title">
-          Confirm prompt approval
+        <DialogTitle
+          id="prompt-confirm-title"
+          className="game-content-confirm-title"
+        >
+          <span className="game-content-confirm-icon">
+            <AdminIcon name="games" aria-hidden="true" />
+          </span>
+          <span>
+            <small>IMMUTABLE REVIEW</small>Confirm prompt approval
+          </span>
         </DialogTitle>
         <DialogContent>
-          <DialogContentText id="prompt-confirm-description">
+          <DialogContentText
+            id="prompt-confirm-description"
+            className="game-content-confirm-intro"
+          >
             Verify the immutable public prompt and private answer count.
           </DialogContentText>
           {confirmError ? (
@@ -274,33 +430,61 @@ export function GameContentDesk() {
             </Alert>
           ) : null}
           {pending ? (
-            <Stack spacing={1}>
-              <Typography>
-                <strong>ID/version:</strong> {pending.id} · v{pending.version}
-              </Typography>
-              <Typography>
-                <strong>Language:</strong> {pending.language}
-              </Typography>
-              <Typography>
-                <strong>Cue:</strong> {pending.cue}
-              </Typography>
-              <Typography>
-                <strong>Accepted answer count:</strong>{" "}
-                {pending.acceptedAnswers.length}
-              </Typography>
-              <Typography>
-                <strong>Source:</strong> {pending.source.kind} ·{" "}
-                {pending.source.citation}
-              </Typography>
-              <Typography>
-                <strong>Source locator:</strong>{" "}
-                {pending.source.locator ?? "None"}
-              </Typography>
-            </Stack>
+            <Box className="game-content-confirm-docket">
+              <Box className="game-content-confirm-meta">
+                <div>
+                  <span>ID/version:</span>
+                  <strong>
+                    {pending.id} · v{pending.version}
+                  </strong>
+                </div>
+                <div>
+                  <span>Language:</span>
+                  <strong>{pending.language}</strong>
+                </div>
+              </Box>
+              <Box className="game-content-confirm-cue">
+                <span>PUBLIC PROMPT CUE</span>
+                <Typography>“{pending.cue}”</Typography>
+              </Box>
+              <Box className="game-content-confirm-proof-grid">
+                <Box className="game-content-confirm-private">
+                  <span>SERVER-PRIVATE MATERIAL</span>
+                  <strong>
+                    {pending.acceptedAnswers.length.toString().padStart(2, "0")}
+                  </strong>
+                  <Typography>
+                    <strong>Accepted answer count:</strong>
+                  </Typography>
+                  <small>
+                    Answers are counted here and never projected to members.
+                  </small>
+                </Box>
+                <Box className="game-content-confirm-source">
+                  <span>PROVENANCE</span>
+                  <Typography>
+                    <strong>Source:</strong> {pending.source.kind} ·{" "}
+                    {pending.source.citation}
+                  </Typography>
+                  <Typography>
+                    <strong>Source locator:</strong>{" "}
+                    {pending.source.locator ?? "None"}
+                  </Typography>
+                </Box>
+              </Box>
+              <Box className="game-content-confirm-warning">
+                <AdminIcon name="governance" aria-hidden="true" />
+                <Typography>
+                  This exact revision becomes available to new private duels. It
+                  cannot be edited after approval.
+                </Typography>
+              </Box>
+            </Box>
           ) : null}
         </DialogContent>
         <DialogActions>
           <Button
+            className="game-content-confirm-approve"
             disabled={busy}
             onClick={() => {
               setPending(null);
@@ -319,6 +503,6 @@ export function GameContentDesk() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Stack>
+    </Box>
   );
 }

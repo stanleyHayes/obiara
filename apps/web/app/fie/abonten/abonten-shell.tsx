@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useReducer, useState } from "react";
+import type { ReactNode, SVGProps } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
 import { DetailDialog } from "../detail-dialog";
+import { FieEmptyState } from "../empty-state";
 import {
   abontenReducer,
   initialAbontenState,
@@ -23,6 +25,44 @@ interface FireMoment {
   detail: string;
   meta: string;
   accent: "orange";
+}
+
+function StreetIcon({
+  name,
+  ...props
+}: SVGProps<SVGSVGElement> & { name: "fire" | "street" | "people" }) {
+  const paths: Record<"fire" | "street" | "people", ReactNode> = {
+    fire: (
+      <path d="M13 3s1 4-2 7c-2-2-2-4-2-4s-5 4-5 9a8 8 0 0 0 16 0c0-4-3-7-5-9 0 3-2 5-2 5" />
+    ),
+    street: (
+      <>
+        <path d="M4 21 9 3h6l5 18" />
+        <path d="M12 6v3m0 4v3m0 4v1" />
+      </>
+    ),
+    people: (
+      <>
+        <circle cx="8" cy="9" r="3" />
+        <circle cx="16" cy="9" r="3" />
+        <path d="M2 20c.6-4 2.6-6 6-6s5.4 2 6 6m-4-4c1.2-1.3 3.1-2 6-2 3.4 0 5.4 2 6 6" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      focusable="false"
+      {...props}
+    >
+      {paths[name]}
+    </svg>
+  );
 }
 
 export function AbontenShell() {
@@ -117,23 +157,48 @@ export function AbontenShell() {
       <CompoundRail current="abonten" />
       <section className="fie-main abonten-main">
         <header className="abonten-topbar">
-          <div>
-            <p className="fie-kicker">Abɔnten · the public street</p>
+          <svg
+            className="abonten-watermark"
+            viewBox="0 0 260 260"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path d="M54 234 108 27h44l54 207" />
+            <path d="M130 42v35m0 31v35m0 31v35" />
+            <path d="M27 234h206" />
+          </svg>
+          <div className="abonten-hero-copy">
+            <div className="abonten-kicker">
+              <StreetIcon name="street" />
+              <p className="fie-kicker">Abɔnten · the public street</p>
+            </div>
             <h1>Step outside. Stay yourself.</h1>
             <p>
-              Retained community Fires appear here. Learning and notice cards
-              stay absent until their catalogs are connected. This street never
-              starts romantic contact.
+              Retained community Fires appear here. Learning and notices stay
+              quiet until their real catalogs are connected.
             </p>
           </div>
-          <div className="abonten-status" role="status">
-            <span aria-hidden="true" />
-            Open to every member
+          <div className="abonten-hero-register">
+            <div className="abonten-status" role="status">
+              <span aria-hidden="true" />
+              Open to every member
+            </div>
+            <div>
+              <span>Street purpose</span>
+              <strong>Community gathering</strong>
+            </div>
+            <div>
+              <span>Romantic contact</span>
+              <strong>Never initiated here</strong>
+            </div>
           </div>
         </header>
 
         <section className="abonten-welcome" aria-labelledby="street-now">
-          <div>
+          <div className="abonten-welcome-mark">
+            <StreetIcon name="people" />
+          </div>
+          <div className="abonten-welcome-copy">
             <p className="fie-kicker">On the street now</p>
             <h2 id="street-now">Come for the community, not a performance.</h2>
           </div>
@@ -174,14 +239,13 @@ export function AbontenShell() {
           <div className="abonten-grid" aria-live="polite">
             {loadError ? <p role="alert">{loadError}</p> : null}
             {!loadError && visibleMoments.length === 0 ? (
-              <article className="abonten-card is-orange">
-                <p className="fie-kicker">Community board</p>
-                <h3>No retained moments are available.</h3>
-                <p>
-                  Obiara will not invent an event, host, notice or seat count
-                  while the board is empty.
-                </p>
-              </article>
+              <FieEmptyState
+                className="abonten-empty"
+                description="When a host publishes a verified gathering, it will arrive here with its real time and remaining seats."
+                eyebrow="Community board"
+                mark="fire"
+                title="The street is quiet today."
+              />
             ) : null}
             {visibleMoments.map((moment) => {
               const saved = state.savedIds.includes(moment.id);
@@ -190,7 +254,12 @@ export function AbontenShell() {
                   className={`abonten-card is-${moment.accent}`}
                   key={moment.id}
                 >
-                  <p className="fie-kicker">{moment.eyebrow}</p>
+                  <div className="abonten-card-topline">
+                    <span className="abonten-card-icon">
+                      <StreetIcon name="fire" />
+                    </span>
+                    <p className="fie-kicker">{moment.eyebrow}</p>
+                  </div>
                   <h3>{moment.title}</h3>
                   <p>{moment.detail}</p>
                   <small>{moment.meta}</small>
