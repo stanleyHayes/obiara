@@ -1,0 +1,235 @@
+.voice-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+  margin-inline: auto;
+  max-width: 44rem;
+  padding: 2.5rem 1.25rem 5rem;
+}
+
+.voice-intro h1 {
+  color: #3a0e2e;
+  font-size: clamp(1.9rem, 4.4vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.08;
+  margin: 0.4rem 0 0.7rem;
+  text-wrap: balance;
+}
+
+.voice-intro > p {
+  color: #684158;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.voice-progress {
+  color: #3a0e2e;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-top: 1rem;
+}
+
+.voice-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.voice-prompt {
+  background: #fff;
+  border: 1.5px solid rgba(58, 14, 46, 0.12);
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.4rem;
+}
+
+/* A recorded answer is the resting state, so it reads settled rather than
+   decorated: a quiet green edge, not a badge. */
+.voice-prompt[data-stage="saved"] {
+  border-color: rgba(18, 135, 107, 0.4);
+}
+
+.voice-prompt[data-stage="recording"] {
+  border-color: #c54267;
+}
+
+.voice-prompt-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.9rem;
+}
+
+.voice-index {
+  align-items: center;
+  background: #fff3e6;
+  border-radius: 50%;
+  color: #3a0e2e;
+  display: inline-flex;
+  flex: 0 0 2rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+.voice-prompt h2 {
+  color: #3a0e2e;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.voice-prompt small {
+  color: #7d6674;
+  display: block;
+  font-size: 0.82rem;
+  margin-top: 0.25rem;
+}
+
+.voice-meter {
+  align-items: center;
+  background: #fdf5f1;
+  border-radius: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.8rem 1rem;
+  position: relative;
+}
+
+.voice-meter strong {
+  color: #3a0e2e;
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.voice-limit {
+  color: #9a8790;
+  font-size: 0.78rem;
+}
+
+.voice-dot {
+  background: #c54267;
+  border-radius: 50%;
+  height: 0.6rem;
+  width: 0.6rem;
+  animation: voice-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-dot {
+    animation: none;
+  }
+}
+
+.voice-bar {
+  background: #c54267;
+  block-size: 3px;
+  border-radius: 999px;
+  bottom: 0;
+  inset-inline-start: 0;
+  position: absolute;
+  transition: inline-size 900ms linear;
+}
+
+.voice-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.voice-record,
+.voice-stop {
+  border: 0;
+  border-radius: 0.7rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.87rem;
+  font-weight: 800;
+  min-height: 3rem;
+  padding: 0 1.3rem;
+}
+
+.voice-record {
+  background: #3a0e2e;
+  color: #fff3e6;
+}
+
+.voice-record:disabled {
+  background: #ded3d9;
+  color: #7d6674;
+  cursor: not-allowed;
+}
+
+.voice-stop {
+  background: #c54267;
+  color: #fff;
+}
+
+.voice-text {
+  background: none;
+  border: 0;
+  color: #3a0e2e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-height: 2.75rem;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.22rem;
+}
+
+.voice-text:disabled {
+  color: #9a8790;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.voice-saved {
+  color: #12876b;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.voice-busy {
+  color: #7d6674;
+  font-size: 0.82rem;
+}
+
+.voice-error {
+  background: rgba(159, 45, 53, 0.08);
+  border-radius: 0.5rem;
+  color: #8c2933;
+  font-size: 0.83rem;
+  font-weight: 600;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+}
+
+.voice-record:focus-visible,
+.voice-stop:focus-visible,
+.voice-text:focus-visible {
+  outline: 3px solid #ff9f1c;
+  outline-offset: 3px;
+}
+
+.voice-footer a {
+  color: #3a0e2e;
+  font-size: 0.85rem;
+  font-weight: 700;
+}

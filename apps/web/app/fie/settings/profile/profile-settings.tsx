@@ -613,6 +613,10 @@ export function ProfileSettings() {
         </div>
 
         <nav className="profile-settings-links" aria-label="More settings">
+          <Link href="/fie/settings/voice">
+            <strong>Your voice</strong>
+            <span>Three questions, in your own voice</span>
+          </Link>
           <Link href="/fie/settings/verification">
             <ProfileIcon name="verified" />
             <div>
