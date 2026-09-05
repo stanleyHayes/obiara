@@ -610,6 +610,7 @@ func run() error {
 			mediaModule.Access,
 			mediaModule.Assets,
 			mediaModule.Assets,
+			introductionLadderBridge{tiers: identityModule.Tiers, log: slog.Default()},
 			cfg.LivenessHMACSecret,
 		)
 		if introErr != nil {
@@ -888,6 +889,41 @@ type tierBridge struct {
 func (bridge tierBridge) Transition(ctx context.Context, accountID string, target int, reason, actorID string) error {
 	_, err := bridge.tiers.Transition(ctx, accountID, identitydomain.Tier(target), reason, actorID)
 	return err
+}
+
+// introductionLadderBridge promotes a member to the sowing rung once their
+// Voice of Introduction is complete. Cross-context calls happen only at the
+// composition root (agent_plan.md §7.2).
+type introductionLadderBridge struct {
+	tiers identityapplication.TierService
+	log   *slog.Logger
+}
+
+// SowingEarned reads the rung before writing it rather than treating every
+// rejected transition as "already there". Both an account that is already on
+// the sowing rung and one trying to skip a rung are refused by the same
+// error, and only the first is success — swallowing both would hide a
+// Tier-0 account reaching a surface it should never have reached.
+func (bridge introductionLadderBridge) SowingEarned(ctx context.Context, memberID string) error {
+	current, err := bridge.tiers.Tier(ctx, memberID)
+	if err != nil {
+		bridge.log.WarnContext(ctx, "sowing promotion could not read the rung",
+			slog.String("reason", err.Error()))
+		return err
+	}
+	if current >= identitydomain.TierSowing {
+		return nil
+	}
+	if _, err := bridge.tiers.Transition(ctx, memberID, identitydomain.TierSowing,
+		"voice of introduction complete", "introduction"); err != nil {
+		// Not fatal to the recording, which is already stored. It is retried
+		// the next time any recording is confirmed, but it must be visible
+		// while it is outstanding.
+		bridge.log.WarnContext(ctx, "sowing promotion deferred",
+			slog.String("reason", err.Error()))
+		return err
+	}
+	return nil
 }
 
 // safeguardingBridge carries verification's narrow age-gate port to the

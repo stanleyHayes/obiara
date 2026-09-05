@@ -30,7 +30,7 @@ func introduction(t *testing.T, id, assetID string) domain.Introduction {
 	if err != nil {
 		t.Fatal(err)
 	}
-	value, err := domain.New(id, "member_1", consent, media,
+	value, err := domain.New(id, "member_1", domain.PromptArrival, consent, media,
 		domain.NewRetention(time.Time{}, false),
 		domain.Command{ID: "cmd_" + id, Fingerprint: digest, At: swept})
 	if err != nil {

@@ -35,7 +35,7 @@ type Module struct {
 // substitute. Failing at startup is the point: a nil consent gate would mean
 // recordings kept without a lawful basis, discovered later.
 var ErrDependenciesRequired = errors.New(
-	"introduction module requires a consent gate, media access and an asset registry",
+	"introduction module requires a consent gate, media access, an asset registry and a tier ladder",
 )
 
 type idSource struct{}
@@ -61,9 +61,10 @@ func NewModule(
 	access mediaadapter.Access,
 	assets mediaadapter.Assets,
 	remover mediaadapter.Remover,
+	ladder application.Ladder,
 	hmacSecret string,
 ) (Module, error) {
-	if consent == nil || access == nil || assets == nil {
+	if consent == nil || access == nil || assets == nil || ladder == nil {
 		return Module{}, ErrDependenciesRequired
 	}
 	store := mongodb.NewStore(database)
@@ -88,7 +89,7 @@ func NewModule(
 			keyer,
 			idSource{},
 			time.Now,
-		),
+		).WithLadder(ladder),
 		Store:    store,
 		Playback: manager,
 	}, nil

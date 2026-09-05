@@ -5809,6 +5809,14 @@ export interface components {
     readonly VoiceIntroductionInput: {
       /** @description The audio type the client will upload, e.g. audio/ogg. */
       readonly contentType: string;
+      /**
+       * @description Which of the three questions this recording answers (S-06). The
+       *     server needs it because a finished Voice of Introduction is what
+       *     earns the sowing rung, and counting recordings rather than
+       *     questions would let three takes of one answer earn it.
+       * @enum {string}
+       */
+      readonly prompt: "arrival" | "ordinary" | "welcome";
     };
     readonly VoicePlaybackData: {
       /**

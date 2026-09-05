@@ -2926,3 +2926,69 @@ and M5-02, now carry their real state and a note saying which goal changed
 them. Three were set to PARTIAL rather than DONE on purpose: M1-AC-01 gates
 the romantic surfaces but not every member surface, and M1-02 and
 TS-AGE-ASSURANCE both still rest on a self-declared date of birth.
+
+
+## 37. Goal: make Tier 2 reachable (2026-09-05)
+
+§32 gated sowing at Tier 2 correctly and left it unreachable: nothing in the
+codebase promoted anyone past Tier 1, so the rule was real and the rung was
+not. The owner's ruling settled it — **Tier 1 plus a recorded Voice of
+Introduction earns the sowing rung** — which is also the rule the Build Pack
+implies, since FR-202 already ties sowing to Voice of Introduction playback.
+
+### What had to be built first
+
+The server could not tell whether a member had recorded their introduction.
+It had no per-member query, and worse, no idea what any recording was an
+answer to: the three prompts lived only in the browser. Counting recordings
+would have let a member re-record "what brought you here" three times and
+reach the sowing rung without ever answering the other two.
+
+So the prompt vocabulary moved to the server. `arrival`, `ordinary` and
+`welcome` are now domain constants, a recording cannot be opened without
+naming one, and completeness is distinct questions rather than a count.
+
+### The decisions
+
+**"Recorded" means the bytes exist, not that transcription succeeded.**
+`RecordedStatuses` includes every transcription outcome. The configured
+transcriber is deferred and reports uncertain for everything, so requiring
+`ready` would have meant no member ever finished an introduction — the same
+trap the liveness provider set earlier in this project. A recording nobody
+could transcribe is still the member's voice.
+
+**A failed promotion never fails the recording.** The recording is already
+stored. Telling a member who has just finished their introduction that it
+failed would send them to re-record work that is safely saved, so the
+promotion stays out of their way and is retried on the next confirmation.
+The bridge logs its own failures so an outstanding promotion is visible.
+
+**The bridge reads the rung before writing it.** An account already on the
+sowing rung and one trying to skip a rung are refused by the same error, and
+only the first is success. Swallowing both would hide a Tier-0 account
+reaching a surface it should never have reached.
+
+**The module refuses to build without the ladder.** The service takes it
+through a builder so existing constructors keep working, but `NewModule`
+rejects a nil one — forgetting it would leave sowing dark with nothing
+saying why, which is exactly how it got dark in the first place.
+
+| Task    | Deliverable                                                            | Status |
+| ------- | ---------------------------------------------------------------------- | ------ |
+| T2-01   | The server records which question each recording answers               | DONE   |
+| T2-02   | Distinct-prompt completeness query and `Complete`                      | DONE   |
+| T2-03   | Promotion to Tier 2 on completion, idempotent and non-blocking         | DONE   |
+| T2-04   | Contract, generated client and recorder all carry the prompt           | DONE   |
+
+### A test that was weaker than its name
+
+`TestThreeTakesOfOneQuestionEarnNothing` did not test that. Its stub is handed
+distinct prompts, so replacing the completeness rule with a plain length count
+left it passing. It has been renamed to what it actually asserts, and
+`TestDuplicateTakesDoNotFinishAnIntroduction` in the domain package is now the
+real guard — proven by making `Complete` count recordings, which made it fail
+with "three takes of one question finished an introduction".
+
+That check is the only reason the weak test was found. Every other guard in
+this goal was verified the same way: removing the promotion call made the
+sowing test report that nothing earned the rung.

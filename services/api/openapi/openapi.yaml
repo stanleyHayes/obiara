@@ -9132,11 +9132,19 @@ components:
     VoiceIntroductionInput:
       type: object
       additionalProperties: false
-      required: [contentType]
+      required: [contentType, prompt]
       properties:
         contentType:
           type: string
           description: The audio type the client will upload, e.g. audio/ogg.
+        prompt:
+          type: string
+          enum: [arrival, ordinary, welcome]
+          description: |
+            Which of the three questions this recording answers (S-06). The
+            server needs it because a finished Voice of Introduction is what
+            earns the sowing rung, and counting recordings rather than
+            questions would let three takes of one answer earn it.
     VoiceIntroductionData:
       type: object
       additionalProperties: false

@@ -29,10 +29,22 @@ export async function POST(request: Request) {
   }
   const body = (await request.json().catch(() => null)) as {
     contentType?: unknown;
+    prompt?: unknown;
   } | null;
   if (typeof body?.contentType !== "string") {
     return NextResponse.json(
       { message: "The recording format is required." },
+      { status: 422 },
+    );
+  }
+  // The prompt is checked against the same three the server knows. Passing an
+  // unknown one through would be refused there anyway; refusing it here keeps
+  // the generated client's type honest.
+  const prompts = ["arrival", "ordinary", "welcome"] as const;
+  type Prompt = (typeof prompts)[number];
+  if (!prompts.includes(body?.prompt as Prompt)) {
+    return NextResponse.json(
+      { message: "That question is not one of the three." },
       { status: 422 },
     );
   }
@@ -42,7 +54,7 @@ export async function POST(request: Request) {
     {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: { header: { "Idempotency-Key": idempotencyKey } },
-      body: { contentType: body.contentType },
+      body: { contentType: body.contentType, prompt: body.prompt as Prompt },
     },
   );
   if (!data) {

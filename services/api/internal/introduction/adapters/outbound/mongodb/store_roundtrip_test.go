@@ -24,7 +24,7 @@ func TestDocumentMappingRestoresEveryFieldItPersists(t *testing.T) {
 		t.Fatal(err)
 	}
 	original, err := domain.New(
-		"introduction_1", "member_1", consent, media,
+		"introduction_1", "member_1", domain.PromptArrival, consent, media,
 		domain.NewRetention(now.Add(180*24*time.Hour), false),
 		domain.Command{ID: "cmd_1", Fingerprint: digest, At: now},
 	)
@@ -70,7 +70,7 @@ func TestCreationCommandIsWhatMakesCreateIdempotent(t *testing.T) {
 	consent, _ := domain.NewConsentSnapshot("voice.introduction", 1, now)
 	media, _ := domain.NewMediaRef("intro_asset_1", "audio/ogg", 1024, time.Second, digest)
 	introduction, err := domain.New(
-		"introduction_1", "member_1", consent, media,
+		"introduction_1", "member_1", domain.PromptArrival, consent, media,
 		domain.NewRetention(time.Time{}, false),
 		domain.Command{ID: "cmd_begin", Fingerprint: digest, At: now},
 	)

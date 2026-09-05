@@ -129,6 +129,11 @@ func playIntroductionHandler(
 
 type beginIntroductionRequest struct {
 	ContentType string `json:"contentType"`
+	// Prompt names which of the three questions this recording answers. The
+	// server needs it because "all three recorded" is now what earns the
+	// sowing rung, and counting recordings instead of questions would let
+	// three takes of one answer earn it.
+	Prompt string `json:"prompt"`
 }
 
 type introductionResponse struct {
@@ -190,12 +195,26 @@ func beginIntroductionHandler(service VoiceIntroduction, sessions SessionAuthent
 			return
 		}
 
+		// Validated here rather than left to the aggregate: a bad prompt is
+		// invalid input, and the aggregate's refusal maps to a message about
+		// a recording "changing", which is not what went wrong.
+		prompt := domain.Prompt(strings.TrimSpace(body.Prompt))
+		if !prompt.Valid() {
+			writeError(w, r, http.StatusUnprocessableEntity, APIError{
+				Code:    "validation_failed",
+				Message: "One or more fields are invalid.",
+				Details: []FieldError{{Field: "prompt", Reason: "must be one of arrival, ordinary, welcome"}},
+			})
+			return
+		}
+
 		result, err := service.BeginUpload(r.Context(), application.BeginUploadRequest{
 			CommandID:      commandID,
 			OwnerID:        memberID,
 			PurposeID:      voiceIntroductionPurpose,
 			PurposeVersion: 1,
 			ContentType:    body.ContentType,
+			Prompt:         prompt,
 			RetentionUntil: time.Now().UTC().Add(voiceRetention),
 		})
 		if err != nil {

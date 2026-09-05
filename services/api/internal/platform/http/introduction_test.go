@@ -65,7 +65,7 @@ func introFixture(t *testing.T, ownerID string) introdomain.Introduction {
 		t.Fatal(err)
 	}
 	introduction, err := introdomain.New(
-		"introduction_1", ownerID, consent, media,
+		"introduction_1", ownerID, introdomain.PromptArrival, consent, media,
 		introdomain.NewRetention(now.Add(180*24*time.Hour), false),
 		introdomain.Command{ID: "cmd_1", Fingerprint: digest, At: now},
 	)
@@ -113,7 +113,7 @@ func TestBeginUploadReturnsAGrantTheClientUploadsWith(t *testing.T) {
 			}, nil
 		},
 	}
-	request := httptest.NewRequest(http.MethodPost, "/v1/introductions", strings.NewReader(`{"contentType":"audio/ogg"}`))
+	request := httptest.NewRequest(http.MethodPost, "/v1/introductions", strings.NewReader(`{"contentType":"audio/ogg","prompt":"arrival"}`))
 	request.Header.Set("Authorization", "Bearer token")
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", "cmd-begin-1")
@@ -189,7 +189,7 @@ func TestWithdrawnConsentIsRefusedAsForbidden(t *testing.T) {
 			return introapplication.BeginUploadResult{}, introapplication.ErrConsentRequired
 		},
 	}
-	request := httptest.NewRequest(http.MethodPost, "/v1/introductions", strings.NewReader(`{"contentType":"audio/ogg"}`))
+	request := httptest.NewRequest(http.MethodPost, "/v1/introductions", strings.NewReader(`{"contentType":"audio/ogg","prompt":"arrival"}`))
 	request.Header.Set("Authorization", "Bearer token")
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", "cmd-1")
@@ -275,5 +275,30 @@ func TestAnotherMembersAudioIsNotGranted(t *testing.T) {
 		ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", response.Code)
+	}
+}
+
+func TestARecordingMustSayWhichQuestionItAnswers(t *testing.T) {
+	// A finished Voice of Introduction is all three questions, so the server
+	// has to know which one each recording answers. Without this the sowing
+	// rung could be earned by three takes of the same answer.
+	handler := introMux(t, introServiceStub{}, introReaderStub{}, "member_1")
+	for name, body := range map[string]string{
+		"absent":  `{"contentType":"audio/ogg"}`,
+		"unknown": `{"contentType":"audio/ogg","prompt":"favourite-colour"}`,
+		"blank":   `{"contentType":"audio/ogg","prompt":"  "}`,
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/v1/introductions", strings.NewReader(body))
+		request.Header.Set("Authorization", "Bearer token")
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", "cmd_1")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("%s prompt: status = %d, want 422", name, response.Code)
+		}
+		if !strings.Contains(response.Body.String(), `"field":"prompt"`) {
+			t.Fatalf("%s prompt: refusal did not name the field: %s", name, response.Body.String())
+		}
 	}
 }

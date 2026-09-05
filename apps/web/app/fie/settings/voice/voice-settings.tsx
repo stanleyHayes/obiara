@@ -159,7 +159,9 @@ export function VoiceSettings({ tier }: { tier: number | null }) {
           "Content-Type": "application/json",
           "Idempotency-Key": commandId,
         },
-        body: JSON.stringify({ contentType: baseType(take.type) }),
+        // The server records which question this answers: a finished Voice
+        // of Introduction is all three, not three takes of one.
+        body: JSON.stringify({ contentType: baseType(take.type), prompt }),
       });
       const grant = (await opened.json().catch(() => null)) as {
         introductionId?: string;

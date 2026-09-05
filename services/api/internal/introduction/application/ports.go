@@ -21,6 +21,19 @@ type Store interface {
 	Create(context.Context, domain.Introduction) (domain.Introduction, bool, error)
 	FindByID(context.Context, string) (domain.Introduction, error)
 	Update(context.Context, domain.Introduction, uint64, string) error
+	// PromptsRecorded lists the distinct prompts this member has a usable
+	// recording for. Distinct, because re-recording one question three times
+	// is three aggregates and must not read as a finished introduction.
+	PromptsRecorded(context.Context, string) ([]domain.Prompt, error)
+}
+
+// Ladder is told when a member's Voice of Introduction becomes complete.
+//
+// It is a port so this context never reaches into identity; the composition
+// root bridges it (agent_plan.md §7.2). Implementations must be idempotent:
+// a retried confirmation, or a fourth recording, calls it again.
+type Ladder interface {
+	SowingEarned(ctx context.Context, memberID string) error
 }
 
 type ConsentGate interface {

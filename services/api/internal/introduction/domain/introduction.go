@@ -162,9 +162,66 @@ type Command struct {
 
 // Introduction is immutable. All state changes return a new value and append
 // only enum/timestamp/keyed-fingerprint audit data.
+// Prompt is one of the three questions a Voice of Introduction answers
+// (S-06). The server owns this vocabulary because completeness became a
+// server fact when it started earning a rung: counting recordings rather than
+// prompts would let three takes of one question earn Tier 2.
+type Prompt string
+
+const (
+	PromptArrival  Prompt = "arrival"
+	PromptOrdinary Prompt = "ordinary"
+	PromptWelcome  Prompt = "welcome"
+)
+
+// Prompts is the complete set, in the order a member is asked.
+var Prompts = []Prompt{PromptArrival, PromptOrdinary, PromptWelcome}
+
+// RecordedStatuses are the states in which a member's recording actually
+// exists and counts toward a finished introduction.
+//
+// Draft and upload_authorized are promises rather than recordings; cancelled
+// and revoked are recordings the member took back. Every transcription
+// outcome is included on purpose: transcription is deferred and the
+// configured provider reports uncertain for everything, so requiring "ready"
+// would mean no member ever finished an introduction. A recording nobody
+// could transcribe is still the member's voice.
+func RecordedStatuses() []Status {
+	return []Status{
+		StatusUploaded, StatusTranscribing, StatusReady,
+		StatusTranscriptionUncertain, StatusTranscriptionFailed,
+	}
+}
+
+// Complete reports whether every prompt has a recording. This is what earns
+// Tier 2, so it asks for all three questions rather than three recordings.
+func Complete(recorded []Prompt) bool {
+	seen := make(map[Prompt]bool, len(recorded))
+	for _, prompt := range recorded {
+		seen[prompt] = true
+	}
+	for _, required := range Prompts {
+		if !seen[required] {
+			return false
+		}
+	}
+	return true
+}
+
+func (p Prompt) Valid() bool {
+	for _, known := range Prompts {
+		if known == p {
+			return true
+		}
+	}
+	return false
+}
+
 type Introduction struct {
-	id            string
-	ownerID       string
+	id      string
+	ownerID string
+	// prompt is which of the three questions this recording answers.
+	prompt        Prompt
 	consent       ConsentSnapshot
 	media         MediaRef
 	transcript    TranscriptRef
@@ -178,16 +235,17 @@ type Introduction struct {
 	events        []Event
 }
 
-func New(id, ownerID string, consent ConsentSnapshot, media MediaRef, retention Retention, command Command) (Introduction, error) {
+func New(id, ownerID string, prompt Prompt, consent ConsentSnapshot, media MediaRef, retention Retention, command Command) (Introduction, error) {
 	id = strings.TrimSpace(id)
 	ownerID = strings.TrimSpace(ownerID)
 	if !opaquePattern.MatchString(id) || !opaquePattern.MatchString(ownerID) ||
+		!prompt.Valid() ||
 		consent.purposeID == "" || media.assetID == "" || command.At.IsZero() ||
 		(!retention.until.IsZero() && retention.until.Before(command.At.UTC())) {
 		return Introduction{}, ErrInvalidIntroduction
 	}
 	introduction := Introduction{
-		id: id, ownerID: ownerID, consent: consent, media: media,
+		id: id, ownerID: ownerID, prompt: prompt, consent: consent, media: media,
 		status: StatusDraft, dataStatus: DataRetained, retention: retention,
 		createdAt: command.At.UTC(), updatedAt: command.At.UTC(), version: 1,
 	}
@@ -217,6 +275,7 @@ func NewEvent(commandID, fingerprint string, action Action, occurredAt time.Time
 type ReconstituteParams struct {
 	ID            string
 	OwnerID       string
+	Prompt        Prompt
 	Consent       ConsentSnapshot
 	Media         MediaRef
 	Transcript    TranscriptRef
@@ -236,7 +295,7 @@ type ReconstituteParams struct {
 // the methods below.
 func Reconstitute(params ReconstituteParams) Introduction {
 	return Introduction{
-		id: params.ID, ownerID: params.OwnerID, consent: params.Consent,
+		id: params.ID, ownerID: params.OwnerID, prompt: params.Prompt, consent: params.Consent,
 		media: params.Media, transcript: params.Transcript,
 		status: params.Status, dataStatus: params.DataStatus,
 		retention: params.Retention, deletionDueAt: params.DeletionDueAt.UTC(),
@@ -419,6 +478,7 @@ func (introduction Introduction) command(id string) (Event, bool) {
 
 func (introduction Introduction) ID() string                { return introduction.id }
 func (introduction Introduction) OwnerID() string           { return introduction.ownerID }
+func (introduction Introduction) Prompt() Prompt            { return introduction.prompt }
 func (introduction Introduction) Consent() ConsentSnapshot  { return introduction.consent }
 func (introduction Introduction) Media() MediaRef           { return introduction.media }
 func (introduction Introduction) Transcript() TranscriptRef { return introduction.transcript }

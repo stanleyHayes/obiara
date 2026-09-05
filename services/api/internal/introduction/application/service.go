@@ -23,6 +23,17 @@ type Service struct {
 	keyer       Keyer
 	ids         IDSource
 	now         func() time.Time
+	// ladder is told when this member's three prompts are all recorded.
+	// Optional here so the existing constructor keeps working; the module
+	// refuses to build without one, which is where forgetting it would
+	// matter — sowing would stay dark and nothing would say why.
+	ladder Ladder
+}
+
+// WithLadder attaches the rung a completed Voice of Introduction earns.
+func (service Service) WithLadder(ladder Ladder) Service {
+	service.ladder = ladder
+	return service
 }
 
 func NewService(store Store, consent ConsentGate, media MediaManager, transcriber Transcriber, keyer Keyer, ids IDSource, now func() time.Time) Service {
@@ -36,8 +47,10 @@ func NewService(store Store, consent ConsentGate, media MediaManager, transcribe
 }
 
 type BeginUploadRequest struct {
-	CommandID      string
-	OwnerID        string
+	CommandID string
+	OwnerID   string
+	// Prompt names which of the three questions this recording answers.
+	Prompt         domain.Prompt
 	PurposeID      string
 	PurposeVersion uint64
 	ContentType    string
@@ -81,7 +94,7 @@ func (service Service) BeginUpload(ctx context.Context, request BeginUploadReque
 		return BeginUploadResult{}, err
 	}
 	introduction, err := domain.New(
-		service.ids.NewID("introduction"), request.OwnerID, consent, media,
+		service.ids.NewID("introduction"), request.OwnerID, request.Prompt, consent, media,
 		domain.NewRetention(request.RetentionUntil, request.LegalHold), createCommand,
 	)
 	if err != nil {
@@ -163,7 +176,30 @@ func (service Service) ConfirmUpload(ctx context.Context, introductionID, comman
 	if err != nil {
 		return domain.Introduction{}, err
 	}
-	return service.update(ctx, introduction, updated, command.ID)
+	stored, err := service.update(ctx, introduction, updated, command.ID)
+	if err != nil {
+		return domain.Introduction{}, err
+	}
+	service.maybeEarnSowing(ctx, stored.OwnerID())
+	return stored, nil
+}
+
+// maybeEarnSowing promotes a member whose three prompts are now all recorded.
+//
+// It deliberately reports nothing. The recording is already saved, and a
+// member who has just finished their introduction must not be told it failed
+// because a tier write did not land — they would re-record work that is
+// safely stored. The bridge behind Ladder logs its own failures, and the
+// promotion is retried the next time any recording is confirmed.
+func (service Service) maybeEarnSowing(ctx context.Context, ownerID string) {
+	if service.ladder == nil || service.store == nil {
+		return
+	}
+	recorded, err := service.store.PromptsRecorded(ctx, ownerID)
+	if err != nil || !domain.Complete(recorded) {
+		return
+	}
+	_ = service.ladder.SowingEarned(ctx, ownerID)
 }
 
 type TranscribeResult struct {

@@ -24,7 +24,7 @@ func draft(t *testing.T, retention Retention) Introduction {
 		t.Fatal(err)
 	}
 	introduction, err := New(
-		"introduction:1", "member:1", consent, media, retention,
+		"introduction:1", "member:1", PromptArrival, consent, media, retention,
 		command("command:create", testTime),
 	)
 	if err != nil {
@@ -165,5 +165,26 @@ func TestLegalHoldPreventsPurge(t *testing.T) {
 	}
 	if _, err := cancelled.MarkPurged(command("command:purge", testTime), 2); !errors.Is(err, ErrLegalHold) {
 		t.Fatalf("expected legal hold, got %v", err)
+	}
+}
+
+func TestDuplicateTakesDoNotFinishAnIntroduction(t *testing.T) {
+	// The rule that stops three takes of "what brought you here" earning the
+	// sowing rung. Counting recordings rather than distinct questions is the
+	// obvious wrong implementation, so it is the one worth pinning.
+	if Complete([]Prompt{PromptArrival, PromptArrival, PromptArrival}) {
+		t.Fatal("three takes of one question finished an introduction")
+	}
+	if Complete([]Prompt{PromptArrival, PromptOrdinary, PromptOrdinary, PromptWelcome, PromptWelcome}) != true {
+		t.Fatal("all three questions answered, with repeats, did not finish")
+	}
+	if Complete([]Prompt{PromptArrival, PromptOrdinary}) {
+		t.Fatal("two questions finished an introduction")
+	}
+	if Complete(nil) {
+		t.Fatal("no recordings finished an introduction")
+	}
+	if !Complete([]Prompt{PromptWelcome, PromptArrival, PromptOrdinary}) {
+		t.Fatal("all three questions, in any order, did not finish")
 	}
 }

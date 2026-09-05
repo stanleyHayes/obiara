@@ -24,7 +24,7 @@ func applicationIntroduction(t *testing.T, status domain.Status, retention domai
 	consent, _ := domain.NewConsentSnapshot("voice.introduction", 2, applicationTime)
 	media, _ := domain.NewMediaRef("asset:1", "audio/ogg", 0, 0, "")
 	introduction, err := domain.New(
-		"introduction:1", "member:1", consent, media, retention,
+		"introduction:1", "member:1", domain.PromptArrival, consent, media, retention,
 		appCommand("command:create", applicationTime),
 	)
 	if err != nil {
@@ -59,7 +59,7 @@ func TestBeginUploadRequiresExactVersionedConsent(t *testing.T) {
 		func() time.Time { return applicationTime },
 	)
 	_, err := service.BeginUpload(context.Background(), BeginUploadRequest{
-		CommandID: "command:1", OwnerID: "member:1",
+		CommandID: "command:1", OwnerID: "member:1", Prompt: domain.PromptArrival,
 		PurposeID: "voice.introduction", PurposeVersion: 2, ContentType: "audio/ogg",
 	})
 	if !errors.Is(err, ErrConsentRequired) {
@@ -96,7 +96,7 @@ func TestBeginUploadPersistsConsentBeforeSigning(t *testing.T) {
 		store, consent, media, NewMockTranscriber(controller), keyer, ids,
 		func() time.Time { return applicationTime },
 	).BeginUpload(context.Background(), BeginUploadRequest{
-		CommandID: "command:1", OwnerID: "member:1",
+		CommandID: "command:1", OwnerID: "member:1", Prompt: domain.PromptArrival,
 		PurposeID: "voice.introduction", PurposeVersion: 2, ContentType: "audio/ogg",
 	})
 	if err != nil || result.Introduction.Status() != domain.StatusUploadAuthorized ||
@@ -229,5 +229,94 @@ func TestPurgeDoesNotDeleteActiveOrRetainedData(t *testing.T) {
 	).Purge(context.Background(), "introduction:1", "command:purge")
 	if !errors.Is(err, domain.ErrInvalidTransition) {
 		t.Fatalf("active data purge = %v", err)
+	}
+}
+
+// confirmWithLadder runs one confirmation against a ladder, returning what the
+// ladder was asked to do. It mirrors the setup above so these tests are about
+// the promotion and nothing else.
+func confirmWithLadder(t *testing.T, recorded []domain.Prompt, promotionErr error) (called *bool, err error) {
+	t.Helper()
+	controller := gomock.NewController(t)
+	store := NewMockStore(controller)
+	consent := NewMockConsentGate(controller)
+	media := NewMockMediaManager(controller)
+	keyer := NewMockKeyer(controller)
+	ladder := NewMockLadder(controller)
+
+	introduction := applicationIntroduction(t, domain.StatusUploadAuthorized, domain.NewRetention(time.Time{}, false))
+	store.EXPECT().FindByID(gomock.Any(), "introduction:1").Return(introduction, nil)
+	consent.EXPECT().Effective(gomock.Any(), "member:1", "voice.introduction", uint64(2)).Return(true, nil)
+	complete, _ := domain.NewMediaRef("asset:1", "audio/ogg", 2048, time.Minute, digest("b"))
+	media.EXPECT().Inspect(gomock.Any(), "asset:1").Return(complete, nil)
+	keyer.EXPECT().Key(gomock.Any()).Return(digest("c"), nil)
+	store.EXPECT().Update(gomock.Any(), gomock.Any(), uint64(2), "command:confirm.confirmed").Return(nil)
+	store.EXPECT().PromptsRecorded(gomock.Any(), "member:1").Return(recorded, nil)
+
+	asked := false
+	ladder.EXPECT().SowingEarned(gomock.Any(), "member:1").DoAndReturn(
+		func(context.Context, string) error { asked = true; return promotionErr },
+	).AnyTimes()
+
+	_, err = NewService(
+		store, consent, media, NewMockTranscriber(controller), keyer,
+		NewMockIDSource(controller), func() time.Time { return applicationTime },
+	).WithLadder(ladder).ConfirmUpload(context.Background(), "introduction:1", "command:confirm")
+	return &asked, err
+}
+
+func TestFinishingTheLastPromptEarnsTheSowingRung(t *testing.T) {
+	// This is what makes Tier 2 reachable at all. Before it, sowing was
+	// correctly gated and nothing in the codebase could ever open it.
+	asked, err := confirmWithLadder(t,
+		[]domain.Prompt{domain.PromptArrival, domain.PromptOrdinary, domain.PromptWelcome}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !*asked {
+		t.Fatal("all three prompts were recorded and nothing earned the rung")
+	}
+}
+
+func TestOneAnsweredQuestionEarnsNothing(t *testing.T) {
+	// Named for what it actually asserts. Whether three takes of one question
+	// can earn the rung is decided by the store's distinct query and by
+	// domain.Complete, not here — this stub is handed distinct prompts, so it
+	// could never have caught that. TestDuplicateTakesDoNotFinishAnIntroduction
+	// in the domain package is the guard for it.
+	asked, err := confirmWithLadder(t, []domain.Prompt{domain.PromptArrival}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if *asked {
+		t.Fatal("one answered question earned the sowing rung")
+	}
+}
+
+func TestATwoThirdsFinishedIntroductionEarnsNothing(t *testing.T) {
+	asked, err := confirmWithLadder(t,
+		[]domain.Prompt{domain.PromptArrival, domain.PromptWelcome}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if *asked {
+		t.Fatal("two of three prompts earned the sowing rung")
+	}
+}
+
+func TestAFailedPromotionDoesNotLoseTheRecording(t *testing.T) {
+	// The recording is already stored. Telling a member who has just finished
+	// their introduction that it failed would send them to re-record work
+	// that is safely saved, so the promotion failure stays out of their way
+	// and is retried on the next confirmation.
+	asked, err := confirmWithLadder(t,
+		[]domain.Prompt{domain.PromptArrival, domain.PromptOrdinary, domain.PromptWelcome},
+		errors.New("tier write failed"),
+	)
+	if !*asked {
+		t.Fatal("the promotion was never attempted")
+	}
+	if err != nil {
+		t.Fatalf("a failed promotion lost the recording: %v", err)
 	}
 }

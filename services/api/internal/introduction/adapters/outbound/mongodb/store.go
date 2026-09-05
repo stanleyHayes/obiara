@@ -10,6 +10,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -40,6 +41,7 @@ type eventDocument struct {
 type introductionDocument struct {
 	ID               string          `bson:"_id"`
 	OwnerID          string          `bson:"ownerId"`
+	Prompt           string          `bson:"prompt"`
 	ConsentPurposeID string          `bson:"consentPurposeId"`
 	ConsentVersion   uint64          `bson:"consentVersion"`
 	ConsentEvaluated time.Time       `bson:"consentEvaluatedAt"`
@@ -190,6 +192,7 @@ func toDocument(introduction domain.Introduction) introductionDocument {
 	return introductionDocument{
 		ID:      introduction.ID(),
 		OwnerID: introduction.OwnerID(),
+		Prompt:  string(introduction.Prompt()),
 
 		ConsentPurposeID: introduction.Consent().PurposeID(),
 		ConsentVersion:   introduction.Consent().Version(),
@@ -230,6 +233,7 @@ func fromDocument(document introductionDocument) domain.Introduction {
 	return domain.Reconstitute(domain.ReconstituteParams{
 		ID:      document.ID,
 		OwnerID: document.OwnerID,
+		Prompt:  domain.Prompt(document.Prompt),
 		Consent: domain.ReconstituteConsentSnapshot(
 			document.ConsentPurposeID, document.ConsentVersion, document.ConsentEvaluated,
 		),
@@ -249,4 +253,34 @@ func fromDocument(document introductionDocument) domain.Introduction {
 		Version:       document.Version,
 		Events:        events,
 	})
+}
+
+// PromptsRecorded lists the distinct prompts this member has a usable
+// recording for.
+//
+// Distinct is the whole point: re-recording one question is a new aggregate
+// each time, so counting recordings would let three takes of "what brought
+// you here" finish an introduction. Revoked and purged recordings are
+// excluded — a member who took their voice down has not got one.
+func (store *Store) PromptsRecorded(ctx context.Context, ownerID string) ([]domain.Prompt, error) {
+	usable := make([]string, 0, len(domain.RecordedStatuses()))
+	for _, status := range domain.RecordedStatuses() {
+		usable = append(usable, string(status))
+	}
+	values := store.introductions.Distinct(ctx, "prompt", bson.M{
+		"ownerId":    strings.TrimSpace(ownerID),
+		"status":     bson.M{"$in": usable},
+		"dataStatus": string(domain.DataRetained),
+	})
+	var raw []string
+	if err := values.Decode(&raw); err != nil {
+		return nil, err
+	}
+	prompts := make([]domain.Prompt, 0, len(raw))
+	for _, value := range raw {
+		if prompt := domain.Prompt(value); prompt.Valid() {
+			prompts = append(prompts, prompt)
+		}
+	}
+	return prompts, nil
 }
