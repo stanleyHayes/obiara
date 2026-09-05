@@ -222,6 +222,8 @@ var gatedRoutes = []string{
 	`POST /v1/seed/sources`,
 	`POST /v1/seed/sprouts`,
 	`POST /v1/seed/sows`,
+	`POST /v1/seed/pods`,
+	`POST /v1/seed/pods/{id}/playback`,
 	`POST /v1/courtship/rooms`,
 	`POST /v1/courtship/rooms/{id}/turns`,
 	`POST /v1/courtship/proposals`,

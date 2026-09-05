@@ -1822,6 +1822,116 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/seed/pods:
+    post:
+      operationId: placePod
+      tags: [Seed]
+      summary: Place a recording at the house front
+      security:
+        - MemberBearer: []
+      description: |
+        A pod is where a released sow rests until the people it was sent to
+        open it. The owner is the session — nobody places a pod at somebody
+        else's house front — and a pod closes after a week.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PodInput"
+      responses:
+        "201":
+          description: The pod is resting.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PodEnvelope"
+        "200":
+          description: The same Idempotency-Key already placed this pod.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PodEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The sowing rung is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: That pod is not available.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/seed/pods/{id}/playback:
+    post:
+      operationId: openPod
+      tags: [Seed]
+      summary: Open a pod and hear what is inside
+      security:
+        - MemberBearer: []
+      description: |
+        Opening is a transition, not a read: the pod records that it was
+        heard. It answers with a short-lived grant naming the listener.
+
+        A pod that does not exist, is not for you, has expired, was taken back,
+        or sits between two people one of whom blocked the other all answer
+        the same way. Telling them apart would say which.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A short-lived grant to hear the recording.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PodEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The sowing rung is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: That pod is not available.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: That pod changed, or the command id was reused.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/seed/sows:
     post:
       operationId: sendSow
@@ -9341,6 +9451,43 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/IntroductionSourceData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    PodInput:
+      type: object
+      additionalProperties: false
+      required: [mediaRef, recipientIds]
+      properties:
+        mediaRef:
+          type: string
+          description: The recording resting inside.
+        recipientIds:
+          type: array
+          minItems: 1
+          maxItems: 25
+          items: { type: string }
+    PodData:
+      type: object
+      additionalProperties: false
+      required: [podId, status, replayed]
+      properties:
+        podId: { type: string }
+        status:
+          type: string
+          enum: [active, revoked, expired]
+        replayed: { type: boolean }
+        playbackUrl:
+          type: string
+          description: |
+            Present only when opening, and only briefly. The grant names the
+            listener, so a link that leaks is not a link that works.
+    PodEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/PodData"
         meta:
           $ref: "#/components/schemas/Metadata"
     SowInput:

@@ -34,7 +34,7 @@ func TestPlaybackRevalidatesBeforeReplayAndUsesOpaqueMedia(t *testing.T) {
 	a.EXPECT().Require(gomock.Any(), "member-3", "seed.pod.playback", "pod-1")
 	e.EXPECT().Revalidate(gomock.Any(), "member-3", "pod-1")
 	k.EXPECT().Key("seed-pod:member", "member-3").Return(key(3), nil)
-	i.EXPECT().Issue(gomock.Any(), key(2), "play-1", 5*time.Minute).Return("opaque-token", nil)
+	i.EXPECT().Issue(gomock.Any(), "member-3", key(2), "play-1", 5*time.Minute).Return("opaque-token", nil)
 	x, err := s.Playback(context.Background(), Command{ID: "play-1", PodID: "pod-1", ActorID: "member-3", ReasonCode: "user_requested", ExpectedRevision: 1})
 	if err != nil || !x.Replayed || x.PlaybackToken != "opaque-token" {
 		t.Fatalf("%+v %v", x, err)

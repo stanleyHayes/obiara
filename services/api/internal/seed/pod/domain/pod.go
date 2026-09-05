@@ -12,6 +12,11 @@ import (
 
 const MaxRecipients = 25
 
+// PlaybackPurposeID is the purpose a pod's recording is read under. The media
+// context authorizes reads against a closed list of purposes, so this has to
+// be on it before a pod can be opened at all.
+const PlaybackPurposeID = "seed.pod.playback"
+
 type Status string
 type Action string
 

@@ -130,6 +130,11 @@ var tierGates = []struct {
 	// Tier 1 — and recorded in agent_plan.md §38 so they can be overruled.
 	{"circles.participate", "circle", TierVerified, "tier 1 circle participation"},
 	{"games.play", "game", TierVerified, "tier 1 game participation"},
+	// A pod is a recording somebody sent toward a person. Placing one and
+	// opening one are both romantic surfaces under FR-101; recorded in
+	// agent_plan.md §59 alongside the others.
+	{"seed.pod.create", "pod", TierVerified, "tier 1 pod placement"},
+	{"seed.pod.playback", "pod", TierVerified, "tier 1 pod playback"},
 }
 
 func tierRules() []rule {

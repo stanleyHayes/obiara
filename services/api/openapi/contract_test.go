@@ -2,6 +2,7 @@ package openapi_test
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -232,7 +233,69 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// 205 adds the screening review queue and its decision — the surface
 	// that makes "a person reads every sow before delivery" something
 	// somebody can do, rather than a policy with nowhere to happen.
-	if len(seen) != 205 {
-		t.Errorf("operationId count = %d, want 205", len(seen))
+	// 207 adds the pod: placing one and opening one. It is the last step of
+	// the sow — until it existed, releasing a sow marked it delivered and
+	// nobody received anything.
+	if len(seen) != 207 {
+		t.Errorf("operationId count = %d, want 207", len(seen))
 	}
+}
+
+// TestEveryComponentRefResolves closes a blind spot that caught me twice.
+//
+// The Go contract tests read the document as YAML and never follow a $ref, so
+// a reference to a response or schema that does not exist passes here and
+// fails only in the TypeScript generator — which fails silently from Go's
+// side, leaving the generated client quietly stale. Both times it was an
+// invented name that reads perfectly plausibly: "Forbidden" and
+// "FeatureUnavailable", where the real ones are "AdminRoleRequired" and
+// "ServiceUnavailable".
+func TestEveryComponentRefResolves(t *testing.T) {
+	raw, err := os.ReadFile("openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+
+	defined := map[string]bool{}
+	for _, section := range []string{"responses", "schemas", "parameters"} {
+		for _, name := range definedComponents(text, section) {
+			defined[section+"/"+name] = true
+		}
+	}
+
+	referenced := regexp.MustCompile(`#/components/(responses|schemas|parameters)/([A-Za-z0-9_]+)`)
+	seen := map[string]bool{}
+	for _, match := range referenced.FindAllStringSubmatch(text, -1) {
+		key := match[1] + "/" + match[2]
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		if !defined[key] {
+			t.Errorf("$ref to #/components/%s does not resolve; the generator refuses the whole document", key)
+		}
+	}
+	if len(seen) == 0 {
+		t.Fatal("no component references found, so this test is checking nothing")
+	}
+}
+
+// definedComponents lists the keys directly under components.<section>.
+func definedComponents(text, section string) []string {
+	start := strings.Index(text, "\n  "+section+":\n")
+	if start < 0 {
+		return nil
+	}
+	rest := text[start+len("\n  "+section+":\n"):]
+	var names []string
+	for _, line := range strings.Split(rest, "\n") {
+		if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "    ") && strings.TrimSpace(line) != "" {
+			break // the next section at the same indent
+		}
+		if match := regexp.MustCompile(`^    ([A-Za-z0-9_]+):$`).FindStringSubmatch(line); match != nil {
+			names = append(names, match[1])
+		}
+	}
+	return names
 }

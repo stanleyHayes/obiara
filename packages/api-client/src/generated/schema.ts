@@ -3396,6 +3396,53 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/seed/pods": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Place a recording at the house front
+     * @description A pod is where a released sow rests until the people it was sent to
+     *     open it. The owner is the session — nobody places a pod at somebody
+     *     else's house front — and a pod closes after a week.
+     */
+    readonly post: operations["placePod"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/seed/pods/{id}/playback": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Open a pod and hear what is inside
+     * @description Opening is a transition, not a read: the pod records that it was
+     *     heard. It answers with a short-lived grant naming the listener.
+     *
+     *     A pod that does not exist, is not for you, has expired, was taken back,
+     *     or sits between two people one of whom blocked the other all answer
+     *     the same way. Telling them apart would say which.
+     */
+    readonly post: operations["openPod"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/seed/sources": {
     readonly parameters: {
       readonly query?: never;
@@ -5470,6 +5517,26 @@ export interface components {
     readonly PackActorInput: Record<string, never>;
     /** @description E.164 phone number. */
     readonly PhoneNumber: string;
+    readonly PodData: {
+      /**
+       * @description Present only when opening, and only briefly. The grant names the
+       *     listener, so a link that leaks is not a link that works.
+       */
+      readonly playbackUrl?: string;
+      readonly podId: string;
+      readonly replayed: boolean;
+      /** @enum {string} */
+      readonly status: "active" | "revoked" | "expired";
+    };
+    readonly PodEnvelope: {
+      readonly data: components["schemas"]["PodData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly PodInput: {
+      /** @description The recording resting inside. */
+      readonly mediaRef: string;
+      readonly recipientIds: readonly string[];
+    };
     readonly PrivacyRequestData: {
       /** Format: date-time */
       readonly completedAt?: string;
@@ -14026,6 +14093,125 @@ export interface operations {
       readonly 401: components["responses"]["Unauthorized"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
+    };
+  };
+  readonly placePod: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PodInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The same Idempotency-Key already placed this pod. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PodEnvelope"];
+        };
+      };
+      /** @description The pod is resting. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PodEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The sowing rung is required. */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description That pod is not available. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly openPod: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description A short-lived grant to hear the recording. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PodEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The sowing rung is required. */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description That pod is not available. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description That pod changed, or the command id was reused. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly openIntroductionSource: {

@@ -37,6 +37,8 @@ import (
 	adminemail "github.com/stanleyHayes/obiara/services/api/internal/admin/adapters/outbound/email"
 	admindomain "github.com/stanleyHayes/obiara/services/api/internal/admin/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/analytics"
+	authzapplication "github.com/stanleyHayes/obiara/services/api/internal/authz/application"
+	authzdomain "github.com/stanleyHayes/obiara/services/api/internal/authz/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/calls"
 	callsapp "github.com/stanleyHayes/obiara/services/api/internal/calls/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/circle"
@@ -80,6 +82,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/media"
 	mediamongo "github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/objectstore"
+	mediaapplication "github.com/stanleyHayes/obiara/services/api/internal/media/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/delivery"
@@ -105,6 +108,9 @@ import (
 	gardenapp "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
 	listeningapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/listening/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/seed/pod"
+	podmongo "github.com/stanleyHayes/obiara/services/api/internal/seed/pod/adapters/outbound/mongodb"
+	poddomain "github.com/stanleyHayes/obiara/services/api/internal/seed/pod/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/reviewdesk"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/screening"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/sow"
@@ -618,7 +624,7 @@ func run() error {
 				SecretKey: cfg.ObjectStorage.SecretKey,
 				PathStyle: cfg.ObjectStorage.PathStyle,
 			},
-			[]string{introduction.ConsentPurposeID},
+			[]string{introduction.ConsentPurposeID, poddomain.PlaybackPurposeID},
 		)
 		if mediaErr != nil {
 			return fmt.Errorf("build media module: %w", mediaErr)
@@ -646,6 +652,28 @@ func run() error {
 		if sowErr != nil {
 			return fmt.Errorf("build sow module: %w", sowErr)
 		}
+		// The pod is the last step: a released sow is delivered by being
+		// placed at the recipient's house front. Its eligibility check is
+		// the block rule applied everywhere else two members meet.
+		podRepository := podmongo.NewRepository(client.Database(cfg.MongoDatabase))
+		podModule, podErr := pod.NewModule(
+			ctx,
+			client.Database(cfg.MongoDatabase),
+			podAuthorizerBridge{tiers: identityModule.Tiers},
+			podEligibilityBridge{
+				pods: podRepository,
+				blocks: listeningBlockBridge{
+					assets: mediaModule.Assets, safety: safetyModule.Safety,
+				},
+			},
+			podIssuerBridge{access: mediaModule.Access},
+			cfg.SeedHMACSecret,
+		)
+		if podErr != nil {
+			return fmt.Errorf("build pod module: %w", podErr)
+		}
+		apihttp.RegisterPodRoutes(mux, podModule.Pods, identityModule.Sessions, memberGate)
+
 		apihttp.RegisterSowRoutes(mux, sowModule.Sows, identityModule.Sessions, memberGate)
 		// The desk settles the sow first and records the judgement second,
 		// so a failure between them leaves a review a reviewer sees again
@@ -1004,6 +1032,87 @@ func (bridge introductionLadderBridge) SowingEarned(ctx context.Context, memberI
 	}
 	return nil
 }
+
+// podAuthorizerBridge carries the pod's authorization to the authz kernel.
+//
+// The pod asks in its own vocabulary — an action and a resource id — and the
+// kernel answers on tier. This is the same gate every other member surface
+// goes through; the pod simply asks it through a port of its own shape.
+type podAuthorizerBridge struct {
+	tiers identityapplication.TierService
+}
+
+func (bridge podAuthorizerBridge) Require(ctx context.Context, actorID, action, _ string) error {
+	tier, err := bridge.tiers.Tier(ctx, actorID)
+	if err != nil {
+		return err
+	}
+	return authzapplication.NewAuthorizer().Require(
+		authzdomain.Subject{MemberID: actorID, Tier: authzdomain.Tier(tier)},
+		action, authzdomain.Resource{Type: "pod"},
+	)
+}
+
+// podIssuerBridge mints the short-lived grant that lets a recipient hear what
+// is inside a pod.
+//
+// The grant names the listener. The media context authorizes reads per
+// subject, and a token issued without one would have to be issued as somebody
+// else — which is how a link that leaks becomes a link that works for anyone.
+type podIssuerBridge struct {
+	access mediaapplication.AccessService
+}
+
+func (bridge podIssuerBridge) Issue(ctx context.Context, listenerID, mediaRef, _ string, ttl time.Duration) (string, error) {
+	access, err := bridge.access.RequestRead(ctx, mediaapplication.ReadRequest{
+		SubjectID: listenerID,
+		AssetID:   mediaRef,
+		Purpose:   poddomain.PlaybackPurposeID,
+		TTL:       ttl,
+	})
+	if err != nil {
+		return "", err
+	}
+	return access.URL, nil
+}
+
+// podEligibilityBridge answers what can change after a pod was created and
+// still ought to stop it being opened.
+//
+// The aggregate already refuses a non-recipient, an inactive pod, an expired
+// one, a stale revision and a replayed command. What it cannot know is
+// whether the two people have since blocked each other — which is exactly the
+// rule now applied everywhere else two members come into contact, so it is
+// the rule here too rather than a new consent purpose invented for the
+// occasion. See agent_plan.md §59.
+//
+// The pod's owner is keyed, as a person should be, so this does not ask the
+// pod who sent it. It asks the recording: the asset knows its own owner, and
+// that owner is the sender. It is the same resolution the listening gate
+// already does, for the same reason.
+type podEligibilityBridge struct {
+	pods   *podmongo.Repository
+	blocks listeningBlockBridge
+}
+
+func (bridge podEligibilityBridge) Revalidate(ctx context.Context, actorID, podID string) error {
+	pod, err := bridge.pods.Find(ctx, podID)
+	if err != nil {
+		return err
+	}
+	blocked, err := bridge.blocks.Blocked(ctx, actorID, pod.MediaRef())
+	if err != nil {
+		return err
+	}
+	if blocked {
+		return errPodNotAvailable
+	}
+	return nil
+}
+
+// errPodNotAvailable says the outcome and not the reason, like every other
+// refusal that could otherwise reveal a block.
+var errPodNotAvailable = errors.New("this pod is not available")
 
 // listeningBlockBridge answers whether a listener may hear a recording at
 // all, by resolving whose recording it is and asking the same block question

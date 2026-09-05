@@ -4290,3 +4290,61 @@ none of them composed a block check — the fail-safe working, four times over.
 The last row is a genuine question rather than an omission: a block is not
 obviously a reason to be excluded from a circle or a fire somebody else
 happens to be in, and deciding that is the owner's call.
+
+
+## 59. Goal: a released sow reaches somebody (2026-09-05)
+
+The last step. Releasing a sow marked it delivered and nobody received
+anything, because the surface that puts it in front of a person did not exist.
+`seed/pod` is composed and `POST /v1/seed/pods` and
+`POST /v1/seed/pods/{id}/playback` serve it.
+
+### The decision §45 left open, taken
+
+**`PlaybackEligibility` is the block check.** The aggregate already refuses a
+non-recipient, an inactive pod, an expired one, a stale revision and a
+replayed command. The only thing left that can change after a pod is created
+and ought to stop it being opened is that the two people have blocked each
+other — which is exactly the rule now applied at every other boundary where
+two members meet. Applying it here consistently is a better answer than
+inventing a consent purpose for the occasion, and it is why §45's framing of
+this as an open product question no longer holds.
+
+**The sender is resolved through the recording, not the pod.** The pod keys
+its owner, correctly, because that is a person. The asset knows its own owner
+and that owner is the sender, so the same resolution the listening gate
+already does works here without un-keying anybody.
+
+**The grant names the listener.** `MediaIssuer` took no subject, which would
+have meant issuing every playback token as somebody else — and a token that
+names nobody works for anyone who obtains it. The port now takes the listener,
+and the media context authorizes the read against them.
+
+**One answer for every refusal.** No such pod, not for you, expired, taken
+back, or blocked all return the same thing. Telling them apart would say
+which, and every one of those is somebody's business but the caller's.
+
+**Opening is a transition, not a read.** There is no route that returns a
+pod's contents without recording that it was heard: a read that skipped it
+would be a way to hear somebody without them ever knowing.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| POD-03  | `seed.pod.create` and `seed.pod.playback` at Tier 1                   | DONE   |
+| POD-04  | Authorizer, eligibility and issuer bridges; the pod composed          | DONE   |
+| POD-05  | `POST /v1/seed/pods` and its playback, contract and generated client  | DONE   |
+
+### The same contract mistake, twice, and the guard that ends it
+
+Documenting these routes I referenced `#/components/responses/Forbidden`,
+which does not exist — the same class of mistake as `FeatureUnavailable`
+earlier. Both times the Go contract tests passed, because they read the
+document as YAML and never follow a `$ref`, and both times the failure landed
+in the TypeScript generator, which is silent from Go's side: the client simply
+does not regenerate.
+
+`TestEveryComponentRefResolves` now checks that every
+`#/components/{responses,schemas,parameters}/X` reference resolves to
+something defined. Proven by pointing one at a plausible invented name and
+watching it fail. It also refuses to pass when it finds no references at all,
+so it cannot quietly stop checking.

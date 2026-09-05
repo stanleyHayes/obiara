@@ -124,7 +124,7 @@ func (s Service) Playback(ctx context.Context, c Command) (Result, error) {
 			replay = true
 		}
 	}
-	token, err := s.i.Issue(ctx, next.MediaRef(), c.ID, 5*time.Minute)
+	token, err := s.i.Issue(ctx, c.ActorID, next.MediaRef(), c.ID, 5*time.Minute)
 	if err != nil {
 		return Result{}, ErrUnavailable
 	}

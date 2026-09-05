@@ -19,8 +19,14 @@ type Authorizer interface {
 type PlaybackEligibility interface {
 	Revalidate(context.Context, string, string) error
 }
+
+// MediaIssuer mints a short-lived grant to hear one recording.
+//
+// It takes the listener because a grant that names nobody is a grant to
+// anybody who obtains it: the media context authorizes reads per subject, and
+// a token issued without one would have to be issued as somebody else.
 type MediaIssuer interface {
-	Issue(context.Context, string, string, time.Duration) (string, error)
+	Issue(ctx context.Context, listenerID, mediaRef, commandID string, ttl time.Duration) (string, error)
 }
 type Keyer interface {
 	Key(string, string) (string, error)
