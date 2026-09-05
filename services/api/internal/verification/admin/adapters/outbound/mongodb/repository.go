@@ -228,6 +228,13 @@ func reasonCode(reason string) string {
 }
 
 func ageBand(dateOfBirth, at time.Time) string {
+	// Retention strips dateOfBirth from decided cases, so an absent one is
+	// normal rather than corrupt. Falling through would compute an age from
+	// the zero time and confidently report "50_plus" — a fabricated fact on a
+	// reviewer's screen, which is worse than admitting the data is gone.
+	if dateOfBirth.IsZero() {
+		return "unknown"
+	}
 	age := at.Year() - dateOfBirth.Year()
 	if at.YearDay() < dateOfBirth.YearDay() {
 		age--

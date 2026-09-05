@@ -10026,7 +10026,7 @@ components:
           description: Only the final four card characters are visible.
         ageBand:
           type: string
-          enum: [under_18, 18_24, 25_34, 35_49, 50_plus]
+          enum: [under_18, 18_24, 25_34, 35_49, 50_plus, unknown]
         providerStatus:
           type: string
           enum: [provider_outage, provider_uncertain, manual_review]

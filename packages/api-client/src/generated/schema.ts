@@ -5738,7 +5738,8 @@ export interface components {
     };
     readonly VerificationEvidenceData: {
       /** @enum {string} */
-      readonly ageBand: "under_18" | "18_24" | "25_34" | "35_49" | "50_plus";
+      readonly ageBand:
+        "under_18" | "18_24" | "25_34" | "35_49" | "50_plus" | "unknown";
       readonly caseId: string;
       /** @description Only the final four card characters are visible. */
       readonly maskedCard: string;

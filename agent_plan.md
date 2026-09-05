@@ -2727,3 +2727,69 @@ not yet as a positive attested record on the approved path. FR-102a also
 remains open — the identity provider is a simulator, so in the current
 deployment any card number not ending in U, ? or X is treated as an issuer
 match.
+
+
+## 34. Goal: give national-ID data an end date (2026-09-05)
+
+§33 delivered the deletion half of M1-02 only for blocked minors. For everyone
+who verified successfully, nothing was ever deleted. The recon that mapped the
+age gate is what surfaced it, and it holds up under direct reading:
+
+- `identity_verifications` stores `dateOfBirth` as a plain `time.Time`. The
+  case `Update` path writes status, providerRef, reason, decidedAt and version
+  — it never touches the birth date, so it stays for the life of the record.
+- `identity_documents` holds both sealed photographs of the card and carries
+  no TTL. That was a deliberate decision, and the comment explaining it is
+  right: "a queue can take days, and an image that expired mid-review would
+  leave a member unverifiable with nothing explaining why."
+- `internal/platform/retention` is the binding retention table (Doc 09 §7),
+  it runs in the worker every six hours, it already supports `strip_field`
+  and `delete`, and identity data simply was not in it.
+
+So the machinery was reachable and working. The rows were missing.
+
+`internal/compliance/retention` is a **fourth** finished-and-unreachable
+context — policies, erasure status and legal holds, every reference inside its
+own tree. It is the richer, per-record model with legal-hold support. It is not
+what this goal used: the binding table already runs, and adding three
+declarative rows to something that executes today beats composing a second
+retention system that would then need its own sweeper, ports and proof
+records. Composing it remains open work, not work this goal pretended to do.
+
+### The decisions
+
+**Strip the birth date, delete the images.** The case is the proof that a
+check happened and what it decided; that proof should outlive the personal
+data it was derived from. The photographs have no such role.
+
+**Ninety days for the images, not thirty.** The document store's own comment
+is the reason, and it was written by someone who had thought about it. Ninety
+days is far past any plausible review queue while still being an end date.
+
+**Two policies for the birth date, not one.** Keyed on `decidedAt`, a case
+that is never decided has no such field and can never match — its birth date
+would be kept forever. The second policy keys on `createdAt` at 180 days as
+the backstop for abandoned and indefinitely queued submissions, set well
+beyond any review so it cannot strip a case still being worked. A test asserts
+the backstop is the longer of the two.
+
+**`ageBand` had to be fixed in the same change.** It computes an age by
+subtracting years, so an absent birth date yielded roughly two thousand and
+returned `50_plus`. Stripping birth dates without this would have put a
+confident, wrong age on the screen of a reviewer deciding about a real person.
+It now reports `unknown`, and the contract enum was widened to say so.
+
+| Task      | Deliverable                                                          | Status |
+| --------- | -------------------------------------------------------------------- | ------ |
+| RET-ID-01 | Binding policies for card images and both birth-date cases           | DONE   |
+| RET-ID-02 | `ageBand` reports unknown instead of inventing `50_plus`             | DONE   |
+| RET-ID-03 | Guards for silent-noop policies, proven against their failure modes  | DONE   |
+
+Both guards were checked by breaking them: removing the `Fields` list made the
+table test report a policy that "would run clean and retain everything", and
+removing the zero check made the band test report the fabricated `50_plus`.
+
+**Still open:** `internal/compliance/retention` remains uncomposed, and with it
+per-record legal holds over identity data — the binding table is deliberately
+blind to holds ("legal holds are never touched by this runner"), so a hold
+placed on an identity case would not currently stop these policies.

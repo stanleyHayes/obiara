@@ -52,6 +52,38 @@ var BindingPolicies = []Policy{
 		Name: "privacy_requests_completed_90d", Collection: "privacy_requests",
 		Action: ActionDelete, DateField: "completedAt", MaxAge: 90 * 24 * time.Hour,
 	},
+	// National-ID data (M1-02). Until these three policies existed, a member
+	// who verified kept their date of birth and both photographs of their
+	// Ghana Card in Mongo permanently: the case Update path never touches
+	// dateOfBirth, and identity_documents deliberately carries no TTL.
+	//
+	// The images are deleted rather than stripped, and at 90 days rather than
+	// 30, because the document store's own comment gives the reason: a review
+	// queue "can take days", and an image that expired mid-review would leave
+	// a member unverifiable with nothing explaining why. Ninety days is far
+	// past any plausible queue while still being an end date.
+	{
+		Name: "identity_documents_delete_90d", Collection: "identity_documents",
+		Action: ActionDelete, DateField: "createdAt", MaxAge: 90 * 24 * time.Hour,
+	},
+	// The date of birth is stripped rather than the case deleted: the case is
+	// the proof that the check happened and what it decided, and that proof
+	// should outlive the personal data it was derived from. Thirty days after
+	// a decision, nothing needs the birth date any more.
+	{
+		Name: "identity_dob_strip_decided_30d", Collection: "identity_verifications",
+		Action: ActionStripField, DateField: "decidedAt", MaxAge: 30 * 24 * time.Hour,
+		Fields: []string{"dateOfBirth"},
+	},
+	// A case that is never decided has no decidedAt, so the policy above can
+	// never match it and its birth date would be kept forever. This is the
+	// backstop for abandoned and indefinitely queued submissions, set well
+	// beyond any review so it cannot strip one that is still being worked.
+	{
+		Name: "identity_dob_strip_stale_180d", Collection: "identity_verifications",
+		Action: ActionStripField, DateField: "createdAt", MaxAge: 180 * 24 * time.Hour,
+		Fields: []string{"dateOfBirth"},
+	},
 }
 
 // Report is one run's outcome per policy.
