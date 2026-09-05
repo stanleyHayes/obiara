@@ -21,6 +21,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
@@ -66,6 +68,10 @@ type Signer struct {
 	scheme string
 	prefix string
 	now    func() time.Time
+	// client performs the one operation that cannot be handed to the browser.
+	// Deleting is the server's own act; a presigned delete URL sent to a
+	// client would be a standing licence to erase somebody's recording.
+	client *http.Client
 }
 
 // NewSigner validates the configuration once, at startup, so a missing secret
@@ -96,7 +102,10 @@ func NewSigner(config Config, now func() time.Time) (*Signer, error) {
 		return nil, ErrConfiguration
 	}
 
-	signer := &Signer{config: config, scheme: parsed.Scheme, now: now}
+	signer := &Signer{
+		config: config, scheme: parsed.Scheme, now: now,
+		client: &http.Client{Timeout: 20 * time.Second},
+	}
 	if config.PathStyle {
 		signer.host = parsed.Host
 		signer.prefix = "/" + config.Bucket
@@ -146,6 +155,46 @@ func (signer *Signer) SignRead(
 		"GET", request.ObjectKey, request.ExpiresAt,
 		map[string]string{"host": signer.host}, url.Values{},
 	)
+}
+
+// Delete removes the object for good.
+//
+// It signs a DELETE the same way every other request is signed and then makes
+// the call itself, rather than handing a URL to anyone. Erasure is what makes
+// "withdraw this recording" true, so it must not depend on a client choosing
+// to follow through.
+//
+// A missing object counts as deleted. Retrying a partial purge is normal, and
+// failing the second attempt because the first succeeded would strand the
+// aggregate in purge_pending forever.
+func (signer *Signer) Delete(ctx context.Context, objectKey string) error {
+	access, err := signer.presign(
+		"DELETE", objectKey, signer.now().UTC().Add(time.Minute),
+		map[string]string{"host": signer.host}, url.Values{},
+	)
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, access.URL, nil)
+	if err != nil {
+		return err
+	}
+	response, err := signer.client.Do(request)
+	if err != nil {
+		return fmt.Errorf("delete object: %w", err)
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, response.Body)
+		_ = response.Body.Close()
+	}()
+	// S3 answers 204 for a delete and 404 when it was already gone; both mean
+	// the object is not there any more, which is the whole ask.
+	if response.StatusCode == http.StatusNoContent ||
+		response.StatusCode == http.StatusOK ||
+		response.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	return fmt.Errorf("delete object: storage answered %d", response.StatusCode)
 }
 
 func (signer *Signer) presign(

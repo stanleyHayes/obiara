@@ -16,6 +16,10 @@ import (
 type Module struct {
 	Access application.AccessService
 	Assets *mongodb.AssetRepository
+	// Objects erases stored bytes. Exposed so retention can remove the object
+	// itself; deleting only the row would leave the audio in the bucket with
+	// nothing left that knows its key.
+	Objects *objectstore.Signer
 }
 
 // NewModule composes media access against an S3-compatible bucket.
@@ -41,6 +45,7 @@ func NewModule(
 		Access: application.NewAccessService(
 			assets, ownerpolicy.New(purposes...), signer, time.Now,
 		),
-		Assets: assets,
+		Assets:  assets,
+		Objects: signer,
 	}, nil
 }

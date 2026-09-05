@@ -2356,3 +2356,38 @@ S-20 and the next goal after this one, but composing them needs four port
 adapters and at least one of those (reciprocal preferences) has no backing
 store, so it is a larger piece of work than it looks. Finishing the chain
 first means that work lands on something that already runs.
+
+## 29. Goal: make the erasure promise real (2026-09-05)
+
+The product tells a member that withdrawing a recording erases it. That is not
+true today, in two separate ways, and one of them is an overstatement in this
+document that needs correcting first.
+
+**Correction to VOI-01.** Its row was written from a TODO that read
+"envelope-encrypted per NFR-301b". Envelope encryption was not delivered. The
+browser PUTs raw audio straight to the bucket under a signed grant, so the only
+encryption at rest is whatever the bucket itself applies. NFR-301b — voice and
+biometric blobs envelope-encrypted with a per-user key — remains open, and
+until it is closed nothing here can honestly be called crypto-erase. It is
+object deletion. The liveness path does seal its artifacts
+(`liveness/adapters/outbound/privacy/sealer.go`); the introduction path does
+not, because uploading through the API to encrypt it would put a two-minute
+clip back on the request path that VOI-01 deliberately took it off.
+
+**The two gaps.** `DueForPurge` is written and indexed and nothing calls it, so
+no recording is ever swept. And `AssetRepository.Delete` sets `deletedAt` on
+the row and leaves the object in the bucket, so even a sweep that ran would
+erase nothing. A member who withdraws their voice today keeps it stored
+indefinitely, and the audit trail would say otherwise.
+
+`internal/platform/retention/retention.go` already anticipated this: its
+`BindingPolicies` comment records that media-backed classes including room
+voice at 180 days "activate when their persistence adapters land". That
+adapter landed yesterday.
+
+| Task     | Deliverable                                                | Status | Notes                                                                                                                                                                   |
+| -------- | ---------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| VOI-08   | `Delete` on the object store                               | TODO   | Presign a DELETE and execute it, reusing the signing that VOI-01 already tests against the published AWS vector                                                         |
+| VOI-09   | Media removal erases the object, then the row              | TODO   | Order matters: a row deleted first orphans bytes nothing can find to remove                                                                                             |
+| VOI-10   | Worker sweep calling `Purge` on due and pending recordings | TODO   | Legal hold is never swept; the runner is explicit that holds live outside retention automation                                                                          |
+| NFR-301b | Envelope-encrypt voice blobs with a per-user key           | OPEN   | Named here so the gap is not read as closed. Needs a scheme that keeps the direct-to-bucket upload — a client-side content key wrapped per user is the shape to look at |

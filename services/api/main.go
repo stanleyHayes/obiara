@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -72,6 +73,7 @@ import (
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/introduction"
+	introductionretention "github.com/stanleyHayes/obiara/services/api/internal/introduction/retention"
 	"github.com/stanleyHayes/obiara/services/api/internal/marketpack"
 	"github.com/stanleyHayes/obiara/services/api/internal/media"
 	"github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/objectstore"
@@ -590,6 +592,18 @@ func run() error {
 			introductionModule.Playback,
 			identityModule.Sessions,
 		)
+
+		// Erasure runs here rather than in the worker because the aggregate
+		// records it: MarkPurged appends the audit event that makes a
+		// withdrawal provable, and a sweep writing to Mongo directly would
+		// remove the bytes and lose the proof.
+		go introductionretention.NewSweeper(
+			introductionModule.Store,
+			media.NewEraser(mediaModule.Assets, mediaModule.Objects),
+			introductionModule.Introductions,
+			time.Now,
+			slog.Default(),
+		).Run(ctx, time.Hour)
 	}
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterOnboardingStatusRoutes(

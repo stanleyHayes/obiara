@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -229,3 +231,55 @@ func TestTheSameRequestSignsIdentically(t *testing.T) {
 
 // The adapter must satisfy the port it exists for.
 var _ application.Signer = (*Signer)(nil)
+
+func TestDeleteTreatsAnAlreadyGoneObjectAsDeleted(t *testing.T) {
+	// Purges are retried. Failing the second attempt because the first
+	// succeeded would strand a withdrawn recording in purge_pending forever,
+	// which is the opposite of what erasure is for.
+	for _, status := range []int{
+		http.StatusNoContent, http.StatusOK, http.StatusNotFound,
+	} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodDelete {
+				t.Fatalf("method = %s, want DELETE", r.Method)
+			}
+			if r.URL.Query().Get("X-Amz-Signature") == "" {
+				t.Fatal("the delete was not signed")
+			}
+			w.WriteHeader(status)
+		}))
+		config := defaultConfig()
+		config.Endpoint = server.URL
+		config.PathStyle = true
+		signer := testSigner(t, config)
+
+		if err := signer.Delete(context.Background(), "voice/x.opus"); err != nil {
+			t.Fatalf("status %d returned %v, want nil", status, err)
+		}
+		server.Close()
+	}
+}
+
+func TestDeleteReportsAStorageRefusal(t *testing.T) {
+	// A refusal must not read as success: the aggregate would be marked
+	// purged while the bytes are still sitting in the bucket.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+	config := defaultConfig()
+	config.Endpoint = server.URL
+	config.PathStyle = true
+	signer := testSigner(t, config)
+
+	if err := signer.Delete(context.Background(), "voice/x.opus"); err == nil {
+		t.Fatal("a 403 from storage was reported as a successful erasure")
+	}
+}
+
+func TestDeleteRefusesAKeyThatCouldEscapeTheBucket(t *testing.T) {
+	signer := testSigner(t, defaultConfig())
+	if err := signer.Delete(context.Background(), "../other/secret"); err != ErrObjectKey {
+		t.Fatalf("err = %v, want ErrObjectKey", err)
+	}
+}
