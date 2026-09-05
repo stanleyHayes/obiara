@@ -27,7 +27,10 @@ func TestUnilateralSproutReturnsNoDoorway(t *testing.T) {
 	})
 	listen := NewMockListenGate(ctrl)
 	listen.EXPECT().Heard(gomock.Any(), "alice", "bob").Return(true, nil)
-	service := New(repository, keyer, ids, time.Now).WithListenGate(listen)
+	allowance := NewMockAllowance(ctrl)
+	allowance.EXPECT().Spend(gomock.Any(), "alice", "command").Return(nil)
+	service := New(repository, keyer, ids, time.Now).
+		WithListenGate(listen).WithAllowance(allowance)
 	result, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"})
 	if err != nil || result.Doorway != nil {
 		t.Fatalf("result=%#v err=%v", result, err)
@@ -66,7 +69,16 @@ type heardGate struct {
 
 func (g heardGate) Heard(context.Context, string, string) (bool, error) { return g.heard, g.err }
 
+// payingAllowance is an allowance with a fixed answer.
+type payingAllowance struct{ err error }
+
+func (a payingAllowance) Spend(context.Context, string, string) error { return a.err }
+
 func sproutWith(t *testing.T, gate ListenGate) (SproutResult, error) {
+	return sproutPaying(t, gate, payingAllowance{})
+}
+
+func sproutPaying(t *testing.T, gate ListenGate, allowance Allowance) (SproutResult, error) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	repository := NewMockRepository(ctrl)
@@ -87,6 +99,9 @@ func sproutWith(t *testing.T, gate ListenGate) (SproutResult, error) {
 	service := New(repository, keyer, ids, time.Now)
 	if gate != nil {
 		service = service.WithListenGate(gate)
+	}
+	if allowance != nil {
+		service = service.WithAllowance(allowance)
 	}
 	return service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"})
 }
@@ -111,5 +126,41 @@ func TestAnUnansweredListenGateRefusesRatherThanPasses(t *testing.T) {
 	}
 	if _, err := sproutWith(t, nil); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("a sow with no gate composed returned %v, want ErrUnavailable", err)
+	}
+}
+
+func TestASowCostsASeed(t *testing.T) {
+	// FR-201a. A sow that costs nothing is a swipe, and until now the
+	// allowance ledger existed and nothing ever spent from it.
+	if _, err := sproutPaying(t, heardGate{heard: true}, payingAllowance{err: ErrNoSeeds}); !errors.Is(err, ErrNoSeeds) {
+		t.Fatalf("a sow with no seeds returned %v, want ErrNoSeeds", err)
+	}
+	if _, err := sproutPaying(t, heardGate{heard: true}, payingAllowance{}); err != nil {
+		t.Fatalf("a paid sow was refused: %v", err)
+	}
+	if _, err := sproutPaying(t, heardGate{heard: true}, nil); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("a sow with no allowance composed returned %v, want ErrUnavailable", err)
+	}
+}
+
+func TestARefusedSowIsNeverCharged(t *testing.T) {
+	// Order matters. Charging before the listen gate would take a seed from
+	// a member whose sow was then refused, which is the one failure here
+	// that costs them something real.
+	ctrl := gomock.NewController(t)
+	repository := NewMockRepository(ctrl)
+	keyer := NewMockKeyer(ctrl)
+	ids := NewMockIDSource(ctrl)
+	allowance := NewMockAllowance(ctrl)
+	// No Spend expectation: the controller fails the test if the allowance
+	// is touched at all. That is the assertion.
+	keyer.EXPECT().Key(gomock.Any(), gomock.Any()).Return("key", nil).AnyTimes()
+	ids.EXPECT().NewID().Return("intent-1").AnyTimes()
+	repository.EXPECT().RecordIntent(gomock.Any(), gomock.Any()).Return(nil, false, nil).AnyTimes()
+
+	service := New(repository, keyer, ids, time.Now).
+		WithListenGate(heardGate{heard: false}).WithAllowance(allowance)
+	if _, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"}); !errors.Is(err, ErrNotHeard) {
+		t.Fatalf("err = %v, want ErrNotHeard", err)
 	}
 }

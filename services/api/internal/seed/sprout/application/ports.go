@@ -15,7 +15,19 @@ var (
 	// to (FR-202). Reaching for a person you have not heard is the thing
 	// this product exists not to be.
 	ErrNotHeard = errors.New("their voice has not been heard for long enough")
+	// ErrNoSeeds refuses a sow the member cannot pay for (FR-201a). The
+	// allowance is what makes a sow cost something, and a sow that costs
+	// nothing is a swipe.
+	ErrNoSeeds = errors.New("no seed allowance left this week")
 )
+
+// Allowance spends one seed for a sow.
+//
+// Implementations must be idempotent by command id: a retried sow must not
+// charge twice.
+type Allowance interface {
+	Spend(ctx context.Context, memberID, commandID string) error
+}
 
 // ListenGate answers whether the actor has heard enough of the target's Voice
 // of Introduction to reach toward them.

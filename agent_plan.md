@@ -3108,3 +3108,49 @@ the wrong reason.
 **Still open in this area:** FR-201a's seed allowance is not spent on a sow,
 and M4-AC-01's 90-day decline lock is not consulted. Both contexts are built.
 They are the next two slices, and this goal does not claim them.
+
+
+## 40. Goal: a sow costs a seed (FR-201a, 2026-09-05)
+
+The allowance ledger was complete and reachable — `GET /v1/seed/allowance`
+served it, `Spend` existed with `ErrInsufficient`, and the domain even renews
+the week automatically inside `Spend`. Nothing ever spent from it. A sow cost
+nothing, and a sow that costs nothing is a swipe.
+
+### The decisions
+
+**Spend after the gate, before the intent.** Charging first would take a seed
+from a member whose sow was then refused for not having listened, which is the
+one failure here that costs them something real. Recording first would let a
+sow through unpaid. Both sides are idempotent by command id, so a client retry
+completes the sow without charging twice. A test asserts the allowance is not
+touched at all when the listen gate refuses.
+
+**The issuance and the spend carry different command ids.** This one would
+have broken every first sow. A ledger records each command id alongside a
+fingerprint of what that command did, so opening a member's first ledger with
+the sow's own id would make the spend that follows look like the same command
+with different input — refused as a conflict rather than charged. The bridge
+uses `sow-open:` and `sow:` prefixes.
+
+**A nil allowance refuses**, like the listen gate, and for the same reason: a
+sow that cost nothing is exactly the outcome the rule exists to prevent, so it
+must not be what happens when the wiring is missing.
+
+**The refusal says when seeds come back.** A member who has spent the week's
+allowance has not done anything wrong and is not broken; the message says when
+more arrive rather than only that they are gone.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| SOW-04  | `Allowance` port; a sow spends one seed                              | DONE   |
+| SOW-05  | Bridge opening a first-time ledger under its own command id          | DONE   |
+| SOW-06  | 409 `no_seeds_left` naming when the allowance returns                | DONE   |
+
+Both guards were proven by breaking them: removing the spend made the
+no-seeds test report nil, and moving the charge above the listen gate made the
+ordering test report an unexpected call to `Spend` — which is precisely the
+member-visible bug it exists to catch.
+
+**Still open in this area:** M4-AC-01's 90-day decline lock is still not
+consulted. That context is built too, and it is the next slice.

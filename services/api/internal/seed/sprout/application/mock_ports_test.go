@@ -17,6 +17,44 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockAllowance is a mock of Allowance interface.
+type MockAllowance struct {
+	ctrl     *gomock.Controller
+	recorder *MockAllowanceMockRecorder
+	isgomock struct{}
+}
+
+// MockAllowanceMockRecorder is the mock recorder for MockAllowance.
+type MockAllowanceMockRecorder struct {
+	mock *MockAllowance
+}
+
+// NewMockAllowance creates a new mock instance.
+func NewMockAllowance(ctrl *gomock.Controller) *MockAllowance {
+	mock := &MockAllowance{ctrl: ctrl}
+	mock.recorder = &MockAllowanceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockAllowance) EXPECT() *MockAllowanceMockRecorder {
+	return m.recorder
+}
+
+// Spend mocks base method.
+func (m *MockAllowance) Spend(ctx context.Context, memberID, commandID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Spend", ctx, memberID, commandID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Spend indicates an expected call of Spend.
+func (mr *MockAllowanceMockRecorder) Spend(ctx, memberID, commandID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Spend", reflect.TypeOf((*MockAllowance)(nil).Spend), ctx, memberID, commandID)
+}
+
 // MockListenGate is a mock of ListenGate interface.
 type MockListenGate struct {
 	ctrl     *gomock.Controller

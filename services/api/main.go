@@ -95,11 +95,14 @@ import (
 	safeguardingretention "github.com/stanleyHayes/obiara/services/api/internal/safeguarding/retention"
 	seedstage "github.com/stanleyHayes/obiara/services/api/internal/seed"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/allowance"
+	allowanceapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/allowance/application"
+	allowancedomain "github.com/stanleyHayes/obiara/services/api/internal/seed/allowance/domain"
 	gardenmongodb "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/mongodb"
 	gardenprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/privacy"
 	gardenapp "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
 	listeningapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/listening/application"
+	sproutapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/sprout/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/sentinel/scamarc"
 	"github.com/stanleyHayes/obiara/services/api/internal/suban"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"
@@ -646,6 +649,11 @@ func run() error {
 			listening:     listeningModule.Listening,
 		})
 	}
+	// The allowance does not depend on object storage, so it is attached
+	// whether or not recordings are configured.
+	seedStageModule.Sprout = seedStageModule.Sprout.WithAllowance(
+		sproutAllowanceBridge{allowances: allowanceModule.Allowances},
+	)
 	// Registered after the gate is attached. Without object storage there are
 	// no recordings, so nobody can have heard anyone and the sprout service
 	// reports itself unavailable rather than accepting an unarmed sow.
@@ -934,6 +942,31 @@ func (bridge introductionLadderBridge) SowingEarned(ctx context.Context, memberI
 		// while it is outstanding.
 		bridge.log.WarnContext(ctx, "sowing promotion deferred",
 			slog.String("reason", err.Error()))
+		return err
+	}
+	return nil
+}
+
+// sproutAllowanceBridge spends one seed for a sow (FR-201a).
+type sproutAllowanceBridge struct {
+	allowances *allowanceapplication.Service
+}
+
+// Spend opens a ledger for a first-time sower before charging it.
+//
+// The two calls carry different command ids on purpose. A ledger records each
+// command id alongside a fingerprint of what that command did, so reusing the
+// sow's id to open the ledger would make the spend that follows look like the
+// same command with different input — and every first sow would be refused as
+// a conflict rather than charged.
+func (bridge sproutAllowanceBridge) Spend(ctx context.Context, memberID, commandID string) error {
+	if _, err := bridge.allowances.CurrentOrIssue(ctx, memberID, "sow-open:"+commandID); err != nil {
+		return err
+	}
+	if _, err := bridge.allowances.Spend(ctx, memberID, "sow:"+commandID, 1); err != nil {
+		if errors.Is(err, allowancedomain.ErrInsufficient) {
+			return sproutapplication.ErrNoSeeds
+		}
 		return err
 	}
 	return nil

@@ -226,6 +226,14 @@ func writeSeedStageError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusConflict, APIError{
 			Code: "out_of_turn", Message: "It is the other person's turn.",
 		})
+	case errors.Is(err, sproutapp.ErrNoSeeds):
+		// The seed economy made visible. A member who has spent the week's
+		// allowance is not broken and has not done anything wrong, so the
+		// message says when it comes back rather than only that it is gone.
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "no_seeds_left",
+			Message: "You have used this week's seeds. More arrive at the start of next week.",
+		})
 	case errors.Is(err, sproutapp.ErrNotHeard):
 		// A rule, not a fault, and one a member can act on: listen to them.
 		// Without this case it would fall to the default and read as a

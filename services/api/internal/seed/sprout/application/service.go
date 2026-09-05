@@ -32,6 +32,16 @@ type Service struct {
 	// outcome the gate exists to prevent, so it must not be what happens
 	// when the wiring is missing.
 	listen ListenGate
+	// allowance is the FR-201a spend. Nil refuses, for the same reason the
+	// listen gate does: a sow that cost nothing is the outcome the rule
+	// exists to prevent.
+	allowance Allowance
+}
+
+// WithAllowance attaches the weekly seed allowance.
+func (s Service) WithAllowance(allowance Allowance) Service {
+	s.allowance = allowance
+	return s
 }
 
 // WithListenGate attaches the listening requirement.
@@ -62,6 +72,16 @@ func (s Service) Sprout(ctx context.Context, command SproutCommand) (SproutResul
 	}
 	if !heard {
 		return SproutResult{}, ErrNotHeard
+	}
+	// Charged after the gate, so a refused sow is never paid for, and before
+	// the intent is recorded, so a sow that could not be paid for leaves no
+	// trace. Both sides are idempotent by command id, so a client retry
+	// completes the sow without charging twice.
+	if s.allowance == nil {
+		return SproutResult{}, ErrUnavailable
+	}
+	if err := s.allowance.Spend(ctx, command.ActorID, strings.TrimSpace(command.ID)); err != nil {
+		return SproutResult{}, err
 	}
 	actor, err := s.key("participant", command.ActorID)
 	if err != nil {
