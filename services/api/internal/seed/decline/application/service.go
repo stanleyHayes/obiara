@@ -74,6 +74,36 @@ func (service Service) Decline(ctx context.Context, command Command) (Result, er
 	return Result{Replayed: replayed}, nil
 }
 
+// Locked reports whether a decline still shields the target from this sower.
+//
+// It keys each side the way Decline recorded it: the target under "decliner",
+// because they are the one who said no, and the sower under
+// "notification-recipient", because that is the namespace the seed owner was
+// keyed under when the decline was written. Reusing those namespaces is what
+// makes every decline already on record enforceable without a backfill.
+//
+// Like Eligible, it returns a bool and nothing else. A caller must not be
+// able to learn that a decline happened, only that this reach is not
+// available (FR-205).
+func (service Service) Locked(ctx context.Context, sowerID, targetID string, at time.Time) (bool, error) {
+	if service.store == nil || service.keyer == nil || at.IsZero() {
+		return false, ErrUnavailable
+	}
+	declinerKey, err := service.keyer.Key("decliner", targetID)
+	if err != nil {
+		return false, ErrUnavailable
+	}
+	sowerKey, err := service.keyer.Key("notification-recipient", sowerID)
+	if err != nil {
+		return false, ErrUnavailable
+	}
+	locked, err := service.store.IsPairExcluded(ctx, declinerKey, sowerKey, at.UTC())
+	if err != nil {
+		return false, ErrUnavailable
+	}
+	return locked, nil
+}
+
 // Eligible is the only selection-facing operation. It returns no reason,
 // timestamp, owner, or rejection signal.
 func (service Service) Eligible(ctx context.Context, declinerID, seedID string, at time.Time) (bool, error) {

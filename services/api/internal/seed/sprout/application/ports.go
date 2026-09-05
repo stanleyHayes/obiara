@@ -19,7 +19,18 @@ var (
 	// allowance is what makes a sow cost something, and a sow that costs
 	// nothing is a swipe.
 	ErrNoSeeds = errors.New("no seed allowance left this week")
+	// ErrReachNotAvailable refuses a sow the other member is shielded from
+	// (M4-AC-01). It is deliberately vague: a member must not be able to
+	// learn that they were declined, only that this reach is not open to
+	// them (FR-205).
+	ErrReachNotAvailable = errors.New("this reach is not available")
 )
+
+// DeclineLock reports whether a decline still shields the target from this
+// sower. It answers a bool and nothing else, for the same reason.
+type DeclineLock interface {
+	Locked(ctx context.Context, sowerID, targetID string) (bool, error)
+}
 
 // Allowance spends one seed for a sow.
 //

@@ -57,6 +57,21 @@ func (mr *MockStoreMockRecorder) IsExcluded(arg0, arg1, arg2, arg3 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsExcluded", reflect.TypeOf((*MockStore)(nil).IsExcluded), arg0, arg1, arg2, arg3)
 }
 
+// IsPairExcluded mocks base method.
+func (m *MockStore) IsPairExcluded(ctx context.Context, declinerKey, sowerKey string, at time.Time) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsPairExcluded", ctx, declinerKey, sowerKey, at)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsPairExcluded indicates an expected call of IsPairExcluded.
+func (mr *MockStoreMockRecorder) IsPairExcluded(ctx, declinerKey, sowerKey, at any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsPairExcluded", reflect.TypeOf((*MockStore)(nil).IsPairExcluded), ctx, declinerKey, sowerKey, at)
+}
+
 // Record mocks base method.
 func (m *MockStore) Record(arg0 context.Context, arg1 domain.Decline, arg2 domain.Notification) (domain.Decline, bool, error) {
 	m.ctrl.T.Helper()

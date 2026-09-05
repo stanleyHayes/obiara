@@ -226,6 +226,15 @@ func writeSeedStageError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusConflict, APIError{
 			Code: "out_of_turn", Message: "It is the other person's turn.",
 		})
+	case errors.Is(err, sproutapp.ErrReachNotAvailable):
+		// Says the outcome and not the reason. Telling a member "they
+		// declined you" would hand them exactly the rejection signal the
+		// decline context refuses to expose (FR-205), and would make the
+		// shield worse than useless for the person it protects.
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "reach_unavailable",
+			Message: "You cannot reach toward this person right now.",
+		})
 	case errors.Is(err, sproutapp.ErrNoSeeds):
 		// The seed economy made visible. A member who has spent the week's
 		// allowance is not broken and has not done anything wrong, so the

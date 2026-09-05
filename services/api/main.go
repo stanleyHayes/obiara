@@ -97,6 +97,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/allowance"
 	allowanceapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/allowance/application"
 	allowancedomain "github.com/stanleyHayes/obiara/services/api/internal/seed/allowance/domain"
+	declineapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/decline/application"
 	gardenmongodb "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/mongodb"
 	gardenprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/privacy"
 	gardenapp "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/application"
@@ -651,9 +652,9 @@ func run() error {
 	}
 	// The allowance does not depend on object storage, so it is attached
 	// whether or not recordings are configured.
-	seedStageModule.Sprout = seedStageModule.Sprout.WithAllowance(
-		sproutAllowanceBridge{allowances: allowanceModule.Allowances},
-	)
+	seedStageModule.Sprout = seedStageModule.Sprout.
+		WithAllowance(sproutAllowanceBridge{allowances: allowanceModule.Allowances}).
+		WithDeclineLock(sproutDeclineBridge{declines: seedStageModule.Decline, now: time.Now})
 	// Registered after the gate is attached. Without object storage there are
 	// no recordings, so nobody can have heard anyone and the sprout service
 	// reports itself unavailable rather than accepting an unarmed sow.
@@ -945,6 +946,22 @@ func (bridge introductionLadderBridge) SowingEarned(ctx context.Context, memberI
 		return err
 	}
 	return nil
+}
+
+// sproutDeclineBridge answers M4-AC-01 for the seed stage: is the target
+// still shielded from this member by a decline?
+//
+// The seed stage keys participants under its own namespace, so it cannot
+// compare keys with the decline context directly. Passing raw ids and letting
+// the decline service key them its own way is what makes every decline
+// already on record enforceable.
+type sproutDeclineBridge struct {
+	declines declineapplication.Service
+	now      func() time.Time
+}
+
+func (bridge sproutDeclineBridge) Locked(ctx context.Context, sowerID, targetID string) (bool, error) {
+	return bridge.declines.Locked(ctx, sowerID, targetID, bridge.now())
 }
 
 // sproutAllowanceBridge spends one seed for a sow (FR-201a).

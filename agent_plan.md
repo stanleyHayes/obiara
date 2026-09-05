@@ -3287,3 +3287,70 @@ them:
 | P2    | Affiliate codes and qualified-conversion accrual     | PLANNED |
 | P3    | MoMo payouts, affiliate KYC, withholding, clawback   | PLANNED |
 | P4    | Organization-funded sponsored seats                  | DEFERRED |
+
+
+## 42. Goal: a decline shields for ninety days (M4-AC-01, 2026-09-05)
+
+`ExclusionPeriod = 90 * 24 * time.Hour` has been in the decline domain the
+whole time, and nothing on the sow path ever asked about it. A member could be
+declined and reach again the same minute, which makes a decline meaningless
+for the person it is supposed to protect.
+
+### What was actually missing
+
+The decline context could not answer the question. `IsExcluded` locks a
+**seed** — it stops the same seed being acted on twice — and the sow needs the
+**pair**: after A declines B, B may not reach for A again for ninety days.
+That query did not exist, and there was no index for it.
+
+It turned out to need no backfill. A decline already stores `recipientKey`,
+which is the seed's owner — whoever reached out and was told no. Reusing that
+field, and the namespaces it was keyed under, makes every decline already on
+record enforceable from the day this ships.
+
+### The decisions
+
+**Raw ids across the boundary, not keys.** The seed stage keys participants
+under its own namespace, so its keys and the decline context's keys are
+different strings for the same person and can never be compared. The port
+passes member ids and lets the decline service key them the way it wrote them.
+
+**The refusal says the outcome and not the reason.** `Eligible` is documented
+to return "no reason, timestamp, owner, or rejection signal" (FR-205), and a
+lock that announced "they declined you" would hand the sower exactly the
+rejection signal the context refuses to expose — and make the shield worse
+than useless for the person behind it. The code is `reach_unavailable` and the
+message is "You cannot reach toward this person right now."
+
+**Checked before the charge.** Same rule as the listen gate: a member must not
+spend a seed on a sow that was never going to land. A test fails if the
+allowance is touched at all when the shield is up.
+
+**An unreadable shield refuses.** If the store cannot answer, the sow does not
+go through. The alternative is that a database blip lets somebody through a
+wall built to protect a person who said no.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| SOW-07  | `IsPairExcluded` query and its index                                 | DONE   |
+| SOW-08  | `Service.Locked`, keyed the way declines were written                | DONE   |
+| SOW-09  | `DeclineLock` port; sprout refuses before charging                    | DONE   |
+| SOW-10  | A refusal that reveals nothing about a decline                       | DONE   |
+
+Both guards proven by breaking them: removing the refusal let a shielded
+target through, and moving the charge above the shield made the ordering test
+report an unexpected call to `Spend`.
+
+### The sow path is now complete
+
+`POST /v1/seed/sprouts` enforces, in order: Tier 2 (§32, reachable since §37),
+twenty seconds of the target's voice (§39), the ninety-day shield (§42), and
+one seed from the weekly allowance (§40) — and only then records the intent.
+Every refusal happens before anything is written or charged. That is FR-101b,
+FR-202, FR-201a and M4-AC-01's listen gate, allowance and lock, on the live
+path rather than in libraries beside it.
+
+M4-AC-01's remaining clause is "no purchase" — that seeds cannot be bought.
+Nothing sells them today, so nothing violates it; it becomes a real constraint
+the moment a catalog SKU could top up an allowance, and §41's promotion work
+is where that could accidentally be introduced.

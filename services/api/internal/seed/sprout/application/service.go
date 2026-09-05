@@ -36,6 +36,15 @@ type Service struct {
 	// listen gate does: a sow that cost nothing is the outcome the rule
 	// exists to prevent.
 	allowance Allowance
+	// declines is the M4-AC-01 lock. Nil refuses: a sow that ignored a
+	// decline is the outcome the rule exists to prevent.
+	declines DeclineLock
+}
+
+// WithDeclineLock attaches the ninety-day shield.
+func (s Service) WithDeclineLock(declines DeclineLock) Service {
+	s.declines = declines
+	return s
 }
 
 // WithAllowance attaches the weekly seed allowance.
@@ -72,6 +81,18 @@ func (s Service) Sprout(ctx context.Context, command SproutCommand) (SproutResul
 	}
 	if !heard {
 		return SproutResult{}, ErrNotHeard
+	}
+	// Checked before the charge for the same reason the listen gate is: a
+	// member must not pay a seed for a sow that was never going to land.
+	if s.declines == nil {
+		return SproutResult{}, ErrUnavailable
+	}
+	locked, err := s.declines.Locked(ctx, command.ActorID, command.TargetID)
+	if err != nil {
+		return SproutResult{}, ErrUnavailable
+	}
+	if locked {
+		return SproutResult{}, ErrReachNotAvailable
 	}
 	// Charged after the gate, so a refused sow is never paid for, and before
 	// the intent is recorded, so a sow that could not be paid for leaves no

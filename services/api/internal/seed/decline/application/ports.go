@@ -16,6 +16,10 @@ var (
 type Store interface {
 	Record(context.Context, domain.Decline, domain.Notification) (stored domain.Decline, replayed bool, err error)
 	IsExcluded(context.Context, string, string, time.Time) (bool, error)
+	// IsPairExcluded reports whether this decliner is still shielded from
+	// this sower. IsExcluded above locks a seed; this locks the pair, which
+	// is what "you may not reach for them again for 90 days" means.
+	IsPairExcluded(ctx context.Context, declinerKey, sowerKey string, at time.Time) (bool, error)
 }
 type Keyer interface {
 	Key(namespace, value string) (string, error)

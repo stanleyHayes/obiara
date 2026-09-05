@@ -17,6 +17,45 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockDeclineLock is a mock of DeclineLock interface.
+type MockDeclineLock struct {
+	ctrl     *gomock.Controller
+	recorder *MockDeclineLockMockRecorder
+	isgomock struct{}
+}
+
+// MockDeclineLockMockRecorder is the mock recorder for MockDeclineLock.
+type MockDeclineLockMockRecorder struct {
+	mock *MockDeclineLock
+}
+
+// NewMockDeclineLock creates a new mock instance.
+func NewMockDeclineLock(ctrl *gomock.Controller) *MockDeclineLock {
+	mock := &MockDeclineLock{ctrl: ctrl}
+	mock.recorder = &MockDeclineLockMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockDeclineLock) EXPECT() *MockDeclineLockMockRecorder {
+	return m.recorder
+}
+
+// Locked mocks base method.
+func (m *MockDeclineLock) Locked(ctx context.Context, sowerID, targetID string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Locked", ctx, sowerID, targetID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Locked indicates an expected call of Locked.
+func (mr *MockDeclineLockMockRecorder) Locked(ctx, sowerID, targetID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Locked", reflect.TypeOf((*MockDeclineLock)(nil).Locked), ctx, sowerID, targetID)
+}
+
 // MockAllowance is a mock of Allowance interface.
 type MockAllowance struct {
 	ctrl     *gomock.Controller

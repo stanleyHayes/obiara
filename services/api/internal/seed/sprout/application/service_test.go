@@ -29,8 +29,10 @@ func TestUnilateralSproutReturnsNoDoorway(t *testing.T) {
 	listen.EXPECT().Heard(gomock.Any(), "alice", "bob").Return(true, nil)
 	allowance := NewMockAllowance(ctrl)
 	allowance.EXPECT().Spend(gomock.Any(), "alice", "command").Return(nil)
+	declines := NewMockDeclineLock(ctrl)
+	declines.EXPECT().Locked(gomock.Any(), "alice", "bob").Return(false, nil)
 	service := New(repository, keyer, ids, time.Now).
-		WithListenGate(listen).WithAllowance(allowance)
+		WithListenGate(listen).WithAllowance(allowance).WithDeclineLock(declines)
 	result, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"})
 	if err != nil || result.Doorway != nil {
 		t.Fatalf("result=%#v err=%v", result, err)
@@ -74,11 +76,23 @@ type payingAllowance struct{ err error }
 
 func (a payingAllowance) Spend(context.Context, string, string) error { return a.err }
 
+// openLock is a decline lock that shields nobody.
+type openLock struct {
+	locked bool
+	err    error
+}
+
+func (l openLock) Locked(context.Context, string, string) (bool, error) { return l.locked, l.err }
+
 func sproutWith(t *testing.T, gate ListenGate) (SproutResult, error) {
 	return sproutPaying(t, gate, payingAllowance{})
 }
 
 func sproutPaying(t *testing.T, gate ListenGate, allowance Allowance) (SproutResult, error) {
+	return sproutFull(t, gate, allowance, openLock{})
+}
+
+func sproutFull(t *testing.T, gate ListenGate, allowance Allowance, lock DeclineLock) (SproutResult, error) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	repository := NewMockRepository(ctrl)
@@ -102,6 +116,9 @@ func sproutPaying(t *testing.T, gate ListenGate, allowance Allowance) (SproutRes
 	}
 	if allowance != nil {
 		service = service.WithAllowance(allowance)
+	}
+	if lock != nil {
+		service = service.WithDeclineLock(lock)
 	}
 	return service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"})
 }
@@ -162,5 +179,44 @@ func TestARefusedSowIsNeverCharged(t *testing.T) {
 		WithListenGate(heardGate{heard: false}).WithAllowance(allowance)
 	if _, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"}); !errors.Is(err, ErrNotHeard) {
 		t.Fatalf("err = %v, want ErrNotHeard", err)
+	}
+}
+
+func TestADeclineShieldsForNinetyDays(t *testing.T) {
+	// M4-AC-01. Until now a member could be declined and reach again the same
+	// minute, which makes the decline meaningless for the person it protects.
+	if _, err := sproutFull(t, heardGate{heard: true}, payingAllowance{}, openLock{locked: true}); !errors.Is(err, ErrReachNotAvailable) {
+		t.Fatalf("a shielded target returned %v, want ErrReachNotAvailable", err)
+	}
+	if _, err := sproutFull(t, heardGate{heard: true}, payingAllowance{}, openLock{}); err != nil {
+		t.Fatalf("an unshielded sow was refused: %v", err)
+	}
+	if _, err := sproutFull(t, heardGate{heard: true}, payingAllowance{}, openLock{err: errors.New("store down")}); err == nil {
+		t.Fatal("a sow went through while the shield could not be read")
+	}
+	if _, err := sproutFull(t, heardGate{heard: true}, payingAllowance{}, nil); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("a sow with no lock composed returned %v, want ErrUnavailable", err)
+	}
+}
+
+func TestAShieldedSowIsNeverCharged(t *testing.T) {
+	// Same ordering rule as the listen gate: a member must not spend a seed
+	// on a sow that was never going to land.
+	ctrl := gomock.NewController(t)
+	repository := NewMockRepository(ctrl)
+	keyer := NewMockKeyer(ctrl)
+	ids := NewMockIDSource(ctrl)
+	allowance := NewMockAllowance(ctrl)
+	// No Spend expectation: touching the allowance fails the test.
+	keyer.EXPECT().Key(gomock.Any(), gomock.Any()).Return("key", nil).AnyTimes()
+	ids.EXPECT().NewID().Return("intent-1").AnyTimes()
+	repository.EXPECT().RecordIntent(gomock.Any(), gomock.Any()).Return(nil, false, nil).AnyTimes()
+
+	service := New(repository, keyer, ids, time.Now).
+		WithListenGate(heardGate{heard: true}).
+		WithAllowance(allowance).
+		WithDeclineLock(openLock{locked: true})
+	if _, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"}); !errors.Is(err, ErrReachNotAvailable) {
+		t.Fatalf("err = %v, want ErrReachNotAvailable", err)
 	}
 }
