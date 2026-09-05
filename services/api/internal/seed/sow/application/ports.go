@@ -16,6 +16,10 @@ var (
 	ErrHumanReviewRequired = errors.New("sow requires human screening review")
 	// ErrSowNotFound reports a screening reference no held sow answers to.
 	ErrSowNotFound = errors.New("no sow for that screening reference")
+	// ErrMediaNotOwned refuses a sow carrying a recording the sower does not
+	// own. In a product where people meet through their voices, sending
+	// somebody else's voice as your own is impersonation, not a mistake.
+	ErrMediaNotOwned = errors.New("that recording does not belong to you")
 )
 
 //go:generate mockgen -source=ports.go -destination=mock_ports_test.go -package=application
@@ -35,6 +39,14 @@ type Acceptance interface {
 	// never delivered.
 	Settle(ctx context.Context, sow domain.Sow, refund bool) error
 }
+
+// MediaOwnership answers whether these recordings belong to the member
+// sowing them. It takes the whole set rather than one reference at a time so
+// an implementation can answer in a single read.
+type MediaOwnership interface {
+	OwnedBy(ctx context.Context, ownerID string, refs []string) (bool, error)
+}
+
 type Keyer interface {
 	Key(namespace, value string) (string, error)
 }

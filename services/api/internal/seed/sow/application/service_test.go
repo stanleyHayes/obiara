@@ -28,7 +28,8 @@ func TestSendScreensBeforeAtomicAcceptance(t *testing.T) {
 		}
 		return s, false, nil
 	})
-	service := New(screening, acceptance, keyer, ids, func() time.Time { return now }, 1)
+	service := New(screening, acceptance, keyer, ids, func() time.Time { return now }, 1).
+		WithMediaOwnership(ownedMedia{owned: true})
 	result, err := service.Send(context.Background(), Command{ID: "command-1", ActorID: "raw-actor", Body: " hello ", MediaRefs: []string{"raw-media"}, Confirmed: true})
 	if err != nil || result.Sow.ID != "sow-1" {
 		t.Fatalf("result=%#v err=%v", result, err)
@@ -197,5 +198,81 @@ func TestASowIsNotDecidedTwice(t *testing.T) {
 	service := New(NewMockScreening(ctrl), acceptance, NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1)
 	if _, err := service.Review(context.Background(), "review-1", false, "decision-2"); !errors.Is(err, domain.ErrNotPending) {
 		t.Fatalf("err = %v, want ErrNotPending", err)
+	}
+}
+
+// ownedMedia is a fixed answer about whose recordings these are.
+type ownedMedia struct {
+	owned bool
+	err   error
+}
+
+func (m ownedMedia) OwnedBy(context.Context, string, []string) (bool, error) { return m.owned, m.err }
+
+func TestASowMayOnlyCarryTheSowersOwnVoice(t *testing.T) {
+	// People meet through their voices here, so sending somebody else's as
+	// your own is impersonation. Nothing checked this before.
+	ctrl := gomock.NewController(t)
+	screening := NewMockScreening(ctrl)
+	acceptance := NewMockAcceptance(ctrl)
+	// No Screen and no Accept expectations: a sow carrying a voice that is
+	// not the sower's must not even be screened, let alone stored.
+
+	service := New(screening, acceptance, NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1).
+		WithMediaOwnership(ownedMedia{owned: false})
+
+	if _, err := service.Send(context.Background(), Command{
+		ID: "c", ActorID: "a", Body: "body", MediaRefs: []string{"someone-elses"}, Confirmed: true,
+	}); !errors.Is(err, ErrMediaNotOwned) {
+		t.Fatalf("err = %v, want ErrMediaNotOwned", err)
+	}
+}
+
+func TestAnUnansweredOwnershipCheckRefuses(t *testing.T) {
+	// The direction that matters: if we cannot tell whose voice this is, the
+	// sow does not go. Guessing yes is how an impersonation gets through.
+	ctrl := gomock.NewController(t)
+	service := New(NewMockScreening(ctrl), NewMockAcceptance(ctrl), NewMockKeyer(ctrl),
+		NewMockIDSource(ctrl), time.Now, 1).
+		WithMediaOwnership(ownedMedia{err: errors.New("media unavailable")})
+
+	if _, err := service.Send(context.Background(), Command{
+		ID: "c", ActorID: "a", Body: "body", MediaRefs: []string{"ref"}, Confirmed: true,
+	}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+
+	// And a service composed without the check at all refuses too, rather
+	// than treating a missing check as permission.
+	bare := New(NewMockScreening(ctrl), NewMockAcceptance(ctrl), NewMockKeyer(ctrl),
+		NewMockIDSource(ctrl), time.Now, 1)
+	if _, err := bare.Send(context.Background(), Command{
+		ID: "c", ActorID: "a", Body: "body", MediaRefs: []string{"ref"}, Confirmed: true,
+	}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+}
+
+func TestAWordsOnlySowNeedsNoOwnershipCheck(t *testing.T) {
+	// A sow with no recordings has no voice to impersonate, so it must not
+	// be refused for want of a check that has nothing to check.
+	ctrl := gomock.NewController(t)
+	screening := NewMockScreening(ctrl)
+	acceptance := NewMockAcceptance(ctrl)
+	keyer := NewMockKeyer(ctrl)
+	ids := NewMockIDSource(ctrl)
+	keyer.EXPECT().Key(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(namespace, value string) (string, error) { return namespace + ":" + value, nil }).AnyTimes()
+	ids.EXPECT().NewID().Return("sow-1")
+	screening.EXPECT().Screen(gomock.Any(), "body", gomock.Any()).
+		Return(ScreeningDecision{Approved: true, Reference: "screen-1"}, nil)
+	acceptance.EXPECT().Accept(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, s domain.Sow) (domain.Sow, bool, error) { return s, false, nil })
+
+	service := New(screening, acceptance, keyer, ids, time.Now, 1)
+	if _, err := service.Send(context.Background(), Command{
+		ID: "c", ActorID: "a", Body: "body", Confirmed: true,
+	}); err != nil {
+		t.Fatalf("a words-only sow was refused: %v", err)
 	}
 }

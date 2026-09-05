@@ -3805,3 +3805,54 @@ were individually correct and fully tested.
 **Remaining:** the `MediaInspector` bridge to the media context, the
 composition root for `seed/sow` and `seed/screening`, and the reviewer surface
 that calls the review store's `Decide` and then the sow's `Review`.
+
+
+## 50. Goal: a sow may only carry the sower's own voice (2026-09-05)
+
+Composing the media inspector meant reading how a sow gets its media, and
+nothing checked whose it was. `Send` took `MediaRefs` on trust: a member could
+attach another member's recording to their own sow. In a product whose whole
+premise is that people meet through their voices, sending somebody else's
+voice as your own is impersonation rather than a mistake, and the screening
+port cannot catch it — `Inspect(ctx, ref)` has no actor to check against.
+
+Found while wiring rather than by looking for it, and closed before the path
+went live rather than after.
+
+### The decisions
+
+**Checked before screening.** A member must not be able to have somebody
+else's recording screened, and a sow carrying a voice that is not theirs
+should never reach a reviewer looking like theirs. A test asserts the screener
+is not called at all when the check fails.
+
+**An unanswered check refuses.** If we cannot tell whose voice it is, the sow
+does not go. Guessing yes is how an impersonation gets through, and it is the
+only direction here that matters.
+
+**A service composed without the check refuses too**, rather than treating a
+missing check as permission — the same posture as the age gate and the listen
+gate.
+
+**A words-only sow needs no check.** With no recordings there is no voice to
+impersonate, so it must not be refused for want of a check with nothing to
+check. That is its own test, because a fail-closed rule that closes on the
+wrong thing is just a broken feature.
+
+**The port takes the whole set.** `OwnedBy(ctx, ownerID, refs)` rather than
+one reference at a time, so an implementation answers in a single read.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| SOW-18  | `MediaOwnership` port; a sow carries only the sower's recordings     | DONE   |
+| SOW-19  | Checked before screening, refusing on an unanswered check            | DONE   |
+| SOW-20  | Words-only sows still pass                                           | DONE   |
+
+Proven by breaking it: disabling the refusal made the test report an
+unexpected call to `Screen` with `[someone-elses]` — somebody else's recording
+reaching the screener, which is the failure itself.
+
+**Remaining:** the `MediaOwnership` and `MediaInspector` bridges to the media
+context (its `AssetRepository` carries `OwnerID`, `ContentType`, `Size` and
+`Duration`, so both are reads rather than decisions), the composition roots for
+`seed/sow` and `seed/screening`, and the reviewer surface.

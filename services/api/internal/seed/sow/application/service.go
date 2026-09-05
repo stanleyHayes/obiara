@@ -28,13 +28,21 @@ type Service struct {
 	screening  Screening
 	acceptance Acceptance
 	keyer      Keyer
+	media      MediaOwnership
 	ids        IDSource
 	now        func() time.Time
 	units      int64
 }
 
 func New(screening Screening, acceptance Acceptance, keyer Keyer, ids IDSource, now func() time.Time, units int64) Service {
-	return Service{screening, acceptance, keyer, ids, now, units}
+	return Service{screening: screening, acceptance: acceptance, keyer: keyer, ids: ids, now: now, units: units}
+}
+
+// WithMediaOwnership attaches the check that a sow carries only the sower's
+// own recordings.
+func (s Service) WithMediaOwnership(media MediaOwnership) Service {
+	s.media = media
+	return s
 }
 
 func (s Service) Send(ctx context.Context, command Command) (Result, error) {
@@ -48,6 +56,22 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	if body == "" || strings.TrimSpace(command.ID) == "" || strings.TrimSpace(command.ActorID) == "" || len(command.MediaRefs) > 4 {
 		return Result{}, domain.ErrInvalid
 	}
+	// Checked before screening: a member must not be able to have somebody
+	// else's recording screened, and a sow carrying a voice that is not
+	// theirs should never reach a reviewer looking like theirs.
+	if len(command.MediaRefs) > 0 {
+		if s.media == nil {
+			return Result{}, ErrUnavailable
+		}
+		owned, ownErr := s.media.OwnedBy(ctx, command.ActorID, command.MediaRefs)
+		if ownErr != nil {
+			return Result{}, ErrUnavailable
+		}
+		if !owned {
+			return Result{}, ErrMediaNotOwned
+		}
+	}
+
 	// Three outcomes, not two. Screening can clear a sow, refuse it, or send
 	// it to a person — and the third used to arrive here as an error and be
 	// reported to the member as "service unavailable", which is neither true

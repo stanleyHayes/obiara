@@ -125,6 +125,45 @@ func (mr *MockAcceptanceMockRecorder) Settle(ctx, sow, refund any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Settle", reflect.TypeOf((*MockAcceptance)(nil).Settle), ctx, sow, refund)
 }
 
+// MockMediaOwnership is a mock of MediaOwnership interface.
+type MockMediaOwnership struct {
+	ctrl     *gomock.Controller
+	recorder *MockMediaOwnershipMockRecorder
+	isgomock struct{}
+}
+
+// MockMediaOwnershipMockRecorder is the mock recorder for MockMediaOwnership.
+type MockMediaOwnershipMockRecorder struct {
+	mock *MockMediaOwnership
+}
+
+// NewMockMediaOwnership creates a new mock instance.
+func NewMockMediaOwnership(ctrl *gomock.Controller) *MockMediaOwnership {
+	mock := &MockMediaOwnership{ctrl: ctrl}
+	mock.recorder = &MockMediaOwnershipMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMediaOwnership) EXPECT() *MockMediaOwnershipMockRecorder {
+	return m.recorder
+}
+
+// OwnedBy mocks base method.
+func (m *MockMediaOwnership) OwnedBy(ctx context.Context, ownerID string, refs []string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OwnedBy", ctx, ownerID, refs)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OwnedBy indicates an expected call of OwnedBy.
+func (mr *MockMediaOwnershipMockRecorder) OwnedBy(ctx, ownerID, refs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OwnedBy", reflect.TypeOf((*MockMediaOwnership)(nil).OwnedBy), ctx, ownerID, refs)
+}
+
 // MockKeyer is a mock of Keyer interface.
 type MockKeyer struct {
 	ctrl     *gomock.Controller
