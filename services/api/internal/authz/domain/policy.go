@@ -135,6 +135,12 @@ var tierGates = []struct {
 	// agent_plan.md §59 alongside the others.
 	{"seed.pod.create", "pod", TierVerified, "tier 1 pod placement"},
 	{"seed.pod.playback", "pod", TierVerified, "tier 1 pod playback"},
+	// The composition inventory asked whether watering is sowing. It is not:
+	// sowing is reaching toward somebody new, and watering is answering
+	// inside a connection that already exists — the same reasoning that put
+	// doorway exchanges at Tier 1 in §32.
+	{"seed.water.start", "water", TierVerified, "tier 1 water"},
+	{"seed.water.mutual", "water", TierVerified, "tier 1 mutual water"},
 }
 
 func tierRules() []rule {

@@ -4348,3 +4348,46 @@ does not regenerate.
 something defined. Proven by pointing one at a plausible invented name and
 watching it fail. It also refuses to pass when it finds no references at all,
 so it cannot quietly stop checking.
+
+
+## 60. Finding: `seed/water` cannot be composed safely yet (2026-09-05)
+
+Water is the step after a pod — two members answering each other until a room
+opens between them — and it is the last piece of the seed lifecycle. I started
+composing it and stopped, because doing so would have shipped a check that
+does nothing.
+
+`PairConsent.Revalidate` is called twice with two different kinds of value:
+
+- `Start` (service.go:50) passes **raw member ids**: `p.FirstMemberID`,
+  `p.SecondMemberID`.
+- `Water` (service.go:93) passes **keyed values**: `current.Members()`, which
+  `Start` filled with `s.key(...)` outputs.
+
+Any implementation is therefore correct for at most one of them. A block check
+written for member ids would answer "not blocked" for every keyed pair — and
+silently, because a one-way digest simply never matches an id. The step it
+would fail on is the mutual one: the step that opens the room.
+
+That is worse than not composing it. A refusal that never fires reads as a
+safeguard in every review of the code, and it is the review, not the running
+system, that it fools.
+
+**What it needs:** the port called with one kind of value. Raw ids in both
+would mean the aggregate holding raw members, which is wrong — they are
+people, and keying them is the point. Keyed values in both would mean the
+check can only compare keys, which a block check cannot do. So the honest
+resolution is probably that `Water` should re-check the actor and resolve the
+counterpart the way the pod does — through something that knows both — rather
+than reading two keys out of the aggregate.
+
+That is a design decision inside the water context, and it is small. It is
+recorded rather than guessed because guessing it wrong produces the silent
+version.
+
+**Kept from the attempt:** `seed.water.start` and `seed.water.mutual` are now
+in the authz grant table at Tier 1, which answers the composition inventory's
+standing question — *"Is `seed.water.mutual` sowing (Tier 2), or a lighter
+Tier 1 action?"* Sowing is reaching toward somebody new; watering is answering
+inside a connection that already exists, which is the same reasoning that put
+doorway exchanges at Tier 1 in §32.
