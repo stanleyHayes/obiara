@@ -122,3 +122,80 @@ func TestAReviewWithNoReferenceIsNotAHold(t *testing.T) {
 		t.Fatalf("err = %v, want ErrUnavailable", err)
 	}
 }
+
+// heldSow builds a sow that is waiting on a person.
+func heldSow(t *testing.T) domain.Sow {
+	t.Helper()
+	sow, err := domain.Accept("sow-1", "actor-key", "body",
+		[]domain.Media{{Key: "media-key", ScreeningKey: "screen-key"}},
+		"command-1", "fingerprint", 1, domain.StatusPendingReview, "review-1", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sow
+}
+
+func TestApprovingAReviewDeliversTheSowAndKeepsTheSeed(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	acceptance := NewMockAcceptance(ctrl)
+	acceptance.EXPECT().FindByScreening(gomock.Any(), "review-1").Return(heldSow(t), nil)
+	acceptance.EXPECT().Settle(gomock.Any(), gomock.Any(), false).DoAndReturn(
+		func(_ context.Context, s domain.Sow, refund bool) error {
+			if s.Status != domain.StatusDelivered {
+				t.Fatalf("status = %q, want delivered", s.Status)
+			}
+			if s.ScreeningRef != "decision-1" {
+				t.Fatalf("ref = %q, want the decision's reference", s.ScreeningRef)
+			}
+			return nil
+		})
+
+	service := New(NewMockScreening(ctrl), acceptance, NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1)
+	if _, err := service.Review(context.Background(), "review-1", true, "decision-1"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRefusingAReviewGivesTheSeedBack(t *testing.T) {
+	// M4-ABUSE-01: the seed is refunded on failure. It is asked for in the
+	// same call that stores the rejection, because a refusal that recorded
+	// the outcome and lost the refund would take a member's seed for a sow
+	// that was never delivered.
+	ctrl := gomock.NewController(t)
+	acceptance := NewMockAcceptance(ctrl)
+	acceptance.EXPECT().FindByScreening(gomock.Any(), "review-1").Return(heldSow(t), nil)
+	acceptance.EXPECT().Settle(gomock.Any(), gomock.Any(), true).DoAndReturn(
+		func(_ context.Context, s domain.Sow, refund bool) error {
+			if s.Status != domain.StatusRejected {
+				t.Fatalf("status = %q, want rejected", s.Status)
+			}
+			if !refund {
+				t.Fatal("a refused sow did not ask for the seed back")
+			}
+			return nil
+		})
+
+	service := New(NewMockScreening(ctrl), acceptance, NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1)
+	if _, err := service.Review(context.Background(), "review-1", false, "decision-1"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestASowIsNotDecidedTwice(t *testing.T) {
+	// Deciding twice would refund a seed twice. The aggregate refuses, and
+	// nothing is written.
+	ctrl := gomock.NewController(t)
+	acceptance := NewMockAcceptance(ctrl)
+	settled := heldSow(t)
+	delivered, err := settled.Release("decision-1", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	acceptance.EXPECT().FindByScreening(gomock.Any(), "review-1").Return(delivered, nil)
+	// No Settle expectation: a second decision must write nothing.
+
+	service := New(NewMockScreening(ctrl), acceptance, NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1)
+	if _, err := service.Review(context.Background(), "review-1", false, "decision-2"); !errors.Is(err, domain.ErrNotPending) {
+		t.Fatalf("err = %v, want ErrNotPending", err)
+	}
+}

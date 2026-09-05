@@ -98,3 +98,37 @@ func fingerprint(commandID, actorKey, body string, media []string, units int64) 
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%q|%q|%q|%q|%d", commandID, actorKey, body, media, units)))
 	return hex.EncodeToString(sum[:])
 }
+
+// Review settles a held sow after a person decided it.
+//
+// The decision reference replaces the review reference on the sow, so what
+// the aggregate carries afterwards is the judgement that settled it rather
+// than the queue entry that asked for one.
+func (s Service) Review(ctx context.Context, screeningRef string, approve bool, decisionRef string) (Result, error) {
+	if s.acceptance == nil || s.now == nil {
+		return Result{}, ErrUnavailable
+	}
+	screeningRef = strings.TrimSpace(screeningRef)
+	if screeningRef == "" || strings.TrimSpace(decisionRef) == "" {
+		return Result{}, domain.ErrInvalid
+	}
+	held, err := s.acceptance.FindByScreening(ctx, screeningRef)
+	if err != nil {
+		return Result{}, err
+	}
+	decided := held
+	if approve {
+		decided, err = held.Release(decisionRef, s.now())
+	} else {
+		decided, err = held.Refuse(decisionRef, s.now())
+	}
+	if err != nil {
+		// Includes ErrNotPending, which is what a second decision on the
+		// same sow gets. Deciding twice would refund a seed twice.
+		return Result{}, err
+	}
+	if err := s.acceptance.Settle(ctx, decided, !approve); err != nil {
+		return Result{}, err
+	}
+	return Result{Sow: decided}, nil
+}

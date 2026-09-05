@@ -210,6 +210,16 @@ func (acceptance *countingAcceptance) Accept(_ context.Context, sow sowdomain.So
 	return sow, false, nil
 }
 
+// These tests are about screening, not about settling a review, so both
+// review-side methods refuse rather than pretend.
+func (*countingAcceptance) FindByScreening(context.Context, string) (sowdomain.Sow, error) {
+	return sowdomain.Sow{}, sowapplication.ErrSowNotFound
+}
+
+func (*countingAcceptance) Settle(context.Context, sowdomain.Sow, bool) error {
+	return sowapplication.ErrSowNotFound
+}
+
 type noopKeyer struct{}
 
 func (noopKeyer) Key(_, value string) (string, error) { return value, nil }

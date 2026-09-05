@@ -39,6 +39,17 @@ type acceptanceModel struct {
 	accepted map[string]sow.Sow
 }
 
+// The invariants exercised here are about accepting sows concurrently, not
+// about settling reviews, so both review-side methods refuse rather than
+// model behaviour nothing in this file drives.
+func (a *acceptanceModel) FindByScreening(context.Context, string) (sow.Sow, error) {
+	return sow.Sow{}, sowapp.ErrSowNotFound
+}
+
+func (a *acceptanceModel) Settle(context.Context, sow.Sow, bool) error {
+	return sowapp.ErrSowNotFound
+}
+
 func (a *acceptanceModel) Accept(_ context.Context, candidate sow.Sow) (sow.Sow, bool, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

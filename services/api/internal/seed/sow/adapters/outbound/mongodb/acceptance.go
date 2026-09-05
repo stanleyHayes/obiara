@@ -60,8 +60,58 @@ func (a *Acceptance) EnsureIndexes(ctx context.Context) error {
 	if _, err := a.sows().Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "commandId", Value: 1}}, Options: options.Index().SetUnique(true).SetName("seed_sow_command_unique")}); err != nil {
 		return err
 	}
+	if _, err := a.sows().Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "screeningRef", Value: 1}},
+		Options: options.Index().SetName("seed_sow_screening_ref"),
+	}); err != nil {
+		return err
+	}
 	_, err := a.events().Indexes().CreateOne(ctx, mongo.IndexModel{Keys: bson.D{{Key: "sowId", Value: 1}, {Key: "kind", Value: 1}}, Options: options.Index().SetUnique(true).SetName("seed_sow_event_unique")})
 	return err
+}
+
+// FindByScreening returns the sow a screening reference belongs to.
+func (a *Acceptance) FindByScreening(ctx context.Context, screeningRef string) (domain.Sow, error) {
+	var document sowDocument
+	err := a.sows().FindOne(ctx, bson.M{"screeningRef": screeningRef}).Decode(&document)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return domain.Sow{}, application.ErrSowNotFound
+	}
+	if err != nil {
+		return domain.Sow{}, err
+	}
+	return fromDocument(document)
+}
+
+// Settle stores the decision and, on a refusal, credits the seed back in the
+// same transaction.
+//
+// The status update is guarded on the sow still being pending, so two
+// reviewers deciding at once cannot both write — one of them finds nothing to
+// update and is told so rather than silently refunding a second seed.
+func (a *Acceptance) Settle(ctx context.Context, sow domain.Sow, refund bool) error {
+	return apimongo.WithTransaction(ctx, a.database.Client(), func(tx context.Context) error {
+		result, updateErr := a.sows().UpdateOne(tx,
+			bson.M{"_id": sow.ID, "status": string(domain.StatusPendingReview)},
+			bson.M{"$set": bson.M{
+				"status":       string(sow.Status),
+				"screeningRef": sow.ScreeningRef,
+				"decidedAt":    sow.DecidedAt,
+			}})
+		if updateErr != nil {
+			return updateErr
+		}
+		if result.MatchedCount == 0 {
+			return application.ErrSowNotFound
+		}
+		if !refund {
+			return nil
+		}
+		_, creditErr := a.heads().UpdateOne(tx,
+			bson.M{"_id": sow.ActorKey},
+			bson.M{"$inc": bson.M{"balance": sow.AllowanceUnits}})
+		return creditErr
+	})
 }
 
 func (a *Acceptance) Accept(ctx context.Context, sow domain.Sow) (domain.Sow, bool, error) {

@@ -3640,3 +3640,46 @@ the pending check let a delivered sow be released twice.
 **Next in this chain:** a `HumanReview` implementation that persists the review
 and returns its reference, then the reviewer surface that releases or refuses,
 then the refund on refusal. The sow can be held; nothing yet holds it.
+
+
+## 47. Goal: a held sow can be decided (2026-09-05)
+
+§46 gave the sow a held state and left `Release` and `Refuse` reachable by
+nothing. This makes them reachable from the application, and puts the refund
+where it cannot be lost.
+
+### The decisions
+
+**The refund rides in the same transaction as the status change.** `Settle`
+stores the decision and, on a refusal, credits the seed back in one write. Two
+writes would let a refusal record the rejection and lose the refund, which
+takes a member's seed for a sow that was never delivered — the exact failure
+M4-ABUSE-01's "seed refunded on failure" exists to prevent.
+
+**The status update is guarded on the sow still being pending.** Two reviewers
+deciding at once cannot both write: one finds nothing to update and is told
+so, rather than silently refunding a second seed.
+
+**`FindByScreening` does not filter on status.** A second decision has to be
+refused by the aggregate with a reason — `ErrNotPending` — rather than
+disappearing as "not found", which would read like the sow had never existed.
+
+**The decision reference replaces the review reference.** What the sow carries
+afterwards is the judgement that settled it, not the queue entry that asked
+for one.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| SOW-15  | `FindByScreening` and its index                                      | DONE   |
+| SOW-16  | `Settle`: decision and refund in one transaction, guarded on pending | DONE   |
+| SOW-17  | `Review` use case: release or refuse, decided once                   | DONE   |
+
+Proven by breaking it: asking `Settle` never to refund made the refusal test
+report an unexpected call with `refund=false`, which is precisely the bug that
+would keep a member's seed.
+
+**Still dark.** `seed/sow` has no `module.go` and no routes: this slice makes
+the decision path correct and reachable *within the context*, and nothing
+outside it can call any of this yet. The composition root, the `HumanReview`
+store that produces a reference in the first place, and the reviewer surface
+are the remaining three steps, in that order.
