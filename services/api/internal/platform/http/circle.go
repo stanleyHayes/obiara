@@ -26,11 +26,14 @@ type Circles interface {
 	List(context.Context, string, string, int) ([]domain.Circle, error)
 }
 
-func RegisterCircleRoutes(mux *http.ServeMux, circles Circles, sessions SessionAuthenticator) {
+func RegisterCircleRoutes(mux *http.ServeMux, circles Circles, sessions SessionAuthenticator, gate MemberGate) {
 	mux.Handle("GET /v1/circles", listCirclesHandler(circles, sessions))
-	mux.Handle("POST /v1/circles", createCircleHandler(circles, sessions))
+	// M1-AC-01: an unverified account may browse circles but may not start
+	// one or ask to join. Leaving stays open at every rung, like every other
+	// exit.
+	mux.Handle("POST /v1/circles", gate.guard(sessions, "circles.participate", "circle", createCircleHandler(circles, sessions)))
 	mux.Handle("GET /v1/circles/{id}", getCircleHandler(circles, sessions))
-	mux.Handle("POST /v1/circles/{id}/requests", mutateCircleHandler(circles, sessions, "request"))
+	mux.Handle("POST /v1/circles/{id}/requests", gate.guard(sessions, "circles.participate", "circle", mutateCircleHandler(circles, sessions, "request")))
 	mux.Handle("POST /v1/circles/{id}/leave", mutateCircleHandler(circles, sessions, "leave"))
 	mux.Handle("PUT /v1/circles/{id}/visibility", mutateCircleHandler(circles, sessions, "visibility"))
 	mux.Handle("POST /v1/circles/{id}/members/{memberId}/approve", mutateCircleHandler(circles, sessions, "approve"))

@@ -125,6 +125,11 @@ var tierGates = []struct {
 	{"rooms.participate", "room", TierVerified, "tier 1 room participation"},
 	{"fires.attend", "fire", TierVerified, "tier 1 fire entry"},
 	{"seeds.sow", "seed", TierSowing, "tier 2 sowing"},
+	// M1-AC-01: an unverified account may look, but may not take part.
+	// Placed under the FR-101 default — participatory surfaces require
+	// Tier 1 — and recorded in agent_plan.md §38 so they can be overruled.
+	{"circles.participate", "circle", TierVerified, "tier 1 circle participation"},
+	{"games.play", "game", TierVerified, "tier 1 game participation"},
 }
 
 func tierRules() []rule {

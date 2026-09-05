@@ -52,12 +52,14 @@ func RegisterCompetitionRoutes(
 	oware TournamentOwareGames,
 	memberAuth SessionAuthenticator,
 	adminAuth AdminPrincipalResolver,
+	gate MemberGate,
 ) {
 	mux.Handle("POST /v1/admin/game-cohorts", createCompetitionCohortHandler(cohorts, adminAuth))
 	mux.Handle("GET /v1/admin/game-cohorts/{cohortId}", adminCompetitionCohortHandler(cohorts, adminAuth))
 	mux.Handle("POST /v1/admin/game-cohorts/{cohortId}/start", startCompetitionHandler(manager, adminAuth))
 	mux.Handle("GET /v1/game-cohorts/{cohortId}", viewCompetitionCohortHandler(cohorts, memberAuth))
-	mux.Handle("POST /v1/game-cohorts/{cohortId}/join", joinCompetitionCohortHandler(cohorts, memberAuth))
+	// Joining a cohort is taking part. Leaving one is not.
+	mux.Handle("POST /v1/game-cohorts/{cohortId}/join", gate.guard(memberAuth, "games.play", "game", joinCompetitionCohortHandler(cohorts, memberAuth)))
 	mux.Handle("POST /v1/game-cohorts/{cohortId}/leave", leaveCompetitionCohortHandler(cohorts, memberAuth))
 	mux.Handle("GET /v1/game-cohorts/{cohortId}/competitions/{competitionId}", viewCompetitionHandler(competitions, memberAuth))
 	mux.Handle("POST /v1/game-cohorts/{cohortId}/competitions/{competitionId}/matches/{matchId}/oware", launchTournamentOwareHandler(oware, memberAuth))

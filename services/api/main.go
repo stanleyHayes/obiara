@@ -654,7 +654,7 @@ func run() error {
 	apihttp.RegisterProfileRoutes(mux, profileModule.Profile, consentModule.ConsentMap, identityModule.Sessions)
 	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening, identityModule.Sessions, memberGate)
 	apihttp.RegisterGardenRoutes(mux, gardenService, identityModule.Sessions)
-	apihttp.RegisterCircleRoutes(mux, circleModule.Circles, identityModule.Sessions)
+	apihttp.RegisterCircleRoutes(mux, circleModule.Circles, identityModule.Sessions, memberGate)
 	apihttp.RegisterCircleRoomRoutes(mux, circleRoomModule.Rooms, identityModule.Sessions)
 	apihttp.RegisterOwareRoutes(mux, owareModule.Sessions, gamePairs, identityModule.Sessions)
 	apihttp.RegisterAnansesemRoutes(mux, anansesemModule.Stories, gamePairs, identityModule.Sessions)
@@ -664,9 +664,9 @@ func run() error {
 		mux, competitionModule.Cohorts, competitionModule.Manager,
 		competitionModule.Competitions, competitionModule.Competitions,
 		competitionModule.Oware,
-		identityModule.Sessions, adminPrincipalResolver,
+		identityModule.Sessions, adminPrincipalResolver, memberGate,
 	)
-	apihttp.RegisterFireRoutes(mux, fireModule.Fires, identityModule.Sessions, identityModule.Tiers)
+	apihttp.RegisterFireRoutes(mux, fireModule.Fires, identityModule.Sessions, identityModule.Tiers, memberGate)
 	apihttp.RegisterMembershipRoutes(mux, membershipModule.Membership, membershipModule.Keyer, identityModule.Sessions)
 	apihttp.RegisterMatchmakerRoutes(mux, matchmakerModule.Engagements, membershipModule.Keyer, identityModule.Sessions)
 	apihttp.RegisterEscrowRoutes(mux, escrowModule.Escrows, membershipModule.Keyer, identityModule.Sessions)

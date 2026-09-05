@@ -27,8 +27,10 @@ type TierReader interface {
 	Tier(context.Context, string) (identitydomain.Tier, error)
 }
 
-func RegisterFireRoutes(mux *http.ServeMux, fires Fires, sessions SessionAuthenticator, tiers TierReader) {
-	mux.Handle("POST /v1/fires", scheduleFireHandler(fires, sessions))
+func RegisterFireRoutes(mux *http.ServeMux, fires Fires, sessions SessionAuthenticator, tiers TierReader, gate MemberGate) {
+	// Attending already requires Tier 1 inside the aggregate; scheduling one
+	// is the same kind of participation and was not gated at all.
+	mux.Handle("POST /v1/fires", gate.guard(sessions, "fires.attend", "fire", scheduleFireHandler(fires, sessions)))
 	mux.Handle("GET /v1/fires", listFiresHandler(fires, sessions))
 	mux.Handle("POST /v1/fires/{id}/rsvps", rsvpHandler(fires, sessions, tiers))
 	mux.Handle("DELETE /v1/fires/{id}/rsvps/{memberId}", cancelRsvpHandler(fires, sessions))

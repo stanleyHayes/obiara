@@ -134,6 +134,11 @@ var exitRoutes = []string{
 	`POST /v1/courtship/rooms/{id}/safety/report`,
 	`POST /v1/courtship/proposals/{id}/reject`,
 	`POST /v1/courtship/proposals/{id}/withdraw`,
+	// Leaving is never participation. A member who cannot join a circle must
+	// still be able to walk out of one they are already in.
+	`POST /v1/circles/{id}/leave`,
+	`POST /v1/game-cohorts/{cohortId}/leave`,
+	`DELETE /v1/fires/{id}/rsvps/{memberId}`,
 }
 
 func TestTheGateNeverBlocksTheRoadOutOfTheGate(t *testing.T) {
@@ -170,6 +175,81 @@ func TestTheGateNeverBlocksTheRoadOutOfTheGate(t *testing.T) {
 		}
 		if strings.Contains(line, "gate.guard") {
 			t.Fatalf("exit route %q is behind the tier gate: %s", route, line)
+		}
+	}
+}
+
+func TestAnUnverifiedMemberMayLookButNotTakePart(t *testing.T) {
+	// M1-AC-01, as the owner ruled it: browse yes, participate no. Before
+	// this an unverified account could start a circle, ask to join one,
+	// schedule a fire and enter a game cohort.
+	for _, surface := range []struct{ action, resource string }{
+		{"circles.participate", "circle"},
+		{"games.play", "game"},
+		{"fires.attend", "fire"},
+	} {
+		refused := gatedRequest(t, gateAt(identitydomain.TierUnverified), surface.action, surface.resource)
+		if refused.Code != http.StatusForbidden {
+			t.Fatalf("%s admitted an unverified member: %d", surface.action, refused.Code)
+		}
+		if !strings.Contains(refused.Body.String(), "tier_1_required") {
+			t.Fatalf("%s refused without naming the rung: %s", surface.action, refused.Body.String())
+		}
+		if allowed := gatedRequest(t, gateAt(identitydomain.TierVerified), surface.action, surface.resource); allowed.Code != http.StatusOK {
+			t.Fatalf("%s refused a verified member: %d", surface.action, allowed.Code)
+		}
+	}
+}
+
+// gatedRoutes are routes that must stay behind the tier gate. The exit test
+// above is only half the invariant: it proves the gate never blocks the way
+// out, and nothing proved the gate is still on the way in. Removing a
+// gate.guard from a participation route was, until this existed, a silent
+// change that every test still passed.
+var gatedRoutes = []string{
+	`POST /v1/introductions`,
+	`GET /v1/introductions/{id}/audio`,
+	`POST /v1/listening/heartbeats`,
+	`POST /v1/seed/sources`,
+	`POST /v1/seed/sprouts`,
+	`POST /v1/courtship/rooms`,
+	`POST /v1/courtship/rooms/{id}/turns`,
+	`POST /v1/courtship/proposals`,
+	`POST /v1/circles`,
+	`POST /v1/circles/{id}/requests`,
+	`POST /v1/fires`,
+	`POST /v1/game-cohorts/{cohortId}/join`,
+}
+
+func TestEveryParticipationRouteIsStillBehindTheGate(t *testing.T) {
+	registrations := map[string]string{}
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		source, err := os.ReadFile(filepath.Join(".", entry.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, line := range strings.Split(string(source), "\n") {
+			for _, route := range gatedRoutes {
+				if strings.Contains(line, `mux.Handle("`+route+`"`) {
+					registrations[route] = strings.TrimSpace(line)
+				}
+			}
+		}
+	}
+	for _, route := range gatedRoutes {
+		line, found := registrations[route]
+		if !found {
+			t.Fatalf("gated route %q is no longer registered; if it moved, move it in this test too", route)
+		}
+		if !strings.Contains(line, "gate.guard") {
+			t.Fatalf("participation route %q is no longer behind the tier gate: %s", route, line)
 		}
 	}
 }

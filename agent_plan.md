@@ -2992,3 +2992,63 @@ with "three takes of one question finished an introduction".
 That check is the only reason the weak test was found. Every other guard in
 this goal was verified the same way: removing the promotion call made the
 sowing test report that nothing earned the rung.
+
+
+## 38. Goal: a Tier-0 account may look, not take part (M1-AC-01, 2026-09-05)
+
+The owner ruled the ambiguity: M1-AC-01 says "fully gated from member
+surfaces", but verification was deliberately moved out of onboarding so signup
+is not blocked. The reading taken is **read-only browse, no participation** —
+an unverified account can see that the place is real and cannot act in it.
+
+### Capability placements, for review
+
+Answer to the standing question about the ~39 capabilities the dark contexts
+need: the FR-101 default is applied and recorded here rather than asked one at
+a time. Two rows were added to `authz/domain/policy.go` in this goal:
+
+| Capability            | Resource | Rung   | Why |
+| --------------------- | -------- | ------ | --- |
+| `circles.participate` | circle   | Tier 1 | Starting a circle or asking to join one is taking part, not looking. |
+| `games.play`          | game     | Tier 1 | Entering a competition cohort is the same. |
+
+`fires.attend` already existed at Tier 1 and now also covers scheduling a
+fire, which was ungated even though attending one has required Tier 1 inside
+the fire aggregate all along.
+
+### What is gated, and what deliberately is not
+
+Gated: `POST /v1/circles`, `POST /v1/circles/{id}/requests`, `POST /v1/fires`,
+`POST /v1/game-cohorts/{cohortId}/join`.
+
+Not gated, on purpose: every read, and every exit. Leaving is never
+participation — a member who cannot join a circle must still be able to walk
+out of one they are already in — so `POST /v1/circles/{id}/leave`,
+`POST /v1/game-cohorts/{cohortId}/leave` and
+`DELETE /v1/fires/{id}/rsvps/{memberId}` joined the exit invariant.
+
+**In-circle activity is not gated here.** Rooms, stories, Ampe, Ebe and Oware
+all require circle membership, and membership now requires a gated join, so a
+new Tier-0 account cannot reach them. That is transitive protection rather
+than a gate, and it does not cover an account that was already a member before
+this shipped. Gating those turns directly is the next slice, not something
+this goal did.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| T0-01   | `circles.participate` and `games.play` at Tier 1                     | DONE   |
+| T0-02   | Circle create/join, fire scheduling and cohort join behind the gate  | DONE   |
+| T0-03   | Leaving added to the exit invariant                                  | DONE   |
+| T0-04   | The other half of the invariant: participation routes stay gated     | DONE   |
+
+### The half of the invariant that was missing
+
+Checking a guard by breaking it found a hole in the guards themselves. Removing
+`gate.guard` from the circle-join route broke nothing: the exit test proves the
+gate never blocks the way out, and **nothing proved the gate was still on the
+way in**. Ungating a participation route was a silent change every test passed.
+
+`TestEveryParticipationRouteIsStillBehindTheGate` now reads the registration
+tables from source and fails if any of twelve participation routes loses its
+guard — verified by removing one and watching it name the offending line. That
+test exists only because an experiment failed to fail.
