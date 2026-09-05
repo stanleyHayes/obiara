@@ -2391,3 +2391,43 @@ adapter landed yesterday.
 | VOI-09   | Media removal erases the object, then the row              | TODO   | Order matters: a row deleted first orphans bytes nothing can find to remove                                                                                             |
 | VOI-10   | Worker sweep calling `Purge` on due and pending recordings | TODO   | Legal hold is never swept; the runner is explicit that holds live outside retention automation                                                                          |
 | NFR-301b | Envelope-encrypt voice blobs with a per-user key           | OPEN   | Named here so the gap is not read as closed. Needs a scheme that keeps the direct-to-bucket upload — a client-side content key wrapped per user is the shape to look at |
+
+## 30. Goal: let a member be introduced through a circle they belong to (2026-09-05)
+
+The voice slice is finished end to end — record, store, play, listen, erase —
+and nobody hears any of it, because introductions are never delivered. That is
+the next thing a member actually experiences, and it is where 26 of the 74
+confirmed critical gaps sit.
+
+**Why not S-20 first.** `internal/matching/coldstart` is fully built and
+orphaned, and looks like the same composition job `internal/introduction` was.
+It is not. Its `Preferences` port returns reciprocal matching preferences and
+**nothing in the repository backs it** — the only "preferences" anywhere are
+notification settings. Composing coldstart means first building a whole
+preferences context and a reciprocity computation, and it still has no weekly
+cadence and caps at 20 rather than the 3–7 S-20 asks for.
+
+**What is actually reachable.** `internal/seed/source` is the other orphan and
+it is genuinely composable. Its mongo repository already exists, and its
+`CandidateResolver` is deliberately source-scoped — the port comment says it
+"must never expose a global member list, reverse graph, or profile payload".
+Its four source types map onto contexts that already run: `consented_circle`
+to circles, `consented_trust` to trust edges, `consented_host` to fires,
+`policy_cohort` to cohorts. `Circle.Memberships()` and
+`trust.Repository.Outgoing` are the two reads it needs, and both exist.
+
+This is also the shape the product argues for. A member is introduced through
+a circle they already belong to, not by an algorithm ranking strangers — so
+the mechanism that is reachable is also the one that is right, and the
+preferences engine is not on the critical path to a first introduction.
+
+| Task   | Deliverable                                                | Status | Notes                                                                               |
+| ------ | ---------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------- |
+| ISR-01 | `CandidateResolver` over circle membership and trust edges | TODO   | Bounded and consented; never a global list. Active members only, requester excluded |
+| ISR-02 | `Authorizer` and `SourcePolicy` adapters                   | TODO   | A member may only open a source they belong to                                      |
+| ISR-03 | Module composition                                         | TODO   | Repository exists; the rest is wiring                                               |
+| ISR-04 | Routes and OpenAPI for open / withdraw / read              | TODO   | No route reaches this context today                                                 |
+| ISR-05 | Member surface: ask to be introduced from a circle         | TODO   |                                                                                     |
+
+NFR-301b (envelope-encrypted voice) and the preferences context both remain
+open and are not part of this slice.
