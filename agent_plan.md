@@ -3532,8 +3532,12 @@ Everything downstream — the spoken sow, the pod at the house front, mutual
 water opening a room — waits on **what screens a sow before it is delivered**.
 That is M4-ABUSE-01, it is a product and vendor decision, and it is not mine.
 
-Recorded rather than guessed. The three plausible answers are in the message
-that accompanied this section.
+**Decided by the owner, 2026-09-05: human review before delivery.** It is the
+only option that actually satisfies M4-ABUSE-01, it is tractable at launch
+volume, and the queue it needs is the same one TS-CARE-ROUTING requires — so
+the work counts twice. That decision unblocks the review queue as buildable
+work, and the queue is the prerequisite for the spoken sow rather than the
+other way round.
 
 ### An honest note about §40
 
@@ -3542,3 +3546,34 @@ and it is in the weaker place. If `seed/sow` becomes the live sow, the charge
 should move into `Acceptance`, which does it atomically, and the separate
 spend on `sprout` should go. I am flagging that rather than leaving two
 allowance spends in the codebase for someone to find later.
+
+
+### `seed/pod` is not the bridge job the inventory suggested
+
+Attempting it found two design gaps rather than three bridges, and they are
+recorded here rather than papered over with a plausible adapter.
+
+**The media reference is one-way.** `Create` stores
+`key("seed-pod:media", mediaRef)` — an HMAC — and the pod document keeps only
+`mediaKey` (`adapters/outbound/mongodb/repository.go:38`). `Playback` then
+calls `s.i.Issue(ctx, next.MediaKey(), ...)` and expects a playback token
+back. Nothing can resolve that digest to an asset: no mapping is written at
+creation, and the media context keys nothing the same way. Composing this
+needs a decision — the pod stores a resolvable reference, or a mapping is
+written at Create, or media adopts the same keying — and each one trades away
+some of the privacy the keying was for.
+
+**`PlaybackEligibility` is not the listen gate.** `Play` already refuses a
+non-recipient in the domain, and the comment says revalidation exists so "an
+old command can never bypass a later consent withdrawal, revocation, or
+eligibility expiry". So it is a consent re-check, and which purpose it
+re-checks is a product decision nobody has made.
+
+So the composition inventory's "check for a bridge first" advice was right to
+offer and wrong here. Two of three ports are bridges; the third is a design
+decision, and a pod that cannot play its own media is not worth composing.
+
+**What this means for the roadmap:** the remaining seed work is
+decision-blocked rather than effort-blocked. That is now true of sow
+(screening), pod (media resolution, consent purpose) and Sentinel (vendor,
+queue, and a recording to screen).
