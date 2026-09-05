@@ -4229,9 +4229,64 @@ cannot pass for the wrong reason.
 | `POST /v1/courtship/rooms` | Honoured (§57) |
 | Circles — joining one somebody you blocked is in | Not consulted |
 | Fires — attending one they are at | Not consulted |
-| Listening / introduction playback | Not consulted |
+| Listening / introduction playback | Honoured (§58) |
 
 The three closed are the ones where a block being ignored puts two people into
 direct contact. The three open are shared spaces, where the right behaviour is
 a product question — a block is not obviously a reason to be excluded from a
 circle somebody else happens to be in — rather than an oversight.
+
+
+## 58. Goal: you cannot listen to somebody who blocked you (2026-09-05)
+
+The fourth and last of the direct-contact boundaries.
+
+Listening is what arms a sow. A listening surface blind to blocks would let
+somebody accumulate the right to reach a person who had already said they
+wanted nothing to do with them — the block would hold at the moment of the
+reach, but the twenty seconds that made the reach possible would have been
+spent on that person's voice anyway.
+
+### The decisions
+
+**Both `RecordHeartbeats` and `Eligibility`.** Blocking the recording is not
+enough on its own: whatever was heard before the block must stop counting, so
+eligibility answers no rather than reporting the seconds already banked.
+
+**The port takes the asset, not the owner.** The listening context does not
+know who owns a recording and should not have to. The bridge resolves it.
+
+**Hearing your own recording back is not contact.** The bridge short-circuits
+when the listener owns the asset, so a member checking their own Voice of
+Introduction is never refused by a block check meant for other people.
+
+**A recording nothing can account for is not one anybody listens to.** An
+unreadable asset answers "blocked" rather than erroring, for the same reason
+the sow's ownership check does: the truthful answer is a refusal.
+
+**Without object storage there is no check, and therefore no listening.**
+There are also no recordings, so refusing costs nothing and listening blind to
+blocks would cost something.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| BLK-10  | `AssetBlocked` port on listening, on both entry points                | DONE   |
+| BLK-11  | A bridge resolving the recording's owner, exempting the owner         | DONE   |
+| BLK-12  | Absence of the check closes the surface                               | DONE   |
+
+Every existing listening test failed the moment the port was added, because
+none of them composed a block check — the fail-safe working, four times over.
+
+### Blocks now count on every boundary where they put two people in contact
+
+| Boundary | State |
+| --- | --- |
+| `POST /v1/seed/sprouts` | Honoured (§55) |
+| Introduction visibility | Honoured (§56) |
+| `POST /v1/courtship/rooms` | Honoured (§57) |
+| Listening / eligibility | Honoured (§58) |
+| Circles and fires — shared spaces | Deliberately not, pending a product ruling |
+
+The last row is a genuine question rather than an omission: a block is not
+obviously a reason to be excluded from a circle or a fire somebody else
+happens to be in, and deciding that is the owner's call.

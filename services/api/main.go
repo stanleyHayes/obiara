@@ -78,6 +78,7 @@ import (
 	introductionretention "github.com/stanleyHayes/obiara/services/api/internal/introduction/retention"
 	"github.com/stanleyHayes/obiara/services/api/internal/marketpack"
 	"github.com/stanleyHayes/obiara/services/api/internal/media"
+	mediamongo "github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/objectstore"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
@@ -329,6 +330,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("build listening module: %w", err)
 	}
+
+	// Listening is attached to the block check inside the media block, where
+	// the asset reader exists. Without object storage there are no recordings
+	// to hear, and the service refuses rather than listening blind to blocks.
+	listeningBlockedListening := listeningModule.Listening
+
 	gardenRepository := gardenmongodb.NewRepository(client.Database(cfg.MongoDatabase))
 	if err := gardenRepository.EnsureIndexes(ctx); err != nil {
 		return fmt.Errorf("ensure seed garden indexes: %w", err)
@@ -691,6 +698,9 @@ func run() error {
 		// is attached here. Until it is, the introduction visibility refuses to
 		// offer anybody rather than offering people blind to blocks.
 		seedStageModule = seedStageModule.WithBlocks(sproutBlockBridge{safety: safetyModule.Safety})
+		listeningBlockedListening = listeningModule.Listening.WithBlocks(listeningBlockBridge{
+			assets: mediaModule.Assets, safety: safetyModule.Safety,
+		})
 		seedStageModule.Sprout = seedStageModule.Sprout.WithListenGate(sproutListenBridge{
 			introductions: introductionModule.Store,
 			listening:     listeningModule.Listening,
@@ -721,7 +731,7 @@ func run() error {
 	apihttp.RegisterTrustVisibilityRoutes(mux, trustModule.Visibility, identityModule.Sessions)
 	apihttp.RegisterDoorwayRoutes(mux, profileModule.Doorway, profileModule.Vault, identityModule.Sessions)
 	apihttp.RegisterProfileRoutes(mux, profileModule.Profile, consentModule.ConsentMap, identityModule.Sessions)
-	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening, identityModule.Sessions, memberGate)
+	apihttp.RegisterListeningRoutes(mux, listeningBlockedListening, identityModule.Sessions, memberGate)
 	apihttp.RegisterGardenRoutes(mux, gardenService, identityModule.Sessions)
 	apihttp.RegisterCircleRoutes(mux, circleModule.Circles, identityModule.Sessions, memberGate)
 	apihttp.RegisterCircleRoomRoutes(mux, circleRoomModule.Rooms, identityModule.Sessions, memberGate)
@@ -993,6 +1003,31 @@ func (bridge introductionLadderBridge) SowingEarned(ctx context.Context, memberI
 		return err
 	}
 	return nil
+}
+
+// listeningBlockBridge answers whether a listener may hear a recording at
+// all, by resolving whose recording it is and asking the same block question
+// everything else asks.
+//
+// Listening is what arms a sow, so a listening surface blind to blocks would
+// let somebody accumulate the right to reach a person who had already said
+// they wanted nothing to do with them.
+type listeningBlockBridge struct {
+	assets *mediamongo.AssetRepository
+	safety safetyapplication.SafetyService
+}
+
+func (bridge listeningBlockBridge) Blocked(ctx context.Context, listenerID, assetID string) (bool, error) {
+	asset, err := bridge.assets.FindByID(ctx, assetID)
+	if err != nil {
+		// A recording nothing can account for is not one anybody listens to.
+		return true, nil
+	}
+	if asset.OwnerID() == listenerID {
+		// Hearing your own recording back is not contact with anybody.
+		return false, nil
+	}
+	return sproutBlockBridge{safety: bridge.safety}.Blocked(ctx, listenerID, asset.OwnerID())
 }
 
 // sproutBlockBridge answers the most basic question either member can have

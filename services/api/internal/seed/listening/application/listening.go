@@ -29,6 +29,7 @@ type ListeningRepository interface {
 // ListeningService records heartbeats and evaluates eligibility.
 type ListeningService struct {
 	playback ListeningRepository
+	blocks   AssetBlocked
 	now      func() time.Time
 }
 
@@ -41,7 +42,40 @@ const maxStaleRetries = 3
 // RecordHeartbeats merges a batch of ranges for one listener/asset and
 // returns the updated record. Stale-write races (multi-device listening)
 // retry against the freshly loaded record.
+// AssetBlocked reports whether the listener and the recording's owner have
+// blocked each other. It takes the asset rather than the owner because this
+// context does not know who owns a recording, and should not have to.
+type AssetBlocked interface {
+	Blocked(ctx context.Context, listenerID, assetID string) (bool, error)
+}
+
+// ErrListeningNotAvailable refuses listening across a block. It says nothing
+// about why: a member learning they cannot hear somebody would learn they had
+// been blocked.
+var ErrListeningNotAvailable = errors.New("this recording is not available")
+
+// WithBlocks attaches the block check.
+func (service ListeningService) WithBlocks(blocks AssetBlocked) ListeningService {
+	service.blocks = blocks
+	return service
+}
+
+// blocked answers whether this listener may hear this recording at all.
+//
+// Without a check composed the answer is no. Listening is what arms a sow, so
+// a listening surface blind to blocks would let somebody accumulate the right
+// to reach a person who had already said they wanted nothing to do with them.
+func (service ListeningService) blocked(ctx context.Context, listenerID, assetID string) (bool, error) {
+	if service.blocks == nil {
+		return true, nil
+	}
+	return service.blocks.Blocked(ctx, listenerID, assetID)
+}
+
 func (service ListeningService) RecordHeartbeats(ctx context.Context, listenerID, assetID string, assetDuration float64, ranges []HeartbeatRange) (domain.Playback, error) {
+	if blocked, err := service.blocked(ctx, listenerID, assetID); err != nil || blocked {
+		return domain.Playback{}, ErrListeningNotAvailable
+	}
 	for attempt := 0; ; attempt++ {
 		record, err := service.playback.Find(ctx, listenerID, assetID)
 		if errors.Is(err, domain.ErrPlaybackNotFound) {
@@ -77,6 +111,11 @@ func (service ListeningService) RecordHeartbeats(ctx context.Context, listenerID
 // Eligibility reports the sow-arming state for the sow boundary (E06-S04).
 // It is read-only and never exposed to the sower's counterpart (FR-205).
 func (service ListeningService) Eligibility(ctx context.Context, listenerID, assetID string) (eligible bool, totalSeconds float64, err error) {
+	// A block makes somebody permanently ineligible to sow toward the owner
+	// of this recording, however much of it they had already heard.
+	if blocked, blockErr := service.blocked(ctx, listenerID, assetID); blockErr != nil || blocked {
+		return false, 0, nil
+	}
 	record, err := service.playback.Find(ctx, listenerID, assetID)
 	if errors.Is(err, domain.ErrPlaybackNotFound) {
 		return false, 0, nil

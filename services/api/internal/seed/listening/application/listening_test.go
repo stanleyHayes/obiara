@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -17,7 +18,7 @@ func fixedNow() time.Time { return listeningNow }
 func TestRecordHeartbeatsCreatesAndSaves(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repository := NewMockListeningRepository(ctrl)
-	service := NewListeningService(repository, fixedNow)
+	service := NewListeningService(repository, fixedNow).WithBlocks(openAssetBlocks{})
 
 	repository.EXPECT().Find(gomock.Any(), "m-1", "asset-1").Return(domain.Playback{}, domain.ErrPlaybackNotFound)
 	repository.EXPECT().Save(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -40,7 +41,7 @@ func TestRecordHeartbeatsCreatesAndSaves(t *testing.T) {
 func TestRecordHeartbeatsRetriesStaleWrites(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repository := NewMockListeningRepository(ctrl)
-	service := NewListeningService(repository, fixedNow)
+	service := NewListeningService(repository, fixedNow).WithBlocks(openAssetBlocks{})
 
 	existing, _ := domain.NewPlayback("m-1", "asset-1", 60)
 	_ = existing.Record(0, 10)
@@ -61,7 +62,7 @@ func TestRecordHeartbeatsRetriesStaleWrites(t *testing.T) {
 func TestEligibility(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repository := NewMockListeningRepository(ctrl)
-	service := NewListeningService(repository, fixedNow)
+	service := NewListeningService(repository, fixedNow).WithBlocks(openAssetBlocks{})
 
 	// No record yet: ineligible with zero seconds, no error.
 	repository.EXPECT().Find(gomock.Any(), "m-1", "asset-1").Return(domain.Playback{}, domain.ErrPlaybackNotFound)
@@ -82,11 +83,63 @@ func TestEligibility(t *testing.T) {
 func TestInvalidHeartbeatRejected(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repository := NewMockListeningRepository(ctrl)
-	service := NewListeningService(repository, fixedNow)
+	service := NewListeningService(repository, fixedNow).WithBlocks(openAssetBlocks{})
 
 	repository.EXPECT().Find(gomock.Any(), "m-1", "asset-1").Return(domain.Playback{}, domain.ErrPlaybackNotFound)
 	// No Save expectation: invalid input must not persist.
 	if _, err := service.RecordHeartbeats(context.Background(), "m-1", "asset-1", 60, []HeartbeatRange{{Start: 9, End: 4}}); err != domain.ErrInvalidRange {
 		t.Fatalf("RecordHeartbeats = %v, want invalid range", err)
+	}
+}
+
+// openAssetBlocks is a block check where nobody has blocked anybody.
+type openAssetBlocks struct {
+	blocked bool
+	err     error
+}
+
+func (b openAssetBlocks) Blocked(context.Context, string, string) (bool, error) {
+	return b.blocked, b.err
+}
+
+func TestYouCannotListenToSomebodyWhoBlockedYou(t *testing.T) {
+	// Listening is what arms a sow. A listening surface blind to blocks
+	// would let somebody accumulate the right to reach a person who had
+	// already said they wanted nothing to do with them.
+	ctrl := gomock.NewController(t)
+	repository := NewMockListeningRepository(ctrl)
+	// No repository expectations: a blocked listen must not even be recorded.
+
+	service := NewListeningService(repository, fixedNow).
+		WithBlocks(openAssetBlocks{blocked: true})
+
+	if _, err := service.RecordHeartbeats(context.Background(), "m-1", "asset-1", 60,
+		[]HeartbeatRange{{Start: 0, End: 5}}); !errors.Is(err, ErrListeningNotAvailable) {
+		t.Fatalf("err = %v, want ErrListeningNotAvailable", err)
+	}
+	// And whatever was heard before the block does not still count.
+	eligible, seconds, err := service.Eligibility(context.Background(), "m-1", "asset-1")
+	if err != nil || eligible || seconds != 0 {
+		t.Fatalf("eligible = %v, seconds = %v, err = %v", eligible, seconds, err)
+	}
+}
+
+func TestListeningWithNoBlockCheckIsRefused(t *testing.T) {
+	// The absence of the check closes the surface rather than opening it.
+	ctrl := gomock.NewController(t)
+	service := NewListeningService(NewMockListeningRepository(ctrl), fixedNow)
+	if _, err := service.RecordHeartbeats(context.Background(), "m-1", "asset-1", 60,
+		[]HeartbeatRange{{Start: 0, End: 5}}); !errors.Is(err, ErrListeningNotAvailable) {
+		t.Fatalf("err = %v, want ErrListeningNotAvailable", err)
+	}
+}
+
+func TestAnUnreadableBlockCheckStopsListening(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	service := NewListeningService(NewMockListeningRepository(ctrl), fixedNow).
+		WithBlocks(openAssetBlocks{err: errors.New("safety unavailable")})
+	if _, err := service.RecordHeartbeats(context.Background(), "m-1", "asset-1", 60,
+		[]HeartbeatRange{{Start: 0, End: 5}}); !errors.Is(err, ErrListeningNotAvailable) {
+		t.Fatalf("err = %v, want ErrListeningNotAvailable", err)
 	}
 }
