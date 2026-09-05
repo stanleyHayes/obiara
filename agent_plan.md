@@ -2555,7 +2555,7 @@ decided, and I am not inventing one — flagged below as open.
 | TIER-02 | Romantic surfaces at Tier 1: introductions, courtship rooms, sources   | DONE   |
 | TIER-03 | Sowing at Tier 2: sprouts (exchanges placed at Tier 1, below)          | DONE   |
 | TIER-04 | Audited admin tier transition, so Tier 2 is reachable                  | DROPPED |
-| TIER-05 | The client explains the rung instead of showing a bare refusal         | PARTIAL |
+| TIER-05 | The client explains the rung instead of showing a bare refusal         | DONE   |
 
 **Open product decision, for the owner not the adapter author:** what promotes
 an account from Tier 1 to Tier 2. Until it is answered, sowing is
@@ -2604,17 +2604,29 @@ which has never been decided. So sowing is now correctly closed rather than
 wrongly open, and nothing regressed today: no client calls `/v1/seed/sprouts`,
 `/v1/seed/doorways/{id}/exchanges`, or any courtship route yet.
 
-### TIER-05 is partial, stated plainly
+### TIER-05, finished in two halves
 
-The circle ask now turns a refusal into a link to verification: the BFF carries
-the refusal `code` beside the message, and `tierNotice` maps `tier_1_required`
-to somewhere the member can actually go.
+The circle ask turns a refusal into a link to verification: the BFF carries the
+refusal `code` beside the message, and `tierNotice` maps `tier_1_required` to
+somewhere the member can actually go.
 
-The voice page does not. It still lets a Tier-0 member record three answers and
-only refuses at save, which wastes real effort. The fix is to check the rung
-before recording rather than after, and it needs the member's tier on the
-client, which no endpoint exposes today. Recorded here rather than claimed.
+The voice page needed the opposite fix. Refusing at save let a member record
+three answers for nothing, so the rung had to reach the page *before* the
+recorder. `GET /v1/onboarding/status` already answers "where do I stand" as a
+coarse projection with no provider reasoning in it, so the rung was added
+there rather than inventing a route: it is the member's own tier and nobody
+else's. The page reads it server-side and renders a door with a handle instead
+of the recorder.
 
-**Still open:** what promotes an account from Tier 1 to Tier 2, and surfacing a
-member's own rung to the client so a gated surface can explain itself before
-the member works for nothing.
+Two failure directions were handled deliberately and in opposite ways, because
+the cost of being wrong differs:
+
+- The **API** refuses to guess. An unreadable account answers 500, never a
+  fabricated Tier 0, because telling a verified member to verify again would
+  send them to redo work they have already done.
+- The **page** refuses to block. An unreadable rung renders the recorder as
+  before, because the server gate is the authority on who may record and
+  turning a slow status read into a locked page would shut out members who are
+  perfectly entitled to be there.
+
+**Still open:** what promotes an account from Tier 1 to Tier 2.

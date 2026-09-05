@@ -623,6 +623,7 @@ func run() error {
 		verificationModule.Verification,
 		livenessModule.Liveness,
 		identityModule.Sessions,
+		identityModule.Tiers,
 	)
 	apihttp.RegisterVerificationRoutes(mux, verificationModule.Verification, identityModule.Sessions)
 	apihttp.RegisterLivenessRoutes(mux, livenessModule.Liveness, livenessModule.Artifacts, identityModule.Sessions)

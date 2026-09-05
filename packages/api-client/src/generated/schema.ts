@@ -5221,6 +5221,13 @@ export interface components {
       readonly consentsAccepted: boolean;
       readonly identity: components["schemas"]["OnboardingStepState"];
       readonly liveness: components["schemas"]["OnboardingStepState"];
+      /**
+       * @description The rung of the verification ladder this member stands on
+       *     (FR-101): 0 unverified, 1 verified, 2 sowing-eligible. A surface
+       *     that is gated above the member's rung can then say so before the
+       *     member spends effort on it, rather than refusing at the end.
+       */
+      readonly tier: number;
     };
     readonly OnboardingStatusEnvelope: {
       readonly data: components["schemas"]["OnboardingStatusData"];

@@ -255,3 +255,37 @@
   outline: 3px solid #ff9f1c;
   outline-offset: 3px;
 }
+
+/* Shown instead of the recorder when the member has not reached Tier 1. It is
+   a door with a handle, not a refusal: the action goes where the rung is
+   earned. */
+.voice-locked {
+  border: 1px solid var(--fie-border, rgba(0, 0, 0, 0.12));
+  border-radius: 16px;
+  padding: 20px;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.voice-locked h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.voice-locked p {
+  margin: 0;
+  max-width: 52ch;
+}
+
+.voice-locked-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--fie-ink, #14110f);
+  color: var(--fie-paper, #fdfbf7);
+  text-decoration: none;
+  font-weight: 600;
+}

@@ -3,6 +3,7 @@ package apihttp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -61,6 +62,7 @@ func onboardingStatusFixture(
 		sessionAuthenticatorStub{authenticate: func(context.Context, string) (identitydomain.Session, error) {
 			return session, nil
 		}},
+		tierStub{tier: identitydomain.TierVerified},
 	)
 	request := httptest.NewRequest(http.MethodGet, "/v1/onboarding/status", nil)
 	request.Header.Set("Authorization", "Bearer access-token")
@@ -168,4 +170,68 @@ func containsAny(haystack string, needles ...string) bool {
 		}
 	}
 	return false
+}
+
+func TestOnboardingStatusReportsTheRungTheMemberStandsOn(t *testing.T) {
+	// A surface gated above the member's rung can only explain itself before
+	// the member spends effort on it if the member's own rung reaches the
+	// client. The value must come from the account, not a constant.
+	now := time.Date(2026, time.September, 4, 12, 0, 0, 0, time.UTC)
+	session := identitydomain.Reconstitute(
+		"session-1", "member-1", "device-1", identitydomain.StatusActive,
+		"access", now.Add(time.Hour), "refresh", "", now.Add(24*time.Hour), 1, now, now,
+	)
+	for _, rung := range []identitydomain.Tier{
+		identitydomain.TierUnverified, identitydomain.TierVerified, identitydomain.TierSowing,
+	} {
+		mux := http.NewServeMux()
+		RegisterOnboardingStatusRoutes(mux, allOnboardingConsents(),
+			onboardingIdentityStateStub{}, onboardingLivenessStateStub{},
+			sessionAuthenticatorStub{authenticate: func(context.Context, string) (identitydomain.Session, error) {
+				return session, nil
+			}},
+			tierStub{tier: rung},
+		)
+		request := httptest.NewRequest(http.MethodGet, "/v1/onboarding/status", nil)
+		request.Header.Set("Authorization", "Bearer access-token")
+		response := httptest.NewRecorder()
+		Correlation(mux).ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+		}
+		var envelope struct {
+			Data onboardingStatusResponse `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		if envelope.Data.Tier != int(rung) {
+			t.Fatalf("tier = %d, want %d", envelope.Data.Tier, int(rung))
+		}
+	}
+}
+
+func TestOnboardingStatusRefusesToGuessARung(t *testing.T) {
+	// Answering Tier 0 when the account could not be read would tell a member
+	// who has already verified to go and verify again.
+	now := time.Date(2026, time.September, 4, 12, 0, 0, 0, time.UTC)
+	session := identitydomain.Reconstitute(
+		"session-1", "member-1", "device-1", identitydomain.StatusActive,
+		"access", now.Add(time.Hour), "refresh", "", now.Add(24*time.Hour), 1, now, now,
+	)
+	mux := http.NewServeMux()
+	RegisterOnboardingStatusRoutes(mux, allOnboardingConsents(),
+		onboardingIdentityStateStub{}, onboardingLivenessStateStub{},
+		sessionAuthenticatorStub{authenticate: func(context.Context, string) (identitydomain.Session, error) {
+			return session, nil
+		}},
+		tierStub{err: errors.New("accounts unreadable")},
+	)
+	request := httptest.NewRequest(http.MethodGet, "/v1/onboarding/status", nil)
+	request.Header.Set("Authorization", "Bearer access-token")
+	response := httptest.NewRecorder()
+	Correlation(mux).ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("an unreadable account answered %d, want 500: %s", response.Code, response.Body.String())
+	}
 }

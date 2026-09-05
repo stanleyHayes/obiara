@@ -43,7 +43,12 @@ function baseType(mimeType: string): string {
   return mimeType.split(";")[0] ?? "audio/webm";
 }
 
-export function VoiceSettings() {
+/**
+ * @param tier The rung the member stands on, or null when it could not be
+ * read. Null renders the recorder as before: the server gate is authoritative,
+ * and a slow status read must not become a door nobody can open.
+ */
+export function VoiceSettings({ tier }: { tier: number | null }) {
   const [state, dispatch] = useReducer(voiceReducer, initialVoiceState);
   // Derived at first render rather than set from an effect: whether this
   // browser can record is a fact about the browser, not a change of state.
@@ -294,6 +299,34 @@ export function VoiceSettings() {
   }
 
   const done = completedCount(state);
+
+  // Recording is gated at Tier 1 (FR-101a). Saying so here, rather than
+  // letting the save fail, is the difference between a closed door and three
+  // answers recorded for nothing.
+  if (tier !== null && tier < 1) {
+    return (
+      <main className="voice-shell">
+        <section className="voice-intro">
+          <p className="fie-kicker">Your voice</p>
+          <h1>Three questions, in your own voice.</h1>
+          <p>
+            This is how people meet you here — before a photo, before a
+            profile.
+          </p>
+        </section>
+        <section className="voice-locked" role="status">
+          <h2>Verify your identity first</h2>
+          <p>
+            Your voice is how members meet you, so it opens once your identity
+            is verified. It takes a few minutes and is only done once.
+          </p>
+          <Link className="voice-locked-action" href="/fie/settings/verification">
+            Verify your identity
+          </Link>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="voice-shell">

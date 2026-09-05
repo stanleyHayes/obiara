@@ -9212,7 +9212,7 @@ components:
     OnboardingStatusData:
       type: object
       additionalProperties: false
-      required: [consentsAccepted, identity, liveness]
+      required: [consentsAccepted, identity, liveness, tier]
       properties:
         consentsAccepted:
           type: boolean
@@ -9224,6 +9224,15 @@ components:
           $ref: "#/components/schemas/OnboardingStepState"
         liveness:
           $ref: "#/components/schemas/OnboardingStepState"
+        tier:
+          type: integer
+          minimum: 0
+          maximum: 2
+          description: |
+            The rung of the verification ladder this member stands on
+            (FR-101): 0 unverified, 1 verified, 2 sowing-eligible. A surface
+            that is gated above the member's rung can then say so before the
+            member spends effort on it, rather than refusing at the end.
     OnboardingStatusEnvelope:
       type: object
       additionalProperties: false

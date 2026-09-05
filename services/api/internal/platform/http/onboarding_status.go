@@ -35,9 +35,14 @@ func RegisterOnboardingStatusRoutes(
 	identity OnboardingIdentityState,
 	liveness OnboardingLivenessState,
 	sessions SessionAuthenticator,
+	tiers TierReader,
 ) {
-	mux.Handle("GET /v1/onboarding/status", onboardingStatusHandler(consents, identity, liveness, sessions))
+	mux.Handle("GET /v1/onboarding/status", onboardingStatusHandler(consents, identity, liveness, sessions, tiers))
 }
+
+// errTierReaderMissing reports a status route composed without the identity
+// tier read, which would otherwise answer with a silently wrong rung.
+var errTierReaderMissing = errors.New("onboarding status requires a tier reader")
 
 // Step states are deliberately coarse. The console needs to know which of the
 // four doors to open, not the provider's reasoning — that stays inside the
@@ -54,6 +59,10 @@ type onboardingStatusResponse struct {
 	ConsentsAccepted bool   `json:"consentsAccepted"`
 	Identity         string `json:"identity"`
 	Liveness         string `json:"liveness"`
+	// Tier is the rung this member stands on, so a gated surface can explain
+	// itself before the member spends effort on it rather than refusing at
+	// the end. It is the member's own tier and nobody else's.
+	Tier int `json:"tier"`
 }
 
 // onboardingStatusHandler answers "where was I".
@@ -73,6 +82,7 @@ func onboardingStatusHandler(
 	identity OnboardingIdentityState,
 	liveness OnboardingLivenessState,
 	sessions SessionAuthenticator,
+	tiers TierReader,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token, ok := bearerToken(r.Header.Get("Authorization"))
@@ -118,10 +128,30 @@ func onboardingStatusHandler(
 			return
 		}
 
+		// The rung is read the same way the other three facts are, and fails
+		// the same way. Reporting a guessed Tier 0 instead would tell a member
+		// who has already verified to go and verify again.
+		if tiers == nil {
+			logServerError(r.Context(), r, http.StatusInternalServerError, "internal_error", errTierReaderMissing)
+			writeError(w, r, http.StatusInternalServerError, APIError{
+				Code: "internal_error", Message: "The request could not be completed.",
+			})
+			return
+		}
+		tier, err := tiers.Tier(r.Context(), memberID)
+		if err != nil {
+			logServerError(r.Context(), r, http.StatusInternalServerError, "internal_error", err)
+			writeError(w, r, http.StatusInternalServerError, APIError{
+				Code: "internal_error", Message: "The request could not be completed.",
+			})
+			return
+		}
+
 		writeSuccess(w, r, http.StatusOK, onboardingStatusResponse{
 			ConsentsAccepted: accepted,
 			Identity:         identityState,
 			Liveness:         livenessState,
+			Tier:             int(tier),
 		})
 	})
 }
