@@ -3923,3 +3923,66 @@ the handler ran. The test was wrong and the gate was right.
 store's `Decide` and then the sow's `Review`. After that a sow can be sent,
 held, read by a person, and released or refused with the seed returned — end
 to end.
+
+
+## 52. Goal: a person can actually read the queue (2026-09-05)
+
+The chain is closed. A sow can be sent, is held, reaches a reviewer, and is
+released or refused with the seed returned — end to end, on live routes.
+
+### The ordering is the design
+
+`reviewdesk` exists as its own package rather than as logic inside a handler,
+because the order of its two writes is the whole point and an ordering rule
+that lives in a route is one nobody can test.
+
+**The sow is settled first, the record second.** If the sow settles and the
+record then fails, the review stays pending: a reviewer sees it again, tries
+again, and the retry finds the sow already settled and finishes the record.
+The reverse fails far worse — a review marked decided over a sow still held
+would strand that sow forever, with the member's seed inside it and nothing
+left pointing at the problem.
+
+A test asserts the call order directly, and another asserts the record is
+never written when the settlement failed, because recording that somebody
+decided a sow that is still held would be a lie that also hides it.
+
+**A fully settled decision reports success.** Telling a reviewer their
+decision failed would invite them to make it again.
+
+### The surface
+
+`GET /v1/admin/screening/reviews` and
+`POST /v1/admin/screening/reviews/{id}/decision`, both behind safety scope and
+a fresh MFA claim — the queue holds members' own words, which is the point of
+the review and also why it is not something to reach into casually.
+
+**`approve` is required, never defaulted.** An absent decision must not
+deliver a sow nobody cleared, and a test asserts an empty body never reaches
+the desk. `Idempotency-Key` is required for the same reason it is on the sow:
+a repeated decision would refund a seed twice.
+
+**The recording is described, not carried.** A reviewer needs to know what is
+attached; this response is not where audio is handed around.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| REV-05  | `reviewdesk`: sow settled first, record second, with recovery        | DONE   |
+| REV-06  | The queue and the decision, behind step-up                           | DONE   |
+| REV-07  | Contract, operation count and generated client                       | DONE   |
+
+Guards proven by breaking them: reversing the desk's order broke both the
+ordering test and the never-write-over-a-failure test, and defaulting an
+absent `approve` let a sow through that nobody had cleared.
+
+### What this chain does not yet have
+
+**Access to the queue is not audited.** The safety context audits every
+evidence read; this does not, and it shows members' own words. That is the
+clearest next gap in this area and it is recorded rather than glossed.
+
+**No pod, so a released sow still reaches nobody.** Release marks the sow
+delivered; the surface that puts it in front of the recipient is `seed/pod`,
+which is blocked on the media-resolution decision in §45. A sow can now be
+sent, paid for, held, read and released — and the last step, someone
+receiving it, is still the open one.

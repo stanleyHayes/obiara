@@ -5287,6 +5287,99 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "503":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/screening/reviews:
+    get:
+      operationId: listAdminScreeningReviews
+      tags: [Admin, Safety]
+      summary: The sows waiting on a person
+      description: |
+        Every sow is read before it is delivered, so this is the queue the
+        whole sow path passes through. It carries members' own words, which is
+        the point of the review and also why a fresh MFA claim is required.
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: Reviews awaiting a decision, oldest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminScreeningQueueEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/screening/reviews/{id}/decision:
+    post:
+      operationId: decideAdminScreeningReview
+      tags: [Admin, Safety]
+      summary: Release or refuse a held sow
+      description: |
+        Settles the sow and records who decided it. A refusal returns the
+        member's seed in the same transaction that stores the rejection
+        (M4-ABUSE-01).
+
+        approve is required rather than defaulted: an absent decision must not
+        deliver a sow nobody cleared. Idempotency-Key is required because a
+        repeated decision would otherwise refund a seed twice.
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminScreeningDecisionInput"
+      responses:
+        "200":
+          description: The sow was released or refused.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminScreeningDecisionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "404":
+          description: No review answers to that reference.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: That review has already been decided.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/admin/safety/cases/{id}/actions:
     post:
       operationId: applyAdminSafetyAction
@@ -9755,6 +9848,84 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/AdminSafetyCaseListData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminScreeningReview:
+      type: object
+      additionalProperties: false
+      required: [reference, reason, body, recordings, routedAt]
+      properties:
+        reference: { type: string }
+        reason:
+          type: string
+          description: Why this reached a person rather than being decided.
+        body:
+          type: string
+          description: The member's own words, which is what is being reviewed.
+        localeTag: { type: string }
+        recordings:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminScreeningRecording"
+          description: |
+            What is attached, described rather than carried. A reviewer needs
+            to know what is there; this is not where audio is handed around.
+        advisory:
+          type: array
+          items: { type: string }
+          description: |
+            What the automated pass thought, shown as an opinion. A decision
+            here is only ever a person's.
+        routedAt: { type: string, format: date-time }
+    AdminScreeningRecording:
+      type: object
+      additionalProperties: false
+      required: [mediaType, bytes, durationMs]
+      properties:
+        mediaType: { type: string }
+        bytes: { type: integer }
+        durationMs: { type: integer }
+    AdminScreeningQueueData:
+      type: object
+      additionalProperties: false
+      required: [reviews]
+      properties:
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminScreeningReview"
+    AdminScreeningQueueEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminScreeningQueueData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminScreeningDecisionInput:
+      type: object
+      additionalProperties: false
+      required: [approve]
+      properties:
+        approve:
+          type: boolean
+          description: |
+            Required, never defaulted. An absent decision must not deliver a
+            sow nobody cleared.
+    AdminScreeningDecisionData:
+      type: object
+      additionalProperties: false
+      required: [approved]
+      properties:
+        approved: { type: boolean }
+    AdminScreeningDecisionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminScreeningDecisionData"
         meta:
           $ref: "#/components/schemas/Metadata"
     AdminSafetyActionInput:

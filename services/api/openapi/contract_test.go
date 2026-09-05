@@ -229,7 +229,10 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// 203 adds sendSow: the atomic gesture itself, which had a complete
 	// aggregate, an atomic allowance spend and a screening chain, and no
 	// route at all.
-	if len(seen) != 203 {
-		t.Errorf("operationId count = %d, want 203", len(seen))
+	// 205 adds the screening review queue and its decision — the surface
+	// that makes "a person reads every sow before delivery" something
+	// somebody can do, rather than a policy with nowhere to happen.
+	if len(seen) != 205 {
+		t.Errorf("operationId count = %d, want 205", len(seen))
 	}
 }

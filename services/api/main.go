@@ -103,6 +103,7 @@ import (
 	gardenapp "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
 	listeningapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/listening/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/seed/reviewdesk"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/screening"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/sow"
 	sowmedia "github.com/stanleyHayes/obiara/services/api/internal/seed/sow/adapters/outbound/media"
@@ -635,6 +636,15 @@ func run() error {
 			return fmt.Errorf("build sow module: %w", sowErr)
 		}
 		apihttp.RegisterSowRoutes(mux, sowModule.Sows, identityModule.Sessions, memberGate)
+		// The desk settles the sow first and records the judgement second,
+		// so a failure between them leaves a review a reviewer sees again
+		// rather than a sow held forever with a seed inside it.
+		apihttp.RegisterAdminScreeningRoutes(
+			mux,
+			screeningModule.Reviews,
+			reviewdesk.New(sowModule.Sows, screeningModule.Reviews),
+			adminPrincipalResolver,
+		)
 
 		introductionModule, introErr := introduction.NewModule(
 			ctx,

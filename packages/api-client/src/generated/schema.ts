@@ -942,6 +942,54 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/screening/reviews": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * The sows waiting on a person
+     * @description Every sow is read before it is delivered, so this is the queue the
+     *     whole sow path passes through. It carries members' own words, which is
+     *     the point of the review and also why a fresh MFA claim is required.
+     */
+    readonly get: operations["listAdminScreeningReviews"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/screening/reviews/{id}/decision": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Release or refuse a held sow
+     * @description Settles the sow and records who decided it. A refusal returns the
+     *     member's seed in the same transaction that stores the rejection
+     *     (M4-ABUSE-01).
+     *
+     *     approve is required rather than defaulted: an absent decision must not
+     *     deliver a sow nobody cleared. Idempotency-Key is required because a
+     *     repeated decision would otherwise refund a seed twice.
+     */
+    readonly post: operations["decideAdminScreeningReview"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/sessions/{id}/step-up/complete": {
     readonly parameters: {
       readonly query?: never;
@@ -4079,6 +4127,52 @@ export interface components {
     readonly AdminSafetyEvidenceInput: {
       /** @enum {string} */
       readonly purpose: "triage" | "appeal" | "legal";
+    };
+    readonly AdminScreeningDecisionData: {
+      readonly approved: boolean;
+    };
+    readonly AdminScreeningDecisionEnvelope: {
+      readonly data: components["schemas"]["AdminScreeningDecisionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly AdminScreeningDecisionInput: {
+      /**
+       * @description Required, never defaulted. An absent decision must not deliver a
+       *     sow nobody cleared.
+       */
+      readonly approve: boolean;
+    };
+    readonly AdminScreeningQueueData: {
+      readonly reviews: readonly components["schemas"]["AdminScreeningReview"][];
+    };
+    readonly AdminScreeningQueueEnvelope: {
+      readonly data: components["schemas"]["AdminScreeningQueueData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly AdminScreeningRecording: {
+      readonly bytes: number;
+      readonly durationMs: number;
+      readonly mediaType: string;
+    };
+    readonly AdminScreeningReview: {
+      /**
+       * @description What the automated pass thought, shown as an opinion. A decision
+       *     here is only ever a person's.
+       */
+      readonly advisory?: readonly string[];
+      /** @description The member's own words, which is what is being reviewed. */
+      readonly body: string;
+      readonly localeTag?: string;
+      /** @description Why this reached a person rather than being decided. */
+      readonly reason: string;
+      /**
+       * @description What is attached, described rather than carried. A reviewer needs
+       *     to know what is there; this is not where audio is handed around.
+       */
+      readonly recordings: readonly components["schemas"]["AdminScreeningRecording"][];
+      readonly reference: string;
+      /** Format: date-time */
+      readonly routedAt: string;
     };
     readonly AdminSeenData: {
       /**
@@ -8771,6 +8865,89 @@ export interface operations {
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 503: components["responses"]["InternalError"];
+    };
+  };
+  readonly listAdminScreeningReviews: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Reviews awaiting a decision, oldest first. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminScreeningQueueEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly decideAdminScreeningReview: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AdminScreeningDecisionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The sow was released or refused. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminScreeningDecisionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /** @description No review answers to that reference. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description That review has already been decided. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly completeAdminStepUp: {
