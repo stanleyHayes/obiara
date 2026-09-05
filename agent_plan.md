@@ -2439,6 +2439,47 @@ The bound is right: the request holds a snapshot of a roster, and a roster is
 only true while nobody joins or leaves.
 
 And `/v1/seed/sprouts`, `/v1/seed/declines` and `/v1/seed/doorways/{id}/exchanges`
-are registered routes with no entry in the OpenAPI contract at all. Not fixed
-here, but recorded: the contract test counts operation ids and would not
-notice a route that was never added to the document.
+were registered routes with no entry in the OpenAPI contract at all. Fixed in
+§31.
+
+## 31. Contract coverage (2026-09-05)
+
+Three seed-stage routes had been served and undocumented. A full audit of the
+198 registered routes against the document found exactly those three and no
+others; an earlier pass reported a fourth problem — a path in the contract
+that nothing served — and that was an extraction bug, not a finding. `/live`,
+`/ready` and `/webhooks/resend` looked like phantoms only because the first
+pass grepped `/v1/` and they do not start with it.
+
+All three are now written down: sprout, doorway exchange and decline, with the
+shapes their handlers actually return rather than shapes invented for the
+document.
+
+**The durable part is the test, not the three entries.**
+`TestOperationIDsAreUnique` counts operation ids inside the document, so a
+route served and never written down is invisible to it — the guard was doing
+its job and its job was the wrong shape.
+`TestEveryServedRouteIsInTheContract` compares the registrations in the source
+against the paths in the document, in both directions, and fails on either.
+Both directions matter: a generated client is built from this document, so a
+route missing from it is unreachable to every client that trusts it, and a
+path in it that nothing serves hands clients a method that 404s.
+
+It reads the `mux.Handle` calls out of the source because Go's ServeMux does
+not expose the patterns it holds, so there is nothing to ask at runtime. It
+walks the paths block line by line rather than matching a path and scanning
+forward, because a path that is a prefix of another would otherwise swallow
+its methods — `/v1/blocks` would claim the delete on
+`/v1/blocks/{blockerId}/{blockedId}`, which is exactly the mistake the first
+audit script made.
+
+The test was checked against both failure modes before being kept: removing a
+documented path made it report the served route, and adding a path nothing
+serves made it report the phantom. A guard that has never been seen to fail is
+not yet a guard.
+
+| Task  | Deliverable                                                             | Status |
+| ----- | ----------------------------------------------------------------------- | ------ |
+| CC-01 | Audit every registered route against the contract                       | DONE   |
+| CC-02 | Document sprout, doorway exchange and decline                           | DONE   |
+| CC-03 | `TestEveryServedRouteIsInTheContract`, both directions, failure-checked | DONE   |

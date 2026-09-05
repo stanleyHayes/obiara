@@ -1822,6 +1822,122 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/seed/sprouts:
+    post:
+      operationId: sproutSeed
+      tags: [Matching]
+      summary: Reach toward another member
+      security:
+        - MemberBearer: []
+      description: |
+        Records that this member has reached toward another. If the other had
+        already reached toward them, the doorway between them opens and
+        `opened` is true — neither is told about a reach that was never
+        returned, which is what keeps an unanswered one private.
+
+        The command id makes this idempotent: replaying it returns the same
+        doorway rather than reaching twice.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SproutInput"
+      responses:
+        "201":
+          description: The reach was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoorwayEnvelope"
+        "200":
+          description: The same command already recorded this reach.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoorwayEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/seed/doorways/{id}/exchanges:
+    post:
+      operationId: exchangeInDoorway
+      tags: [Matching]
+      summary: Add a bounded exchange to an open doorway
+      security:
+        - MemberBearer: []
+      description: |
+        The doorway is deliberately narrow. Only a reference to the message is
+        carried here; the content itself lives where the room keeps it.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoorwayExchangeInput"
+      responses:
+        "200":
+          description: The exchange was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoorwayEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+  /v1/seed/declines:
+    post:
+      operationId: declineSeed
+      tags: [Matching]
+      summary: Decline a reach
+      security:
+        - MemberBearer: []
+      description: |
+        Records a decline. The response says only that it was recorded: who
+        declined whom is kept, keyed, for the safety ledger and is never read
+        back to either member.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeedDeclineInput"
+      responses:
+        "200":
+          description: The decline was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeedDeclineEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /v1/seed/sources:
     post:
       operationId: openIntroductionSource
@@ -8887,6 +9003,84 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/VoicePlaybackData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    SproutInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, targetId, seedRef]
+      properties:
+        commandId:
+          type: string
+          description: Reused on retry so a reach is never recorded twice.
+        targetId:
+          type: string
+        seedRef:
+          type: string
+    DoorwayExchangeInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, messageRef]
+      properties:
+        commandId:
+          type: string
+        messageRef:
+          type: string
+          description: A reference to the message, never its content.
+    SeedDeclineInput:
+      type: object
+      additionalProperties: false
+      required: [commandId, seedId, ownerId]
+      properties:
+        commandId:
+          type: string
+        seedId:
+          type: string
+        ownerId:
+          type: string
+    DoorwayData:
+      type: object
+      additionalProperties: false
+      required: [revision, opened, replayed]
+      properties:
+        doorwayId:
+          type: string
+          description: Present once a doorway exists between the two members.
+        revision:
+          type: integer
+          format: int64
+        opened:
+          type: boolean
+          description: |
+            True when the other member had already reached toward this one, so
+            the doorway is now open between them.
+        replayed:
+          type: boolean
+    DoorwayEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/DoorwayData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    SeedDeclineData:
+      type: object
+      additionalProperties: false
+      required: [recorded, replayed]
+      properties:
+        recorded:
+          type: boolean
+        replayed:
+          type: boolean
+    SeedDeclineEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SeedDeclineData"
         meta:
           $ref: "#/components/schemas/Metadata"
     IntroductionSourceInput:

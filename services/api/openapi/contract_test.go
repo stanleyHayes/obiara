@@ -219,8 +219,11 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// without which a recording could not be heard by anyone and the twenty
 	// seconds of verified listening that arms Sow could never accumulate. 198
 	// adds the three introduction-source routes — the first time a member can
-	// ask to be introduced through a circle they belong to.
-	if len(seen) != 198 {
-		t.Errorf("operationId count = %d, want 198", len(seen))
+	// ask to be introduced through a circle they belong to. 201 writes down the
+	// three seed-stage routes — sprout, doorway exchange and decline — which
+	// had been served and undocumented; TestEveryServedRouteIsInTheContract
+	// now makes that impossible to repeat, in both directions.
+	if len(seen) != 201 {
+		t.Errorf("operationId count = %d, want 201", len(seen))
 	}
 }

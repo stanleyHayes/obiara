@@ -3278,6 +3278,49 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/seed/declines": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Decline a reach
+     * @description Records a decline. The response says only that it was recorded: who
+     *     declined whom is kept, keyed, for the safety ledger and is never read
+     *     back to either member.
+     */
+    readonly post: operations["declineSeed"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/seed/doorways/{id}/exchanges": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Add a bounded exchange to an open doorway
+     * @description The doorway is deliberately narrow. Only a reference to the message is
+     *     carried here; the content itself lives where the room keeps it.
+     */
+    readonly post: operations["exchangeInDoorway"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/seed/sources": {
     readonly parameters: {
       readonly query?: never;
@@ -3323,6 +3366,32 @@ export interface paths {
     readonly post?: never;
     /** Withdraw an introduction request */
     readonly delete: operations["withdrawIntroductionSource"];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/seed/sprouts": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Reach toward another member
+     * @description Records that this member has reached toward another. If the other had
+     *     already reached toward them, the doorway between them opens and
+     *     `opened` is true — neither is told about a reach that was never
+     *     returned, which is what keeps an unanswered one private.
+     *
+     *     The command id makes this idempotent: replaying it returns the same
+     *     doorway rather than reaching twice.
+     */
+    readonly post: operations["sproutSeed"];
+    readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
     readonly patch?: never;
@@ -4500,6 +4569,27 @@ export interface components {
       readonly data: components["schemas"]["DeliveryStatsData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly DoorwayData: {
+      /** @description Present once a doorway exists between the two members. */
+      readonly doorwayId?: string;
+      /**
+       * @description True when the other member had already reached toward this one, so
+       *     the doorway is now open between them.
+       */
+      readonly opened: boolean;
+      readonly replayed: boolean;
+      /** Format: int64 */
+      readonly revision: number;
+    };
+    readonly DoorwayEnvelope: {
+      readonly data: components["schemas"]["DoorwayData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly DoorwayExchangeInput: {
+      readonly commandId: string;
+      /** @description A reference to the message, never its content. */
+      readonly messageRef: string;
+    };
     readonly DoorwayQuestionData: {
       readonly custom: boolean;
       readonly text: string;
@@ -5454,6 +5544,19 @@ export interface components {
       readonly data: components["schemas"]["SeedAllowanceData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly SeedDeclineData: {
+      readonly recorded: boolean;
+      readonly replayed: boolean;
+    };
+    readonly SeedDeclineEnvelope: {
+      readonly data: components["schemas"]["SeedDeclineData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly SeedDeclineInput: {
+      readonly commandId: string;
+      readonly ownerId: string;
+      readonly seedId: string;
+    };
     readonly SessionData: {
       /** Format: date-time */
       readonly accessExpiresAt: string;
@@ -5471,6 +5574,12 @@ export interface components {
     readonly SessionRefreshInput: {
       /** @description The refresh token issued by the previous session response. */
       readonly refreshToken: string;
+    };
+    readonly SproutInput: {
+      /** @description Reused on retry so a reach is never recorded twice. */
+      readonly commandId: string;
+      readonly seedRef: string;
+      readonly targetId: string;
     };
     readonly StartCourtshipRoomInput: {
       readonly commandId: string;
@@ -13496,6 +13605,70 @@ export interface operations {
       readonly 500: components["responses"]["InternalError"];
     };
   };
+  readonly declineSeed: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["SeedDeclineInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The decline was recorded. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SeedDeclineEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+    };
+  };
+  readonly exchangeInDoorway: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["DoorwayExchangeInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The exchange was recorded. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["DoorwayEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+    };
+  };
   readonly openIntroductionSource: {
     readonly parameters: {
       readonly query?: never;
@@ -13630,6 +13803,46 @@ export interface operations {
           readonly "application/json": components["schemas"]["ErrorEnvelope"];
         };
       };
+      readonly 422: components["responses"]["ValidationFailed"];
+    };
+  };
+  readonly sproutSeed: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["SproutInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The same command already recorded this reach. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["DoorwayEnvelope"];
+        };
+      };
+      /** @description The reach was recorded. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["DoorwayEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
     };
   };
