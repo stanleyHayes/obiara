@@ -2,6 +2,7 @@ package application
 
 import (
 	"errors"
+	sowapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/sow/application"
 	"regexp"
 	"slices"
 	"strings"
@@ -43,7 +44,13 @@ const (
 )
 
 var (
-	ErrHumanReviewRequired = errors.New("sow requires human screening review")
+	// ErrHumanReviewRequired is deliberately the sow context's own error
+	// value rather than a new one with the same message. errors.Is compares
+	// identity: two separate errors.New calls that read alike do not match,
+	// and the sow service decides whether to hold a sow by testing exactly
+	// this. A private copy here would send every reviewable sow down the
+	// "service unavailable" path — the bug the held state was added to fix.
+	ErrHumanReviewRequired = sowapplication.ErrHumanReviewRequired
 	ErrInvalidInput        = errors.New("invalid sow screening input")
 )
 

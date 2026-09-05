@@ -3743,3 +3743,65 @@ routed under an empty id.
 `seed/screening` — which still needs its `Advisor`, `Adjudicator`,
 `LocaleSource`, `LocaleCatalog` and `MediaInspector` — and the reviewer
 surface that calls `Decide` and then the sow's `Review`.
+
+
+## 49. Goal: the composed policy sends every sow to a person (2026-09-05)
+
+With `HumanReview` built, the remaining screening ports turned out not to need
+a vendor at all. The owner's ruling makes them trivial rather than urgent:
+
+- **`Advisor` gives no opinion.** It reports uncertain rather than erroring,
+  because an error is logged as a provider failure and read as an outage.
+  There is no provider and nothing is broken; there is simply no machine
+  opinion to offer, and uncertain is what routes a sow to a person.
+- **`Adjudicator` never claims a human decision.** A human decision reaches
+  the sow through the review store and the reviewer's action, not through this
+  port, so the honest answer here is always that there is not one yet.
+
+The safety property is structural rather than trusted. `validAdjudication`
+refuses any adjudication not marked `HumanReviewed`, so nothing in this
+package can approve a sow even if a future advisor becomes decisive — the
+worst these adapters can do is send work to a person.
+
+### A correction
+
+I told the owner the locale catalog was blocking. It is not. An unreviewed
+locale **routes to a person** (`ReasonUnsupportedLocale`); it does not refuse
+the sow. So an empty catalog is a safe configuration and reviewing a language
+changes who can read a sow, never whether it is delivered. `CL-REG-07` still
+means a tag belongs in the catalog only once somebody has actually read the
+language, and a half-filled entry is dropped rather than counted, because it
+would claim a review that did not happen.
+
+The locale source is fixed rather than derived from the request: a member's
+device language is not evidence of what language they wrote in, and guessing
+wrong routes their words to a reviewer who cannot read them.
+
+### The integration bug the composed test found
+
+Writing a test that wires the real adapters together immediately failed, and
+it was right to. `screening` and `sow` each declared their own
+`ErrHumanReviewRequired` with **the same message and different identity**.
+`errors.Is` compares identity, so the sow service — which decides whether to
+hold a sow by testing exactly that error — would never have matched it. Every
+reviewable sow would have gone down the "service unavailable" path: the exact
+bug §46 existed to fix, reintroduced at the seam between the two contexts.
+
+Screening now uses the sow context's own value, because the contract belongs
+to the port's owner. Proven by putting the private copy back, which failed
+with `err = sow requires human screening review, want ErrHumanReviewRequired`
+— the same words, a different error.
+
+This is the argument for composing things before believing them. Both packages
+were individually correct and fully tested.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| SCR-01  | `Advisor` with no opinion; `Adjudicator` that never claims a human   | DONE   |
+| SCR-02  | Locale source and catalog; empty is safe, partial entries dropped    | DONE   |
+| SCR-03  | `ErrHumanReviewRequired` owned by the port, not copied               | DONE   |
+| SCR-04  | A composed test asserting no input reaches delivery without a person | DONE   |
+
+**Remaining:** the `MediaInspector` bridge to the media context, the
+composition root for `seed/sow` and `seed/screening`, and the reviewer surface
+that calls the review store's `Decide` and then the sow's `Review`.
