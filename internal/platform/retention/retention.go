@@ -75,6 +75,20 @@ var BindingPolicies = []Policy{
 		Action: ActionStripField, DateField: "decidedAt", MaxAge: 30 * 24 * time.Hour,
 		Fields: []string{"dateOfBirth"},
 	},
+	// A screening review holds the member's own words so a person can read
+	// them. Once the decision is a month old nobody needs to see them again,
+	// and the review's own record of what was decided, by whom and when
+	// survives the text it was about.
+	//
+	// Keyed on decidedAt, so a review still waiting on a person is never
+	// deleted out from under them. A review that is never decided holds that
+	// text indefinitely — that is an SLA problem rather than a retention one,
+	// and it also strands the member's seed, so it should be visible as a
+	// queue age rather than solved by deleting the evidence.
+	{
+		Name: "screening_reviews_decided_30d", Collection: "seed_screening_reviews",
+		Action: ActionDelete, DateField: "decidedAt", MaxAge: 30 * 24 * time.Hour,
+	},
 	// A case that is never decided has no decidedAt, so the policy above can
 	// never match it and its birth date would be kept forever. This is the
 	// backstop for abandoned and indefinitely queued submissions, set well

@@ -3683,3 +3683,63 @@ the decision path correct and reachable *within the context*, and nothing
 outside it can call any of this yet. The composition root, the `HumanReview`
 store that produces a reference in the first place, and the reviewer surface
 are the remaining three steps, in that order.
+
+
+## 48. Goal: something holds the held sow (2026-09-05)
+
+`HumanReview.Route` was the seam the whole ruling turns on and nothing
+implemented it. §46 taught the sow to be held and §47 taught it to be decided;
+this is the store that actually holds one.
+
+### The decisions
+
+**The reference is the review's own id.** Screening validates it as a 64-hex
+digest and the sow stores it, so a held sow and its review are findable from
+each other with nothing in between to drift. The aggregate enforces the shape:
+a review routed under anything else could be created and then never found —
+the sow would be held forever and the member's seed with it.
+
+**The aggregate carries the decision, the store carries the words.** A
+reviewer cannot review what they cannot read, so the sow's text has to be
+persisted. Keeping it out of the aggregate means the rules about deciding are
+testable with no member's writing anywhere near them, and a decision survives
+the content being deleted.
+
+**The automated pass is shown as an opinion, never a decision.** The advisory
+status and reasons are stored beside the review because a person deciding
+should be able to see what the machine thought — and `Adjudicator` is a
+separate port from `Advisor` in this context precisely so model output can
+never be the final word.
+
+**Deciding is guarded twice.** The aggregate refuses a second decision, and
+the update is guarded on the row still being pending, so two reviewers
+clicking at once cannot both write. A unique partial index on the command id
+makes it true across processes as well.
+
+**A retried screening pass routes the same review, not a second one.** A
+duplicate id returns the existing reference rather than an error.
+
+**The words have an end date.** `screening_reviews_decided_30d` deletes a
+decided review's content after a month; the record of what was decided, by
+whom and when survives it. It is keyed on `decidedAt` so a review still
+waiting on a person is never deleted out from under them — which does mean a
+review nobody ever decides holds that text indefinitely. That is an SLA
+problem rather than a retention one, and since it also strands the member's
+seed it should surface as a queue age rather than be solved by deleting the
+evidence.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| REV-01  | `Review` aggregate: routed once, decided once, by somebody           | DONE   |
+| REV-02  | `ReviewStore` implementing `HumanReview`, with a compile-time assert | DONE   |
+| REV-03  | The queue: oldest pending first, and one review by reference         | DONE   |
+| REV-04  | Retention for the member's words, keyed so pending is never deleted  | DONE   |
+
+Both guards proven by breaking them: removing the pending check let a decided
+review be decided again, and removing the reference check let a review be
+routed under an empty id.
+
+**Remaining in this chain:** the composition root for `seed/sow` and
+`seed/screening` — which still needs its `Advisor`, `Adjudicator`,
+`LocaleSource`, `LocaleCatalog` and `MediaInspector` — and the reviewer
+surface that calls `Decide` and then the sow's `Review`.
