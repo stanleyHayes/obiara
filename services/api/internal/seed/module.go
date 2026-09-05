@@ -42,6 +42,10 @@ type StageModule struct {
 	Sprout  sproutapp.Service
 	Decline declineapp.Service
 	Safety  safetyapp.Service
+	// sourceCircles is retained so the block check can be attached after the
+	// safety context is composed, which happens later than this module.
+	sourceCircles sourcecirclepolicy.Circles
+
 	// Sources is present only when a circle reader was supplied. Without one
 	// there is nothing to resolve candidates from, and a source request that
 	// could return nobody is worse than one the console never offers.
@@ -119,6 +123,9 @@ func NewStageModule(
 			time.Now,
 		)
 		module.Sources = &sources
+		// Kept so the composition root can attach the block check once the
+		// safety context exists; see StageModule.WithBlocks.
+		module.sourceCircles = circles
 	}
 	return module, nil
 }
@@ -155,4 +162,21 @@ func (stage Stage) Exchange(ctx context.Context, command sproutapp.ExchangeComma
 
 func (stage Stage) Decline(ctx context.Context, command declineapp.Command) (declineapp.Result, error) {
 	return stage.module.Decline.Decline(ctx, command)
+}
+
+// WithBlocks attaches the block check to the introduction visibility.
+//
+// It is separate from NewStageModule because the safety context, which knows
+// who has blocked whom, is composed after the seed stage. Until this is
+// called the visibility refuses to offer anybody — introducing two people who
+// have blocked each other is worse than introducing nobody.
+func (module StageModule) WithBlocks(blocks sourcecirclepolicy.Blocked) StageModule {
+	if module.Sources == nil || module.sourceCircles == nil || blocks == nil {
+		return module
+	}
+	updated := module.Sources.WithVisibility(
+		sourcecirclepolicy.NewVisibility(module.sourceCircles).WithBlocks(blocks),
+	)
+	module.Sources = &updated
+	return module
 }

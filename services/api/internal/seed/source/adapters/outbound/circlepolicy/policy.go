@@ -75,10 +75,26 @@ func (Policy) Allow(_ context.Context, sourceType domain.SourceType, sourceRef s
 // them. It runs after the resolver, on each name it returned.
 type Visibility struct {
 	circles Circles
+	blocks  Blocked
 }
 
 func NewVisibility(circles Circles) Visibility {
 	return Visibility{circles: circles}
+}
+
+// WithBlocks attaches the block check. Without it this refuses to offer
+// anybody, because introducing two people who have blocked each other is
+// worse than introducing nobody.
+func (visibility Visibility) WithBlocks(blocks Blocked) Visibility {
+	visibility.blocks = blocks
+	return visibility
+}
+
+// Blocked reports whether either member has blocked the other. Introducing
+// two people who have blocked each other is the worst thing this surface
+// could do, and until this port existed nothing here asked.
+type Blocked interface {
+	Blocked(ctx context.Context, memberID, otherID string) (bool, error)
 }
 
 func (visibility Visibility) Visible(
@@ -91,6 +107,23 @@ func (visibility Visibility) Visible(
 	// roster because it has no idea who is asking; this is where that is
 	// known, so this is where it is removed.
 	if requesterID == candidateID {
+		return false, nil
+	}
+	// A block is checked before membership, because it outranks it: being in
+	// the same circle as somebody you blocked is not a reason to be offered
+	// them. Returning false rather than an error is right here — this
+	// surface says nothing about why anybody is absent from it, which is
+	// precisely how a block should behave.
+	if visibility.blocks == nil {
+		// No block check composed means every introduction is made blind to
+		// blocks. Refusing to offer anybody is the safe failure.
+		return false, nil
+	}
+	blocked, err := visibility.blocks.Blocked(ctx, requesterID, candidateID)
+	if err != nil {
+		return false, err
+	}
+	if blocked {
 		return false, nil
 	}
 	if sourceType != domain.SourceCircle || visibility.circles == nil {

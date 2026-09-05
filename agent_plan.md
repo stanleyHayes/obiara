@@ -4139,7 +4139,45 @@ than treating its absence as permission.
 Proven by breaking it: disabling the refusal made the test report a blocked
 reach returning nil.
 
-**Still unhonoured elsewhere.** This fixes the sprout path. Blocks are still
-not consulted anywhere else — courtship rooms, circles, fires, introductions.
-Each is its own boundary and each needs the same check; this closes the one
-where the cost of missing it is highest, and records that the rest remain.
+**Introductions closed too (§56, below).** Courtship rooms, circles and fires
+still do not consult a block. Each is its own boundary and each needs the same
+check.
+
+
+## 56. Goal: nobody is introduced to somebody they blocked (2026-09-05)
+
+The second place a block has to count, and the place where missing it is worst:
+being offered an introduction to a person you have blocked.
+
+`Visibility.Visible` decides, per candidate, whether a requester may be offered
+them — it already removes the requester themselves and re-reads the circle so
+somebody who has just left is not offered. It did not ask about blocks.
+
+**Checked before membership**, because a block outranks it: being in the same
+circle as somebody you blocked is not a reason to be offered them.
+
+**Returning false rather than an error** is right here. This surface already
+says nothing about why anybody is absent from it, which is exactly how a block
+should behave — the requester learns nothing, which is the point.
+
+**With no block check composed, nobody is offered.** A composition that forgot
+it must not quietly introduce people blind to blocks. Introducing nobody is a
+worse product and a safer one, and a test pins that.
+
+### The wiring problem, and what it forced
+
+The safety context is composed *after* the seed stage, so the block check
+could not be a constructor argument. Rather than reorder the composition root,
+`StageModule.WithBlocks` attaches it afterwards — and the default in the gap
+is refusal, not permission. That is the only reason a late attachment is
+acceptable: if forgetting it opened the surface instead of closing it, the
+constructor argument would have been worth the reordering.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| BLK-04  | `Blocked` port on the introduction visibility, checked first          | DONE   |
+| BLK-05  | Refusing everybody when the check is absent, with a test              | DONE   |
+| BLK-06  | Attached at the composition root after safety exists                  | DONE   |
+
+The existing visibility test failed the moment the port was added, which is
+the fail-safe working: it had no block check, so it offered nobody.

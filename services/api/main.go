@@ -684,6 +684,10 @@ func run() error {
 		// FR-202: a sow is armed only by having heard the other member.
 		// Attached here because it needs the introduction store, which is
 		// built inside this block.
+		// The safety context is composed after the seed stage, so the block check
+		// is attached here. Until it is, the introduction visibility refuses to
+		// offer anybody rather than offering people blind to blocks.
+		seedStageModule = seedStageModule.WithBlocks(sproutBlockBridge{safety: safetyModule.Safety})
 		seedStageModule.Sprout = seedStageModule.Sprout.WithListenGate(sproutListenBridge{
 			introductions: introductionModule.Store,
 			listening:     listeningModule.Listening,

@@ -125,7 +125,7 @@ func TestNobodyIsIntroducedToThemselves(t *testing.T) {
 	circle := circleWith(t, map[string]circledomain.MembershipState{
 		"member_in": circledomain.StateMember,
 	})
-	visibility := NewVisibility(stubCircles{circle: circle})
+	visibility := NewVisibility(stubCircles{circle: circle}).WithBlocks(openBlocks{})
 
 	visible, err := visibility.Visible(context.Background(), "member_in", "member_in",
 		domain.SourceCircle, "circle_1")
@@ -144,7 +144,7 @@ func TestSomeoneWhoJustLeftIsNotOfferedThroughTheCircle(t *testing.T) {
 		"member_in":   circledomain.StateMember,
 		"member_gone": circledomain.StateLeft,
 	})
-	visibility := NewVisibility(stubCircles{circle: circle})
+	visibility := NewVisibility(stubCircles{circle: circle}).WithBlocks(openBlocks{})
 
 	for candidate, want := range map[string]bool{
 		"member_in":   true,
@@ -175,5 +175,61 @@ func TestOnlyTheSourceTypeWithAResolverIsAllowed(t *testing.T) {
 		if err := policy.Allow(context.Background(), unwired, "ref"); !errors.Is(err, ErrNotPermitted) {
 			t.Fatalf("%s was allowed with no resolver behind it", unwired)
 		}
+	}
+}
+
+// openBlocks is a block list where nobody has blocked anybody.
+type openBlocks struct {
+	blocked bool
+	err     error
+}
+
+func (b openBlocks) Blocked(context.Context, string, string) (bool, error) {
+	return b.blocked, b.err
+}
+
+func TestSomebodyYouBlockedIsNeverOffered(t *testing.T) {
+	// Introducing two people who have blocked each other is the worst thing
+	// this surface could do, and until now nothing here asked. Being in the
+	// same circle as somebody you blocked is not a reason to be offered them,
+	// so the block is checked before membership.
+	circle := circleWith(t, map[string]circledomain.MembershipState{
+		"member_in": circledomain.StateMember,
+	})
+	visibility := NewVisibility(stubCircles{circle: circle}).WithBlocks(openBlocks{blocked: true})
+
+	visible, err := visibility.Visible(context.Background(), "asker", "member_in",
+		domain.SourceCircle, "circle_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if visible {
+		t.Fatal("a blocked member was offered as an introduction")
+	}
+}
+
+func TestWithNoBlockCheckNobodyIsOffered(t *testing.T) {
+	// Introducing nobody is a worse product and a safer one. A composition
+	// that forgot the block check must not quietly introduce people blind to
+	// blocks.
+	circle := circleWith(t, map[string]circledomain.MembershipState{
+		"member_in": circledomain.StateMember,
+	})
+	visible, err := NewVisibility(stubCircles{circle: circle}).Visible(
+		context.Background(), "asker", "member_in", domain.SourceCircle, "circle_1")
+	if err != nil || visible {
+		t.Fatalf("visible = %v, err = %v — an uncomposed block check offered somebody", visible, err)
+	}
+}
+
+func TestAnUnreadableBlockListStopsTheIntroduction(t *testing.T) {
+	circle := circleWith(t, map[string]circledomain.MembershipState{
+		"member_in": circledomain.StateMember,
+	})
+	visibility := NewVisibility(stubCircles{circle: circle}).
+		WithBlocks(openBlocks{err: errors.New("safety unavailable")})
+	if visible, _ := visibility.Visible(context.Background(), "asker", "member_in",
+		domain.SourceCircle, "circle_1"); visible {
+		t.Fatal("somebody was offered while the block list could not be read")
 	}
 }

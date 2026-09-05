@@ -41,6 +41,17 @@ type Service struct {
 	now        func() time.Time
 }
 
+// WithVisibility replaces the per-candidate visibility rule.
+//
+// It exists because the safety context — which knows who has blocked whom —
+// is composed after the seed stage, and the block check has to reach this
+// rule somehow. Until it is set, Visible refuses everybody: offering people
+// blind to blocks is worse than offering nobody.
+func (service Service) WithVisibility(visibility ConsentVisibility) Service {
+	service.visibility = visibility
+	return service
+}
+
 func NewService(r Repository, a Authorizer, p SourcePolicy, c CandidateResolver, v ConsentVisibility, k Keyer, ids IDSource, now func() time.Time) Service {
 	if now == nil {
 		now = time.Now
