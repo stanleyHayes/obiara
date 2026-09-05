@@ -18,9 +18,15 @@ import (
 type screeningQueueStub struct {
 	pending []screeningmongo.Pending
 	err     error
+	// actor records who the handler said was reading, so the test can assert
+	// the audit trail is given a real name rather than an empty one.
+	actor *string
 }
 
-func (stub screeningQueueStub) Pending(context.Context, int) ([]screeningmongo.Pending, error) {
+func (stub screeningQueueStub) Pending(_ context.Context, actorID string, _ int) ([]screeningmongo.Pending, error) {
+	if stub.actor != nil {
+		*stub.actor = actorID
+	}
 	return stub.pending, stub.err
 }
 
@@ -71,13 +77,19 @@ func TestTheQueueShowsTheWordsAndDescribesTheRecording(t *testing.T) {
 	// A reviewer must read the words — that is the job. The recording is
 	// described rather than carried: they need to know what is attached, and
 	// this response is not where audio is handed around.
-	mux := screeningMux(screeningDesk(), screeningQueueStub{pending: []screeningmongo.Pending{pendingReview(t)}}, &screeningDeskStub{})
+	var actor string
+	mux := screeningMux(screeningDesk(),
+		screeningQueueStub{pending: []screeningmongo.Pending{pendingReview(t)}, actor: &actor},
+		&screeningDeskStub{})
 	request := httptest.NewRequest(http.MethodGet, "/v1/admin/screening/reviews", nil)
 	response := httptest.NewRecorder()
 	mux.ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+	}
+	if actor != "agent-1" {
+		t.Fatalf("the read was attributed to %q, want the authenticated agent", actor)
 	}
 	body := response.Body.String()
 	if !strings.Contains(body, "grandmother") {

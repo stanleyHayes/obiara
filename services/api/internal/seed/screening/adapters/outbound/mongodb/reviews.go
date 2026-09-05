@@ -4,6 +4,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -14,8 +15,12 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/screening/domain"
 )
 
-// ErrReviewNotFound reports a reference no review answers to.
-var ErrReviewNotFound = errors.New("screening review not found")
+var (
+	// ErrReviewNotFound reports a reference no review answers to.
+	ErrReviewNotFound = errors.New("screening review not found")
+	// ErrActorRequired refuses an anonymous read of members' words.
+	ErrActorRequired = errors.New("reading the screening queue requires an actor")
+)
 
 // The store exists to be this port. Asserting it here means a signature drift
 // fails the build rather than the composition root.
@@ -42,6 +47,22 @@ func NewReviewStore(database *mongo.Database, now func() time.Time) *ReviewStore
 
 func (store *ReviewStore) reviews() *mongo.Collection {
 	return store.database.Collection("seed_screening_reviews")
+}
+
+// accessLog records who read members' words and when.
+//
+// The safety context audits every evidence read, and this queue holds the
+// same kind of thing: a member's own writing, shown to staff. Reading it is
+// the job, so the record is not a suspicion — it is what makes an
+// insider-access review possible at all.
+func (store *ReviewStore) accessLog() *mongo.Collection {
+	return store.database.Collection("seed_screening_access_log")
+}
+
+type accessDocument struct {
+	ActorID  string    `bson:"actorId"`
+	Reviewed int       `bson:"reviewed"`
+	ReadAt   time.Time `bson:"readAt"`
 }
 
 type mediaDocument struct {
@@ -71,6 +92,13 @@ type reviewDocument struct {
 }
 
 func (store *ReviewStore) EnsureIndexes(ctx context.Context) error {
+	if _, err := store.accessLog().Indexes().CreateOne(ctx, mongo.IndexModel{
+		// Insider-access reviews read this by agent and by time.
+		Keys:    bson.D{{Key: "actorId", Value: 1}, {Key: "readAt", Value: -1}},
+		Options: options.Index().SetName("seed_screening_access_by_agent"),
+	}); err != nil {
+		return err
+	}
 	_, err := store.reviews().Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
 			// The queue: oldest pending first, so nothing waits behind
@@ -137,7 +165,14 @@ type Pending struct {
 	AdvisoryReasons []string
 }
 
-func (store *ReviewStore) Pending(ctx context.Context, limit int) ([]Pending, error) {
+// The actor is required rather than optional: the queue cannot be read
+// anonymously, because a record of who saw a member's words is only worth
+// anything if there is no way to read them without leaving one.
+func (store *ReviewStore) Pending(ctx context.Context, actorID string, limit int) ([]Pending, error) {
+	actorID = strings.TrimSpace(actorID)
+	if actorID == "" {
+		return nil, ErrActorRequired
+	}
 	if limit < 1 || limit > 200 {
 		limit = 50
 	}
@@ -157,7 +192,18 @@ func (store *ReviewStore) Pending(ctx context.Context, limit int) ([]Pending, er
 		}
 		pending = append(pending, toPending(document))
 	}
-	return pending, cursor.Err()
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+	// Written after the read succeeded and before the words are handed back,
+	// so the log cannot claim an access that did not happen and the caller
+	// cannot receive one that was never logged.
+	if _, err := store.accessLog().InsertOne(ctx, accessDocument{
+		ActorID: actorID, Reviewed: len(pending), ReadAt: store.now().UTC(),
+	}); err != nil {
+		return nil, err
+	}
+	return pending, nil
 }
 
 // Find returns one review by its reference.

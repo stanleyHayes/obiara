@@ -3977,12 +3977,40 @@ absent `approve` let a sow through that nobody had cleared.
 
 ### What this chain does not yet have
 
-**Access to the queue is not audited.** The safety context audits every
-evidence read; this does not, and it shows members' own words. That is the
-clearest next gap in this area and it is recorded rather than glossed.
+**Access to the queue is audited** as of §53, below. It was not when this
+section was written.
 
 **No pod, so a released sow still reaches nobody.** Release marks the sow
 delivered; the surface that puts it in front of the recipient is `seed/pod`,
 which is blocked on the media-resolution decision in §45. A sow can now be
 sent, paid for, held, read and released — and the last step, someone
 receiving it, is still the open one.
+
+
+## 53. Goal: nobody reads a member's words unseen (2026-09-05)
+
+The gap §52 recorded, closed in the same sitting. The safety context audits
+every evidence read; the screening queue holds the same kind of thing — a
+member's own writing, shown to staff — and audited nothing.
+
+**The actor is a required argument, not an option.** `Pending` refuses an
+empty one. A record of who saw a member's words is only worth having if there
+is no way to read them without leaving one, and an optional parameter is a way.
+
+**The record is written after the read succeeds and before the words are
+handed back.** So the log cannot claim an access that did not happen, and a
+caller cannot receive words that were never logged. If the log write fails,
+the read fails: handing them over unlogged would be the one outcome this
+exists to prevent.
+
+**Reading is the job, so the record is not a suspicion.** It is what makes an
+insider-access review possible at all, and the index is by agent and time
+because that is how such a review is actually run.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| REV-08  | An access log on the screening queue, indexed for insider review     | DONE   |
+| REV-09  | The actor required by the store and taken from the principal         | DONE   |
+
+Proven by breaking it: passing an empty actor from the handler made the test
+report the read was attributed to `""` rather than to the authenticated agent.

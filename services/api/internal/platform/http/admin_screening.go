@@ -15,7 +15,9 @@ import (
 
 // AdminScreeningQueue is the list of sows waiting on a person.
 type AdminScreeningQueue interface {
-	Pending(ctx context.Context, limit int) ([]screeningmongo.Pending, error)
+	// Pending takes the reading agent because the read is audited. There is
+	// no way to see a member's words without leaving a record of who looked.
+	Pending(ctx context.Context, actorID string, limit int) ([]screeningmongo.Pending, error)
 }
 
 // AdminScreeningDesk settles one review: the sow first, then the record.
@@ -60,7 +62,8 @@ type screeningQueueResponse struct {
 
 func adminScreeningQueueHandler(queue AdminScreeningQueue, resolve AdminPrincipalResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := requireSafetyAdmin(w, r, resolve, true); !ok {
+		principal, ok := requireSafetyAdmin(w, r, resolve, true)
+		if !ok {
 			return
 		}
 		if queue == nil {
@@ -70,7 +73,7 @@ func adminScreeningQueueHandler(queue AdminScreeningQueue, resolve AdminPrincipa
 			return
 		}
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		pending, err := queue.Pending(r.Context(), limit)
+		pending, err := queue.Pending(r.Context(), principal.ActorID, limit)
 		if err != nil {
 			logServerError(r.Context(), r, http.StatusInternalServerError, "internal_error", err)
 			writeError(w, r, http.StatusInternalServerError, APIError{
