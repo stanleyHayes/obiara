@@ -74,7 +74,7 @@ func (stub *roomStub) Report(_ context.Context, _, memberID, commandID string, c
 
 func roomHandler(room CourtshipRoom, memberID string) http.Handler {
 	mux := http.NewServeMux()
-	RegisterCourtshipRoomRoutes(mux, room, sessionStub{memberID: memberID})
+	RegisterCourtshipRoomRoutes(mux, room, sessionStub{memberID: memberID}, verifiedGate())
 	return Correlation(mux)
 }
 

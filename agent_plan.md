@@ -2493,3 +2493,128 @@ keyed candidate list and expires within the hour; turning that into an
 introduction a member actually receives is S-20, and it needs a delivery
 mechanism that does not exist yet. The count on the card is honest about this:
 it says people could meet you, not that they will.
+
+## 32. Goal: make the verification ladder mean something (2026-09-05)
+
+The authorization kernel has been finished and unreachable since 2026-07-26.
+`services/api/internal/authz/` evaluates a deny-by-default grant table that
+already encodes FR-101 — `introductions.view`, `rooms.participate`,
+`fires.attend` require Tier 1, `seeds.sow` requires Tier 2. Nothing calls it:
+
+```
+$ grep -rn "internal/authz" --include='*.go' services/api | grep -v '^.*/internal/authz/'
+internal/identity/domain/account.go:23:  // ... mirror the authorization kernel's Tier ...
+internal/admin/domain/principal.go:14:   // ... role vocabulary (services/api/internal/authz).
+```
+
+Two doc comments. That is the whole of it. The ladder is climbed and audited
+correctly — verification approval promotes an account to Tier 1 — and then no
+surface asks what rung anyone is standing on. `fire.go` is the sole exception,
+and it passes the tier into the fire aggregate rather than through the kernel.
+
+This is the same pattern as `introduction` and `seed/source` before them:
+domain layers are real, the wiring is not. It is worse here only because the
+orphaned context is the access control for the product.
+
+It is also a gap in my own recent work. The Voice of Introduction (§28) and
+the introduction ask (§30) are romantic surfaces by any reading of FR-101, and
+I shipped both with no tier check — `circlepolicy.Authorizer` verifies circle
+membership and nothing else. A Tier-0 account with no verified identity can
+today record a Voice of Introduction and ask to be introduced to a circle.
+
+### The decisions this needed
+
+FR-101 gives the principle and stops there; `deploy/release/composition-inventory.md`
+flagged the placements as an unmade decision rather than a mechanical wiring
+job. Taken here, and recorded so they can be overridden:
+
+**One gate, at the route boundary, reading the kernel's table.** Not inline
+tier comparisons per handler — those drift. Rules stay in `policy.go`.
+
+**The gate must never block the road out of the gate.** A Tier-0 member has to
+be able to reach verification, consent, profile, privacy, settings, safety
+reporting and their own account. Gate those and the ladder becomes a trap: you
+cannot verify because you are unverified. This is an invariant with a test, not
+a convention.
+
+**A failed tier read denies loudly, not quietly.** A database blip must not be
+indistinguishable from "you are unverified" — that is precisely the failure
+that locks out members who have earned a surface. Unreadable tier answers 500;
+only a real Tier-0 answers 403.
+
+**Sowing stays at Tier 2 even though nobody can reach Tier 2.** Nothing in the
+codebase promotes past 1; only verification approval exists, and it stops at
+Tier 1. Gating sowing therefore closes it until an operator opens it, so this
+goal adds the audited admin promotion that makes Tier 2 reachable at all.
+What *automatically* earns Tier 2 is a product rule that has never been
+decided, and I am not inventing one — flagged below as open.
+
+| Task    | Deliverable                                                            | Status |
+| ------- | ---------------------------------------------------------------------- | ------ |
+| TIER-01 | Compose the authz kernel; one route-boundary gate through the table    | DONE   |
+| TIER-02 | Romantic surfaces at Tier 1: introductions, courtship rooms, sources   | DONE   |
+| TIER-03 | Sowing at Tier 2: sprouts (exchanges placed at Tier 1, below)          | DONE   |
+| TIER-04 | Audited admin tier transition, so Tier 2 is reachable                  | DROPPED |
+| TIER-05 | The client explains the rung instead of showing a bare refusal         | PARTIAL |
+
+**Open product decision, for the owner not the adapter author:** what promotes
+an account from Tier 1 to Tier 2. Until it is answered, sowing is
+operator-opened only.
+
+### What was gated, and what was deliberately not
+
+`MemberGate` sits at the registration table rather than inside each handler, so
+the access-control decisions are one readable list and a route absent from it
+is visibly ungated. It authenticates once and carries the member forward in the
+request context, so a gated route does not pay for a second session lookup.
+
+Gated at Tier 1: beginning and confirming a Voice of Introduction, hearing one,
+listening heartbeats and eligibility, opening and reading a circle
+introduction ask, starting a courtship room, taking a turn, relighting the
+pace, the honesty prompt, making a proposal and accepting one.
+
+Gated at Tier 2: reaching toward someone (`POST /v1/seed/sprouts`).
+
+**Not gated, on purpose.** A doorway only opens when both members reached for
+each other, so gating the reply at the sowing rung could open a doorway one of
+the two could never answer in; exchanges sit at Tier 1. And every exit stays
+open at every rung: taking down your own recording, withdrawing an ask,
+declining, pausing, closing a room, blocking and reporting. A member demoted to
+Tier 0 for safety must not be shut in a room with the person they need to get
+away from. `TestTheGateNeverBlocksTheRoadOutOfTheGate` reads the registration
+tables from source and fails if any of those nine routes is ever wrapped.
+
+Both guards were checked against their failure modes before being kept:
+wrapping `safety/block` made the exit test name the offending line, and
+weakening the tier comparison made the romantic-surface and sowing tests report
+a Tier-0 member admitted and a Tier-1 member sowing.
+
+### TIER-04 dropped, and why
+
+The plan was an audited admin route to promote an account to Tier 2. Reading
+the admin surfaces first showed that would have been a privacy regression:
+operators act on **cases**, never on member ids, and the member directory
+returns one-way keyed refs precisely so who a member is stays illegible to
+staff. A `POST /v1/admin/members/{id}/tier` route would have needed an
+addressable member id that no admin surface has, or should have.
+
+The architecturally consistent path is a case an operator decides, the way
+Tier 1 already works — and that needs the product rule for what earns Tier 2,
+which has never been decided. So sowing is now correctly closed rather than
+wrongly open, and nothing regressed today: no client calls `/v1/seed/sprouts`,
+`/v1/seed/doorways/{id}/exchanges`, or any courtship route yet.
+
+### TIER-05 is partial, stated plainly
+
+The circle ask now turns a refusal into a link to verification: the BFF carries
+the refusal `code` beside the message, and `tierNotice` maps `tier_1_required`
+to somewhere the member can actually go.
+
+The voice page does not. It still lets a Tier-0 member record three answers and
+only refuses at save, which wastes real effort. The fix is to check the rung
+before recording rather than after, and it needs the member's tier on the
+client, which no endpoint exposes today. Recorded here rather than claimed.
+
+**Still open:** what promotes an account from Tier 1 to Tier 2, and surfacing a
+member's own rung to the client so a gated surface can explain itself before
+the member works for nothing.

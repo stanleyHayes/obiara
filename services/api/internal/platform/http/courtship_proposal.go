@@ -29,10 +29,12 @@ type Proposals interface {
 // caller believes it is acting on. A proposal is a two-party negotiation over
 // an unreliable mobile network: without those, a retried tap could create a
 // second proposal, and two devices could race a decision.
-func RegisterCourtshipProposalRoutes(mux *http.ServeMux, proposals Proposals, sessions SessionAuthenticator) {
+func RegisterCourtshipProposalRoutes(mux *http.ServeMux, proposals Proposals, sessions SessionAuthenticator, gate MemberGate) {
 	mux.Handle("GET /v1/courtship/proposals", listProposalsHandler(proposals, sessions))
-	mux.Handle("POST /v1/courtship/proposals", createProposalHandler(proposals, sessions))
-	mux.Handle("POST /v1/courtship/proposals/{id}/accept", decideProposalHandler(proposals, sessions, "accept"))
+	// Making a proposal and accepting one advance a courtship. Rejecting and
+	// withdrawing end one, so they stay open at every rung.
+	mux.Handle("POST /v1/courtship/proposals", gate.guard(sessions, "rooms.participate", "room", createProposalHandler(proposals, sessions)))
+	mux.Handle("POST /v1/courtship/proposals/{id}/accept", gate.guard(sessions, "rooms.participate", "room", decideProposalHandler(proposals, sessions, "accept")))
 	mux.Handle("POST /v1/courtship/proposals/{id}/reject", decideProposalHandler(proposals, sessions, "reject"))
 	mux.Handle("POST /v1/courtship/proposals/{id}/withdraw", decideProposalHandler(proposals, sessions, "withdraw"))
 }

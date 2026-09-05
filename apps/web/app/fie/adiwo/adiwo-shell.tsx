@@ -12,6 +12,7 @@ import {
   initialAsk,
   type AskState,
 } from "./introduction-model";
+import { tierNotice } from "../../lib/tier-gate";
 
 type CircleType =
   "community" | "campus" | "professional" | "interest" | "support";
@@ -108,12 +109,23 @@ export function AdiwoShell() {
         requestId?: string;
         candidateCount?: number;
         message?: string;
+        code?: string;
       } | null;
       if (!response.ok || typeof payload?.candidateCount !== "number") {
-        throw new Error(
+        const message =
           payload?.message ||
-            "We could not open that introduction. Please try again.",
-        );
+          "We could not open that introduction. Please try again.";
+        // An unverified account is not a failure — it is a step the member
+        // has not taken yet, so it gets a way forward rather than an alert.
+        const notice = tierNotice(payload?.code, message);
+        if (notice) {
+          setAsks((current) => ({
+            ...current,
+            [circleID]: { ...initialAsk, stage: "failed", error: message, notice },
+          }));
+          return;
+        }
+        throw new Error(message);
       }
       setAsks((current) => ({
         ...current,
@@ -122,6 +134,7 @@ export function AdiwoShell() {
           found: payload.candidateCount ?? 0,
           requestId: payload.requestId ?? null,
           error: null,
+          notice: null,
         },
       }));
     } catch (cause) {
@@ -407,6 +420,14 @@ export function AdiwoShell() {
                     {asks[circle.id]?.stage === "failed" ? (
                       <p className="adiwo-introduce-error" role="alert">
                         {asks[circle.id]?.error}
+                        {asks[circle.id]?.notice ? (
+                          <>
+                            {" "}
+                            <a href={asks[circle.id]!.notice!.href}>
+                              {asks[circle.id]!.notice!.action}
+                            </a>
+                          </>
+                        ) : null}
                       </p>
                     ) : null}
                   </div>

@@ -18,9 +18,10 @@ type Listening interface {
 }
 
 // RegisterListeningRoutes adds playback telemetry and eligibility routes.
-func RegisterListeningRoutes(mux *http.ServeMux, listening Listening, sessions SessionAuthenticator) {
-	mux.Handle("POST /v1/listening/heartbeats", recordHeartbeatsHandler(listening, sessions))
-	mux.Handle("GET /v1/listening/eligibility/{assetId}", eligibilityHandler(listening, sessions))
+func RegisterListeningRoutes(mux *http.ServeMux, listening Listening, sessions SessionAuthenticator, gate MemberGate) {
+	// Listening to a Voice of Introduction is a romantic surface (FR-101a).
+	mux.Handle("POST /v1/listening/heartbeats", gate.guard(sessions, "introductions.view", "introduction", recordHeartbeatsHandler(listening, sessions)))
+	mux.Handle("GET /v1/listening/eligibility/{assetId}", gate.guard(sessions, "introductions.view", "introduction", eligibilityHandler(listening, sessions)))
 }
 
 type heartbeatsRequest struct {

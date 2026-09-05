@@ -38,13 +38,17 @@ type CourtshipRoom interface {
 // is acting on. A courtship room is two people acting on one shared state
 // from two handsets, so a retried tap must not apply twice and a race must
 // conflict rather than let the later write win silently.
-func RegisterCourtshipRoomRoutes(mux *http.ServeMux, room CourtshipRoom, sessions SessionAuthenticator) {
-	mux.Handle("POST /v1/courtship/rooms", startRoomHandler(room, sessions))
-	mux.Handle("POST /v1/courtship/rooms/{id}/turns", submitTurnHandler(room, sessions))
+func RegisterCourtshipRoomRoutes(mux *http.ServeMux, room CourtshipRoom, sessions SessionAuthenticator, gate MemberGate) {
+	// What advances a courtship is gated at Tier 1 (FR-101a). What ends one,
+	// slows it, or reports it never is: a member demoted to Tier 0 for safety
+	// must still be able to pause, close, block and report, or the gate would
+	// shut them in a room with the person they need to get away from.
+	mux.Handle("POST /v1/courtship/rooms", gate.guard(sessions, "rooms.participate", "room", startRoomHandler(room, sessions)))
+	mux.Handle("POST /v1/courtship/rooms/{id}/turns", gate.guard(sessions, "rooms.participate", "room", submitTurnHandler(room, sessions)))
 	mux.Handle("GET /v1/courtship/rooms/{id}/turns", roomTimelineHandler(room, sessions))
-	mux.Handle("POST /v1/courtship/rooms/{id}/pace/relight", paceRelightHandler(room, sessions))
+	mux.Handle("POST /v1/courtship/rooms/{id}/pace/relight", gate.guard(sessions, "rooms.participate", "room", paceRelightHandler(room, sessions)))
 	mux.Handle("POST /v1/courtship/rooms/{id}/pause", pauseHandler(room, sessions))
-	mux.Handle("POST /v1/courtship/rooms/{id}/honesty", honestyHandler(room, sessions))
+	mux.Handle("POST /v1/courtship/rooms/{id}/honesty", gate.guard(sessions, "rooms.participate", "room", honestyHandler(room, sessions)))
 	mux.Handle("POST /v1/courtship/rooms/{id}/closure", closureHandler(room, sessions))
 	mux.Handle("POST /v1/courtship/rooms/{id}/safety/block", safetyBlockHandler(room, sessions))
 	mux.Handle("POST /v1/courtship/rooms/{id}/safety/report", safetyReportHandler(room, sessions))

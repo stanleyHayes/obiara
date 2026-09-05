@@ -32,3 +32,25 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/**
+ * Reads the machine code from an API refusal.
+ *
+ * The message tells a member what happened; the code is what lets a screen do
+ * something about it. A tier refusal carries `tier_1_required` or
+ * `tier_2_required`, which is how a dead end becomes a link to verification.
+ */
+export function apiErrorCode(error: unknown): string | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "error" in error &&
+    typeof error.error === "object" &&
+    error.error !== null &&
+    "code" in error.error &&
+    typeof error.error.code === "string"
+  ) {
+    return error.error.code.trim() || null;
+  }
+  return null;
+}

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../lib/api-server";
+import { apiClient, apiErrorCode, apiErrorMessage } from "../../lib/api-server";
 
 /**
  * Opens a Voice of Introduction and returns the upload grant.
@@ -48,6 +48,7 @@ export async function POST(request: Request) {
   if (!data) {
     return NextResponse.json(
       {
+        code: apiErrorCode(error),
         message: apiErrorMessage(
           error,
           "We could not start your recording. Please try again.",

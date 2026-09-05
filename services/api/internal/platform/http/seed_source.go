@@ -30,9 +30,11 @@ type IntroductionSource interface {
 // have been refused as invalid.
 const sourceTTL = time.Hour
 
-func RegisterSeedSourceRoutes(mux *http.ServeMux, sources IntroductionSource, sessions SessionAuthenticator) {
-	mux.Handle("POST /v1/seed/sources", openSeedSourceHandler(sources, sessions))
-	mux.Handle("GET /v1/seed/sources/{id}", readSeedSourceHandler(sources, sessions))
+func RegisterSeedSourceRoutes(mux *http.ServeMux, sources IntroductionSource, sessions SessionAuthenticator, gate MemberGate) {
+	// Asking to be introduced through a circle is a romantic surface.
+	// Withdrawing the ask is not — a member may always take it back.
+	mux.Handle("POST /v1/seed/sources", gate.guard(sessions, "introductions.view", "introduction", openSeedSourceHandler(sources, sessions)))
+	mux.Handle("GET /v1/seed/sources/{id}", gate.guard(sessions, "introductions.view", "introduction", readSeedSourceHandler(sources, sessions)))
 	mux.Handle("DELETE /v1/seed/sources/{id}", withdrawSeedSourceHandler(sources, sessions))
 }
 

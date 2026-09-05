@@ -61,7 +61,7 @@ func (stub sessionStub) Authenticate(context.Context, string) (identitydomain.Se
 
 func proposalHandler(proposals Proposals, memberID string) http.Handler {
 	mux := http.NewServeMux()
-	RegisterCourtshipProposalRoutes(mux, proposals, sessionStub{memberID: memberID})
+	RegisterCourtshipProposalRoutes(mux, proposals, sessionStub{memberID: memberID}, verifiedGate())
 	return Correlation(mux)
 }
 

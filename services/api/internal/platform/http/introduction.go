@@ -48,11 +48,16 @@ func RegisterIntroductionRoutes(
 	reader IntroductionReader,
 	playback IntroductionPlayback,
 	sessions SessionAuthenticator,
+	gate MemberGate,
 ) {
-	mux.Handle("POST /v1/introductions", beginIntroductionHandler(service, sessions))
-	mux.Handle("POST /v1/introductions/{id}/uploaded", confirmIntroductionHandler(service, sessions, reader))
+	// Recording a Voice of Introduction and hearing one are romantic
+	// surfaces (FR-101a). Reading your own back and taking it down are not:
+	// erasure is a right, and a member demoted for safety must still be able
+	// to remove their own recording.
+	mux.Handle("POST /v1/introductions", gate.guard(sessions, "introductions.view", "introduction", beginIntroductionHandler(service, sessions)))
+	mux.Handle("POST /v1/introductions/{id}/uploaded", gate.guard(sessions, "introductions.view", "introduction", confirmIntroductionHandler(service, sessions, reader)))
 	mux.Handle("GET /v1/introductions/{id}", readIntroductionHandler(reader, sessions))
-	mux.Handle("GET /v1/introductions/{id}/audio", playIntroductionHandler(playback, reader, sessions))
+	mux.Handle("GET /v1/introductions/{id}/audio", gate.guard(sessions, "introductions.view", "introduction", playIntroductionHandler(playback, reader, sessions)))
 	mux.Handle("DELETE /v1/introductions/{id}", revokeIntroductionHandler(service, sessions, reader))
 }
 

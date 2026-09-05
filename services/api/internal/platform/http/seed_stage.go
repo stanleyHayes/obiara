@@ -21,9 +21,13 @@ type SeedStage interface {
 }
 
 // RegisterSeedStageRoutes adds the seed-stage routes.
-func RegisterSeedStageRoutes(mux *http.ServeMux, stage SeedStage, sessions SessionAuthenticator) {
-	mux.Handle("POST /v1/seed/sprouts", sproutHandler(stage, sessions))
-	mux.Handle("POST /v1/seed/doorways/{id}/exchanges", exchangeHandler(stage, sessions))
+func RegisterSeedStageRoutes(mux *http.ServeMux, stage SeedStage, sessions SessionAuthenticator, gate MemberGate) {
+	// Reaching toward someone is sowing (FR-101b, Tier 2). Speaking inside a
+	// doorway is not: a doorway only opens when both members reached for each
+	// other, so gating the reply at the sowing rung could open a doorway one
+	// of the two could never answer in. Declining is always open.
+	mux.Handle("POST /v1/seed/sprouts", gate.guard(sessions, "seeds.sow", "seed", sproutHandler(stage, sessions)))
+	mux.Handle("POST /v1/seed/doorways/{id}/exchanges", gate.guard(sessions, "rooms.participate", "room", exchangeHandler(stage, sessions)))
 	mux.Handle("POST /v1/seed/declines", declineHandler(stage, sessions))
 }
 

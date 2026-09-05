@@ -72,7 +72,7 @@ type rule struct {
 // rules is the explicit grant table. Order does not matter: any single
 // grant allows; absence of a grant denies. New capabilities must be added
 // here deliberately — never by widening an existing grant.
-var rules = []rule{
+var rules = append([]rule{
 	// Members act on resources they own (profiles, consent records,
 	// privacy requests, notification preferences).
 	{"read", "", func(subject Subject, resource Resource) (bool, string) {
@@ -84,31 +84,6 @@ var rules = []rule{
 	{"write", "", func(subject Subject, resource Resource) (bool, string) {
 		if subject.MemberID != "" && resource.OwnerID == subject.MemberID {
 			return true, "owner write"
-		}
-		return false, ""
-	}},
-	// FR-101 tier gates.
-	{"introductions.view", "introduction", func(subject Subject, _ Resource) (bool, string) {
-		if subject.Tier >= TierVerified {
-			return true, "tier 1 romantic surface"
-		}
-		return false, ""
-	}},
-	{"rooms.participate", "room", func(subject Subject, _ Resource) (bool, string) {
-		if subject.Tier >= TierVerified {
-			return true, "tier 1 room participation"
-		}
-		return false, ""
-	}},
-	{"fires.attend", "fire", func(subject Subject, _ Resource) (bool, string) {
-		if subject.Tier >= TierVerified {
-			return true, "tier 1 fire entry"
-		}
-		return false, ""
-	}},
-	{"seeds.sow", "seed", func(subject Subject, _ Resource) (bool, string) {
-		if subject.Tier >= TierSowing {
-			return true, "tier 2 sowing"
 		}
 		return false, ""
 	}},
@@ -134,6 +109,49 @@ var rules = []rule{
 		}
 		return false, ""
 	}},
+}, tierRules()...)
+
+// tierGates is FR-101 written once: the action, the resource it names, and the
+// rung a member must be standing on to reach it. Both the grant table and
+// RequiredTier are derived from this, so a surface can never be gated at one
+// tier and explained to the member at another.
+var tierGates = []struct {
+	action       string
+	resourceType string
+	minimum      Tier
+	reason       string
+}{
+	{"introductions.view", "introduction", TierVerified, "tier 1 romantic surface"},
+	{"rooms.participate", "room", TierVerified, "tier 1 room participation"},
+	{"fires.attend", "fire", TierVerified, "tier 1 fire entry"},
+	{"seeds.sow", "seed", TierSowing, "tier 2 sowing"},
+}
+
+func tierRules() []rule {
+	built := make([]rule, 0, len(tierGates))
+	for _, gate := range tierGates {
+		minimum, reason := gate.minimum, gate.reason
+		built = append(built, rule{gate.action, gate.resourceType,
+			func(subject Subject, _ Resource) (bool, string) {
+				if subject.Tier >= minimum {
+					return true, reason
+				}
+				return false, ""
+			}})
+	}
+	return built
+}
+
+// RequiredTier reports the rung an action demands, so a refusal can name what
+// would lift it rather than only that it was refused. The second result is
+// false for actions that are not tier-gated at all.
+func RequiredTier(action string) (Tier, bool) {
+	for _, gate := range tierGates {
+		if gate.action == strings.TrimSpace(action) {
+			return gate.minimum, true
+		}
+	}
+	return TierUnverified, false
 }
 
 // Evaluate decides whether subject may perform action on resource.

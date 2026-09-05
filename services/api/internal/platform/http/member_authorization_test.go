@@ -260,6 +260,7 @@ func TestListeningDerivesListenerFromSession(t *testing.T) {
 		sessionAuthenticatorStub{authenticate: func(context.Context, string) (identitydomain.Session, error) {
 			return memberSession(now), nil
 		}},
+		verifiedGate(),
 	)
 	request := httptest.NewRequest(http.MethodPost, "/v1/listening/heartbeats", strings.NewReader(`{"voiceAssetId":"asset-1","assetDuration":30,"ranges":[{"start":0,"end":5}]}`))
 	request.Header.Set("Authorization", "Bearer access")

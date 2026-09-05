@@ -91,7 +91,7 @@ func introMux(t *testing.T, service VoiceIntroduction, reader IntroductionReader
 	},
 		sessionAuthenticatorStub{authenticate: func(context.Context, string) (identitydomain.Session, error) {
 			return session, nil
-		}})
+		}}, verifiedGate())
 	return Correlation(mux)
 }
 

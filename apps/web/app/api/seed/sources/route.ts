@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { apiClient, apiErrorMessage } from "../../../lib/api-server";
+import { apiClient, apiErrorCode, apiErrorMessage } from "../../../lib/api-server";
 
 /**
  * Asks to be introduced through a circle the member belongs to.
@@ -44,6 +44,7 @@ export async function POST(request: Request) {
   if (!data) {
     return NextResponse.json(
       {
+        code: apiErrorCode(error),
         message: apiErrorMessage(
           error,
           "We could not open that introduction. Please try again.",

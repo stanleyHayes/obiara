@@ -30,6 +30,12 @@ type pushDeviceRequest struct {
 }
 
 func authenticatedMember(w http.ResponseWriter, r *http.Request, sessions SessionAuthenticator) (string, bool) {
+	// A gated route already authenticated this request to decide the tier;
+	// re-reading the session here would cost a second lookup for the same
+	// answer.
+	if memberID, ok := gatedMember(r.Context()); ok {
+		return memberID, true
+	}
 	token, ok := bearerToken(r.Header.Get("Authorization"))
 	if !ok || sessions == nil {
 		writeError(w, r, http.StatusUnauthorized, APIError{

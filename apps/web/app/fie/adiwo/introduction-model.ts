@@ -1,3 +1,5 @@
+import { type TierNotice } from "../../lib/tier-gate";
+
 // Asking to be introduced through a circle.
 //
 // The API answers with how many people the ask found and never who they are:
@@ -26,6 +28,11 @@ export interface AskState {
   readonly found: number | null;
   readonly requestId: string | null;
   readonly error: string | null;
+  /**
+   * Where the member can go when the ask was refused for a reason they can
+   * act on — an unverified account, rather than a failure. Null otherwise.
+   */
+  readonly notice: TierNotice | null;
 }
 
 export const initialAsk: AskState = {
@@ -33,6 +40,7 @@ export const initialAsk: AskState = {
   found: null,
   requestId: null,
   error: null,
+  notice: null,
 };
 
 /** The sentence shown after an ask, which depends on what it found. */

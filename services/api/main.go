@@ -541,17 +541,21 @@ func run() error {
 	mux.Handle("GET /ready", health.Ready(func(ctx context.Context) error {
 		return client.Ping(ctx, readpref.Primary())
 	}))
+	// The verification ladder (FR-101). One gate, built once, asked by every
+	// route that names a tier-gated action; the rules live in the authorization
+	// kernel's grant table, not here.
+	memberGate := apihttp.NewMemberGate(identityModule.Tiers)
 	apihttp.RegisterMemberRoutes(mux, memberModule.Register.Handle)
 	apihttp.RegisterWaitlistRoutes(mux, waitlistStore, adminPrincipalResolver)
 	apihttp.RegisterAuthRoutes(mux, identityModule.Registration, identityModule.Sessions)
 	apihttp.RegisterPushRoutes(mux, pushModule.Push, identityModule.Sessions)
-	apihttp.RegisterCourtshipProposalRoutes(mux, proposalModule.Proposals, identityModule.Sessions)
-	apihttp.RegisterCourtshipRoomRoutes(mux, courtship.NewRoom(courtshipRoomModule), identityModule.Sessions)
-	apihttp.RegisterSeedStageRoutes(mux, seedstage.NewStage(seedStageModule), identityModule.Sessions)
+	apihttp.RegisterCourtshipProposalRoutes(mux, proposalModule.Proposals, identityModule.Sessions, memberGate)
+	apihttp.RegisterCourtshipRoomRoutes(mux, courtship.NewRoom(courtshipRoomModule), identityModule.Sessions, memberGate)
+	apihttp.RegisterSeedStageRoutes(mux, seedstage.NewStage(seedStageModule), identityModule.Sessions, memberGate)
 	// Present only when the seed stage was given a circle reader; without one
 	// there is nothing to resolve candidates from and the routes stay absent.
 	if seedStageModule.Sources != nil {
-		apihttp.RegisterSeedSourceRoutes(mux, seedStageModule.Sources, identityModule.Sessions)
+		apihttp.RegisterSeedSourceRoutes(mux, seedStageModule.Sources, identityModule.Sessions, memberGate)
 	}
 	apihttp.RegisterFireRunSheetRoutes(mux, runSheetModule.RunSheets, identityModule.Sessions)
 	apihttp.RegisterCatalogRoutes(mux, catalogModule.Catalog, identityModule.Sessions)
@@ -597,6 +601,7 @@ func run() error {
 			introductionModule.Store,
 			introductionModule.Playback,
 			identityModule.Sessions,
+			memberGate,
 		)
 
 		// Erasure runs here rather than in the worker because the aggregate
@@ -625,7 +630,7 @@ func run() error {
 	apihttp.RegisterTrustVisibilityRoutes(mux, trustModule.Visibility, identityModule.Sessions)
 	apihttp.RegisterDoorwayRoutes(mux, profileModule.Doorway, profileModule.Vault, identityModule.Sessions)
 	apihttp.RegisterProfileRoutes(mux, profileModule.Profile, consentModule.ConsentMap, identityModule.Sessions)
-	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening, identityModule.Sessions)
+	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening, identityModule.Sessions, memberGate)
 	apihttp.RegisterGardenRoutes(mux, gardenService, identityModule.Sessions)
 	apihttp.RegisterCircleRoutes(mux, circleModule.Circles, identityModule.Sessions)
 	apihttp.RegisterCircleRoomRoutes(mux, circleRoomModule.Rooms, identityModule.Sessions)

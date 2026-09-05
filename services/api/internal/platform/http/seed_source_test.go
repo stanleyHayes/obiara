@@ -59,7 +59,7 @@ func sourceMux(t *testing.T, stub sourceStub, memberID string) http.Handler {
 	RegisterSeedSourceRoutes(mux, stub,
 		sessionAuthenticatorStub{authenticate: func(context.Context, string) (identitydomain.Session, error) {
 			return session, nil
-		}})
+		}}, verifiedGate())
 	return Correlation(mux)
 }
 
