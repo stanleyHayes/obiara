@@ -3479,3 +3479,66 @@ That mattered because the generator failing is silent from Go's side: the
 client simply does not regenerate. I only found it by checking whether the new
 operation had actually landed in `schema.ts` rather than trusting that a
 command in a chain had done its job. The count was zero.
+
+
+## 45. Finding: the spoken-seed lifecycle is built, dark, and blocked on one decision (2026-09-05)
+
+Going after the sow voice answer turned up something larger than the task.
+**`services/api/internal/seed/sow` exists** and is not the context I have been
+wiring. I have spent several goals gating and charging `seed/sprout`, which is
+the live route behind `POST /v1/seed/sprouts`, and its `Intent` carries only
+opaque keys — no content of any kind (`sprout/domain/doorway.go:20`).
+
+`seed/sow` is the real model:
+
+```go
+type Sow struct {
+    ID, ActorKey, Body string
+    Media          []Media   // each with a Key and a ScreeningKey, max 4
+    AllowanceUnits int64
+    ...
+}
+var ErrNotConfirmed      = errors.New("deliberate confirmation is required")
+var ErrScreeningRejected = errors.New("sow failed media screening")
+```
+
+It already models the answer, its media, Sentinel's screening key per item,
+the deliberate confirmation M4-03 calls the drag-release gesture, and the
+allowance as a first-class invariant. Its `Acceptance` port is documented to
+store the sow **and spend its allowance atomically** — which is strictly better
+than what I built in §40, where the charge and the write are two steps with a
+window between them.
+
+### The lifecycle is four dark contexts, not one
+
+`deploy/release/composition-inventory.md` lists them, and reading their ports
+shows how close they are:
+
+| Context | Needs | State |
+| --- | --- | --- |
+| `seed/sow` | `Screening`, `Acceptance` | **`Acceptance` adapter already exists** (`acceptance.go`, with `seed_sows`, `seed_sow_events` and allowance entries). Only `Screening` is missing. |
+| `seed/pod` | `Repository`, `Authorizer`, `PlaybackEligibility`, `MediaIssuer` | Repository exists; the other three are **bridges to contexts already composed** — authz, listening, media. |
+| `seed/water` | `Repository`, `Authorizer`, `PairConsent`, `Keyer` | Repository and Keyer exist. |
+| `seed/screening` | five ports | Vendor and policy decisions. |
+
+A `Pod` is `{ownerKey, mediaKey, recipientKeys, status, expiresAt}` with
+`Create` and `Playback` — the closed pod at the house front that S-31 says a
+member holds to listen to. It is general over a media key, so it does not
+depend on `seed/sow` structurally; it depends on it for anything to hold.
+
+### So the whole thing is blocked on one question
+
+Everything downstream — the spoken sow, the pod at the house front, mutual
+water opening a room — waits on **what screens a sow before it is delivered**.
+That is M4-ABUSE-01, it is a product and vendor decision, and it is not mine.
+
+Recorded rather than guessed. The three plausible answers are in the message
+that accompanied this section.
+
+### An honest note about §40
+
+The allowance spend I added to `sprout` is correct for the path that is live,
+and it is in the weaker place. If `seed/sow` becomes the live sow, the charge
+should move into `Acceptance`, which does it atomically, and the separate
+spend on `sprout` should go. I am flagging that rather than leaving two
+allowance spends in the codebase for someone to find later.
