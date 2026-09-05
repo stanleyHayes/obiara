@@ -73,6 +73,7 @@ import (
 	identityapplication "github.com/stanleyHayes/obiara/services/api/internal/identity/application"
 	identitydomain "github.com/stanleyHayes/obiara/services/api/internal/identity/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/introduction"
+	introductionmongo "github.com/stanleyHayes/obiara/services/api/internal/introduction/adapters/outbound/mongodb"
 	introductionretention "github.com/stanleyHayes/obiara/services/api/internal/introduction/retention"
 	"github.com/stanleyHayes/obiara/services/api/internal/marketpack"
 	"github.com/stanleyHayes/obiara/services/api/internal/media"
@@ -98,6 +99,7 @@ import (
 	gardenprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/privacy"
 	gardenapp "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
+	listeningapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/listening/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/sentinel/scamarc"
 	"github.com/stanleyHayes/obiara/services/api/internal/suban"
 	"github.com/stanleyHayes/obiara/services/api/internal/trust"
@@ -571,7 +573,6 @@ func run() error {
 	apihttp.RegisterPushRoutes(mux, pushModule.Push, identityModule.Sessions)
 	apihttp.RegisterCourtshipProposalRoutes(mux, proposalModule.Proposals, identityModule.Sessions, memberGate)
 	apihttp.RegisterCourtshipRoomRoutes(mux, courtship.NewRoom(courtshipRoomModule), identityModule.Sessions, memberGate)
-	apihttp.RegisterSeedStageRoutes(mux, seedstage.NewStage(seedStageModule), identityModule.Sessions, memberGate)
 	// Present only when the seed stage was given a circle reader; without one
 	// there is nothing to resolve candidates from and the routes stay absent.
 	if seedStageModule.Sources != nil {
@@ -636,7 +637,19 @@ func run() error {
 			time.Now,
 			slog.Default(),
 		).Run(ctx, time.Hour)
+
+		// FR-202: a sow is armed only by having heard the other member.
+		// Attached here because it needs the introduction store, which is
+		// built inside this block.
+		seedStageModule.Sprout = seedStageModule.Sprout.WithListenGate(sproutListenBridge{
+			introductions: introductionModule.Store,
+			listening:     listeningModule.Listening,
+		})
 	}
+	// Registered after the gate is attached. Without object storage there are
+	// no recordings, so nobody can have heard anyone and the sprout service
+	// reports itself unavailable rather than accepting an unarmed sow.
+	apihttp.RegisterSeedStageRoutes(mux, seedstage.NewStage(seedStageModule), identityModule.Sessions, memberGate)
 	apihttp.RegisterOnboardingConsentRoutes(mux, onboardingConsentModule.Onboarding, identityModule.Sessions)
 	apihttp.RegisterOnboardingStatusRoutes(
 		mux,
@@ -924,6 +937,36 @@ func (bridge introductionLadderBridge) SowingEarned(ctx context.Context, memberI
 		return err
 	}
 	return nil
+}
+
+// sproutListenBridge answers FR-202 for the seed stage: has this member heard
+// enough of that member's Voice of Introduction to reach toward them?
+//
+// It resolves the target's recordings itself rather than taking an asset id
+// from the caller, so the gate cannot be satisfied with a recording that
+// belongs to somebody else. A member who has recorded nothing has no assets
+// here, so nobody can sow toward them — which is the same rule read from the
+// other side: people meet you through your voice.
+type sproutListenBridge struct {
+	introductions *introductionmongo.Store
+	listening     listeningapplication.ListeningService
+}
+
+func (bridge sproutListenBridge) Heard(ctx context.Context, listenerID, targetID string) (bool, error) {
+	assets, err := bridge.introductions.AssetIDsByOwner(ctx, targetID)
+	if err != nil {
+		return false, err
+	}
+	for _, asset := range assets {
+		eligible, _, err := bridge.listening.Eligibility(ctx, listenerID, asset)
+		if err != nil {
+			return false, err
+		}
+		if eligible {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // safeguardingBridge carries verification's narrow age-gate port to the

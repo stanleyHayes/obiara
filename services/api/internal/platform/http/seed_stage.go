@@ -226,6 +226,14 @@ func writeSeedStageError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusConflict, APIError{
 			Code: "out_of_turn", Message: "It is the other person's turn.",
 		})
+	case errors.Is(err, sproutapp.ErrNotHeard):
+		// A rule, not a fault, and one a member can act on: listen to them.
+		// Without this case it would fall to the default and read as a
+		// server error, which is both untrue and no help.
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "not_heard_yet",
+			Message: "Listen to their voice for at least 20 seconds before you reach toward them.",
+		})
 	case errors.Is(err, sproutapp.ErrConcurrentChange):
 		writeError(w, r, http.StatusConflict, APIError{
 			Code: "doorway_conflict", Message: "That doorway changed. Refresh and try again.",

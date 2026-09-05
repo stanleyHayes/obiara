@@ -27,15 +27,41 @@ type Service struct {
 	keyer      Keyer
 	ids        IDSource
 	now        func() time.Time
+	// listen is the FR-202 gate. A nil one makes the service unavailable
+	// rather than permissive: a sow that skipped the listening is the exact
+	// outcome the gate exists to prevent, so it must not be what happens
+	// when the wiring is missing.
+	listen ListenGate
+}
+
+// WithListenGate attaches the listening requirement.
+func (s Service) WithListenGate(listen ListenGate) Service {
+	s.listen = listen
+	return s
 }
 
 func New(repository Repository, keyer Keyer, ids IDSource, now func() time.Time) Service {
-	return Service{repository, keyer, ids, now}
+	return Service{repository: repository, keyer: keyer, ids: ids, now: now}
 }
 
 func (s Service) Sprout(ctx context.Context, command SproutCommand) (SproutResult, error) {
 	if !s.ready() {
 		return SproutResult{}, ErrUnavailable
+	}
+	// Only sowing needs the gate. Speaking inside a doorway both members
+	// already opened does not, and requiring it there would shut existing
+	// conversations whenever the gate was unavailable.
+	if s.listen == nil {
+		return SproutResult{}, ErrUnavailable
+	}
+	// Checked before anything is keyed or written: a sow that was never
+	// armed should leave no trace, not a refused one.
+	heard, err := s.listen.Heard(ctx, command.ActorID, command.TargetID)
+	if err != nil {
+		return SproutResult{}, ErrUnavailable
+	}
+	if !heard {
+		return SproutResult{}, ErrNotHeard
 	}
 	actor, err := s.key("participant", command.ActorID)
 	if err != nil {

@@ -284,3 +284,26 @@ func (store *Store) PromptsRecorded(ctx context.Context, ownerID string) ([]doma
 	}
 	return prompts, nil
 }
+
+// AssetIDsByOwner lists the media assets behind this member's usable
+// recordings.
+//
+// The sow gate resolves the target's assets here rather than trusting an
+// asset id from the caller: a member must not be able to satisfy "you have
+// heard them" with a recording that is not theirs.
+func (store *Store) AssetIDsByOwner(ctx context.Context, ownerID string) ([]string, error) {
+	usable := make([]string, 0, len(domain.RecordedStatuses()))
+	for _, status := range domain.RecordedStatuses() {
+		usable = append(usable, string(status))
+	}
+	values := store.introductions.Distinct(ctx, "assetId", bson.M{
+		"ownerId":    strings.TrimSpace(ownerID),
+		"status":     bson.M{"$in": usable},
+		"dataStatus": string(domain.DataRetained),
+	})
+	var assets []string
+	if err := values.Decode(&assets); err != nil {
+		return nil, err
+	}
+	return assets, nil
+}

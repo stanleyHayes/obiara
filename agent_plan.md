@@ -3052,3 +3052,59 @@ way in**. Ungating a participation route was a silent change every test passed.
 tables from source and fails if any of twelve participation routes loses its
 guard — verified by removing one and watching it name the offending line. That
 test exists only because an experiment failed to fail.
+
+
+## 39. Goal: a sow must be armed by listening (FR-202, 2026-09-05)
+
+`Sprout` keyed the participants and recorded the intent. It consulted nothing:
+not the listening record, not the allowance, not the decline lock. A member
+could reach toward anyone without having heard a second of them, which is the
+thing this product exists not to be.
+
+This is a different shape from the orphaned contexts. `seed/listening` is
+composed and reachable — `RequiredSeconds = 20.0` is real, heartbeats and
+eligibility both have routes. The contexts were built and even wired to the
+outside world. They were simply never introduced to each other at the one
+place the decision is made.
+
+### The decisions
+
+**The gate takes members, not an asset id.** Listening eligibility is keyed by
+asset, and the caller knows asset ids. Letting the sow name the asset would
+let a member satisfy "you have heard them" with a recording belonging to
+somebody else, so the bridge resolves the target's own recordings and checks
+those.
+
+**A member with no recording cannot be sown toward.** They have no assets, so
+nobody can have heard them. That reads harsh until you turn it around: it is
+the same rule as "people meet you through your voice", enforced from the other
+side. Recorded here because it is a real consequence, not an oversight.
+
+**Only sowing needs the gate.** The first attempt put it in `ready()`, which
+also blocked `Exchange` — speaking inside a doorway both members already
+opened. That would have shut existing conversations whenever the gate was
+unavailable. The tests caught it immediately.
+
+**A nil or failing gate refuses.** An outage must not arm a sow. Without
+object storage there are no recordings at all, so nobody can have been heard,
+and the sprout service reports itself unavailable rather than accepting an
+unarmed sow.
+
+**Refusal happens before anything is keyed or written**, so a sow that was
+never armed leaves no trace rather than a refused one.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| SOW-01  | `ListenGate` port; `Sprout` refuses an unheard reach                 | DONE   |
+| SOW-02  | Bridge resolving the target's own recordings, not a caller's asset   | DONE   |
+| SOW-03  | 409 `not_heard_yet` telling the member what would arm it             | DONE   |
+
+Verified by breaking it: with the refusal disabled, the test reported that an
+unheard sow returned nil. A test fixture also had to be fixed rather than
+trusted — it keyed every value identically, which made actor and target the
+same person, and the aggregate's own refusal would have made the test pass for
+the wrong reason.
+
+**Still open in this area:** FR-201a's seed allowance is not spent on a sow,
+and M4-AC-01's 90-day decline lock is not consulted. Both contexts are built.
+They are the next two slices, and this goal does not claim them.

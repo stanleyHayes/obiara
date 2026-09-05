@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -24,7 +25,9 @@ func TestUnilateralSproutReturnsNoDoorway(t *testing.T) {
 		}
 		return nil, false, nil
 	})
-	service := New(repository, keyer, ids, time.Now)
+	listen := NewMockListenGate(ctrl)
+	listen.EXPECT().Heard(gomock.Any(), "alice", "bob").Return(true, nil)
+	service := New(repository, keyer, ids, time.Now).WithListenGate(listen)
 	result, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"})
 	if err != nil || result.Doorway != nil {
 		t.Fatalf("result=%#v err=%v", result, err)
@@ -51,5 +54,62 @@ func TestExchangeUsesOpaqueReferences(t *testing.T) {
 	result, err := service.Exchange(context.Background(), ExchangeCommand{"exchange", "doorway", "alice", "raw-message"})
 	if err != nil || len(result.Doorway.Exchanges()) != 1 {
 		t.Fatalf("result=%#v err=%v", result, err)
+	}
+}
+
+// heardGate is a listen gate with a fixed answer, for the tests that are
+// about what the gate decides rather than how it decides it.
+type heardGate struct {
+	heard bool
+	err   error
+}
+
+func (g heardGate) Heard(context.Context, string, string) (bool, error) { return g.heard, g.err }
+
+func sproutWith(t *testing.T, gate ListenGate) (SproutResult, error) {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+	repository := NewMockRepository(ctrl)
+	keyer := NewMockKeyer(ctrl)
+	ids := NewMockIDSource(ctrl)
+	// No expectations set on purpose: if the gate refuses, the controller
+	// fails the test should anything be keyed, minted or written. That is
+	// the assertion — a refused sow leaves no trace.
+	// Distinct per value: one key for everybody would make the actor and the
+	// target the same person, which the aggregate rightly refuses, and the
+	// test would pass for the wrong reason.
+	keyer.EXPECT().Key(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(namespace, value string) (string, error) { return namespace + "-" + value, nil },
+	).AnyTimes()
+	ids.EXPECT().NewID().Return("intent-1").AnyTimes()
+	repository.EXPECT().RecordIntent(gomock.Any(), gomock.Any()).Return(nil, false, nil).AnyTimes()
+
+	service := New(repository, keyer, ids, time.Now)
+	if gate != nil {
+		service = service.WithListenGate(gate)
+	}
+	return service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"})
+}
+
+func TestASowNeedsTheirVoiceToHaveBeenHeard(t *testing.T) {
+	// FR-202. Reaching for someone you have not listened to is the thing
+	// this product exists not to be, and until now nothing stopped it.
+	if _, err := sproutWith(t, heardGate{heard: false}); !errors.Is(err, ErrNotHeard) {
+		t.Fatalf("an unheard sow returned %v, want ErrNotHeard", err)
+	}
+	if _, err := sproutWith(t, heardGate{heard: true}); err != nil {
+		t.Fatalf("a heard sow was refused: %v", err)
+	}
+}
+
+func TestAnUnansweredListenGateRefusesRatherThanPasses(t *testing.T) {
+	// The direction that matters: an outage must not arm a sow. A nil gate
+	// is the same case — a deployment with no recordings anywhere cannot
+	// have anyone who has been heard.
+	if _, err := sproutWith(t, heardGate{err: errors.New("listening unavailable")}); err == nil {
+		t.Fatal("a sow was armed while the gate was unreachable")
+	}
+	if _, err := sproutWith(t, nil); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("a sow with no gate composed returned %v, want ErrUnavailable", err)
 	}
 }
