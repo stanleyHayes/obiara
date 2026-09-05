@@ -4139,9 +4139,8 @@ than treating its absence as permission.
 Proven by breaking it: disabling the refusal made the test report a blocked
 reach returning nil.
 
-**Introductions closed too (§56, below).** Courtship rooms, circles and fires
-still do not consult a block. Each is its own boundary and each needs the same
-check.
+**Introductions closed in §56 and courtship rooms in §57.** Circles and fires
+still do not consult a block.
 
 
 ## 56. Goal: nobody is introduced to somebody they blocked (2026-09-05)
@@ -4181,3 +4180,58 @@ constructor argument would have been worth the reordering.
 
 The existing visibility test failed the moment the port was added, which is
 the fail-safe working: it had no block check, so it offered nobody.
+
+
+## 57. Goal: no room is opened across a block (2026-09-05)
+
+The third boundary, and the plainest. A courtship room is a private
+conversation between two people; opening one across a block is the most direct
+violation of what a block is for, and nothing stopped it.
+
+Worth separating two things that share a word: the courtship room already has
+its own in-room block (`POST /v1/courtship/rooms/{id}/safety/block`), which
+ends an existing room. That is not this. This is the member-level block set
+from anywhere in the product, which nothing consulted.
+
+### The decisions
+
+**Checked before anything is opened.** `Start` opens five aggregates — pace,
+honesty, pause, closure, safety — and a room half-built across a block is
+worse than no room at all.
+
+**The actor is not asked about themselves.** A test pins that, because a check
+that compared a member to themselves would refuse every room.
+
+**A blocked room answers exactly as an unavailable one does.** Reusing the
+existing 404 rather than inventing a code: anything more specific tells one
+member that the other blocked them, which is the signal a block withholds.
+
+**No block check means no room.** Five aggregates open below that line; a
+composition that forgot the check must not open a room blind to blocks.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| BLK-07  | `Blocked` port on the room, checked before any aggregate opens        | DONE   |
+| BLK-08  | A refusal indistinguishable from an unavailable room                  | DONE   |
+| BLK-09  | Absence of the check closes the surface                               | DONE   |
+
+The guard was proven in a way worth recording: the test builds the room with a
+zero-valued module, so if the check does not refuse first, `Start` reaches a
+nil service and panics. Disabling the refusal did exactly that — the test
+cannot pass for the wrong reason.
+
+### Where blocks now count, and where they still do not
+
+| Boundary | State |
+| --- | --- |
+| `POST /v1/seed/sprouts` | Honoured (§55) |
+| Introduction visibility | Honoured (§56) |
+| `POST /v1/courtship/rooms` | Honoured (§57) |
+| Circles — joining one somebody you blocked is in | Not consulted |
+| Fires — attending one they are at | Not consulted |
+| Listening / introduction playback | Not consulted |
+
+The three closed are the ones where a block being ignored puts two people into
+direct contact. The three open are shared spaces, where the right behaviour is
+a product question — a block is not obviously a reason to be excluded from a
+circle somebody else happens to be in — rather than an oversight.

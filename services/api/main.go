@@ -581,7 +581,10 @@ func run() error {
 	apihttp.RegisterAuthRoutes(mux, identityModule.Registration, identityModule.Sessions)
 	apihttp.RegisterPushRoutes(mux, pushModule.Push, identityModule.Sessions)
 	apihttp.RegisterCourtshipProposalRoutes(mux, proposalModule.Proposals, identityModule.Sessions, memberGate)
-	apihttp.RegisterCourtshipRoomRoutes(mux, courtship.NewRoom(courtshipRoomModule), identityModule.Sessions, memberGate)
+	apihttp.RegisterCourtshipRoomRoutes(mux,
+		courtship.NewRoom(courtshipRoomModule).
+			WithBlocks(sproutBlockBridge{safety: safetyModule.Safety}),
+		identityModule.Sessions, memberGate)
 	// Present only when the seed stage was given a circle reader; without one
 	// there is nothing to resolve candidates from and the routes stay absent.
 	if seedStageModule.Sources != nil {

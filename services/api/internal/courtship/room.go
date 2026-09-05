@@ -163,7 +163,13 @@ func (room Room) requireMember(ctx context.Context, roomID, memberID string) err
 // layer sees. Each slice keeps its own aggregate and store; this only spares
 // the composition root from threading five services through one surface that
 // a member experiences as one room.
-type Room struct{ module RoomModule }
+type Room struct {
+	module RoomModule
+	// blocks is the member-level block check. Rooms have their own
+	// in-room block, which is a different thing: this is the one a member
+	// set from anywhere in the product, and nothing consulted it.
+	blocks Blocked
+}
 
 func NewRoom(module RoomModule) Room { return Room{module: module} }
 
@@ -176,7 +182,44 @@ func NewRoom(module RoomModule) Room { return Room{module: module} }
 // The facets are opened after the pace, and a failure part-way through is
 // returned to the caller: the command id makes the whole call safe to retry,
 // and a half-open room is better surfaced than hidden.
+// Blocked reports whether either member has blocked the other.
+type Blocked interface {
+	Blocked(ctx context.Context, memberID, otherID string) (bool, error)
+}
+
+// ErrBlocked refuses a room between two people, one of whom has blocked the
+// other. It is deliberately the same shape as any other refusal to start:
+// which of them blocked whom is not something either should learn here.
+var ErrBlocked = errors.New("this room is not available")
+
+// WithBlocks attaches the block check.
+func (room Room) WithBlocks(blocks Blocked) Room {
+	room.blocks = blocks
+	return room
+}
+
 func (room Room) Start(ctx context.Context, roomID string, members []string, commandID, actorID string) (pacedomain.Pace, error) {
+	// A room is a private conversation between two people. Opening one
+	// across a block is the plainest possible violation of what a block is
+	// for, and until this check existed nothing stopped it.
+	//
+	// Checked before anything is opened: five aggregates are created below,
+	// and a room half-built across a block is worse than no room.
+	if room.blocks == nil {
+		return pacedomain.Pace{}, ErrBlocked
+	}
+	for _, member := range members {
+		if member == actorID {
+			continue
+		}
+		blocked, err := room.blocks.Blocked(ctx, actorID, member)
+		if err != nil {
+			return pacedomain.Pace{}, ErrBlocked
+		}
+		if blocked {
+			return pacedomain.Pace{}, ErrBlocked
+		}
+	}
 	pace, err := room.module.Pace.Start(ctx, roomID, members, commandID, actorID)
 	if err != nil {
 		return pacedomain.Pace{}, err

@@ -3,6 +3,7 @@ package apihttp
 import (
 	"context"
 	"errors"
+	"github.com/stanleyHayes/obiara/services/api/internal/courtship"
 	"net/http"
 	"strconv"
 	"strings"
@@ -438,7 +439,11 @@ func safetyReportHandler(room CourtshipRoom, sessions SessionAuthenticator) http
 // that it exists.
 func writeCourtshipRoomError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
-	case errors.Is(err, pacedomain.ErrDenied), errors.Is(err, pausedomain.ErrDenied),
+	// A block answers exactly as an unavailable room does. Anything more
+	// specific would tell one member that the other blocked them, which is
+	// the signal a block exists to withhold.
+	case errors.Is(err, courtship.ErrBlocked),
+		errors.Is(err, pacedomain.ErrDenied), errors.Is(err, pausedomain.ErrDenied),
 		errors.Is(err, closuredomain.ErrDenied), errors.Is(err, honestydomain.ErrDenied),
 		errors.Is(err, safetydomain.ErrDenied):
 		writeError(w, r, http.StatusNotFound, APIError{
