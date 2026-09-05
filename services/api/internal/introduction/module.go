@@ -25,6 +25,10 @@ const ConsentPurposeID = "voice.introduction"
 type Module struct {
 	Introductions application.Service
 	Store         *mongodb.Store
+	// Playback issues read grants. It is the same media manager the service
+	// writes through, exposed separately because hearing a recording is not
+	// a transition of the aggregate and must not go through one.
+	Playback *mediaadapter.Manager
 }
 
 // ErrDependenciesRequired reports a module built without the ports it cannot
@@ -85,6 +89,7 @@ func NewModule(
 			idSource{},
 			time.Now,
 		),
-		Store: store,
+		Store:    store,
+		Playback: manager,
 	}, nil
 }

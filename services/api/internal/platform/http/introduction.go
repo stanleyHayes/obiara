@@ -27,6 +27,13 @@ type IntroductionReader interface {
 	FindByID(context.Context, string) (domain.Introduction, error)
 }
 
+// IntroductionPlayback issues a short-lived grant to hear one recording.
+// Whether this subject may hear this asset is the media context's decision,
+// not this transport's.
+type IntroductionPlayback interface {
+	AuthorizePlayback(ctx context.Context, subjectID, assetID string) (application.UploadAccess, error)
+}
+
 // voiceIntroductionPurpose must match introduction.ConsentPurposeID. It is
 // restated rather than imported so the transport does not depend on the
 // composition root.
@@ -39,12 +46,80 @@ func RegisterIntroductionRoutes(
 	mux *http.ServeMux,
 	service VoiceIntroduction,
 	reader IntroductionReader,
+	playback IntroductionPlayback,
 	sessions SessionAuthenticator,
 ) {
 	mux.Handle("POST /v1/introductions", beginIntroductionHandler(service, sessions))
 	mux.Handle("POST /v1/introductions/{id}/uploaded", confirmIntroductionHandler(service, sessions, reader))
 	mux.Handle("GET /v1/introductions/{id}", readIntroductionHandler(reader, sessions))
+	mux.Handle("GET /v1/introductions/{id}/audio", playIntroductionHandler(playback, reader, sessions))
 	mux.Handle("DELETE /v1/introductions/{id}", revokeIntroductionHandler(service, sessions, reader))
+}
+
+type playbackResponse struct {
+	AssetID    string `json:"assetId"`
+	URL        string `json:"url"`
+	ExpiresAt  string `json:"expiresAt"`
+	DurationMs int64  `json:"durationMs"`
+}
+
+// playIntroductionHandler hands back a URL the client plays the audio from.
+//
+// Without this the recording could not be heard by anybody, including the
+// member who made it — and the twenty seconds of verified listening that arms
+// Sow (FR-202) could never be accumulated, because there was nothing to
+// listen to. The audio is streamed from storage, not proxied: a play request
+// per member per replay is not traffic this service should carry.
+func playIntroductionHandler(
+	playback IntroductionPlayback,
+	reader IntroductionReader,
+	sessions SessionAuthenticator,
+) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := authenticatedMember(w, r, sessions)
+		if !ok {
+			return
+		}
+		if playback == nil {
+			writeError(w, r, http.StatusServiceUnavailable, APIError{
+				Code: "introduction_unavailable", Message: "Voice introductions are unavailable.",
+			})
+			return
+		}
+		introduction, found := loadOwnedIntroduction(w, r, reader, r.PathValue("id"), memberID)
+		if !found {
+			return
+		}
+		// Withdrawal stops playback now, not when erasure catches up. Revoke
+		// already moves the data to purge_pending, so the data check alone
+		// would cover it; the status check is stated too because "may this be
+		// heard" should not depend on a reader tracing which transition
+		// happens to move which field.
+		//
+		// Saying "not found" also beats a signed URL that 404s at the bucket,
+		// which reads to a member as a broken player rather than their own
+		// decision being honoured.
+		if introduction.Status() == domain.StatusRevoked ||
+			introduction.Status() == domain.StatusCancelled ||
+			introduction.DataStatus() != domain.DataRetained {
+			writeError(w, r, http.StatusNotFound, APIError{
+				Code: "introduction_not_found", Message: "That voice introduction was not found.",
+			})
+			return
+		}
+
+		access, err := playback.AuthorizePlayback(r.Context(), memberID, introduction.Media().AssetID())
+		if err != nil {
+			writeIntroductionError(w, r, err)
+			return
+		}
+		writeSuccess(w, r, http.StatusOK, playbackResponse{
+			AssetID:    introduction.Media().AssetID(),
+			URL:        access.URL,
+			ExpiresAt:  access.ExpiresAt.Format(time.RFC3339),
+			DurationMs: introduction.Media().Duration().Milliseconds(),
+		})
+	})
 }
 
 type beginIntroductionRequest struct {

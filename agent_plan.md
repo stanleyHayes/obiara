@@ -2320,3 +2320,39 @@ time — admin desks and Fie shells that look like the redesign in progress.
 Nothing was lost and everything is pushed, but that work is recorded under
 these commit messages rather than its own. Worth a look before building on
 those files.
+
+## 28. Goal: make a recording hearable (2026-09-05)
+
+Yesterday's slice built the write path and stopped there. A member can record
+three answers and nothing — not even they — can play one back. `RequestRead`
+on the media access service and `SignRead` on the object store are both
+written and reachable from nowhere.
+
+That is worse than an unfinished feature, because it breaks a chain that is
+otherwise complete. Sowing requires twenty seconds of verified listening
+(FR-202). The gate for it is built and composed:
+`internal/seed/listening/domain/playback.go` sets `RequiredSeconds = 20.0`,
+unions disjoint intervals so replays and out-of-order heartbeats cannot
+double-count, and `POST /v1/listening/heartbeats` and
+`GET /v1/listening/eligibility/{assetId}` are both on the wire. They are keyed
+on the same `assetId` the introduction response already returns.
+
+    record ✓ → playback grant ✗ → heartbeats ✓ → 20 s eligibility ✓ → Sow ✓
+
+One missing link. Until it exists the gate can never be satisfied, so Sow can
+never arm, so S-22 and the whole matching cluster rest on something that
+cannot happen.
+
+| Task   | Deliverable                                                                    | Status  | Notes                                                                                                                                  |
+| ------ | ------------------------------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| VOI-06 | Playback grant: a short-lived signed read URL for an asset the caller may hear | TODO    | Owner-only to begin with, which is what `ownerpolicy` already enforces. A second rule joins it when introductions are delivered (S-21) |
+| VOI-07 | Player on the voice surface, reporting listening heartbeats as it plays        | TODO    | Closes the chain end to end and lets a member hear what others will                                                                    |
+| VOI-05 | Retention sweep                                                                | PARTIAL | `DueForPurge` is written and indexed; nothing calls it                                                                                 |
+
+Deliberately not started yet: `internal/matching/coldstart` and
+`internal/seed/source` are both fully built and have zero references outside
+their own trees — the same orphan shape `internal/introduction` had. They are
+S-20 and the next goal after this one, but composing them needs four port
+adapters and at least one of those (reciprocal preferences) has no backing
+store, so it is a larger piece of work than it looks. Finishing the chain
+first means that work lands on something that already runs.

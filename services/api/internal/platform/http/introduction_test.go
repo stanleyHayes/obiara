@@ -39,6 +39,15 @@ type introReaderStub struct {
 	err          error
 }
 
+type introPlaybackStub struct {
+	access introapplication.UploadAccess
+	err    error
+}
+
+func (s introPlaybackStub) AuthorizePlayback(context.Context, string, string) (introapplication.UploadAccess, error) {
+	return s.access, s.err
+}
+
 func (s introReaderStub) FindByID(context.Context, string) (introdomain.Introduction, error) {
 	return s.introduction, s.err
 }
@@ -74,7 +83,12 @@ func introMux(t *testing.T, service VoiceIntroduction, reader IntroductionReader
 		"access", now.Add(time.Hour), "refresh", "", now.Add(24*time.Hour), 1, now, now,
 	)
 	mux := http.NewServeMux()
-	RegisterIntroductionRoutes(mux, service, reader,
+	RegisterIntroductionRoutes(mux, service, reader, introPlaybackStub{
+		access: introapplication.UploadAccess{
+			URL:       "https://bucket.example/obj?sig=read",
+			ExpiresAt: time.Date(2026, time.September, 5, 12, 10, 0, 0, time.UTC),
+		},
+	},
 		sessionAuthenticatorStub{authenticate: func(context.Context, string) (identitydomain.Session, error) {
 			return session, nil
 		}})
@@ -186,5 +200,80 @@ func TestWithdrawnConsentIsRefusedAsForbidden(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), "consent_required") {
 		t.Fatalf("body = %s", response.Body.String())
+	}
+}
+
+func TestPlaybackGrantIsWhatMakesTheTwentySecondGateReachable(t *testing.T) {
+	// Sowing needs twenty seconds of verified listening (FR-202). The gate is
+	// keyed on this assetId and was already on the wire; without a way to hear
+	// the audio it could never be satisfied, so Sow could never arm.
+	introduction := introFixture(t, "member-1")
+	request := httptest.NewRequest(http.MethodGet, "/v1/introductions/introduction_1/audio", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	introMux(t, introServiceStub{}, introReaderStub{introduction: introduction}, "member-1").
+		ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+	var envelope struct{ Data playbackResponse }
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Data.URL == "" {
+		t.Fatal("no play URL; the recording still cannot be heard")
+	}
+	// The asset id ties the grant to the listening gate that counts against it.
+	if envelope.Data.AssetID != introduction.Media().AssetID() {
+		t.Fatalf("assetId = %q, want %q", envelope.Data.AssetID, introduction.Media().AssetID())
+	}
+	if envelope.Data.DurationMs != 42_000 {
+		t.Fatalf("durationMs = %d, want 42000", envelope.Data.DurationMs)
+	}
+}
+
+func TestAWithdrawnRecordingStopsPlayingBeforeErasureCatchesUp(t *testing.T) {
+	// Handing out a signed URL for erased bytes would 404 at the bucket, which
+	// reads to the member as a broken player rather than a recording they
+	// chose to withdraw.
+	introduction := introFixture(t, "member-1")
+	digest := strings.Repeat("a", 64)
+	now := time.Date(2026, time.September, 4, 12, 0, 0, 0, time.UTC)
+	revoked, err := introduction.Revoke(
+		introdomain.Command{ID: "cmd_revoke", Fingerprint: digest, At: now},
+		introduction.Version(),
+	)
+	if err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	// Revoking moves the data to purge_pending: the bytes are still on disk
+	// until the sweep runs, and this is the window that matters. The member
+	// has said they want it gone, so playback must stop now rather than when
+	// erasure catches up. The domain will not let it be purged outright while
+	// the 180-day retention is live — that is RET-01 doing its job.
+	if revoked.DataStatus() != introdomain.DataPurgePending {
+		t.Fatalf("expected purge_pending after revoke, got %v", revoked.DataStatus())
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/v1/introductions/introduction_1/audio", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	introMux(t, introServiceStub{}, introReaderStub{introduction: revoked}, "member-1").
+		ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", response.Code)
+	}
+}
+
+func TestAnotherMembersAudioIsNotGranted(t *testing.T) {
+	introduction := introFixture(t, "member-OTHER")
+	request := httptest.NewRequest(http.MethodGet, "/v1/introductions/introduction_1/audio", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+	introMux(t, introServiceStub{}, introReaderStub{introduction: introduction}, "member-1").
+		ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", response.Code)
 	}
 }

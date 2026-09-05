@@ -2556,6 +2556,33 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/introductions/{id}/audio": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Get a short-lived URL to play a Voice of Introduction
+     * @description Returns a signed read URL the client plays from directly; the audio is
+     *     never proxied through this service. The `assetId` returned is the same
+     *     one `POST /v1/listening/heartbeats` and
+     *     `GET /v1/listening/eligibility/{assetId}` count against, which is what
+     *     arms Sow after twenty seconds of verified listening (FR-202).
+     *
+     *     A withdrawn or cancelled recording answers 404, as does another
+     *     member's — a distinct refusal would confirm the recording exists.
+     */
+    readonly get: operations["playVoiceIntroduction"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/introductions/{id}/uploaded": {
     readonly parameters: {
       readonly query?: never;
@@ -5566,6 +5593,22 @@ export interface components {
     readonly VoiceIntroductionInput: {
       /** @description The audio type the client will upload, e.g. audio/ogg. */
       readonly contentType: string;
+    };
+    readonly VoicePlaybackData: {
+      /**
+       * @description What the listening gate counts against. Heartbeats and eligibility
+       *     are both keyed on this.
+       */
+      readonly assetId: string;
+      /** Format: int64 */
+      readonly durationMs: number;
+      /** Format: date-time */
+      readonly expiresAt: string;
+      readonly url: string;
+    };
+    readonly VoicePlaybackEnvelope: {
+      readonly data: components["schemas"]["VoicePlaybackData"];
+      readonly meta: components["schemas"]["Metadata"];
     };
     readonly WebhookResultData: {
       /** @enum {string} */
@@ -11930,6 +11973,42 @@ export interface operations {
         };
       };
       readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly playVoiceIntroduction: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description A grant to play the recording. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["VoicePlaybackEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description No playable recording for this member. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
       readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };

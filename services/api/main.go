@@ -587,6 +587,7 @@ func run() error {
 			mux,
 			introductionModule.Introductions,
 			introductionModule.Store,
+			introductionModule.Playback,
 			identityModule.Sessions,
 		)
 	}

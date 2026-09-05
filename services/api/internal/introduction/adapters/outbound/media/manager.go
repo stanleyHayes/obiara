@@ -25,6 +25,7 @@ const uploadGrantTTL = 15 * time.Minute
 // Access is the subset of the media access service this needs.
 type Access interface {
 	RequestUpload(context.Context, mediaapplication.UploadRequest) (mediaapplication.SignedAccess, error)
+	RequestRead(context.Context, mediaapplication.ReadRequest) (mediaapplication.SignedAccess, error)
 }
 
 // Assets reads back what storage recorded once the bytes arrived.
@@ -105,6 +106,41 @@ func (manager *Manager) Inspect(ctx context.Context, assetID string) (introdomai
 		asset.Duration(),
 		asset.Checksum().Value(),
 	)
+}
+
+// playbackGrantTTL is how long a play URL stays good. Long enough to listen
+// to a two-minute answer twice over a bad connection, short enough that a URL
+// pasted somewhere else has stopped working before it travels.
+const playbackGrantTTL = 10 * time.Minute
+
+// AuthorizePlayback issues a read grant for one recording.
+//
+// The media context decides whether this subject may hear this asset; that
+// rule is owner-only today, and gains a second clause when introductions are
+// delivered. Nothing about the decision is made here.
+func (manager *Manager) AuthorizePlayback(
+	ctx context.Context,
+	subjectID, assetID string,
+) (introapplication.UploadAccess, error) {
+	if manager.access == nil {
+		return introapplication.UploadAccess{}, introapplication.ErrDependencyUnavailable
+	}
+	signed, err := manager.access.RequestRead(ctx, mediaapplication.ReadRequest{
+		SubjectID: subjectID,
+		AssetID:   assetID,
+		Purpose:   manager.purpose,
+		TTL:       playbackGrantTTL,
+	})
+	if err != nil {
+		if errors.Is(err, mediaapplication.ErrAccessDenied) {
+			// Refused and absent are answered the same way upstream: a
+			// distinct "you may not hear this" would confirm the recording
+			// exists and belongs to somebody.
+			return introapplication.UploadAccess{}, introapplication.ErrNotFound
+		}
+		return introapplication.UploadAccess{}, introapplication.ErrDependencyUnavailable
+	}
+	return introapplication.UploadAccess{URL: signed.URL, ExpiresAt: signed.ExpiresAt}, nil
 }
 
 func (manager *Manager) Delete(ctx context.Context, assetID string) error {

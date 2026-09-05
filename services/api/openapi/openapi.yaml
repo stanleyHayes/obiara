@@ -2360,6 +2360,46 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /v1/introductions/{id}/audio:
+    get:
+      operationId: playVoiceIntroduction
+      tags: [Profile]
+      summary: Get a short-lived URL to play a Voice of Introduction
+      security:
+        - MemberBearer: []
+      description: |
+        Returns a signed read URL the client plays from directly; the audio is
+        never proxied through this service. The `assetId` returned is the same
+        one `POST /v1/listening/heartbeats` and
+        `GET /v1/listening/eligibility/{assetId}` count against, which is what
+        arms Sow after twenty seconds of verified listening (FR-202).
+
+        A withdrawn or cancelled recording answers 404, as does another
+        member's — a distinct refusal would confirm the recording exists.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A grant to play the recording.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VoicePlaybackEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No playable recording for this member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/introductions/{id}:
     get:
       operationId: getVoiceIntroduction
@@ -8694,6 +8734,33 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/MembershipData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    VoicePlaybackData:
+      type: object
+      additionalProperties: false
+      required: [assetId, url, expiresAt, durationMs]
+      properties:
+        assetId:
+          type: string
+          description: |
+            What the listening gate counts against. Heartbeats and eligibility
+            are both keyed on this.
+        url:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        durationMs:
+          type: integer
+          format: int64
+    VoicePlaybackEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/VoicePlaybackData"
         meta:
           $ref: "#/components/schemas/Metadata"
     VoiceIntroductionInput:

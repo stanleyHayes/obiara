@@ -215,8 +215,10 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// no longer stop anyone creating an account; and the four Voice of
 	// Introduction routes, which is the first time that context has been
 	// reachable at all — its domain and application layers have been
-	// complete and untouchable since S2-021.
-	if len(seen) != 194 {
-		t.Errorf("operationId count = %d, want 194", len(seen))
+	// complete and untouchable since S2-021. 195 adds playVoiceIntroduction,
+	// without which a recording could not be heard by anyone and the twenty
+	// seconds of verified listening that arms Sow could never accumulate.
+	if len(seen) != 195 {
+		t.Errorf("operationId count = %d, want 195", len(seen))
 	}
 }

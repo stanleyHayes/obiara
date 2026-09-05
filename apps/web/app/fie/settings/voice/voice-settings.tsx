@@ -58,13 +58,24 @@ export function VoiceSettings() {
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
   const takes = useRef<Partial<Record<PromptID, Blob>>>({});
+  const players = useRef<Partial<Record<PromptID, HTMLAudioElement>>>({});
+  // Heard ranges, per asset, since the last report. Sent as intervals rather
+  // than a running total because the API unions them — that is what stops a
+  // replay counting twice toward the twenty seconds that arm Sow.
+  const heard = useRef<Record<string, { start: number; end: number }[]>>({});
+  const [playing, setPlaying] = useState<PromptID | null>(null);
 
   useEffect(() => {
+    // Captured now rather than read at cleanup: by the time the cleanup runs
+    // the ref may point somewhere else, and the audio elements that are
+    // actually playing would be the ones left running.
+    const openPlayers = players.current;
     // Release the microphone if the member leaves mid-take. A page that keeps
     // the recording light on after you navigate away is its own kind of harm.
     return () => {
       if (recorder.current?.state === "recording") recorder.current.stop();
       stream.current?.getTracks().forEach((track) => track.stop());
+      Object.values(openPlayers).forEach((audio) => audio?.pause());
     };
   }, []);
 
@@ -193,6 +204,95 @@ export function VoiceSettings() {
     }
   }
 
+  /** Sends the seconds actually heard, then forgets them. */
+  async function reportListening(assetId: string, durationSeconds: number) {
+    const ranges = heard.current[assetId] ?? [];
+    if (ranges.length === 0) return;
+    heard.current[assetId] = [];
+    try {
+      await fetch("/api/listening", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assetId,
+          assetDurationSeconds: durationSeconds,
+          ranges,
+        }),
+      });
+    } catch {
+      // A dropped report is not worth interrupting playback for. The member
+      // is listening; the gate can catch up on the next report.
+    }
+  }
+
+  async function play(prompt: PromptID) {
+    const introductionId = state.prompts[prompt].introductionId;
+    if (!introductionId) return;
+    const existing = players.current[prompt];
+    if (existing && !existing.paused) {
+      existing.pause();
+      setPlaying(null);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/introductions/${introductionId}/audio`,
+      );
+      const grant = (await response.json().catch(() => null)) as {
+        assetId?: string;
+        url?: string;
+        message?: string;
+      } | null;
+      if (!response.ok || !grant?.url || !grant.assetId) {
+        throw new Error(
+          grant?.message || "That recording could not be played.",
+        );
+      }
+
+      const assetId = grant.assetId;
+      const audio = new Audio(grant.url);
+      players.current[prompt] = audio;
+      let segmentStart = 0;
+
+      audio.onplay = () => {
+        segmentStart = audio.currentTime;
+        setPlaying(prompt);
+      };
+      // Every pause, seek and end closes the interval that was open. Timing
+      // the whole element instead would count seconds the member skipped.
+      const closeSegment = () => {
+        if (audio.currentTime > segmentStart) {
+          (heard.current[assetId] ??= []).push({
+            start: segmentStart,
+            end: audio.currentTime,
+          });
+        }
+        segmentStart = audio.currentTime;
+      };
+      audio.onpause = () => {
+        closeSegment();
+        setPlaying(null);
+        void reportListening(assetId, audio.duration || 0);
+      };
+      audio.onseeking = closeSegment;
+      audio.onended = () => {
+        closeSegment();
+        setPlaying(null);
+        void reportListening(assetId, audio.duration || 0);
+      };
+      await audio.play();
+    } catch (cause) {
+      dispatch({
+        type: "failed",
+        prompt,
+        message:
+          cause instanceof Error
+            ? cause.message
+            : "That recording could not be played.",
+      });
+    }
+  }
+
   const done = completedCount(state);
 
   return (
@@ -301,6 +401,13 @@ export function VoiceSettings() {
                 ) : null}
                 {current.stage === "saved" ? (
                   <>
+                    <button
+                      className="voice-play"
+                      onClick={() => play(prompt.id)}
+                      type="button"
+                    >
+                      {playing === prompt.id ? "❚❚ Pause" : "▶ Play"}
+                    </button>
                     <span className="voice-saved">✓ Recorded</span>
                     <button
                       className="voice-text"
