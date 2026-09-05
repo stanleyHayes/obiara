@@ -4014,3 +4014,47 @@ because that is how such a review is actually run.
 
 Proven by breaking it: passing an empty actor from the handler made the test
 report the read was attributed to `""` rather than to the authenticated agent.
+
+
+## 54. Goal: a pod can play what it holds (2026-09-05)
+
+§45 listed three options for the pod's media-resolution gap and treated it as
+a decision with a privacy cost either way. Reading it again with the rest of
+the chain built, that framing was wrong, and the answer is smaller than any of
+the three.
+
+`Create` keyed the media reference with the same one-way HMAC it uses for the
+owner and the recipients. **Those are not the same kind of thing.** Who owns a
+pod and who may open it are facts about members, and they should stay
+one-way. Which object is inside is an internal asset id — not a fact about a
+person — and keying it made the pod unplayable, because `Playback` has to hand
+that reference to something that can resolve it and a digest resolves to
+nothing.
+
+So keying the people is the privacy that matters here. Keying the recording
+bought nothing and cost the feature.
+
+The people stay keyed and the reference is stored as given. A test asserts
+both halves: an ordinary asset id is accepted and round-trips, the owner and
+recipients are still 64-hex, and an empty or malformed reference is still
+refused — a pod holding nothing resolvable is the same dead end by another
+route.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| POD-01  | The recording reference is resolvable; the people stay keyed          | DONE   |
+| POD-02  | A test pinning both halves of that                                   | DONE   |
+
+Proven by breaking it: putting the key pattern back made the test report that
+an ordinary asset id was refused — a pod that could be created and never
+opened, which is what the code did before.
+
+**This unblocks `seed/pod`.** Its remaining ports are the bridges §45 already
+identified — `Authorizer` to authz, `PlaybackEligibility` to consent,
+`MediaIssuer` to media — and only the second is still a placement question:
+`Play` already refuses a non-recipient, so revalidation is a consent re-check
+and which purpose it re-checks is a product decision.
+
+I was wrong to record this as a design decision with a privacy trade-off. It
+was a field that had been given the wrong treatment, and the trade-off I
+described did not exist.

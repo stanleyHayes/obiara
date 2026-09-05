@@ -35,7 +35,7 @@ type commandDoc struct {
 type document struct {
 	ID            string        `bson:"_id"`
 	OwnerKey      string        `bson:"ownerKey"`
-	MediaKey      string        `bson:"mediaKey"`
+	MediaRef      string        `bson:"mediaRef"`
 	RecipientKeys []string      `bson:"recipientKeys"`
 	Status        domain.Status `bson:"status"`
 	ExpiresAt     time.Time     `bson:"expiresAt"`
@@ -92,7 +92,7 @@ func (r *Repository) duplicate(ctx context.Context, id string, e error) error {
 	return application.ErrOptimisticConflict
 }
 func toDoc(p domain.Pod) document {
-	d := document{ID: p.ID(), OwnerKey: p.OwnerKey(), MediaKey: p.MediaKey(), RecipientKeys: p.RecipientKeys(), Status: p.Status(), ExpiresAt: p.ExpiresAt(), EndedAt: p.EndedAt(), Revision: p.Revision()}
+	d := document{ID: p.ID(), OwnerKey: p.OwnerKey(), MediaRef: p.MediaRef(), RecipientKeys: p.RecipientKeys(), Status: p.Status(), ExpiresAt: p.ExpiresAt(), EndedAt: p.EndedAt(), Revision: p.Revision()}
 	for _, x := range p.Events() {
 		d.Events = append(d.Events, event(x))
 	}
@@ -102,7 +102,7 @@ func toDoc(p domain.Pod) document {
 	return d
 }
 func toDomain(d document) (domain.Pod, error) {
-	s := domain.State{ID: d.ID, OwnerKey: d.OwnerKey, MediaKey: d.MediaKey, RecipientKeys: d.RecipientKeys, Status: d.Status, ExpiresAt: d.ExpiresAt, EndedAt: d.EndedAt, Revision: d.Revision}
+	s := domain.State{ID: d.ID, OwnerKey: d.OwnerKey, MediaRef: d.MediaRef, RecipientKeys: d.RecipientKeys, Status: d.Status, ExpiresAt: d.ExpiresAt, EndedAt: d.EndedAt, Revision: d.Revision}
 	for _, x := range d.Events {
 		s.Events = append(s.Events, domain.Event{Sequence: x.Sequence, CommandID: x.CommandID, ActorKey: x.ActorKey, ReasonCode: x.ReasonCode, Action: x.Action, At: x.At})
 	}

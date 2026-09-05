@@ -60,10 +60,7 @@ func (s Service) Create(ctx context.Context, c Command, p Proposal) (Result, err
 	if err != nil {
 		return Result{}, err
 	}
-	media, err := s.key("seed-pod:media", p.MediaRef)
-	if err != nil {
-		return Result{}, err
-	}
+
 	recipients := make([]string, 0, len(p.RecipientIDs))
 	for _, id := range p.RecipientIDs {
 		x, e := s.key("seed-pod:member", id)
@@ -72,7 +69,9 @@ func (s Service) Create(ctx context.Context, c Command, p Proposal) (Result, err
 		}
 		recipients = append(recipients, x)
 	}
-	pod, err := domain.Create(s.ids.NewID(), owner, media, recipients, s.now().Add(p.TTL), s.command(c, owner))
+	// The recording reference goes in as given: it is an object id, not a
+	// fact about a person, and Playback has to be able to resolve it.
+	pod, err := domain.Create(s.ids.NewID(), owner, strings.TrimSpace(p.MediaRef), recipients, s.now().Add(p.TTL), s.command(c, owner))
 	if err != nil {
 		return Result{}, err
 	}
@@ -125,7 +124,7 @@ func (s Service) Playback(ctx context.Context, c Command) (Result, error) {
 			replay = true
 		}
 	}
-	token, err := s.i.Issue(ctx, next.MediaKey(), c.ID, 5*time.Minute)
+	token, err := s.i.Issue(ctx, next.MediaRef(), c.ID, 5*time.Minute)
 	if err != nil {
 		return Result{}, ErrUnavailable
 	}

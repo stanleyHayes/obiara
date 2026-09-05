@@ -52,7 +52,7 @@ type AppliedCommand struct {
 	Revision        uint64
 }
 type Pod struct {
-	id, ownerKey, mediaKey string
+	id, ownerKey, mediaRef string
 	recipientKeys          []string
 	status                 Status
 	expiresAt              time.Time
@@ -62,7 +62,7 @@ type Pod struct {
 	commands               []AppliedCommand
 }
 type State struct {
-	ID, OwnerKey, MediaKey string
+	ID, OwnerKey, MediaRef string
 	RecipientKeys          []string
 	Status                 Status
 	ExpiresAt              time.Time
@@ -72,18 +72,27 @@ type State struct {
 	Commands               []AppliedCommand
 }
 
-func Create(id, ownerKey, mediaKey string, recipients []string, expiresAt time.Time, c Command) (Pod, error) {
+// Create opens a pod holding one recording for named recipients.
+//
+// The people are keyed and the recording is not. Who owns a pod and who may
+// open it are facts about members, and they stay one-way. Which asset is
+// inside is not a fact about a person — it is an internal object id — and
+// keying it made the pod unplayable: Playback has to hand the reference to
+// something that can resolve it, and a one-way digest resolves to nothing.
+// Keying the people is the privacy that matters here; keying this bought
+// nothing and cost the feature.
+func Create(id, ownerKey, mediaRef string, recipients []string, expiresAt time.Time, c Command) (Pod, error) {
 	normalized, ok := normalizeRecipients(recipients)
-	if !opaquePattern.MatchString(id) || !keyPattern.MatchString(ownerKey) || !keyPattern.MatchString(mediaKey) || !ok || len(normalized) == 0 || c.ExpectedRevision != 0 || !expiresAt.After(c.At) || expiresAt.After(c.At.Add(7*24*time.Hour)) {
+	if !opaquePattern.MatchString(id) || !keyPattern.MatchString(ownerKey) || !opaquePattern.MatchString(mediaRef) || !ok || len(normalized) == 0 || c.ExpectedRevision != 0 || !expiresAt.After(c.At) || expiresAt.After(c.At.Add(7*24*time.Hour)) {
 		return Pod{}, ErrInvalidPod
 	}
-	p := Pod{id: id, ownerKey: ownerKey, mediaKey: mediaKey, recipientKeys: normalized, expiresAt: expiresAt.UTC()}
+	p := Pod{id: id, ownerKey: ownerKey, mediaRef: mediaRef, recipientKeys: normalized, expiresAt: expiresAt.UTC()}
 	return p.transition(ActionCreated, c)
 }
 func Rehydrate(s State) (Pod, error) {
 	recipients, ok := normalizeRecipients(s.RecipientKeys)
-	p := Pod{id: s.ID, ownerKey: s.OwnerKey, mediaKey: s.MediaKey, recipientKeys: recipients, status: s.Status, expiresAt: s.ExpiresAt.UTC(), endedAt: cloneTime(s.EndedAt), revision: s.Revision, events: append([]Event(nil), s.Events...), commands: append([]AppliedCommand(nil), s.Commands...)}
-	if !ok || len(recipients) == 0 || !opaquePattern.MatchString(p.id) || !keyPattern.MatchString(p.ownerKey) || !keyPattern.MatchString(p.mediaKey) || p.revision == 0 || len(p.events) != int(p.revision) || len(p.commands) != int(p.revision) {
+	p := Pod{id: s.ID, ownerKey: s.OwnerKey, mediaRef: s.MediaRef, recipientKeys: recipients, status: s.Status, expiresAt: s.ExpiresAt.UTC(), endedAt: cloneTime(s.EndedAt), revision: s.Revision, events: append([]Event(nil), s.Events...), commands: append([]AppliedCommand(nil), s.Commands...)}
+	if !ok || len(recipients) == 0 || !opaquePattern.MatchString(p.id) || !keyPattern.MatchString(p.ownerKey) || !opaquePattern.MatchString(p.mediaRef) || p.revision == 0 || len(p.events) != int(p.revision) || len(p.commands) != int(p.revision) {
 		return Pod{}, ErrInvalidPod
 	}
 	status := Status("")
@@ -223,7 +232,7 @@ func equalTime(a, b *time.Time) bool {
 }
 func (p Pod) ID() string                 { return p.id }
 func (p Pod) OwnerKey() string           { return p.ownerKey }
-func (p Pod) MediaKey() string           { return p.mediaKey }
+func (p Pod) MediaRef() string           { return p.mediaRef }
 func (p Pod) RecipientKeys() []string    { return append([]string(nil), p.recipientKeys...) }
 func (p Pod) IsRecipient(k string) bool  { _, ok := slices.BinarySearch(p.recipientKeys, k); return ok }
 func (p Pod) Status() Status             { return p.status }
