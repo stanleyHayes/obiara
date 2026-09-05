@@ -212,7 +212,12 @@ func run() error {
 		return fmt.Errorf("build courtship room module: %w", err)
 	}
 	// The seed stage a member meets before a courtship room exists.
-	seedStageModule, err := seedstage.NewStageModule(ctx, client.Database(cfg.MongoDatabase), cfg.SeedHMACSecret)
+	circleModule, err := circle.NewModule(ctx, client.Database(cfg.MongoDatabase))
+	if err != nil {
+		return fmt.Errorf("build circle module: %w", err)
+	}
+
+	seedStageModule, err := seedstage.NewStageModule(ctx, client.Database(cfg.MongoDatabase), cfg.SeedHMACSecret, circleModule.Repository)
 	if err != nil {
 		return fmt.Errorf("build seed stage module: %w", err)
 	}
@@ -302,10 +307,6 @@ func run() error {
 		return fmt.Errorf("configure seed garden privacy: %w", err)
 	}
 	gardenService := gardenapp.NewService(gardenRepository, gardenKeyer, time.Now)
-	circleModule, err := circle.NewModule(ctx, client.Database(cfg.MongoDatabase))
-	if err != nil {
-		return fmt.Errorf("build circle module: %w", err)
-	}
 	gamePairs := circleGamePairResolver{circles: circleModule.Circles}
 	owareModule, err := owaresession.NewModule(
 		ctx,

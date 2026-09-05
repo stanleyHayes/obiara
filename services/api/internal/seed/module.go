@@ -24,6 +24,11 @@ import (
 	safetymongo "github.com/stanleyHayes/obiara/services/api/internal/seed/safety/adapters/outbound/mongodb"
 	safetyprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/safety/adapters/outbound/privacy"
 	safetyapp "github.com/stanleyHayes/obiara/services/api/internal/seed/safety/application"
+	sourcecirclepolicy "github.com/stanleyHayes/obiara/services/api/internal/seed/source/adapters/outbound/circlepolicy"
+	sourcecircle "github.com/stanleyHayes/obiara/services/api/internal/seed/source/adapters/outbound/circlesource"
+	sourcemongo "github.com/stanleyHayes/obiara/services/api/internal/seed/source/adapters/outbound/mongodb"
+	sourceprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/source/adapters/outbound/privacy"
+	sourceapp "github.com/stanleyHayes/obiara/services/api/internal/seed/source/application"
 	sproutmongo "github.com/stanleyHayes/obiara/services/api/internal/seed/sprout/adapters/outbound/mongodb"
 	sproutprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/sprout/adapters/outbound/privacy"
 	sproutapp "github.com/stanleyHayes/obiara/services/api/internal/seed/sprout/application"
@@ -37,11 +42,20 @@ type StageModule struct {
 	Sprout  sproutapp.Service
 	Decline declineapp.Service
 	Safety  safetyapp.Service
+	// Sources is present only when a circle reader was supplied. Without one
+	// there is nothing to resolve candidates from, and a source request that
+	// could return nobody is worse than one the console never offers.
+	Sources *sourceapp.Service
 }
 
 // NewStageModule builds every seed-stage slice against one database and
 // secret.
-func NewStageModule(ctx context.Context, database *mongo.Database, secret string) (StageModule, error) {
+func NewStageModule(
+	ctx context.Context,
+	database *mongo.Database,
+	secret string,
+	circles sourcecircle.Circles,
+) (StageModule, error) {
 	if len(secret) < 32 {
 		return StageModule{}, ErrSecretRequired
 	}
@@ -75,11 +89,38 @@ func NewStageModule(ctx context.Context, database *mongo.Database, secret string
 	}
 
 	ids := idSource{}
-	return StageModule{
+	module := StageModule{
 		Sprout:  sproutapp.New(sproutRepository, sproutKeyer, ids, time.Now),
 		Decline: declineapp.New(declineRepository, declineKeyer, ids, time.Now),
 		Safety:  safetyapp.NewService(safetyRepository, safetyKeyer, time.Now),
-	}, nil
+	}
+
+	// Introduction sources need somewhere to resolve candidates from. With no
+	// circle reader the slice stays absent rather than answering every request
+	// with an empty roster, which would read as "nobody here" instead of "this
+	// is not switched on".
+	if circles != nil {
+		sourceRepository := sourcemongo.NewRepository(database)
+		if err := sourceRepository.EnsureIndexes(ctx); err != nil {
+			return StageModule{}, err
+		}
+		sourceKeyer, err := sourceprivacy.NewKeyer(key)
+		if err != nil {
+			return StageModule{}, err
+		}
+		sources := sourceapp.NewService(
+			sourceRepository,
+			sourcecirclepolicy.NewAuthorizer(circles),
+			sourcecirclepolicy.NewPolicy(),
+			sourcecircle.NewResolver(circles),
+			sourcecirclepolicy.NewVisibility(circles),
+			sourceKeyer,
+			ids,
+			time.Now,
+		)
+		module.Sources = &sources
+	}
+	return module, nil
 }
 
 type idSource struct{}
