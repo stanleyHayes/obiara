@@ -3154,3 +3154,136 @@ member-visible bug it exists to catch.
 
 **Still open in this area:** M4-AC-01's 90-day decline lock is still not
 consulted. That context is built too, and it is the next slice.
+
+
+## 41. Plan: organization coupons and affiliate marketing (2026-09-05)
+
+Requested by the owner, to be built after the current gap-closing work. This
+section is a plan and nothing in it is implemented.
+
+### What exists today
+
+Nothing. A wide search returns no coupon, promo, discount, referral or
+affiliate concept anywhere in the codebase. Two near-misses worth naming so
+nobody trips on them later:
+
+- **`vouch/assisted` already owns the word "voucher"** — but a voucher there is
+  a person who vouches for another member's trustworthiness. It has nothing to
+  do with money. The new concept must not be called a voucher.
+- **There is no organization entity at all.** The system knows members,
+  circles, matchmaker licences and admin principals. "Coupons for
+  organizations" therefore needs an organization first, and that is the
+  largest hidden cost in the request.
+
+What can be built on: `commerce/catalog` (SKUs, minor units, GHS and USD),
+`commerce/membership` (passes with granted/cancelled/refund events),
+`commerce/ledger` (real double-entry with asset/liability/equity/revenue/
+expense classes), `commerce/momo` (inbound payment intents),
+`commerce/escrow`, `commerce/reconciliation`.
+
+Note that RPM-25 — the matchmaker take rate — is still MISSING, so there is no
+existing commission machinery to copy. Affiliate payouts would be the first
+money the platform ever sends *out*, and `commerce/momo` models only inbound
+intents. That is a rail that does not exist yet.
+
+### The tension this has to be designed around
+
+Obiara's architecture is built so that member identity is not legible: subject
+and candidate ids are HMAC-keyed, operators act on cases rather than member
+ids, and the admin directory deliberately returns one-way refs. Both requested
+features pull directly against that.
+
+- An organization sponsoring seats will want to know **who used them**.
+- An affiliate earning commission needs their referrals **counted**, and will
+  want to know who they were.
+
+**Recommendation: both see counts, never identities.** An organization gets
+"37 of your 50 seats are in use"; an affiliate gets "12 qualified referrals
+this month, GHS X accrued". If an organization needs proof that a redeemer
+genuinely belongs to it, that is a *claim proven at redemption* — a
+domain-verified email or a one-time organization token — not an identity
+report afterwards. Designing it the other way would quietly undo a property
+the rest of the system spends real effort maintaining.
+
+### The second tension, which matters more
+
+This is a trust-first product with a safety mandate and a verification ladder
+built to slow down exactly the behaviour a naive affiliate scheme rewards.
+**Paying per signup creates an incentive to bulk-recruit.** That is the
+opposite of what Tier gating, age assurance and Sentinel exist to do, and the
+people best placed to exploit it are the ones the safety model is least able
+to see.
+
+**Recommendation: commission never accrues on a signup.** It accrues on a
+*qualified* conversion — verified to Tier 1, retained some number of days, no
+upheld safety finding — and is clawed back on refund or on removal for
+conduct. This makes the affiliate's incentive point at the same thing the
+product wants, and it is much harder to farm.
+
+### Phasing
+
+Each phase is independently shippable, and the money movement is deliberately
+last. A phase that only accrues is safe to get wrong; a phase that pays out is
+not.
+
+**Phase 0 — organizations exist.** A new `internal/organization` context: an
+organization with a name, a billing contact, a status and an audit trail; an
+organization principal that can sign in to a narrow console. Extends the authz
+grant table with organization roles. Nothing commercial yet. Without this,
+"coupons for organizations" has no organization to hang off.
+
+**Phase 1 — discount codes.** A `commerce/promotion` context (the name avoids
+the `vouch` collision): a code with a scope (which SKUs), a shape (percentage
+or fixed minor amount), a validity window, a redemption cap, and a
+one-per-member rule. Redemption is keyed. It reduces what a member pays and
+posts a contra-revenue line through the existing double-entry ledger, so
+discounts are visible in the books rather than hidden in a price. No
+organization money moves; the organization is only the issuer.
+
+**Phase 2 — affiliate accrual.** An affiliate is a party with a code, entered
+at signup rather than tracked by link, because a code is honest, auditable and
+does not require following anybody around the internet. Referrals are keyed.
+A qualified conversion posts an accrual to a liability account — the platform
+now owes the affiliate — and nothing is paid. Clawback reverses the accrual.
+
+**Phase 3 — payouts.** MoMo disbursement, which is new rails, plus affiliate
+KYC (they are a payee), Ghana withholding on commission, and reconciliation
+against the ledger. This phase is where the real risk is and it should be
+built last and slowly.
+
+**Phase 4 — sponsored seats.** An organization pre-funds a balance or is
+invoiced, and its coupons draw down real money rather than discounting. Needs
+B2B billing, which MoMo is a poor fit for. Deferred until somebody actually
+asks for it.
+
+### What has to be decided before Phase 1 starts
+
+These are product decisions, not adapter decisions, and I will not invent
+them:
+
+1. **Who issues a coupon?** Obiara staff on an organization's behalf, or the
+   organization itself in a console? The second needs Phase 0's console and
+   changes the trust model.
+2. **What can be discounted?** Membership passes only, or the whole catalog
+   including matchmaker consultations and event tickets? Discounting a
+   matchmaker's fee spends someone else's money.
+3. **Does a coupon prove membership of the organization?** If a code leaks,
+   anyone can use it. A cap limits damage; a per-member claim prevents it but
+   requires the organization to supply something verifiable.
+4. **What qualifies an affiliate conversion, exactly?** Recommended: Tier 1
+   plus 30 days retained plus no upheld safety finding. The numbers are the
+   owner's call.
+5. **What is the commission?** RPM-25 already sets a 20%/15% platform take on
+   the matchmaker marketplace; an affiliate rate should be set knowing that,
+   and the two must not compound into a loss on a sale.
+6. **Can members be affiliates?** Paying members to recruit members inside a
+   dating product changes what the community is. This is the decision with the
+   least engineering in it and the most consequence.
+
+| Phase | Deliverable                                          | Status  |
+| ----- | ---------------------------------------------------- | ------- |
+| P0    | `internal/organization` context and org principals   | PLANNED |
+| P1    | `commerce/promotion`: discount codes, keyed redemption | PLANNED |
+| P2    | Affiliate codes and qualified-conversion accrual     | PLANNED |
+| P3    | MoMo payouts, affiliate KYC, withholding, clawback   | PLANNED |
+| P4    | Organization-funded sponsored seats                  | DEFERRED |
