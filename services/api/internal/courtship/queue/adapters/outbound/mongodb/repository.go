@@ -25,6 +25,11 @@ type headDocument struct {
 	ID       string `bson:"_id"`
 	Sequence uint64 `bson:"sequence"`
 	Revision uint64 `bson:"revision"`
+	// LastActorKey is absent on heads written before turns were recorded.
+	// State fills it from the log rather than treating absent as "nobody
+	// has spoken", which would hand a free consecutive turn to whoever
+	// happened to send first after the change shipped.
+	LastActorKey string `bson:"lastActorKey,omitempty"`
 }
 type eventDocument struct {
 	RoomKey     string    `bson:"roomKey"`
@@ -52,12 +57,25 @@ func (r *Repository) State(ctx context.Context, roomKey string) (domain.State, e
 	if err != nil {
 		return domain.State{}, err
 	}
-	return domain.Rehydrate(document.ID, document.Sequence, document.Revision)
+	lastActor := document.LastActorKey
+	if lastActor == "" && document.Sequence > 0 {
+		var previous eventDocument
+		findErr := r.events().FindOne(ctx,
+			bson.M{"roomKey": roomKey, "sequence": document.Sequence}).Decode(&previous)
+		if findErr != nil && !errors.Is(findErr, mongo.ErrNoDocuments) {
+			return domain.State{}, findErr
+		}
+		lastActor = previous.ActorKey
+	}
+	return domain.Rehydrate(document.ID, document.Sequence, document.Revision, lastActor)
 }
 func (r *Repository) Append(ctx context.Context, next domain.State, event domain.Event, expected uint64) (domain.Event, bool, error) {
 	err := apimongo.WithTransaction(ctx, r.database.Client(), func(tx context.Context) error {
 		result, updateErr := r.heads().UpdateOne(tx, bson.M{"_id": next.RoomKey, "revision": expected, "sequence": event.Sequence - 1},
-			bson.M{"$set": bson.M{"sequence": next.Sequence, "revision": next.Revision}})
+			bson.M{"$set": bson.M{
+				"sequence": next.Sequence, "revision": next.Revision,
+				"lastActorKey": next.LastActorKey,
+			}})
 		if updateErr != nil {
 			return updateErr
 		}

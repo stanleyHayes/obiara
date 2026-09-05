@@ -468,6 +468,14 @@ func writeCourtshipRoomError(w http.ResponseWriter, r *http.Request, err error) 
 		writeError(w, r, http.StatusConflict, APIError{
 			Code: "command_mismatch", Message: "That command id was already used for a different request.",
 		})
+	case errors.Is(err, queuedomain.ErrNotYourTurn):
+		// A product rule, not a fault. Without this case it would fall to the
+		// default and be reported as a server error, which is both wrong and
+		// the kind of thing a member retries until something breaks.
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "not_your_turn",
+			Message: "You have already spoken. Wait for them to answer.",
+		})
 	case errors.Is(err, queuedomain.ErrStaleDevice):
 		writeError(w, r, http.StatusConflict, APIError{
 			Code: "device_behind", Message: "This device is behind. Catch up and try again.",

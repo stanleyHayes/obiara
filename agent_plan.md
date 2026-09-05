@@ -2151,10 +2151,10 @@ completed while they were unreachable.
 | IM-009                       | The Sow is the atomic gesture; aba replaces the swipe and the like                          | MISSING | LARGE  | The claim stands. The sow slice is built to depth but is unreachable end to end. Built: services/api/internal/seed/sow/domain/sow.go (Accept with commandID/fingerprint/allowanceUnits invariants; confirmed…      |
 | IM-022                       | Received seeds rest at the house front as closed pods                                       | MISSING | LARGE  | Claim stands. Pack requirement confirmed from Obiara_Handover_Package/2_Build_Pack/Obiara_06_UX_Flows_Screens.docx (S-14 "Ɛpono ano hub. Two panes: House Front (pods) / My Garden"; S-30 "House Front. Pods as…   |
 | TA-state-engine-enforces-frs | State engine enforces FR-201/203/206/301/302 by construction                                | MISSING | MEDIUM | Claim stands, with one correction to its wording: the FR-301 alternation engine EXISTS and is fuzz-proven, it is simply not composed. services/api/internal/courtship/drum/domain/stage.go implements strict…      |
-| FR-301                       | Alternation: consecutive sends impossible at API layer                                      | MISSING | MEDIUM | Could not refute — I traced the whole composed path. services/api/main.go:205 builds courtship.NewRoomModule and :543 registers the room routes; services/api/internal/platform/http/courtship_room.go:43,192…     |
+| FR-301 | Alternation: consecutive sends impossible at API layer | DONE | MEDIUM | RECONCILED 2026-09-05: Closed by §36: the queue aggregate refuses a second consecutive turn, so it is impossible below the API rather than checked by one route. (was: Could not refute — I traced the whole composed path. services/api/main.go:205 builds courtship.NewRoomModule and :543 registers the room routes; servi) |
 | FR-303                       | Active-rooms honesty count server-computed and unsuppressible                               | MISSING | MEDIUM | Claim confirmed; I could not refute it. PRD M5-06 (extracted from Obiara_Handover_Package/2_Build_Pack/Obiara_01_PRD.docx, line 87) requires "each member sees the other's count of currently active rooms…        |
 | M4-01                        | 7 seeds per week, Monday renewal, +3 suban bonus, no rollover, never purchasable            | DRIFTED | MEDIUM | The claim stands on its two substantive limbs; only its third limb is overstated, and not in a way that changes the runtime outcome. CONFIRMED — allowance is 3, not 7.…                                           |
-| M5-02                        | Alternation engine: one drum holder, composer disabled without drum, voice-only first…      | PARTIAL | MEDIUM | Claim stands on the live path; only its "missing" label is too strong. The engine EXISTS and is fully tested but is dead code. services/api/internal/courtship/drum/domain/stage.go implements it: Open() refuses… |
+| M5-02 | Alternation engine: one drum holder, composer disabled without drum, voice-only first… | PARTIAL | MEDIUM | RECONCILED 2026-09-05: §36 delivered strict alternation. The drum engine's stage, single drum holder and voice-only first turn remain uncomposed. (was: Claim stands on the live path; only its "missing" label is too strong. The engine EXISTS and is fully tested but is dead code. services/api/internal/c) |
 | M4-06                        | Sprout: doorway conversation capped at three alternating exchanges, mutual water opens room | PARTIAL | MEDIUM | The claim's status ("partial") stands, but one sentence of its gap text is factually wrong and should be corrected. WRONG: "There is no Water action and no mutual-water gate." A complete mutual-water slice…     |
 | M4-AC-01                     | Server-side enforcement of listen gate, allowance, no purchase, 90-day lock                 | PARTIAL | MEDIUM | The claim's substance holds: no reachable API path enforces the listen gate, the allowance spend, or the 90-day decline lock. I dumped every registered route (`grep mux.Handle` across…                           |
 | P0-M5-ALTERNATION-ENGINE     | Room alternation engine                                                                     | MISSING | MEDIUM | Claim verified, not refuted. The shipped courtship-room turn path enforces only optimistic ordering: main.go:543 registers RegisterCourtshipRoomRoutes over courtship.NewRoomModule (main.go:205);…                |
@@ -2177,12 +2177,12 @@ completed while they were unreachable.
 | M1-07                      | Voice of Introduction: 120s guided recording, transcribed and values-tagged     | MISSING | LARGE  | Searched by feature name, by Akan naming, and by mechanism (audio/transcribe/record/listen/tag) — the claim holds and is if anything generous. The context is domain + application only:…                          |
 | P0-M1-VOICE-INTRO          | Voice of Introduction                                                           | MISSING | LARGE  | I searched for the feature under every plausible alias (introduction, voice, sow/seed, epono-ano, media, asset, transcribe) and the claim holds. Built: services/api/internal/introduction/domain/introduction.go… |
 | TA-integration-national-id | Integration: National ID verify partner, launch-blocking, human-review fallback | MISSING | MEDIUM | The claim is accurate on both halves. Absent integration: services/api/internal/verification/adapters/outbound/ holds only manual, simulator, mongodb and privacy — no vendor adapter under any name.…             |
-| FR-101a                    | Romantic surfaces gated below Tier 1                                            | MISSING | MEDIUM | The claim holds exactly as written; I could not find the gate under any other name. The policy table is real (services/api/internal/authz/domain/policy.go: introductions.view/rooms.participate/fires.attend at…  |
+| FR-101a | Romantic surfaces gated below Tier 1 | DONE | MEDIUM | RECONCILED 2026-09-05: Closed by §32: MemberGate at the registration tables, rules read from the authz grant table. (was: The claim holds exactly as written; I could not find the gate under any other name. The policy table is real (services/api/internal/authz/domain/polic) |
 | FR-102a                    | National ID verified against issuer service                                     | MISSING | MEDIUM | The claim holds. `services/api/internal/verification/application/service.go` (lines 46-49) defines `VerificationProvider` as "the outbound port for the national-ID issuer service", and `SubmitGhanaCard` calls…  |
-| M1-02                      | Age gate from national ID; under-18 hard block and ID data deletion             | MISSING | MEDIUM | Claim confirmed, and the deletion half is worse than claimed. (1) The safeguarding package has zero importers: `grep -rln "safeguarding" --include="*.go" services/` returns only files under…                     |
-| M1-AC-01                   | Tier-0 accounts fully gated from member surfaces                                | MISSING | MEDIUM | Verified: the claim holds. services/api/internal/platform/http/fire.go is the only route file that gates on tier — RegisterFireRoutes takes a TierReader (fire.go:26-36), rsvpHandler reads tiers.Tier at :206…    |
-| TS-AGE-ASSURANCE           | Age assurance via ID-derived DOB with audit trail                               | MISSING | MEDIUM | Claim confirmed, and if anything the gap is marginally larger than stated. DOB capture and audit exist: services/api/internal/platform/http/verification.go:77,163 parse dateOfBirth,…                             |
-| FR-101b                    | Sowing gated below Tier 2                                                       | MISSING | SMALL  | The claim holds under a wide search (Akan names included: seed/sprout "doorway", sow, garden, water, source, listening, safety). 1. No tier check on the live path.…                                               |
+| M1-02 | Age gate from national ID; under-18 hard block and ID data deletion | PARTIAL | MEDIUM | RECONCILED 2026-09-05: §33 delivered the under-18 hard block with keyed proof and purge; §34 gave adult ID data an end date. The date of birth is still self-declared, so 'from national ID' awaits FR-102a. (was: Claim confirmed, and the deletion half is worse than claimed. (1) The safeguarding package has zero importers: `grep -rln "safeguarding" --include="*.) |
+| M1-AC-01 | Tier-0 accounts fully gated from member surfaces | PARTIAL | MEDIUM | RECONCILED 2026-09-05: §32 gated the romantic surfaces at Tier 1. Circles, fires listing, profile and settings remain open to Tier 0, so 'fully gated from member surfaces' is not yet true. (was: Verified: the claim holds. services/api/internal/platform/http/fire.go is the only route file that gates on tier — RegisterFireRoutes takes a TierRead) |
+| TS-AGE-ASSURANCE | Age assurance via ID-derived DOB with audit trail | PARTIAL | MEDIUM | RECONCILED 2026-09-05: §35 delivered the audit trail: an assurance record on the case, carrying method and threshold, stored apart from the birth date so retention cannot take it. ID-derived DOB awaits FR-102a. (was: Claim confirmed, and if anything the gap is marginally larger than stated. DOB capture and audit exist: services/api/internal/platform/http/verificati) |
+| FR-101b | Sowing gated below Tier 2 | DONE | SMALL | RECONCILED 2026-09-05: Closed by §32: POST /v1/seed/sprouts requires Tier 2. Note Tier 2 is operator-unreachable until the promotion rule is decided. (was: The claim holds under a wide search (Akan names included: seed/sprout "doorway", sow, garden, water, source, listening, safety). 1. No tier check on t) |
 
 ### 27.5 Trust & safety (13)
 
@@ -2199,7 +2199,7 @@ completed while they were unreachable.
 | TS-CARE-ROUTING           | Care-flag immediate routing with 24/7 rota                                                | MISSING | MEDIUM | The claim holds. What IS built is the back half of the flow: internal/safety/domain/care.go (CareCase, five Signals incl. self_harm_indication and okyeame_escalation, four ScriptKeys, 72h QuieteningWindow),…    |
 | TS-CARE-QUEUE-SIGNALS     | Care queue signal sources                                                                 | MISSING | MEDIUM | Claim confirmed; if anything it is understated. internal/safety/domain/care.go and internal/safety/application/care.go do build the full care aggregate (five signals, engage/resolve, scripts, 72h quietening),…  |
 | CL-LIB-08                 | Banned doorway-question rules                                                             | MISSING | MEDIUM | The claim holds; I could not find the rule implemented under any other name. Source of the requirement: Obiara_Handover_Package/2_Build_Pack/Obiara_10_Content_Localization.docx — "Doorway question bank: 40…     |
-| IM-029                    | Strict alternation — you may not send again until answered                                | MISSING | MEDIUM | Claim stands. A complete strict-alternation aggregate exists but is unreachable, and the live send path has no turn check. BUILT BUT UNWIRED: services/api/internal/courtship/drum/domain/stage.go implements it…  |
+| IM-029 | Strict alternation — you may not send again until answered | DONE | MEDIUM | RECONCILED 2026-09-05: Closed by §36, same invariant. (was: Claim stands. A complete strict-alternation aggregate exists but is unreachable, and the live send path has no turn check. BUILT BUT UNWIRED: services) |
 | TS-TIER-A                 | Tier A — account-ending conduct                                                           | MISSING | SMALL  | Claim verified, not refuted. The ladder itself is genuinely built: internal/safety/domain/action.go (CheckLadder — Tier A = ActionBan only; SuspensionDuration 14/30/90d), internal/safety/application/actions.go… |
 
 ### 27.6 Privacy & retention (6)
@@ -2852,3 +2852,77 @@ had never actually been challenged.
 (FR-102a) makes `issuer_corroborated_dob` mean what it says. The simulator
 returns a match on any card number not ending in U, ? or X, so in the current
 deployment that upgrade is not yet evidence of anything.
+
+
+## 36. Goal: make consecutive sends impossible (FR-301, IM-029, 2026-09-05)
+
+`internal/courtship/drum` is the fifth finished-and-unreachable context: the
+strict-alternation engine, fully tested, referenced nowhere outside its own
+tree. The audit said so plainly — "a complete strict-alternation aggregate
+exists but is unreachable, and the live send path has no turn check."
+
+The live path confirmed it. `Room.Submit` checks membership and hands
+straight to the queue, and the queue aggregate appends events carrying an
+`ActorKey` it never compares to the previous one. A member could send as many
+times in a row as they liked. For a product whose whole claim is that it is
+not an inbox, that is the mechanic, not a detail.
+
+### The decisions
+
+**The rule went into the queue aggregate, not the drum engine.** Composing
+drum is the larger, right answer for M5-02 — it also carries the stage, the
+single drum holder and the voice-only first turn — and it needs two authz
+capabilities (`courtship.drum.open`, `courtship.drum.turn`) that the grant
+table does not have, which is a placement decision rather than wiring. But
+FR-301 asks for consecutive sends to be **impossible at the API layer**, and
+the strongest form of that is an invariant on the aggregate that owns the log.
+A check in a handler is a rule only for as long as that handler is the only
+way in. Composing the rest of the drum engine stays open, and §36 does not
+pretend to have done it.
+
+**Stale is reported before out-of-turn.** A member whose partner has just
+replied is behind, not out of turn, and telling them to catch up is both true
+and the thing that lets them send. Reversing the order would answer a member
+who is one fetch away from their turn with a dead end. The two conditions are
+naturally disjoint, and a test pins each.
+
+**Existing rooms self-heal rather than needing a backfill.** The head document
+gains `lastActorKey`, absent on every room written before this. Treating
+absent as "nobody has spoken" would hand one free consecutive turn to whoever
+sent first after deploy, so `State` reads the last event when the head has no
+key yet, and the next write fills it in.
+
+**A malformed key is refused, not ignored.** A last-actor value that is
+present but not a real key would never equal any actor and would silently
+switch the rule off for that room. `Rehydrate` rejects it; empty stays
+legitimate.
+
+**The refusal is a 409 that names the rule.** Without an explicit case it fell
+to the default and returned 500 — telling a member who had simply spoken twice
+that the server was broken, and inviting them to retry until something was.
+
+| Task    | Deliverable                                                            | Status |
+| ------- | ---------------------------------------------------------------------- | ------ |
+| ALT-01  | Alternation as an invariant on the queue aggregate                     | DONE   |
+| ALT-02  | Last actor persisted, self-healing for rooms that predate it           | DONE   |
+| ALT-03  | 409 `not_your_turn` instead of a 500                                   | DONE   |
+
+All three guards were checked by removing them: the aggregate accepted a
+second consecutive turn, a reloaded room forgot who spoke last, and the route
+answered 500 with `internal_error`.
+
+The change also broke an existing fuzz test, correctly. `FuzzAcceptedEventsAreStrictlyOrdered`
+built its sequences from a single actor, which is no longer a conversation the
+aggregate will accept. It now alternates two speakers, which is what a real
+sequence of turns looks like and leaves the test measuring what it was written
+to measure.
+
+### Audit rows reconciled
+
+The handover table still listed FR-101a, FR-101b, M1-AC-01, M1-02 and
+TS-AGE-ASSURANCE as MISSING after §32–§35 closed them, so the table was
+describing a codebase that no longer exists. Those rows, plus FR-301, IM-029
+and M5-02, now carry their real state and a note saying which goal changed
+them. Three were set to PARTIAL rather than DONE on purpose: M1-AC-01 gates
+the romantic surfaces but not every member surface, and M1-02 and
+TS-AGE-ASSURANCE both still rest on a self-declared date of birth.

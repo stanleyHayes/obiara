@@ -336,3 +336,20 @@ func TestOutsiderIsRefusedTheTimeline(t *testing.T) {
 		t.Errorf("status = %d, want 404 so an outsider cannot tell the room is real", response.Code)
 	}
 }
+
+func TestSpeakingOutOfTurnIsAnsweredAsARuleNotAFault(t *testing.T) {
+	// Without an explicit case this falls to the default and returns 500.
+	// A member who has simply spoken twice would be told the server broke,
+	// which is untrue and invites them to retry until something does.
+	stub := &roomStub{err: queuedomain.ErrNotYourTurn}
+	response := postRoom(t, roomHandler(stub, "mem_actor"),
+		"/v1/courtship/rooms/room_1/turns",
+		`{"commandId":"c1","deviceRef":"dev_1","payloadRef":"pay_1","baseSequence":3}`)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409: %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "not_your_turn") {
+		t.Fatalf("body did not name the rule: %s", response.Body.String())
+	}
+}

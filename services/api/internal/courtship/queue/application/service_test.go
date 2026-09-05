@@ -38,7 +38,7 @@ func TestOfflineRetryFromStaleCursorReturnsOriginalEvent(t *testing.T) {
 		index := map[string]int{"room": 1, "device": 2, "actor": 3, "payload": 4}[namespace]
 		keyer.EXPECT().Key(namespace, value).Return(key(index), nil)
 	}
-	state, _ := domain.Rehydrate(key(1), 1, 1)
+	state, _ := domain.Rehydrate(key(1), 1, 1, "")
 	repository.EXPECT().State(gomock.Any(), key(1)).Return(state, nil)
 	fp := fingerprint("command", key(1), key(2), key(3), key(4), 0)
 	original := domain.Event{RoomKey: key(1), Sequence: 1, CommandID: "command", Fingerprint: fp}
