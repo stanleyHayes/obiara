@@ -39,6 +39,16 @@ type Service struct {
 	// declines is the M4-AC-01 lock. Nil refuses: a sow that ignored a
 	// decline is the outcome the rule exists to prevent.
 	declines DeclineLock
+	// blocks is the block check. Members could block each other and nothing
+	// in the product honoured it: SafetyService.IsBlocked existed and had no
+	// callers at all.
+	blocks BlockList
+}
+
+// WithBlockList attaches the check that neither member has blocked the other.
+func (s Service) WithBlockList(blocks BlockList) Service {
+	s.blocks = blocks
+	return s
 }
 
 // WithDeclineLock attaches the ninety-day shield.
@@ -67,6 +77,21 @@ func (s Service) Sprout(ctx context.Context, command SproutCommand) (SproutResul
 	if !s.ready() {
 		return SproutResult{}, ErrUnavailable
 	}
+	// Blocks first: it is the strongest thing either member can have said
+	// about the other, and it should not cost a seed to be told no.
+	if s.blocks == nil {
+		return SproutResult{}, ErrUnavailable
+	}
+	blocked, err := s.blocks.Blocked(ctx, command.ActorID, command.TargetID)
+	if err != nil {
+		return SproutResult{}, ErrUnavailable
+	}
+	if blocked {
+		// The same refusal a decline gives. Distinguishing them would tell
+		// the member which one it was.
+		return SproutResult{}, ErrReachNotAvailable
+	}
+
 	// Only sowing needs the gate. Speaking inside a doorway both members
 	// already opened does not, and requiring it there would shut existing
 	// conversations whenever the gate was unavailable.

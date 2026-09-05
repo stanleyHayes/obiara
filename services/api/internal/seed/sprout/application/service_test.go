@@ -25,6 +25,8 @@ func TestUnilateralSproutReturnsNoDoorway(t *testing.T) {
 		}
 		return nil, false, nil
 	})
+	blocks := NewMockBlockList(ctrl)
+	blocks.EXPECT().Blocked(gomock.Any(), "alice", "bob").Return(false, nil)
 	listen := NewMockListenGate(ctrl)
 	listen.EXPECT().Heard(gomock.Any(), "alice", "bob").Return(true, nil)
 	allowance := NewMockAllowance(ctrl)
@@ -32,7 +34,8 @@ func TestUnilateralSproutReturnsNoDoorway(t *testing.T) {
 	declines := NewMockDeclineLock(ctrl)
 	declines.EXPECT().Locked(gomock.Any(), "alice", "bob").Return(false, nil)
 	service := New(repository, keyer, ids, time.Now).
-		WithListenGate(listen).WithAllowance(allowance).WithDeclineLock(declines)
+		WithListenGate(listen).WithAllowance(allowance).WithDeclineLock(declines).
+		WithBlockList(blocks)
 	result, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"})
 	if err != nil || result.Doorway != nil {
 		t.Fatalf("result=%#v err=%v", result, err)
@@ -92,7 +95,19 @@ func sproutPaying(t *testing.T, gate ListenGate, allowance Allowance) (SproutRes
 	return sproutFull(t, gate, allowance, openLock{})
 }
 
+// openBlocks is a block list where nobody has blocked anybody.
+type openBlocks struct {
+	blocked bool
+	err     error
+}
+
+func (b openBlocks) Blocked(context.Context, string, string) (bool, error) { return b.blocked, b.err }
+
 func sproutFull(t *testing.T, gate ListenGate, allowance Allowance, lock DeclineLock) (SproutResult, error) {
+	return sproutEverything(t, gate, allowance, lock, openBlocks{})
+}
+
+func sproutEverything(t *testing.T, gate ListenGate, allowance Allowance, lock DeclineLock, blocks BlockList) (SproutResult, error) {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	repository := NewMockRepository(ctrl)
@@ -119,6 +134,9 @@ func sproutFull(t *testing.T, gate ListenGate, allowance Allowance, lock Decline
 	}
 	if lock != nil {
 		service = service.WithDeclineLock(lock)
+	}
+	if blocks != nil {
+		service = service.WithBlockList(blocks)
 	}
 	return service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"})
 }
@@ -176,7 +194,8 @@ func TestARefusedSowIsNeverCharged(t *testing.T) {
 	repository.EXPECT().RecordIntent(gomock.Any(), gomock.Any()).Return(nil, false, nil).AnyTimes()
 
 	service := New(repository, keyer, ids, time.Now).
-		WithListenGate(heardGate{heard: false}).WithAllowance(allowance)
+		WithListenGate(heardGate{heard: false}).WithAllowance(allowance).
+		WithBlockList(openBlocks{})
 	if _, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"}); !errors.Is(err, ErrNotHeard) {
 		t.Fatalf("err = %v, want ErrNotHeard", err)
 	}
@@ -215,8 +234,66 @@ func TestAShieldedSowIsNeverCharged(t *testing.T) {
 	service := New(repository, keyer, ids, time.Now).
 		WithListenGate(heardGate{heard: true}).
 		WithAllowance(allowance).
-		WithDeclineLock(openLock{locked: true})
+		WithDeclineLock(openLock{locked: true}).
+		WithBlockList(openBlocks{})
 	if _, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"}); !errors.Is(err, ErrReachNotAvailable) {
 		t.Fatalf("err = %v, want ErrReachNotAvailable", err)
+	}
+}
+
+func TestABlockIsHonouredInBothDirections(t *testing.T) {
+	// SafetyService.IsBlocked existed and had no callers anywhere: members
+	// could block each other and nothing in the product honoured it. A
+	// blocked member could reach the person who blocked them.
+	if _, err := sproutEverything(t, heardGate{heard: true}, payingAllowance{}, openLock{},
+		openBlocks{blocked: true}); !errors.Is(err, ErrReachNotAvailable) {
+		t.Fatalf("a blocked reach returned %v, want ErrReachNotAvailable", err)
+	}
+	if _, err := sproutEverything(t, heardGate{heard: true}, payingAllowance{}, openLock{},
+		openBlocks{}); err != nil {
+		t.Fatalf("an unblocked reach was refused: %v", err)
+	}
+	// An unreadable block list refuses. Guessing "not blocked" is how a
+	// blocked member gets through.
+	if _, err := sproutEverything(t, heardGate{heard: true}, payingAllowance{}, openLock{},
+		openBlocks{err: errors.New("safety unavailable")}); err == nil {
+		t.Fatal("a reach went through while the block list could not be read")
+	}
+	// And a service composed without the check refuses rather than treating
+	// its absence as permission.
+	if _, err := sproutEverything(t, heardGate{heard: true}, payingAllowance{}, openLock{},
+		nil); !errors.Is(err, ErrUnavailable) {
+		t.Fatal("a reach went through with no block list composed")
+	}
+}
+
+func TestABlockedReachCostsNothingAndTellsThemNothing(t *testing.T) {
+	// A block is the strongest thing either member can have said about the
+	// other. Being told no should not cost a seed, and the refusal must not
+	// reveal that a block is why — that is the rejection signal a block
+	// exists to withhold, and it is the same refusal a decline gives so the
+	// two cannot be told apart.
+	ctrl := gomock.NewController(t)
+	repository := NewMockRepository(ctrl)
+	keyer := NewMockKeyer(ctrl)
+	ids := NewMockIDSource(ctrl)
+	allowance := NewMockAllowance(ctrl)
+	listen := NewMockListenGate(ctrl)
+	// No Spend, no Heard, no RecordIntent expectations: a blocked reach must
+	// not be charged, screened for listening, or written down.
+	keyer.EXPECT().Key(gomock.Any(), gomock.Any()).Return("key", nil).AnyTimes()
+
+	service := New(repository, keyer, ids, time.Now).
+		WithListenGate(listen).
+		WithAllowance(allowance).
+		WithDeclineLock(openLock{}).
+		WithBlockList(openBlocks{blocked: true})
+
+	_, err := service.Sprout(context.Background(), SproutCommand{"command", "alice", "bob", "seed-raw"})
+	if !errors.Is(err, ErrReachNotAvailable) {
+		t.Fatalf("err = %v, want the same refusal a decline gives", err)
+	}
+	if errors.Is(err, ErrNotHeard) || errors.Is(err, ErrNoSeeds) {
+		t.Fatal("the refusal distinguished a block from the other reasons")
 	}
 }

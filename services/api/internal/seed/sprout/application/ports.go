@@ -32,6 +32,19 @@ type DeclineLock interface {
 	Locked(ctx context.Context, sowerID, targetID string) (bool, error)
 }
 
+// BlockList reports whether either member has blocked the other.
+//
+// Both directions matter. Someone who was blocked must not reach the person
+// who blocked them, and someone who did the blocking should not be reaching
+// the person they blocked either — a block is a decision to be apart, not a
+// one-way filter the blocker can step around.
+//
+// It answers a bool and nothing else: telling a member "they blocked you"
+// hands them the rejection signal a block exists to withhold.
+type BlockList interface {
+	Blocked(ctx context.Context, memberID, otherID string) (bool, error)
+}
+
 // Allowance spends one seed for a sow.
 //
 // Implementations must be idempotent by command id: a retried sow must not

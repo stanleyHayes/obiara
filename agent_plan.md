@@ -4090,3 +4090,56 @@ recipient's side, and inventing one would be inventing policy.
 
 Three were left PARTIAL deliberately. Marking them DONE would claim an
 automated screen that does not exist and a delivery that does not happen.
+
+
+## 55. Goal: a block means something (2026-09-05)
+
+Looking for something to answer the pod's `PlaybackEligibility` turned up a
+worse problem on a route that is already live.
+
+`SafetyService.IsBlocked` exists, `BlockRepository.Exists` behind it exists,
+`POST /v1/blocks` and `DELETE /v1/blocks/{blockerId}/{blockedId}` have been
+serving members for as long as they have existed — and **nothing anywhere
+called `IsBlocked`.** A member could block somebody and that person could
+still reach toward them through `POST /v1/seed/sprouts`. The block was
+recorded, honoured by nothing, and the member had every reason to believe it
+had worked.
+
+That is the most consequential thing found in this session, and it was found
+by looking for something else.
+
+### The decisions
+
+**Both directions.** Someone who was blocked must not reach the person who
+blocked them, and someone who did the blocking should not be reaching the
+person they blocked either. A block is a decision to be apart, not a one-way
+filter the blocker can step around.
+
+**Blocks are checked first**, before the listen gate and long before the
+charge. It is the strongest thing either member can have said about the other,
+and being told no should not cost a seed. A test asserts the allowance, the
+listen gate and the repository are all untouched when a block is in place.
+
+**The refusal is the one a decline gives.** `ErrReachNotAvailable`, with the
+same message. Telling a member "they blocked you" hands them exactly the
+rejection signal a block exists to withhold, and making a block distinguishable
+from a decline would leak it just as surely. A test asserts the error is not
+`ErrNotHeard` or `ErrNoSeeds` either.
+
+**An unreadable block list refuses.** Guessing "not blocked" is how a blocked
+member gets through, and a service composed without the check refuses rather
+than treating its absence as permission.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| BLK-01  | `BlockList` port, checked before anything else on the sprout path     | DONE   |
+| BLK-02  | Both directions, bridged to the safety context's existing query       | DONE   |
+| BLK-03  | A refusal indistinguishable from a decline, costing nothing           | DONE   |
+
+Proven by breaking it: disabling the refusal made the test report a blocked
+reach returning nil.
+
+**Still unhonoured elsewhere.** This fixes the sprout path. Blocks are still
+not consulted anywhere else — courtship rooms, circles, fires, introductions.
+Each is its own boundary and each needs the same check; this closes the one
+where the cost of missing it is highest, and records that the rest remain.

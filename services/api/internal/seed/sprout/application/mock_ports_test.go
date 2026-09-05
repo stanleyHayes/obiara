@@ -56,6 +56,45 @@ func (mr *MockDeclineLockMockRecorder) Locked(ctx, sowerID, targetID any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Locked", reflect.TypeOf((*MockDeclineLock)(nil).Locked), ctx, sowerID, targetID)
 }
 
+// MockBlockList is a mock of BlockList interface.
+type MockBlockList struct {
+	ctrl     *gomock.Controller
+	recorder *MockBlockListMockRecorder
+	isgomock struct{}
+}
+
+// MockBlockListMockRecorder is the mock recorder for MockBlockList.
+type MockBlockListMockRecorder struct {
+	mock *MockBlockList
+}
+
+// NewMockBlockList creates a new mock instance.
+func NewMockBlockList(ctrl *gomock.Controller) *MockBlockList {
+	mock := &MockBlockList{ctrl: ctrl}
+	mock.recorder = &MockBlockListMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockBlockList) EXPECT() *MockBlockListMockRecorder {
+	return m.recorder
+}
+
+// Blocked mocks base method.
+func (m *MockBlockList) Blocked(ctx context.Context, memberID, otherID string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Blocked", ctx, memberID, otherID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Blocked indicates an expected call of Blocked.
+func (mr *MockBlockListMockRecorder) Blocked(ctx, memberID, otherID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Blocked", reflect.TypeOf((*MockBlockList)(nil).Blocked), ctx, memberID, otherID)
+}
+
 // MockAllowance is a mock of Allowance interface.
 type MockAllowance struct {
 	ctrl     *gomock.Controller

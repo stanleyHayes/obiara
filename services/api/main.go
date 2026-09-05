@@ -32,6 +32,7 @@ import (
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
 	"github.com/stanleyHayes/obiara/internal/privacy"
 	"github.com/stanleyHayes/obiara/internal/safety"
+	safetyapplication "github.com/stanleyHayes/obiara/internal/safety/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/admin"
 	adminemail "github.com/stanleyHayes/obiara/services/api/internal/admin/adapters/outbound/email"
 	admindomain "github.com/stanleyHayes/obiara/services/api/internal/admin/domain"
@@ -692,7 +693,8 @@ func run() error {
 	// whether or not recordings are configured.
 	seedStageModule.Sprout = seedStageModule.Sprout.
 		WithAllowance(sproutAllowanceBridge{allowances: allowanceModule.Allowances}).
-		WithDeclineLock(sproutDeclineBridge{declines: seedStageModule.Decline, now: time.Now})
+		WithDeclineLock(sproutDeclineBridge{declines: seedStageModule.Decline, now: time.Now}).
+		WithBlockList(sproutBlockBridge{safety: safetyModule.Safety})
 	// Registered after the gate is attached. Without object storage there are
 	// no recordings, so nobody can have heard anyone and the sprout service
 	// reports itself unavailable rather than accepting an unarmed sow.
@@ -984,6 +986,25 @@ func (bridge introductionLadderBridge) SowingEarned(ctx context.Context, memberI
 		return err
 	}
 	return nil
+}
+
+// sproutBlockBridge answers the most basic question either member can have
+// settled about the other: has one of them blocked the other?
+//
+// Both directions, because a block is a decision to be apart rather than a
+// one-way filter the blocker can step around. Until this existed,
+// SafetyService.IsBlocked had no callers anywhere: members could block each
+// other and nothing in the product honoured it.
+type sproutBlockBridge struct {
+	safety safetyapplication.SafetyService
+}
+
+func (bridge sproutBlockBridge) Blocked(ctx context.Context, memberID, otherID string) (bool, error) {
+	blocked, err := bridge.safety.IsBlocked(ctx, memberID, otherID)
+	if err != nil || blocked {
+		return blocked, err
+	}
+	return bridge.safety.IsBlocked(ctx, otherID, memberID)
 }
 
 // sproutDeclineBridge answers M4-AC-01 for the seed stage: is the target
