@@ -6,6 +6,12 @@ import type { ReactNode, SVGProps } from "react";
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
 import { FieEmptyState } from "../empty-state";
 import { ObiaraSelect } from "@obiara/ui-web";
+import {
+  askSummary,
+  canAskThrough,
+  initialAsk,
+  type AskState,
+} from "./introduction-model";
 
 type CircleType =
   "community" | "campus" | "professional" | "interest" | "support";
@@ -73,6 +79,65 @@ function CourtyardIcon({
 export function AdiwoShell() {
   const [view, setView] = useState<"mine" | "discover">("mine");
   const [circles, setCircles] = useState<Circle[]>([]);
+  // Keyed per circle: a member may ask through more than one, and each ask
+  // stands on its own.
+  const [asks, setAsks] = useState<Record<string, AskState>>({});
+
+  /**
+   * Asks to be introduced through one circle.
+   *
+   * The response carries a count and never the people. Who they are is the
+   * next stage's to reveal, one at a time — this only tells the member their
+   * ask found somebody.
+   */
+  async function askThrough(circleID: string) {
+    setAsks((current) => ({
+      ...current,
+      [circleID]: { ...initialAsk, stage: "asking" },
+    }));
+    try {
+      const response = await fetch("/api/seed/sources", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": `source-${circleID}-${crypto.randomUUID()}`,
+        },
+        body: JSON.stringify({ circleId: circleID }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        requestId?: string;
+        candidateCount?: number;
+        message?: string;
+      } | null;
+      if (!response.ok || typeof payload?.candidateCount !== "number") {
+        throw new Error(
+          payload?.message ||
+            "We could not open that introduction. Please try again.",
+        );
+      }
+      setAsks((current) => ({
+        ...current,
+        [circleID]: {
+          stage: "asked",
+          found: payload.candidateCount ?? 0,
+          requestId: payload.requestId ?? null,
+          error: null,
+        },
+      }));
+    } catch (cause) {
+      setAsks((current) => ({
+        ...current,
+        [circleID]: {
+          ...initialAsk,
+          stage: "failed",
+          error:
+            cause instanceof Error
+              ? cause.message
+              : "We could not open that introduction. Please try again.",
+        },
+      }));
+    }
+  }
   const [busy, setBusy] = useState<string | null>("load");
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
@@ -320,6 +385,32 @@ export function AdiwoShell() {
                   {circle.visibility}
                 </p>
                 <small>Your state: {circle.membership}</small>
+                {canAskThrough(circle.membership) ? (
+                  <div className="adiwo-introduce">
+                    <button
+                      className="adiwo-introduce-action"
+                      disabled={asks[circle.id]?.stage === "asking"}
+                      onClick={() => void askThrough(circle.id)}
+                      type="button"
+                    >
+                      {asks[circle.id]?.stage === "asking"
+                        ? "Looking…"
+                        : asks[circle.id]?.stage === "asked"
+                          ? "Ask again"
+                          : "Ask to be introduced"}
+                    </button>
+                    {asks[circle.id]?.stage === "asked" ? (
+                      <p className="adiwo-introduce-result" role="status">
+                        {askSummary(asks[circle.id])}
+                      </p>
+                    ) : null}
+                    {asks[circle.id]?.stage === "failed" ? (
+                      <p className="adiwo-introduce-error" role="alert">
+                        {asks[circle.id]?.error}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {circle.membership === "none" ? (
                   <button
                     disabled={busy !== null}

@@ -647,3 +647,54 @@
     justify-self: start;
   }
 }
+
+.adiwo-introduce {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+/* Quieter than the join and visibility actions beside it. Asking to be
+   introduced is an ordinary thing to do repeatedly, not a commitment the card
+   should shout about. */
+.adiwo-introduce-action {
+  background: #fff3e6;
+  border: 1.5px solid rgba(58, 14, 46, 0.16);
+  border-radius: 0.7rem;
+  color: #3a0e2e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 700;
+  min-height: 2.9rem;
+  padding: 0 1rem;
+}
+
+.adiwo-introduce-action:hover:not(:disabled) {
+  border-color: rgba(58, 14, 46, 0.4);
+}
+
+.adiwo-introduce-action:disabled {
+  color: #9a8790;
+  cursor: not-allowed;
+}
+
+.adiwo-introduce-action:focus-visible {
+  outline: 3px solid #ff9f1c;
+  outline-offset: 3px;
+}
+
+.adiwo-introduce-result {
+  color: #12876b;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.adiwo-introduce-error {
+  color: #8c2933;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin: 0;
+}

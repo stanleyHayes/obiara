@@ -2483,3 +2483,13 @@ not yet a guard.
 | CC-01 | Audit every registered route against the contract                       | DONE   |
 | CC-02 | Document sprout, doorway exchange and decline                           | DONE   |
 | CC-03 | `TestEveryServedRouteIsInTheContract`, both directions, failure-checked | DONE   |
+
+Goal 30 is closed. A member can record three answers in their own voice, hear
+them back, and ask to be introduced through a circle they belong to — the
+first path from recording to another person that exists end to end.
+
+What the ask does not yet do is deliver anybody. The request holds a bounded,
+keyed candidate list and expires within the hour; turning that into an
+introduction a member actually receives is S-20, and it needs a delivery
+mechanism that does not exist yet. The count on the card is honest about this:
+it says people could meet you, not that they will.
