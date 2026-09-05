@@ -103,6 +103,9 @@ import (
 	gardenapp "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/listening"
 	listeningapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/listening/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/seed/screening"
+	"github.com/stanleyHayes/obiara/services/api/internal/seed/sow"
+	sowmedia "github.com/stanleyHayes/obiara/services/api/internal/seed/sow/adapters/outbound/media"
 	sproutapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/sprout/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/sentinel/scamarc"
 	"github.com/stanleyHayes/obiara/services/api/internal/suban"
@@ -608,6 +611,31 @@ func run() error {
 		if mediaErr != nil {
 			return fmt.Errorf("build media module: %w", mediaErr)
 		}
+		// Screening and the sow. Every sow is read by a person before it is
+		// delivered, so screening's only outcome here is the review queue —
+		// see agent_plan.md §49. The locale is left unset: nothing has been
+		// language-reviewed yet, and an unreviewed language routes to a
+		// person rather than refusing the sow, so "undetermined" is both
+		// truthful and safe.
+		screeningModule, screeningErr := screening.NewModule(
+			ctx, client.Database(cfg.MongoDatabase), mediaModule.Assets, "", nil,
+		)
+		if screeningErr != nil {
+			return fmt.Errorf("build screening module: %w", screeningErr)
+		}
+		sowModule, sowErr := sow.NewModule(
+			ctx,
+			client.Database(cfg.MongoDatabase),
+			screeningModule.Screening,
+			sowmedia.NewOwnership(mediaModule.Assets),
+			cfg.SeedHMACSecret,
+			cfg.SeedWeeklyAllowance,
+		)
+		if sowErr != nil {
+			return fmt.Errorf("build sow module: %w", sowErr)
+		}
+		apihttp.RegisterSowRoutes(mux, sowModule.Sows, identityModule.Sessions, memberGate)
+
 		introductionModule, introErr := introduction.NewModule(
 			ctx,
 			client.Database(cfg.MongoDatabase),

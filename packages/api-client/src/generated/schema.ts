@@ -3398,6 +3398,37 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/seed/sows": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Send a sow
+     * @description The atomic gesture: a member's answer sent toward another person. It
+     *     costs a seed from the weekly allowance and requires the sowing rung
+     *     (FR-101b).
+     *
+     *     Every sow is read by a person before it is delivered, so a successful
+     *     response reports `pending_review` rather than a delivery that has not
+     *     happened. The seed is spent on the way in and refunded if the review
+     *     refuses it (M4-ABUSE-01).
+     *
+     *     Recordings must belong to the sender. Sending somebody else's voice as
+     *     your own is impersonation in a product where people meet through their
+     *     voices, and it is refused.
+     */
+    readonly post: operations["sendSow"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/seed/sprouts": {
     readonly parameters: {
       readonly query?: never;
@@ -5627,6 +5658,32 @@ export interface components {
     readonly SessionRefreshInput: {
       /** @description The refresh token issued by the previous session response. */
       readonly refreshToken: string;
+    };
+    readonly SowData: {
+      readonly replayed: boolean;
+      readonly sowId: string;
+      /**
+       * @description pending_review while a person reads it. The member is told plainly
+       *     rather than shown a delivery that has not happened.
+       * @enum {string}
+       */
+      readonly status: "pending_review" | "delivered" | "rejected";
+    };
+    readonly SowEnvelope: {
+      readonly data: components["schemas"]["SowData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly SowInput: {
+      /** @description The member's answer, in their own words. */
+      readonly body: string;
+      /**
+       * @description The deliberate gesture. A sow costs a seed and reaches a person,
+       *     and neither should happen by brushing a screen, so an unconfirmed
+       *     sow is refused rather than defaulted.
+       */
+      readonly confirmed: boolean;
+      /** @description Recordings to send with it. Each must belong to the sender. */
+      readonly mediaRefs?: readonly string[];
     };
     readonly SproutInput: {
       /** @description Reused on retry so a reach is never recorded twice. */
@@ -13929,6 +13986,70 @@ export interface operations {
         };
       };
       readonly 422: components["responses"]["ValidationFailed"];
+    };
+  };
+  readonly sendSow: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["SowInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The same Idempotency-Key already sent this sow. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SowEnvelope"];
+        };
+      };
+      /** @description The sow was accepted and is waiting on a reviewer. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SowEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /**
+       * @description The sowing rung is required, or a recording does not belong to the
+       *     sender.
+       */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description This week's seeds are spent. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly sproutSeed: {

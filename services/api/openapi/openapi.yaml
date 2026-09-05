@@ -1822,6 +1822,72 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/seed/sows:
+    post:
+      operationId: sendSow
+      tags: [Seed]
+      summary: Send a sow
+      security:
+        - MemberBearer: []
+      description: |
+        The atomic gesture: a member's answer sent toward another person. It
+        costs a seed from the weekly allowance and requires the sowing rung
+        (FR-101b).
+
+        Every sow is read by a person before it is delivered, so a successful
+        response reports `pending_review` rather than a delivery that has not
+        happened. The seed is spent on the way in and refunded if the review
+        refuses it (M4-ABUSE-01).
+
+        Recordings must belong to the sender. Sending somebody else's voice as
+        your own is impersonation in a product where people meet through their
+        voices, and it is refused.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SowInput"
+      responses:
+        "201":
+          description: The sow was accepted and is waiting on a reviewer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SowEnvelope"
+        "200":
+          description: The same Idempotency-Key already sent this sow.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SowEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: |
+            The sowing rung is required, or a recording does not belong to the
+            sender.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: This week's seeds are spent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/seed/sprouts:
     post:
       operationId: sproutSeed
@@ -9182,6 +9248,53 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/IntroductionSourceData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    SowInput:
+      type: object
+      additionalProperties: false
+      required: [body, confirmed]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: The member's answer, in their own words.
+        mediaRefs:
+          type: array
+          maxItems: 4
+          items:
+            type: string
+          description: |
+            Recordings to send with it. Each must belong to the sender.
+        confirmed:
+          type: boolean
+          description: |
+            The deliberate gesture. A sow costs a seed and reaches a person,
+            and neither should happen by brushing a screen, so an unconfirmed
+            sow is refused rather than defaulted.
+    SowData:
+      type: object
+      additionalProperties: false
+      required: [sowId, status, replayed]
+      properties:
+        sowId:
+          type: string
+        status:
+          type: string
+          enum: [pending_review, delivered, rejected]
+          description: |
+            pending_review while a person reads it. The member is told plainly
+            rather than shown a delivery that has not happened.
+        replayed:
+          type: boolean
+    SowEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/SowData"
         meta:
           $ref: "#/components/schemas/Metadata"
     VoiceIntroductionInput:

@@ -30,6 +30,10 @@ func gateAt(tier identitydomain.Tier) MemberGate { return NewMemberGate(tierStub
 // tables under test now require of a romantic surface.
 func verifiedGate() MemberGate { return gateAt(identitydomain.TierVerified) }
 
+// sowingGate stands the test's member on Tier 2, which is what reaching
+// toward another person costs (FR-101b).
+func sowingGate() MemberGate { return gateAt(identitydomain.TierSowing) }
+
 func gatedRequest(t *testing.T, gate MemberGate, action, resourceType string) *httptest.ResponseRecorder {
 	t.Helper()
 	reached := false
@@ -217,6 +221,7 @@ var gatedRoutes = []string{
 	`POST /v1/listening/heartbeats`,
 	`POST /v1/seed/sources`,
 	`POST /v1/seed/sprouts`,
+	`POST /v1/seed/sows`,
 	`POST /v1/courtship/rooms`,
 	`POST /v1/courtship/rooms/{id}/turns`,
 	`POST /v1/courtship/proposals`,

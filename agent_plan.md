@@ -3856,3 +3856,70 @@ reaching the screener, which is the failure itself.
 context (its `AssetRepository` carries `OwnerID`, `ContentType`, `Size` and
 `Duration`, so both are reads rather than decisions), the composition roots for
 `seed/sow` and `seed/screening`, and the reviewer surface.
+
+
+## 51. Goal: the sow is reachable (2026-09-05)
+
+`seed/sow` is composed and `POST /v1/seed/sows` serves it. The atomic gesture
+— a member's answer sent toward another person, costing a seed — had a
+complete aggregate, an atomic allowance spend, a screening chain and no route
+at all.
+
+### The bridges
+
+Both turned out to be reads rather than decisions, which is what the
+composition inventory said to check for first.
+
+**`MediaOwnership`** answers whether recordings belong to the sower. A
+reference that cannot be read is *not owned* — treating an unreadable asset as
+somebody's own would let a member attach a reference to a recording nothing
+can account for, which is the case the check exists for. It answers "no"
+rather than reporting a fault, because refusing the sow with an outage when
+the truthful answer is a refusal would be a lie in the member's favour. A
+deleted asset is not owned either: its row survives deletion so retention
+stays provable, and a member whose recording has been erased must not keep
+sowing it.
+
+**`MediaInspector`** reports shape and never content. The policy only needs to
+know what kind of thing this is and how long it runs; the words are already in
+the review's text and the audio is not something that port is entitled to hand
+around. An unreadable recording routes to a person rather than being refused —
+a sow referencing a recording nothing can describe is exactly what somebody
+should look at.
+
+### The route
+
+Gated at the sowing rung. The sower is the session, so nobody sows on somebody
+else's behalf and the seed comes from their own allowance. `Idempotency-Key`
+is required rather than defaulted, because without it a double submission
+spends two seeds for one gesture — a test asserts the service is not reached
+at all without one.
+
+**A success reports `pending_review`.** The member is told their sow is
+waiting on a person rather than shown a delivery that has not happened.
+
+**The confirmation is never filled in by the transport.** A sow costs a seed
+and reaches a person, and neither should happen by brushing a screen. A test
+asserts the command still carries `Confirmed: false` when the body omitted it,
+rather than the handler being helpful.
+
+**A refused sow is not told why.** A refusal that explains itself teaches
+somebody how to word the next one, so the member is told it could not be sent
+and nothing more. The test asserts the body never contains the reason
+vocabulary.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| SOW-21  | `MediaOwnership` and `MediaInspector` bridges, tested                | DONE   |
+| SOW-22  | Composition roots for `seed/sow` and `seed/screening`                | DONE   |
+| SOW-23  | `POST /v1/seed/sows`, gated at Tier 2, idempotent, honest statuses    | DONE   |
+| SOW-24  | Contract, operation count, generated client and the gate guard       | DONE   |
+
+Writing the route's tests caught that I had reached for the Tier 1 gate
+helper: sowing is Tier 2, and the gate refused with `tier_2_required` before
+the handler ran. The test was wrong and the gate was right.
+
+**Remaining:** the reviewer surface that lists the queue and calls the review
+store's `Decide` and then the sow's `Review`. After that a sow can be sent,
+held, read by a person, and released or refused with the seed returned — end
+to end.

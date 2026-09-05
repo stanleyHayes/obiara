@@ -226,7 +226,10 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// applyAdminSafetyAction: the T&S ladder had been enforced inside a
 	// service registered on no route, so a case could be queued, assigned and
 	// read, and then nothing could happen to it.
-	if len(seen) != 202 {
-		t.Errorf("operationId count = %d, want 202", len(seen))
+	// 203 adds sendSow: the atomic gesture itself, which had a complete
+	// aggregate, an atomic allowance spend and a screening chain, and no
+	// route at all.
+	if len(seen) != 203 {
+		t.Errorf("operationId count = %d, want 203", len(seen))
 	}
 }
