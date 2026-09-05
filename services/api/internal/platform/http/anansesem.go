@@ -25,13 +25,14 @@ func RegisterAnansesemRoutes(
 	stories AnansesemStories,
 	pairs OwarePairResolver,
 	auth SessionAuthenticator,
+	gate MemberGate,
 ) {
-	mux.Handle("POST /v1/circles/{circleId}/stories", createStoryHandler(stories, pairs, auth))
+	mux.Handle("POST /v1/circles/{circleId}/stories", gate.guard(auth, "circles.participate", "circle", createStoryHandler(stories, pairs, auth)))
 	mux.Handle("GET /v1/circles/{circleId}/stories/{storyId}", viewStoryHandler(stories, pairs, auth))
-	mux.Handle("POST /v1/circles/{circleId}/stories/{storyId}/passages", addStoryPassageHandler(stories, pairs, auth))
-	mux.Handle("PUT /v1/circles/{circleId}/stories/{storyId}/passages/{passageId}", editStoryPassageHandler(stories, pairs, auth))
-	mux.Handle("POST /v1/circles/{circleId}/stories/{storyId}/publication-grants", grantStoryPublicationHandler(stories, pairs, auth))
-	mux.Handle("POST /v1/circles/{circleId}/stories/{storyId}/publish", publishStoryHandler(stories, pairs, auth))
+	mux.Handle("POST /v1/circles/{circleId}/stories/{storyId}/passages", gate.guard(auth, "circles.participate", "circle", addStoryPassageHandler(stories, pairs, auth)))
+	mux.Handle("PUT /v1/circles/{circleId}/stories/{storyId}/passages/{passageId}", gate.guard(auth, "circles.participate", "circle", editStoryPassageHandler(stories, pairs, auth)))
+	mux.Handle("POST /v1/circles/{circleId}/stories/{storyId}/publication-grants", gate.guard(auth, "circles.participate", "circle", grantStoryPublicationHandler(stories, pairs, auth)))
+	mux.Handle("POST /v1/circles/{circleId}/stories/{storyId}/publish", gate.guard(auth, "circles.participate", "circle", publishStoryHandler(stories, pairs, auth)))
 }
 
 type storyPassageResponse struct {

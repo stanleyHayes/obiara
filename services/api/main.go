@@ -677,11 +677,11 @@ func run() error {
 	apihttp.RegisterListeningRoutes(mux, listeningModule.Listening, identityModule.Sessions, memberGate)
 	apihttp.RegisterGardenRoutes(mux, gardenService, identityModule.Sessions)
 	apihttp.RegisterCircleRoutes(mux, circleModule.Circles, identityModule.Sessions, memberGate)
-	apihttp.RegisterCircleRoomRoutes(mux, circleRoomModule.Rooms, identityModule.Sessions)
-	apihttp.RegisterOwareRoutes(mux, owareModule.Sessions, gamePairs, identityModule.Sessions)
-	apihttp.RegisterAnansesemRoutes(mux, anansesemModule.Stories, gamePairs, identityModule.Sessions)
-	apihttp.RegisterAmpeRoutes(mux, ampeModule.Rounds, ampeModule.Presence, gamePairs, identityModule.Sessions)
-	apihttp.RegisterEbeRoutes(mux, ebeModule.Catalog, ebeModule.Duels, gamePairs, identityModule.Sessions, adminPrincipalResolver)
+	apihttp.RegisterCircleRoomRoutes(mux, circleRoomModule.Rooms, identityModule.Sessions, memberGate)
+	apihttp.RegisterOwareRoutes(mux, owareModule.Sessions, gamePairs, identityModule.Sessions, memberGate)
+	apihttp.RegisterAnansesemRoutes(mux, anansesemModule.Stories, gamePairs, identityModule.Sessions, memberGate)
+	apihttp.RegisterAmpeRoutes(mux, ampeModule.Rounds, ampeModule.Presence, gamePairs, identityModule.Sessions, memberGate)
+	apihttp.RegisterEbeRoutes(mux, ebeModule.Catalog, ebeModule.Duels, gamePairs, identityModule.Sessions, adminPrincipalResolver, memberGate)
 	apihttp.RegisterCompetitionRoutes(
 		mux, competitionModule.Cohorts, competitionModule.Manager,
 		competitionModule.Competitions, competitionModule.Competitions,

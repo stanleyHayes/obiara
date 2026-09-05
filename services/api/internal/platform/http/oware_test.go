@@ -59,6 +59,7 @@ func TestOwareCreateDerivesPlayerFromSessionAndRedactsKeys(t *testing.T) {
 		sessionAuthenticatorStub{authenticate: func(context.Context, string) (identitydomain.Session, error) {
 			return memberSession(now), nil
 		}},
+		verifiedGate(),
 	)
 	request := httptest.NewRequest(
 		http.MethodPost,

@@ -26,10 +26,11 @@ func RegisterOwareRoutes(
 	sessions OwareSessions,
 	pairs OwarePairResolver,
 	auth SessionAuthenticator,
+	gate MemberGate,
 ) {
-	mux.Handle("POST /v1/circles/{circleId}/oware", createOwareHandler(sessions, pairs, auth))
+	mux.Handle("POST /v1/circles/{circleId}/oware", gate.guard(auth, "games.play", "game", createOwareHandler(sessions, pairs, auth)))
 	mux.Handle("GET /v1/circles/{circleId}/oware/{gameId}", viewOwareHandler(sessions, auth))
-	mux.Handle("POST /v1/circles/{circleId}/oware/{gameId}/moves", moveOwareHandler(sessions, auth))
+	mux.Handle("POST /v1/circles/{circleId}/oware/{gameId}/moves", gate.guard(auth, "games.play", "game", moveOwareHandler(sessions, auth)))
 }
 
 type owareResponse struct {

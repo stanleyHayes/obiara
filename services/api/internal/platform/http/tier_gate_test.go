@@ -139,6 +139,11 @@ var exitRoutes = []string{
 	`POST /v1/circles/{id}/leave`,
 	`POST /v1/game-cohorts/{cohortId}/leave`,
 	`DELETE /v1/fires/{id}/rsvps/{memberId}`,
+	// Taking your own entry back out of a circle room.
+	`POST /v1/circle-room-entries/{id}/delete`,
+	// Removing somebody from a circle protects the people in it. A host must
+	// be able to do it at any rung, for the same reason blocking is open.
+	`POST /v1/circles/{id}/members/{memberId}/expel`,
 }
 
 func TestTheGateNeverBlocksTheRoadOutOfTheGate(t *testing.T) {
@@ -219,6 +224,19 @@ var gatedRoutes = []string{
 	`POST /v1/circles/{id}/requests`,
 	`POST /v1/fires`,
 	`POST /v1/game-cohorts/{cohortId}/join`,
+	// Taking a turn inside a circle. Membership already requires a gated
+	// join, so these are gated twice over for a new account — but an account
+	// that was already a member before the join was gated reaches them with
+	// nothing else in the way.
+	`POST /v1/circles/{circleId}/room`,
+	`POST /v1/circles/{circleId}/stories`,
+	`POST /v1/circles/{circleId}/stories/{storyId}/passages`,
+	`POST /v1/circles/{circleId}/ampe`,
+	`POST /v1/circles/{circleId}/ampe/{roundId}/commands`,
+	`POST /v1/circles/{circleId}/ebe`,
+	`POST /v1/circles/{circleId}/ebe/{duelId}/answers`,
+	`POST /v1/circles/{circleId}/oware`,
+	`POST /v1/circles/{circleId}/oware/{gameId}/moves`,
 }
 
 func TestEveryParticipationRouteIsStillBehindTheGate(t *testing.T) {

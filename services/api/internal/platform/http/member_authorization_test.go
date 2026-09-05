@@ -164,6 +164,7 @@ func TestCircleRoomListDerivesActorFromSession(t *testing.T) {
 		sessionAuthenticatorStub{authenticate: func(context.Context, string) (identitydomain.Session, error) {
 			return memberSession(now), nil
 		}},
+		verifiedGate(),
 	)
 	request := httptest.NewRequest(http.MethodGet, "/v1/circles/circle-1/room", nil)
 	request.Header.Set("Authorization", "Bearer access")

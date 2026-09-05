@@ -3354,3 +3354,44 @@ M4-AC-01's remaining clause is "no purchase" — that seeds cannot be bought.
 Nothing sells them today, so nothing violates it; it becomes a real constraint
 the moment a catalog SKU could top up an allowance, and §41's promotion work
 is where that could accidentally be introduced.
+
+
+## 43. Goal: gate the turns as well as the door (2026-09-05)
+
+§38 gated joining a circle and left the turns inside it transitively
+protected: membership requires a gated join, so a new Tier-0 account cannot
+reach a circle room, a story or a game. That reasoning was recorded as a
+deferral rather than a claim, and this closes it — because transitive
+protection covers new accounts and not accounts that were already members
+before the join was gated.
+
+### What is gated now
+
+Under `circles.participate`: creating a circle room entry, starting a story,
+adding or editing a passage, granting publication, publishing, and the host
+actions that grow or open a circle — visibility, approve, promote.
+
+Under `games.play`: starting and playing Ampe, Ebe and Oware inside a circle.
+
+### What is deliberately still open
+
+**Expelling.** It removes somebody from a circle, which protects the people in
+it, so a host must be able to do it at any rung — the same rule that keeps
+blocking and reporting open. It is now in the exit invariant, so gating it
+later fails a test rather than passing review.
+
+**Deleting your own circle-room entry**, for the same reason: taking your own
+words back out is not participation.
+
+**Every read.** Browsing is the whole point of the ruling.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| T0-05   | Circle rooms, stories and in-circle games behind the gate            | DONE   |
+| T0-06   | Host growth actions gated; expel left open and pinned as an exit     | DONE   |
+| T0-07   | Both structural invariants extended to the new routes                | DONE   |
+
+The extended guard was proven by ungating one Oware move, which made it name
+the offending line. M1-AC-01 can now be read the way the owner ruled it —
+browse yes, participate no — rather than resting on the fact that most
+participation happens to sit behind a join.

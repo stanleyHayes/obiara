@@ -35,9 +35,12 @@ func RegisterCircleRoutes(mux *http.ServeMux, circles Circles, sessions SessionA
 	mux.Handle("GET /v1/circles/{id}", getCircleHandler(circles, sessions))
 	mux.Handle("POST /v1/circles/{id}/requests", gate.guard(sessions, "circles.participate", "circle", mutateCircleHandler(circles, sessions, "request")))
 	mux.Handle("POST /v1/circles/{id}/leave", mutateCircleHandler(circles, sessions, "leave"))
-	mux.Handle("PUT /v1/circles/{id}/visibility", mutateCircleHandler(circles, sessions, "visibility"))
-	mux.Handle("POST /v1/circles/{id}/members/{memberId}/approve", mutateCircleHandler(circles, sessions, "approve"))
-	mux.Handle("POST /v1/circles/{id}/members/{memberId}/promote", mutateCircleHandler(circles, sessions, "promote"))
+	// Host actions that grow or open a circle are participation. Expelling
+	// is not: it removes somebody, and a host must be able to do that at any
+	// rung — the same rule as blocking and reporting.
+	mux.Handle("PUT /v1/circles/{id}/visibility", gate.guard(sessions, "circles.participate", "circle", mutateCircleHandler(circles, sessions, "visibility")))
+	mux.Handle("POST /v1/circles/{id}/members/{memberId}/approve", gate.guard(sessions, "circles.participate", "circle", mutateCircleHandler(circles, sessions, "approve")))
+	mux.Handle("POST /v1/circles/{id}/members/{memberId}/promote", gate.guard(sessions, "circles.participate", "circle", mutateCircleHandler(circles, sessions, "promote")))
 	mux.Handle("POST /v1/circles/{id}/members/{memberId}/expel", mutateCircleHandler(circles, sessions, "expel"))
 }
 

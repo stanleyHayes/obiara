@@ -24,10 +24,11 @@ func RegisterAmpeRoutes(
 	presence AmpePresence,
 	pairs OwarePairResolver,
 	auth SessionAuthenticator,
+	gate MemberGate,
 ) {
-	mux.Handle("POST /v1/circles/{circleId}/ampe", createAmpeHandler(rounds, pairs, auth))
+	mux.Handle("POST /v1/circles/{circleId}/ampe", gate.guard(auth, "games.play", "game", createAmpeHandler(rounds, pairs, auth)))
 	mux.Handle("GET /v1/circles/{circleId}/ampe/{roundId}", viewAmpeHandler(presence, pairs, auth))
-	mux.Handle("POST /v1/circles/{circleId}/ampe/{roundId}/commands", commandAmpeHandler(rounds, pairs, auth))
+	mux.Handle("POST /v1/circles/{circleId}/ampe/{roundId}/commands", gate.guard(auth, "games.play", "game", commandAmpeHandler(rounds, pairs, auth)))
 }
 
 type ampePlayerResponse struct {

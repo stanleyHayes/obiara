@@ -20,9 +20,9 @@ type CircleRooms interface {
 	Delete(context.Context, string, string, string) (domain.Entry, error)
 }
 
-func RegisterCircleRoomRoutes(mux *http.ServeMux, rooms CircleRooms, sessions SessionAuthenticator) {
+func RegisterCircleRoomRoutes(mux *http.ServeMux, rooms CircleRooms, sessions SessionAuthenticator, gate MemberGate) {
 	mux.Handle("GET /v1/circles/{circleId}/room", listCircleRoomHandler(rooms, sessions))
-	mux.Handle("POST /v1/circles/{circleId}/room", createCircleRoomEntryHandler(rooms, sessions))
+	mux.Handle("POST /v1/circles/{circleId}/room", gate.guard(sessions, "circles.participate", "circle", createCircleRoomEntryHandler(rooms, sessions)))
 	mux.Handle("POST /v1/circle-room-entries/{id}/delete", deleteCircleRoomEntryHandler(rooms, sessions))
 }
 

@@ -26,11 +26,12 @@ func RegisterEbeRoutes(
 	pairs OwarePairResolver,
 	memberAuth SessionAuthenticator,
 	adminAuth AdminPrincipalResolver,
+	gate MemberGate,
 ) {
 	mux.Handle("POST /v1/admin/games/ebe/prompts", approveEbePromptHandler(catalog, adminAuth))
-	mux.Handle("POST /v1/circles/{circleId}/ebe", createEbeHandler(duels, pairs, memberAuth))
+	mux.Handle("POST /v1/circles/{circleId}/ebe", gate.guard(memberAuth, "games.play", "game", createEbeHandler(duels, pairs, memberAuth)))
 	mux.Handle("GET /v1/circles/{circleId}/ebe/{duelId}", viewEbeHandler(duels, pairs, memberAuth))
-	mux.Handle("POST /v1/circles/{circleId}/ebe/{duelId}/answers", answerEbeHandler(duels, pairs, memberAuth))
+	mux.Handle("POST /v1/circles/{circleId}/ebe/{duelId}/answers", gate.guard(memberAuth, "games.play", "game", answerEbeHandler(duels, pairs, memberAuth)))
 }
 
 type ebePromptResponse struct {
