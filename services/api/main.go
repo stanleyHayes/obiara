@@ -88,6 +88,9 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/profile"
 	"github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit"
 	livekitapp "github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit/application"
+	safeguarding "github.com/stanleyHayes/obiara/services/api/internal/safeguarding"
+	safeguardingapplication "github.com/stanleyHayes/obiara/services/api/internal/safeguarding/application"
+	safeguardingretention "github.com/stanleyHayes/obiara/services/api/internal/safeguarding/retention"
 	seedstage "github.com/stanleyHayes/obiara/services/api/internal/seed"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/allowance"
 	gardenmongodb "github.com/stanleyHayes/obiara/services/api/internal/seed/garden/adapters/outbound/mongodb"
@@ -101,6 +104,7 @@ import (
 	adminverificationmongodb "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/adapters/outbound/mongodb"
 	adminverificationprivacy "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/adapters/outbound/privacy"
 	adminverificationapp "github.com/stanleyHayes/obiara/services/api/internal/verification/admin/application"
+	verificationapplication "github.com/stanleyHayes/obiara/services/api/internal/verification/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/verification/liveness"
 	"github.com/stanleyHayes/obiara/services/api/internal/waitlist"
 
@@ -258,7 +262,22 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	verificationModule, err := verification.NewModule(ctx, client.Database(cfg.MongoDatabase), identityProvider, tierBridge{tiers: identityModule.Tiers}, []byte(cfg.VerificationHMACSecret))
+	// The age gate is composed before verification because verification
+	// cannot be built without it: a date of birth reaches this service there
+	// and nowhere else, so that is the only place it can be checked before
+	// being written down (M1-02).
+	safeguardingModule, err := safeguarding.NewModule(ctx, client.Database(cfg.MongoDatabase), []byte(cfg.SafeguardingHMACSecret))
+	if err != nil {
+		return fmt.Errorf("build safeguarding module: %w", err)
+	}
+	// Assess purges inline once and gives up; this keeps retrying until the
+	// data is actually gone. The interval is far inside the 24-hour SLA so a
+	// failed attempt has many more before the deadline rather than one.
+	go safeguardingretention.NewSweeper(
+		safeguardingModule.Safeguarding, time.Now, slog.Default(),
+	).Run(ctx, 15*time.Minute)
+
+	verificationModule, err := verification.NewModule(ctx, client.Database(cfg.MongoDatabase), identityProvider, tierBridge{tiers: identityModule.Tiers}, safeguardingBridge{safeguarding: safeguardingModule.Safeguarding}, []byte(cfg.VerificationHMACSecret))
 	if err != nil {
 		return fmt.Errorf("build verification module: %w", err)
 	}
@@ -868,4 +887,31 @@ type tierBridge struct {
 func (bridge tierBridge) Transition(ctx context.Context, accountID string, target int, reason, actorID string) error {
 	_, err := bridge.tiers.Transition(ctx, accountID, identitydomain.Tier(target), reason, actorID)
 	return err
+}
+
+// safeguardingBridge carries verification's narrow age-gate port to the
+// safeguarding context's assessment. Cross-context calls happen only at the
+// composition root (agent_plan.md §7.2).
+type safeguardingBridge struct {
+	safeguarding safeguardingapplication.Service
+}
+
+// Assess refuses on every error, not only on ErrUnder18. An assessment that
+// could not be completed is not an assessment that passed, and the two are
+// distinguished here only so the member gets an honest message: one says they
+// may not join, the other says to try again.
+func (bridge safeguardingBridge) Assess(ctx context.Context, commandID, subjectID, sourceRef string, dateOfBirth time.Time) error {
+	_, err := bridge.safeguarding.Assess(ctx, safeguardingapplication.Assessment{
+		CommandID:   commandID,
+		SubjectID:   subjectID,
+		SourceRef:   sourceRef,
+		DateOfBirth: dateOfBirth,
+	})
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, safeguardingapplication.ErrUnder18) {
+		return verificationapplication.ErrBelowMinimumAge
+	}
+	return verificationapplication.ErrAgeGateUnavailable
 }

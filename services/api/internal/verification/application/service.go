@@ -25,6 +25,14 @@ var (
 	// member walks back onto the romantic surfaces, since blocking is per
 	// account.
 	ErrIdentityAlreadyVerified = errors.New("this identity is already verified on another account")
+	// ErrBelowMinimumAge reports a hard block. The safeguarding context has
+	// already recorded it and started purging; this only carries the refusal
+	// back to the transport.
+	ErrBelowMinimumAge = errors.New("account holder is below the minimum age")
+	// ErrAgeGateUnavailable reports that the age could not be assessed. It is
+	// deliberately not the same as passing: an unassessed date of birth
+	// refuses, because the alternative is admitting a child on an outage.
+	ErrAgeGateUnavailable = errors.New("age could not be assessed")
 )
 
 // ProviderRequest is the provider-neutral verification submission. Provider
@@ -77,11 +85,22 @@ type TierTransitions interface {
 }
 
 // VerificationService runs the submission → decision → tier flow.
+// AgeGate is the safeguarding context's hard block (M1-02). Verification is
+// where a real date of birth first reaches this service, so it is the only
+// place the gate can be applied before that date is written down.
+//
+// Assess must persist the block before returning, so a failure to purge can
+// never turn into access. Any error refuses the submission.
+type AgeGate interface {
+	Assess(ctx context.Context, commandID, subjectID, sourceRef string, dateOfBirth time.Time) error
+}
+
 type VerificationService struct {
 	cases    CaseRepository
 	provider VerificationProvider
 	tiers    TierTransitions
 	keyer    CardKeyer
+	ageGate  AgeGate
 	now      func() time.Time
 	newID    func() string
 	// The document path is optional so a deployment that has not configured
@@ -92,8 +111,24 @@ type VerificationService struct {
 	opener    DocumentOpener
 }
 
-func NewVerificationService(cases CaseRepository, provider VerificationProvider, tiers TierTransitions, keyer CardKeyer, now func() time.Time, newID func() string) VerificationService {
-	return VerificationService{cases: cases, provider: provider, tiers: tiers, keyer: keyer, now: now, newID: newID}
+// NewVerificationService requires the age gate rather than accepting it
+// later. An optional age check silently defaults to admitting children, which
+// is the one mistake here that cannot be corrected after the fact.
+func NewVerificationService(cases CaseRepository, provider VerificationProvider, tiers TierTransitions, keyer CardKeyer, ageGate AgeGate, now func() time.Time, newID func() string) VerificationService {
+	return VerificationService{cases: cases, provider: provider, tiers: tiers, keyer: keyer, ageGate: ageGate, now: now, newID: newID}
+}
+
+// assessAge refuses before anything is written down.
+//
+// A nil gate refuses too. A verification service composed without one has no
+// basis for deciding that proceeding is fine, and the failure it would cause
+// — an under-18 account admitted to a dating product — is not one that an
+// operator gets to discover later and fix.
+func (service VerificationService) assessAge(ctx context.Context, accountID, caseID string, dateOfBirth time.Time) error {
+	if service.ageGate == nil {
+		return ErrAgeGateUnavailable
+	}
+	return service.ageGate.Assess(ctx, "verification:"+caseID, accountID, caseID, dateOfBirth)
 }
 
 // WithDocuments enables the member-uploaded card path.
@@ -139,7 +174,16 @@ func (service VerificationService) SubmitGhanaCard(ctx context.Context, accountI
 		return domain.VerificationCase{}, lookupErr
 	}
 
-	verificationCase, err := domain.NewCase(service.newID(), accountID, cardKey, maskCard(cardNumber), dateOfBirth, service.now())
+	// The age gate runs before the case exists, so a minor's card number and
+	// date of birth are never written to this collection at all. The purge
+	// still runs behind the block: an account, its sessions and its consent
+	// records were created at sign-up, before any date of birth was known.
+	caseID := service.newID()
+	if err := service.assessAge(ctx, accountID, caseID, dateOfBirth); err != nil {
+		return domain.VerificationCase{}, err
+	}
+
+	verificationCase, err := domain.NewCase(caseID, accountID, cardKey, maskCard(cardNumber), dateOfBirth, service.now())
 	if err != nil {
 		return domain.VerificationCase{}, err
 	}

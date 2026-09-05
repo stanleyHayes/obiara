@@ -41,6 +41,7 @@ func Inventory() []Definition {
 		{Name: "ADMIN_HMAC_SECRET", RotatedAtVariable: "ADMIN_HMAC_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
 		{Name: "NNOBOA_INVITE_SECRET", RotatedAtVariable: "NNOBOA_INVITE_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
 		{Name: "SEED_HMAC_SECRET", RotatedAtVariable: "SEED_HMAC_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
+		{Name: "SAFEGUARDING_HMAC_SECRET", RotatedAtVariable: "SAFEGUARDING_HMAC_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
 		{Name: "CIRCLE_HMAC_SECRET", RotatedAtVariable: "CIRCLE_HMAC_SECRET_ROTATED_AT", Services: []Service{API}, MaxAge: 90 * 24 * time.Hour},
 	}
 }

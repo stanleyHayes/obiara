@@ -78,7 +78,7 @@ func documentService(t *testing.T, cases *recordingCases, documents *memoryDocum
 	now := time.Date(2026, time.September, 4, 12, 0, 0, 0, time.UTC)
 	counter := 0
 	return NewVerificationService(
-		cases, refusingProvider{t: t}, nil, staticKeyer{},
+		cases, refusingProvider{t: t}, nil, staticKeyer{}, adultAgeGate{},
 		func() time.Time { return now },
 		func() string { counter++; return "vc_QWx0Z2ViZXJ0X21lbWJlcg" },
 	).WithDocuments(documents, plainSealer{}, plainSealer{})

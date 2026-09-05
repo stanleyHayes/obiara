@@ -103,6 +103,13 @@ func submitCardDocumentsHandler(verification Verification, sessions SessionAuthe
 			})
 			return
 		}
+		if errors.Is(err, application.ErrBelowMinimumAge) || errors.Is(err, application.ErrAgeGateUnavailable) {
+			// Same answers as the plain card path. Without this branch the
+			// catch-all below would tell a blocked minor that storage was
+			// unavailable and invite them to try again.
+			writeVerificationError(w, r, err, domain.VerificationCase{})
+			return
+		}
 		if err != nil {
 			logServerError(r.Context(), r, http.StatusServiceUnavailable, "document_store_unavailable", err)
 			writeError(w, r, http.StatusServiceUnavailable, APIError{
@@ -201,6 +208,20 @@ func writeVerificationError(w http.ResponseWriter, r *http.Request, err error, v
 		writeError(w, r, http.StatusConflict, APIError{
 			Code:    "identity_already_verified",
 			Message: "This identity is already verified on another account. Sign in to that account, or contact support if you believe this is wrong.",
+		})
+	case errors.Is(err, application.ErrBelowMinimumAge):
+		// The account, its sessions and its consent records are already being
+		// deleted behind this response. The message says the decision is
+		// final rather than inviting a retry with a different date.
+		writeError(w, r, http.StatusForbidden, APIError{
+			Code:    "below_minimum_age",
+			Message: "Obiara is for adults aged 18 and over. Your account is being closed and the details you sent are being deleted.",
+		})
+	case errors.Is(err, application.ErrAgeGateUnavailable):
+		// Not the same as passing. Refusing on an outage is the whole point.
+		writeError(w, r, http.StatusServiceUnavailable, APIError{
+			Code:    "age_check_unavailable",
+			Message: "We could not complete the age check just now. Please try again shortly.",
 		})
 	case errors.Is(err, application.ErrProviderRejected):
 		writeError(w, r, http.StatusUnprocessableEntity, APIError{

@@ -31,9 +31,17 @@ var ErrProviderRequired = errors.New("verification module requires an identity p
 
 // NewModule builds the verification context. provider decides cases and must
 // not be nil; tiers bridges to the identity context's tier state machine.
-func NewModule(ctx context.Context, database *mongo.Database, provider application.VerificationProvider, tiers application.TierTransitions, cardSecret []byte) (Module, error) {
+// ErrAgeGateRequired reports a verification module built with no age gate.
+// Failing at startup is the point: without it the service would accept a
+// date of birth, store it, and never ask how old the person was.
+var ErrAgeGateRequired = errors.New("verification module requires an age gate")
+
+func NewModule(ctx context.Context, database *mongo.Database, provider application.VerificationProvider, tiers application.TierTransitions, ageGate application.AgeGate, cardSecret []byte) (Module, error) {
 	if provider == nil {
 		return Module{}, ErrProviderRequired
+	}
+	if ageGate == nil {
+		return Module{}, ErrAgeGateRequired
 	}
 	keyer, err := privacy.NewHMACKeyer(cardSecret)
 	if err != nil {
@@ -56,7 +64,7 @@ func NewModule(ctx context.Context, database *mongo.Database, provider applicati
 	}
 	return Module{
 		Verification: application.
-			NewVerificationService(caseRepository, provider, tiers, keyer, time.Now, newID).
+			NewVerificationService(caseRepository, provider, tiers, keyer, ageGate, time.Now, newID).
 			WithDocuments(documents, sealer, sealer),
 		Provider: provider,
 	}, nil

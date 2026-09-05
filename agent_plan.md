@@ -2630,3 +2630,100 @@ the cost of being wrong differs:
   perfectly entitled to be there.
 
 **Still open:** what promotes an account from Tier 1 to Tier 2.
+
+## 33. Goal: close the age gate (2026-09-05)
+
+`services/api/internal/safeguarding` is the third finished-and-unreachable
+context this week, and the most serious. It owns the under-18 hard block:
+
+```
+$ grep -rn "safeguarding" --include='*.go' services/api | grep -v "/safeguarding/"
+$
+```
+
+Nothing. `module.go` was two lines of package doc — no composition root at
+all, the same shape `introduction` was in before §28.
+
+What was sitting behind that: `MinimumAge = 18`; `AgeAt` with correct birthday
+arithmetic rather than a duration approximation; `Eligible`; a `Restriction`
+that retains keyed compliance proof and deliberately never keeps a date of
+birth; a `PurgeJob` holding lookup material that is destroyed on completion;
+a 24-hour purge SLA; a Mongo purger that removes the verification case, the
+account, its sessions, its consent records and its media; an HMAC keyer. All
+of it tested. None of it reachable.
+
+Meanwhile the only age arithmetic anywhere on a live path was `ageBand()` in
+the admin repository — a display band for reviewers. So a fifteen-year-old
+could submit a Ghana Card with their real date of birth, have it stored in
+plain text in `verification_cases`, be matched by the provider, and be promoted
+to Tier 1 — which, after §32, is precisely the rung that opens the romantic
+surfaces.
+
+### The decisions this needed
+
+**The gate runs before the case exists.** Both submission paths generate the
+case id, assess, and only then call `NewCase`. A minor's card number and date
+of birth are never written to `verification_cases` at all, rather than written
+and purged within 24 hours. The purge still runs behind the block, because the
+account, its sessions and its consent records were created at sign-up before
+any date of birth was known.
+
+**The age gate is a required constructor argument, not a builder option.**
+`WithDocuments` is optional because a deployment without encrypted storage can
+honestly refuse that path. There is no equivalent for age: an optional age
+check silently defaults to admitting children, and `NewModule` now refuses to
+build without one.
+
+**An unassessable age refuses.** A gate outage is not a pass. This is the
+direction that admits a child, so it fails closed — and the two refusals are
+distinguished only so the member gets an honest message: one says they may not
+join, the other says to try again.
+
+**The documents path needed its own branch.** Its catch-all would have told a
+blocked minor that "secure storage is unavailable, please try again shortly" —
+inviting exactly the retry the block exists to prevent.
+
+**Something has to keep purging.** `Assess` attempts one purge inline and
+returns; a lost transaction left the restriction pending forever, because
+`PurgePending` is documented as "the worker entrypoint" and no worker called
+it. A sweeper now runs it every 15 minutes, with a horizon one interval ahead
+so a job is retried before its deadline rather than exactly on it.
+
+| Task  | Deliverable                                                            | Status |
+| ----- | ---------------------------------------------------------------------- | ------ |
+| AGE-01 | Compose the safeguarding context; separately rotated keying secret     | DONE   |
+| AGE-02 | Require the gate in verification; assess before anything is written    | DONE   |
+| AGE-03 | Honest refusals on both submission paths, including the documents one  | DONE   |
+| AGE-04 | Purge sweeper, so the 24-hour SLA is something that actually retries   | DONE   |
+
+### The secret is a boot requirement, not a default
+
+`SAFEGUARDING_HMAC_SECRET` is registered in `internal/platform/secrets` and in
+`deploy/secrets/inventory.yaml`, which means **the API will refuse to boot in
+any non-development environment until it and `SAFEGUARDING_HMAC_SECRET_ROTATED_AT`
+are set.** That is deliberate. The restriction record outlives the purge of
+everything else about the account, so keying it with a shipped local default,
+or sharing another context's key, would turn compliance proof into a readable
+list of which accounts belonged to children.
+
+The repository's own inventory test caught the omission before this shipped,
+which is the second time this week a policy test has been the thing that
+noticed.
+
+### Verified, not assumed
+
+Both age tests were checked against their failure mode: removing the
+`assessAge` call from `SubmitGhanaCard` made
+`TestAnUnderageSubmissionIsRefusedBeforeAnythingIsWrittenDown` and
+`TestAnUnassessableAgeRefusesRatherThanPasses` fail. The first asserts through
+the mock controller that neither `Create` nor the provider is ever reached —
+so it is testing that nothing is written down, not merely that an error is
+returned.
+
+**Still open after this goal:** an adult self-affirmation checkbox is collected
+at onboarding (`AdultAgeID`) and is not age assurance; TS-AGE-ASSURANCE asks
+for ID-derived DOB with an audit trail, which this delivers for the block but
+not yet as a positive attested record on the approved path. FR-102a also
+remains open — the identity provider is a simulator, so in the current
+deployment any card number not ending in U, ? or X is treated as an issuer
+match.

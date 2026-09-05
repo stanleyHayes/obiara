@@ -27,7 +27,7 @@ func newService(t *testing.T) (VerificationService, *MockCaseRepository, *MockVe
 	keyer.EXPECT().Key(gomock.Any()).DoAndReturn(func(card string) (string, error) {
 		return "key_" + card, nil
 	}).AnyTimes()
-	service := NewVerificationService(cases, provider, tiers, keyer, fixedNow, func() string { return "vc_test" })
+	service := NewVerificationService(cases, provider, tiers, keyer, adultAgeGate{}, fixedNow, func() string { return "vc_test" })
 	return service, cases, provider, tiers
 }
 
@@ -202,5 +202,72 @@ func TestCardKeysAndMasksStored(t *testing.T) {
 	_, err := service.SubmitGhanaCard(context.Background(), "id_1", "GHA-123", testDOB)
 	if err != nil {
 		t.Fatalf("SubmitGhanaCard = %v", err)
+	}
+}
+
+// adultAgeGate stands in for the safeguarding context in tests that are not
+// about age. It admits everybody, which is what makes the age tests below
+// meaningful: they supply a gate that refuses and check that the refusal
+// reaches the caller.
+type adultAgeGate struct{}
+
+func (adultAgeGate) Assess(context.Context, string, string, string, time.Time) error { return nil }
+
+// blockingAgeGate refuses the way the safeguarding bridge does.
+type blockingAgeGate struct{ err error }
+
+func (gate blockingAgeGate) Assess(context.Context, string, string, string, time.Time) error {
+	return gate.err
+}
+
+func TestAnUnderageSubmissionIsRefusedBeforeAnythingIsWrittenDown(t *testing.T) {
+	// The whole point of gating here rather than after the case is created:
+	// a minor's card number and date of birth must never reach the store.
+	ctrl := gomock.NewController(t)
+	cases := NewMockCaseRepository(ctrl)
+	provider := NewMockVerificationProvider(ctrl)
+	tiers := NewMockTierTransitions(ctrl)
+	keyer := NewMockCardKeyer(ctrl)
+	keyer.EXPECT().Key(gomock.Any()).DoAndReturn(func(card string) (string, error) {
+		return "key_" + card, nil
+	}).AnyTimes()
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), gomock.Any()).
+		Return("", ErrCaseNotFound).AnyTimes()
+	// No Create, no provider call: the gomock controller fails the test if
+	// either happens, which is the assertion.
+	service := NewVerificationService(cases, provider, tiers, keyer,
+		blockingAgeGate{err: ErrBelowMinimumAge}, fixedNow, func() string { return "vc_test" })
+
+	_, err := service.SubmitGhanaCard(context.Background(), "member-1", "GHA-000000000-0",
+		time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC))
+	if !errors.Is(err, ErrBelowMinimumAge) {
+		t.Fatalf("err = %v, want ErrBelowMinimumAge", err)
+	}
+}
+
+func TestAnUnassessableAgeRefusesRatherThanPasses(t *testing.T) {
+	// An outage in the age gate must not read as an adult. This is the
+	// direction that admits a child, so it fails closed.
+	ctrl := gomock.NewController(t)
+	cases := NewMockCaseRepository(ctrl)
+	provider := NewMockVerificationProvider(ctrl)
+	tiers := NewMockTierTransitions(ctrl)
+	keyer := NewMockCardKeyer(ctrl)
+	keyer.EXPECT().Key(gomock.Any()).DoAndReturn(func(card string) (string, error) {
+		return "key_" + card, nil
+	}).AnyTimes()
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), gomock.Any()).
+		Return("", ErrCaseNotFound).AnyTimes()
+
+	for name, gate := range map[string]AgeGate{
+		"gate reports an outage": blockingAgeGate{err: ErrAgeGateUnavailable},
+		"no gate composed":       nil,
+	} {
+		service := NewVerificationService(cases, provider, tiers, keyer, gate,
+			fixedNow, func() string { return "vc_test" })
+		if _, err := service.SubmitGhanaCard(context.Background(), "member-1", "GHA-000000000-0",
+			time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC)); err == nil {
+			t.Fatalf("%s: an unassessed date of birth was admitted", name)
+		}
 	}
 }

@@ -32,6 +32,7 @@ type Config struct {
 	NnoboaInviteSecret     string
 	SeedHMACSecret         string
 	CircleHMACSecret       string
+	SafeguardingHMACSecret string
 	// Notifications selects the outbound OTP, WhatsApp and email adapters.
 	Notifications NotificationsConfig
 	// Verification selects the identity and liveness provider adapters.
@@ -102,6 +103,14 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 		CircleHMACSecret: valueOrDefault(
 			getenv("CIRCLE_HMAC_SECRET"),
 			"obiara-local-circle-key-change-before-production",
+		),
+		// Keys the retained under-18 restriction. It is rotated separately
+		// because that record outlives the purge, and reusing another
+		// context's secret would let a leak elsewhere turn it into a list of
+		// which accounts belonged to children.
+		SafeguardingHMACSecret: valueOrDefault(
+			getenv("SAFEGUARDING_HMAC_SECRET"),
+			"obiara-local-safeguarding-key-change-before-production",
 		),
 	}
 

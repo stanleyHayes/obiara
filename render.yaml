@@ -135,6 +135,10 @@ projects:
                 sync: false
               - key: CIRCLE_HMAC_SECRET_ROTATED_AT
                 sync: false
+              - key: SAFEGUARDING_HMAC_SECRET
+                sync: false
+              - key: SAFEGUARDING_HMAC_SECRET_ROTATED_AT
+                sync: false
               - key: LIVEKIT_API_KEY
                 sync: false
               - key: LIVEKIT_API_SECRET

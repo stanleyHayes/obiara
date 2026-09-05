@@ -103,9 +103,17 @@ func (service VerificationService) SubmitDocuments(
 	if err != nil {
 		return SubmitDocumentsResult{}, ErrInvalidDocument
 	}
+	// Same gate as the plain card path, for the same reason: this is where a
+	// real date of birth arrives, so this is where it is checked — before the
+	// case, and before two photographs of the card are sealed and stored.
+	caseID := service.newID()
+	if err := service.assessAge(ctx, accountID, caseID, request.DateOfBirth); err != nil {
+		return SubmitDocumentsResult{}, err
+	}
+
 	now := service.now()
 	verificationCase, err := domain.NewCase(
-		service.newID(), accountID, cardKey, maskCard(cardNumber), request.DateOfBirth, now,
+		caseID, accountID, cardKey, maskCard(cardNumber), request.DateOfBirth, now,
 	)
 	if err != nil {
 		return SubmitDocumentsResult{}, ErrInvalidDocument
