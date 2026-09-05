@@ -114,6 +114,32 @@ func (s Service) Expire(ctx context.Context, command Command) (Result, error) {
 	return s.mutate(ctx, command, "seed.source.expire", true)
 }
 
+// FindForRequester reads one request back for the member who opened it.
+//
+// Ownership is decided the same way mutate decides it: the caller's id is
+// keyed and compared against the stored requester key, because the raw id was
+// never written. A request belonging to someone else is reported as absent
+// rather than refused — telling a caller that an id exists but is not theirs
+// is a disclosure on a surface whose whole purpose is that reaching toward
+// someone is not legible.
+func (s Service) FindForRequester(ctx context.Context, requestID, requesterID string) (domain.Request, error) {
+	if !s.ready() {
+		return domain.Request{}, ErrUnavailable
+	}
+	request, err := s.repository.Find(ctx, strings.TrimSpace(requestID))
+	if err != nil {
+		return domain.Request{}, s.translate(err)
+	}
+	requesterKey, err := s.key("seed-source:requester", strings.TrimSpace(requesterID))
+	if err != nil {
+		return domain.Request{}, err
+	}
+	if requesterKey != request.RequesterKey() {
+		return domain.Request{}, ErrNotFound
+	}
+	return request, nil
+}
+
 func (s Service) mutate(ctx context.Context, command Command, action string, expire bool) (Result, error) {
 	if !s.ready() {
 		return Result{}, ErrUnavailable

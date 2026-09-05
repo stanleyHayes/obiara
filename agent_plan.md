@@ -2431,3 +2431,14 @@ preferences engine is not on the critical path to a first introduction.
 
 NFR-301b (envelope-encrypted voice) and the preferences context both remain
 open and are not part of this slice.
+
+Two things ISR-04 turned up. The domain caps a source request at one hour
+(`expiresAt.After(command.At.Add(time.Hour))`) — a first draft of the handler
+set fourteen days and every real request would have been refused as invalid.
+The bound is right: the request holds a snapshot of a roster, and a roster is
+only true while nobody joins or leaves.
+
+And `/v1/seed/sprouts`, `/v1/seed/declines` and `/v1/seed/doorways/{id}/exchanges`
+are registered routes with no entry in the OpenAPI contract at all. Not fixed
+here, but recorded: the contract test counts operation ids and would not
+notice a route that was never added to the document.

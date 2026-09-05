@@ -1822,6 +1822,132 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/seed/sources:
+    post:
+      operationId: openIntroductionSource
+      tags: [Matching]
+      summary: Ask to be introduced through a circle you belong to
+      security:
+        - MemberBearer: []
+      description: |
+        Opens a bounded, short-lived introduction request scoped to one circle.
+        Only a settled member of that circle may open one; a circle the caller
+        is not in answers 404, because a distinct refusal would confirm it is
+        real.
+
+        The response carries how many candidates were found and never who they
+        are. Candidates are keyed before storage so that who reached toward
+        whom is not legible at rest, and returning those keys would undo it — a
+        caller could correlate the same person across requests without ever
+        learning a name.
+
+        Requests expire within the hour. The request holds a snapshot of a
+        roster, and a roster is only true while nobody joins or leaves.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntroductionSourceInput"
+      responses:
+        "201":
+          description: Request opened.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntroductionSourceEnvelope"
+        "200":
+          description: The same Idempotency-Key already opened this request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntroductionSourceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such circle for this member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/seed/sources/{id}:
+    get:
+      operationId: getIntroductionSource
+      tags: [Matching]
+      summary: Read your own introduction request
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntroductionSourceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: |
+            No such request for this member. Another member's request answers
+            here too: confirming an id exists but is not yours is a disclosure
+            on a surface built so that reaching toward someone stays private.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: withdrawIntroductionSource
+      tags: [Matching]
+      summary: Withdraw an introduction request
+      security:
+        - MemberBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Withdrawn.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntroductionSourceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such request for this member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: The request changed while this one was in flight.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
   /v1/seed/allowance:
     get:
       operationId: readSeedAllowance
@@ -8761,6 +8887,52 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/VoicePlaybackData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    IntroductionSourceInput:
+      type: object
+      additionalProperties: false
+      required: [circleId]
+      properties:
+        circleId:
+          type: string
+          description: A circle the caller is a settled member of.
+    IntroductionSourceData:
+      type: object
+      additionalProperties: false
+      required:
+        [requestId, sourceType, status, candidateCount, expiresAt, revision]
+      properties:
+        requestId:
+          type: string
+        sourceType:
+          type: string
+          enum:
+            [consented_circle, consented_trust, consented_host, policy_cohort]
+          description: |
+            Only consented_circle is resolvable today; the others are named by
+            the domain and have no resolver behind them.
+        status:
+          type: string
+          enum: [open, withdrawn, expired]
+        candidateCount:
+          type: integer
+          description: |
+            How many people the ask found, never who. The identities are keyed
+            at rest and are not returned.
+        expiresAt:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+    IntroductionSourceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/IntroductionSourceData"
         meta:
           $ref: "#/components/schemas/Metadata"
     VoiceIntroductionInput:

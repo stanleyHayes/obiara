@@ -3278,6 +3278,56 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/seed/sources": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Ask to be introduced through a circle you belong to
+     * @description Opens a bounded, short-lived introduction request scoped to one circle.
+     *     Only a settled member of that circle may open one; a circle the caller
+     *     is not in answers 404, because a distinct refusal would confirm it is
+     *     real.
+     *
+     *     The response carries how many candidates were found and never who they
+     *     are. Candidates are keyed before storage so that who reached toward
+     *     whom is not legible at rest, and returning those keys would undo it — a
+     *     caller could correlate the same person across requests without ever
+     *     learning a name.
+     *
+     *     Requests expire within the hour. The request holds a snapshot of a
+     *     roster, and a roster is only true while nobody joins or leaves.
+     */
+    readonly post: operations["openIntroductionSource"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/seed/sources/{id}": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Read your own introduction request */
+    readonly get: operations["getIntroductionSource"];
+    readonly put?: never;
+    readonly post?: never;
+    /** Withdraw an introduction request */
+    readonly delete: operations["withdrawIntroductionSource"];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/suban/appeals": {
     readonly parameters: {
       readonly query?: never;
@@ -4738,6 +4788,38 @@ export interface components {
     };
     readonly InitiateCallInput: {
       readonly otherId: string;
+    };
+    readonly IntroductionSourceData: {
+      /**
+       * @description How many people the ask found, never who. The identities are keyed
+       *     at rest and are not returned.
+       */
+      readonly candidateCount: number;
+      /** Format: date-time */
+      readonly expiresAt: string;
+      readonly requestId: string;
+      /** Format: int64 */
+      readonly revision: number;
+      /**
+       * @description Only consented_circle is resolvable today; the others are named by
+       *     the domain and have no resolver behind them.
+       * @enum {string}
+       */
+      readonly sourceType:
+        | "consented_circle"
+        | "consented_trust"
+        | "consented_host"
+        | "policy_cohort";
+      /** @enum {string} */
+      readonly status: "open" | "withdrawn" | "expired";
+    };
+    readonly IntroductionSourceEnvelope: {
+      readonly data: components["schemas"]["IntroductionSourceData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly IntroductionSourceInput: {
+      /** @description A circle the caller is a settled member of. */
+      readonly circleId: string;
     };
     readonly JoinTokenData: {
       /** Format: date-time */
@@ -13412,6 +13494,143 @@ export interface operations {
       };
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly openIntroductionSource: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["IntroductionSourceInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The same Idempotency-Key already opened this request. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["IntroductionSourceEnvelope"];
+        };
+      };
+      /** @description Request opened. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["IntroductionSourceEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description No such circle for this member. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly getIntroductionSource: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The request. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["IntroductionSourceEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /**
+       * @description No such request for this member. Another member's request answers
+       *     here too: confirming an id exists but is not yours is a disclosure
+       *     on a surface built so that reaching toward someone stays private.
+       */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  readonly withdrawIntroductionSource: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Withdrawn. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["IntroductionSourceEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description No such request for this member. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The request changed while this one was in flight. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
     };
   };
   readonly fileOwnSubanAppeal: {

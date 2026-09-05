@@ -217,8 +217,10 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// reachable at all — its domain and application layers have been
 	// complete and untouchable since S2-021. 195 adds playVoiceIntroduction,
 	// without which a recording could not be heard by anyone and the twenty
-	// seconds of verified listening that arms Sow could never accumulate.
-	if len(seen) != 195 {
-		t.Errorf("operationId count = %d, want 195", len(seen))
+	// seconds of verified listening that arms Sow could never accumulate. 198
+	// adds the three introduction-source routes — the first time a member can
+	// ask to be introduced through a circle they belong to.
+	if len(seen) != 198 {
+		t.Errorf("operationId count = %d, want 198", len(seen))
 	}
 }

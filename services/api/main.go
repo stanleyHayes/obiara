@@ -548,6 +548,11 @@ func run() error {
 	apihttp.RegisterCourtshipProposalRoutes(mux, proposalModule.Proposals, identityModule.Sessions)
 	apihttp.RegisterCourtshipRoomRoutes(mux, courtship.NewRoom(courtshipRoomModule), identityModule.Sessions)
 	apihttp.RegisterSeedStageRoutes(mux, seedstage.NewStage(seedStageModule), identityModule.Sessions)
+	// Present only when the seed stage was given a circle reader; without one
+	// there is nothing to resolve candidates from and the routes stay absent.
+	if seedStageModule.Sources != nil {
+		apihttp.RegisterSeedSourceRoutes(mux, seedStageModule.Sources, identityModule.Sessions)
+	}
 	apihttp.RegisterFireRunSheetRoutes(mux, runSheetModule.RunSheets, identityModule.Sessions)
 	apihttp.RegisterCatalogRoutes(mux, catalogModule.Catalog, identityModule.Sessions)
 	apihttp.RegisterSeedAllowanceRoutes(mux, allowanceModule.Allowances, identityModule.Sessions)
