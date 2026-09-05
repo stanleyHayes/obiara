@@ -71,10 +71,16 @@ type CaseDetail struct {
 }
 
 type Evidence struct {
-	CaseID         string
-	MaskedCard     string
-	AgeBand        string
-	ProviderStatus string
+	CaseID     string
+	MaskedCard string
+	AgeBand    string
+	// AgeAssuranceMethod and AgeAssuredAt outlive the birth date the band is
+	// derived from. Once retention has stripped that date the band reads
+	// "unknown", and these are what still show the reviewer that the check
+	// happened and how strong it was.
+	AgeAssuranceMethod string
+	AgeAssuredAt       string
+	ProviderStatus     string
 }
 
 type DecisionResult struct {

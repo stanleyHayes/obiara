@@ -2793,3 +2793,62 @@ removing the zero check made the band test report the fabricated `50_plus`.
 per-record legal holds over identity data — the binding table is deliberately
 blind to holds ("legal holds are never touched by this runner"), so a hold
 placed on an identity case would not currently stop these policies.
+
+
+## 35. Goal: prove the age check happened (TS-AGE-ASSURANCE, 2026-09-05)
+
+§33 records an auditable fact only when someone is **blocked** — the keyed
+`Restriction`. For everyone who passes, nothing recorded that an age check had
+happened at all: the proof was that a case existed, which is only proof if you
+have read the code and know a minor could never have got one.
+
+§34 then made that worse on purpose. Stripping `dateOfBirth` thirty days after
+a decision is right, but it meant that after thirty days there was no trace at
+all that anyone had ever established the member was an adult. The retention
+fix created the audit gap that this goal closes.
+
+### The decisions
+
+**The record lives on the case, not in safeguarding.** Safeguarding's
+`Restriction` is proof of a block, and its events collection is
+restriction-scoped with a unique index on `restrictionId`. Bending it to carry
+positive assurances would have muddied a model whose whole value is that every
+row in it means one thing.
+
+**Method, not a boolean.** "We checked a date" and "the issuer confirmed the
+date we checked" are different claims, and an audit trail that cannot tell them
+apart overstates the weaker one. A submission is recorded as
+`self_declared_dob`, and only a provider match upgrades it to
+`issuer_corroborated_dob`. Today the provider is a simulator, so this keeps
+FR-102a's gap visible in the data rather than hidden behind a case that merely
+looks verified.
+
+**The threshold is recorded, not assumed.** The gate reports the minimum age
+it applied and the case stores it, so a record decided under an 18 rule still
+says 18 if the rule ever changes.
+
+**A case cannot be created without it.** `NewCase` refuses an unrecorded
+assurance. The case is the audit artifact; letting one exist with a hole where
+the most consequential decision was made is exactly the failure to prevent.
+
+**It is stored apart from the birth date so retention cannot take it.** The
+strip policy names `dateOfBirth` only. A test builds a case, strips the date,
+and asserts the proof survives.
+
+| Task     | Deliverable                                                          | Status |
+| -------- | -------------------------------------------------------------------- | ------ |
+| AGE-A-01 | `AgeAssurance` on the case; a case cannot exist without one          | DONE   |
+| AGE-A-02 | Self-declared at submission, upgraded on an issuer match             | DONE   |
+| AGE-A-03 | Persisted apart from the birth date, surfaced on the reviewer desk   | DONE   |
+
+Guards were checked by breaking them: dropping the `Recorded()` check let a
+case open with nothing recorded, and dropping the corroboration call made an
+approved case still claim `self_declared_dob`. The first attempt at that second
+experiment silently changed nothing — the replacement string did not match — so
+it was re-run and confirmed rather than reported on the strength of a test that
+had never actually been challenged.
+
+**Still open:** the date is self-declared, and only a real issuer adapter
+(FR-102a) makes `issuer_corroborated_dob` mean what it says. The simulator
+returns a match on any card number not ending in U, ? or X, so in the current
+deployment that upgrade is not yet evidence of anything.

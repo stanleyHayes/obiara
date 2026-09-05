@@ -51,7 +51,10 @@ func TestGhanaCardRequiresAuthenticatedSessionAndUsesItsMember(t *testing.T) {
 				dateOfBirth.Format("2006-01-02") != "1994-05-06" {
 				t.Fatalf("unexpected verification input: %q %q %s", accountID, cardNumber, dateOfBirth)
 			}
-			value, err := verificationdomain.NewCase("case-1", accountID, "key_1", "6789", dateOfBirth, now)
+			value, err := verificationdomain.NewCase("case-1", accountID, "key_1", "6789", dateOfBirth,
+				verificationdomain.AgeAssurance{
+					AssuredAt: now, Method: verificationdomain.AgeSelfDeclared, MinimumAge: 18,
+				}, now)
 			if err != nil {
 				t.Fatal(err)
 			}

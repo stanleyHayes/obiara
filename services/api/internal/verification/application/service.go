@@ -93,6 +93,10 @@ type TierTransitions interface {
 // never turn into access. Any error refuses the submission.
 type AgeGate interface {
 	Assess(ctx context.Context, commandID, subjectID, sourceRef string, dateOfBirth time.Time) error
+	// MinimumAge is the threshold the gate actually applied, recorded on the
+	// case so the audit trail states the rule it was decided under rather
+	// than whatever the constant happens to be when someone reads it later.
+	MinimumAge() int
 }
 
 type VerificationService struct {
@@ -124,11 +128,22 @@ func NewVerificationService(cases CaseRepository, provider VerificationProvider,
 // basis for deciding that proceeding is fine, and the failure it would cause
 // — an under-18 account admitted to a dating product — is not one that an
 // operator gets to discover later and fix.
-func (service VerificationService) assessAge(ctx context.Context, accountID, caseID string, dateOfBirth time.Time) error {
+func (service VerificationService) assessAge(ctx context.Context, accountID, caseID string, dateOfBirth time.Time) (domain.AgeAssurance, error) {
 	if service.ageGate == nil {
-		return ErrAgeGateUnavailable
+		return domain.AgeAssurance{}, ErrAgeGateUnavailable
 	}
-	return service.ageGate.Assess(ctx, "verification:"+caseID, accountID, caseID, dateOfBirth)
+	if err := service.ageGate.Assess(ctx, "verification:"+caseID, accountID, caseID, dateOfBirth); err != nil {
+		return domain.AgeAssurance{}, err
+	}
+	// The date is still one the member typed. Recording it as self-declared
+	// is the honest claim until a provider corroborates it, and it keeps
+	// FR-102a's gap visible in the data rather than hidden behind a case
+	// that merely looks verified.
+	return domain.AgeAssurance{
+		AssuredAt:  service.now().UTC(),
+		Method:     domain.AgeSelfDeclared,
+		MinimumAge: service.ageGate.MinimumAge(),
+	}, nil
 }
 
 // WithDocuments enables the member-uploaded card path.
@@ -179,11 +194,12 @@ func (service VerificationService) SubmitGhanaCard(ctx context.Context, accountI
 	// still runs behind the block: an account, its sessions and its consent
 	// records were created at sign-up, before any date of birth was known.
 	caseID := service.newID()
-	if err := service.assessAge(ctx, accountID, caseID, dateOfBirth); err != nil {
+	assurance, err := service.assessAge(ctx, accountID, caseID, dateOfBirth)
+	if err != nil {
 		return domain.VerificationCase{}, err
 	}
 
-	verificationCase, err := domain.NewCase(caseID, accountID, cardKey, maskCard(cardNumber), dateOfBirth, service.now())
+	verificationCase, err := domain.NewCase(caseID, accountID, cardKey, maskCard(cardNumber), dateOfBirth, assurance, service.now())
 	if err != nil {
 		return domain.VerificationCase{}, err
 	}
@@ -218,6 +234,10 @@ func (service VerificationService) decideWithProvider(ctx context.Context, verif
 		if err := verificationCase.Approve(result.ProviderRef, result.Reason, service.now()); err != nil {
 			return domain.VerificationCase{}, err
 		}
+		// The birth date went to the provider in the request it just matched,
+		// so the determination is no longer resting on the member's word
+		// alone.
+		verificationCase.CorroborateAge()
 		if err := service.cases.Update(ctx, verificationCase); err != nil {
 			return domain.VerificationCase{}, err
 		}

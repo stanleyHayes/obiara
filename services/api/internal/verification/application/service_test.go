@@ -212,6 +212,7 @@ func TestCardKeysAndMasksStored(t *testing.T) {
 type adultAgeGate struct{}
 
 func (adultAgeGate) Assess(context.Context, string, string, string, time.Time) error { return nil }
+func (adultAgeGate) MinimumAge() int                                                 { return 18 }
 
 // blockingAgeGate refuses the way the safeguarding bridge does.
 type blockingAgeGate struct{ err error }
@@ -219,6 +220,7 @@ type blockingAgeGate struct{ err error }
 func (gate blockingAgeGate) Assess(context.Context, string, string, string, time.Time) error {
 	return gate.err
 }
+func (blockingAgeGate) MinimumAge() int { return 18 }
 
 func TestAnUnderageSubmissionIsRefusedBeforeAnythingIsWrittenDown(t *testing.T) {
 	// The whole point of gating here rather than after the case is created:
@@ -269,5 +271,59 @@ func TestAnUnassessableAgeRefusesRatherThanPasses(t *testing.T) {
 			time.Date(1990, time.January, 1, 0, 0, 0, 0, time.UTC)); err == nil {
 			t.Fatalf("%s: an unassessed date of birth was admitted", name)
 		}
+	}
+}
+
+func TestAnApprovedCaseRecordsThatTheAgeWasAssuredAndHow(t *testing.T) {
+	// TS-AGE-ASSURANCE. Until this record existed, a case that passed the age
+	// gate proved it only by existing — and thirty days later retention
+	// strips the birth date, leaving nothing at all to show a check happened.
+	service, cases, provider, tiers := newService(t)
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), gomock.Any()).Return("", ErrCaseNotFound)
+	cases.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, c domain.VerificationCase) error {
+			// At creation the date is still only the member's word for it.
+			if got := c.AgeAssurance().Method; got != domain.AgeSelfDeclared {
+				t.Fatalf("method at creation = %q, want self-declared", got)
+			}
+			if c.AgeAssurance().MinimumAge != 18 || c.AgeAssurance().AssuredAt.IsZero() {
+				t.Fatalf("assurance = %#v", c.AgeAssurance())
+			}
+			return nil
+		})
+	provider.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(
+		ProviderResult{Outcome: "match", ProviderRef: "ref-1", Reason: "issuer match"}, nil)
+	cases.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, c domain.VerificationCase) error {
+			// The birth date went to the provider in the request it matched,
+			// so the claim is stronger now and the record has to say so.
+			if got := c.AgeAssurance().Method; got != domain.AgeIssuerCorroborated {
+				t.Fatalf("method after a match = %q, want issuer-corroborated", got)
+			}
+			return nil
+		})
+	tiers.EXPECT().Transition(gomock.Any(), "id_1", 1, gomock.Any(), gomock.Any()).Return(nil)
+
+	if _, err := service.SubmitGhanaCard(context.Background(), "id_1", "GHA-000000000-1", testDOB); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAnUnmatchedCaseDoesNotClaimTheIssuerAgreed(t *testing.T) {
+	// Overstating the weaker claim is the failure this distinction exists to
+	// prevent: a queued case has been checked against nothing but the form.
+	service, cases, provider, _ := newService(t)
+	cases.EXPECT().ApprovedAccountByCardKey(gomock.Any(), gomock.Any()).Return("", ErrCaseNotFound)
+	cases.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil)
+	provider.EXPECT().Verify(gomock.Any(), gomock.Any()).Return(
+		ProviderResult{Outcome: "uncertain", ProviderRef: "ref-1", Reason: "unreadable"}, nil)
+	cases.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+
+	verificationCase, err := service.SubmitGhanaCard(context.Background(), "id_1", "GHA-000000000-1", testDOB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := verificationCase.AgeAssurance().Method; got != domain.AgeSelfDeclared {
+		t.Fatalf("an unmatched case claims %q", got)
 	}
 }

@@ -107,13 +107,14 @@ func (service VerificationService) SubmitDocuments(
 	// real date of birth arrives, so this is where it is checked — before the
 	// case, and before two photographs of the card are sealed and stored.
 	caseID := service.newID()
-	if err := service.assessAge(ctx, accountID, caseID, request.DateOfBirth); err != nil {
+	assurance, err := service.assessAge(ctx, accountID, caseID, request.DateOfBirth)
+	if err != nil {
 		return SubmitDocumentsResult{}, err
 	}
 
 	now := service.now()
 	verificationCase, err := domain.NewCase(
-		caseID, accountID, cardKey, maskCard(cardNumber), request.DateOfBirth, now,
+		caseID, accountID, cardKey, maskCard(cardNumber), request.DateOfBirth, assurance, now,
 	)
 	if err != nil {
 		return SubmitDocumentsResult{}, ErrInvalidDocument

@@ -5737,6 +5737,23 @@ export interface components {
       readonly reason: string;
     };
     readonly VerificationEvidenceData: {
+      /**
+       * @description How the birth date behind the minimum-age determination was
+       *     obtained. Self-declared means the member typed it; corroborated
+       *     means the issuer matched it against its own records. The two are
+       *     kept apart so an audit trail cannot overstate the weaker one.
+       *     Absent on cases opened before this record existed.
+       * @enum {string}
+       */
+      readonly ageAssuranceMethod?:
+        "self_declared_dob" | "issuer_corroborated_dob";
+      /**
+       * Format: date-time
+       * @description When the minimum-age determination was made. It outlives the
+       *     birth date, which retention strips thirty days after a decision,
+       *     so this remains the proof that the check happened.
+       */
+      readonly ageAssuredAt?: string;
       /** @enum {string} */
       readonly ageBand:
         "under_18" | "18_24" | "25_34" | "35_49" | "50_plus" | "unknown";

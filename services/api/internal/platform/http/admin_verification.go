@@ -50,10 +50,15 @@ type evidenceAccessBody struct {
 }
 
 type evidenceResponse struct {
-	CaseID         string `json:"caseId"`
-	MaskedCard     string `json:"maskedCard"`
-	AgeBand        string `json:"ageBand"`
-	ProviderStatus string `json:"providerStatus"`
+	CaseID     string `json:"caseId"`
+	MaskedCard string `json:"maskedCard"`
+	AgeBand    string `json:"ageBand"`
+	// These outlive the birth date the band comes from. After retention has
+	// stripped it the band reads "unknown", and these are what still show
+	// that the check happened and how strong it was.
+	AgeAssuranceMethod string `json:"ageAssuranceMethod,omitempty"`
+	AgeAssuredAt       string `json:"ageAssuredAt,omitempty"`
+	ProviderStatus     string `json:"providerStatus"`
 }
 
 type decisionBody struct {
@@ -127,7 +132,10 @@ func adminVerificationEvidenceHandler(service AdminVerification, resolve AdminPr
 		}
 		writeSuccess(w, r, http.StatusOK, evidenceResponse{
 			CaseID: evidence.CaseID, MaskedCard: evidence.MaskedCard,
-			AgeBand: evidence.AgeBand, ProviderStatus: evidence.ProviderStatus,
+			AgeBand:            evidence.AgeBand,
+			AgeAssuranceMethod: evidence.AgeAssuranceMethod,
+			AgeAssuredAt:       evidence.AgeAssuredAt,
+			ProviderStatus:     evidence.ProviderStatus,
 		})
 	})
 }

@@ -37,14 +37,16 @@ type verificationDocument struct {
 	AccountID string `bson:"accountId"`
 	// The card itself is not stored; the write side persists only the
 	// last-four mask the desk displays.
-	CardMask    string     `bson:"cardMask"`
-	Status      string     `bson:"status"`
-	ProviderRef string     `bson:"providerRef,omitempty"`
-	Reason      string     `bson:"reason,omitempty"`
-	DateOfBirth time.Time  `bson:"dateOfBirth"`
-	Version     int64      `bson:"version"`
-	CreatedAt   time.Time  `bson:"createdAt"`
-	DecidedAt   *time.Time `bson:"decidedAt,omitempty"`
+	CardMask           string     `bson:"cardMask"`
+	Status             string     `bson:"status"`
+	ProviderRef        string     `bson:"providerRef,omitempty"`
+	Reason             string     `bson:"reason,omitempty"`
+	DateOfBirth        time.Time  `bson:"dateOfBirth"`
+	AgeAssuredAt       time.Time  `bson:"ageAssuredAt,omitempty"`
+	AgeAssuranceMethod string     `bson:"ageAssuranceMethod,omitempty"`
+	Version            int64      `bson:"version"`
+	CreatedAt          time.Time  `bson:"createdAt"`
+	DecidedAt          *time.Time `bson:"decidedAt,omitempty"`
 }
 
 type commandDocument struct {
@@ -101,8 +103,10 @@ func (repository *Repository) AccessEvidence(ctx context.Context, access applica
 	}
 	return application.Evidence{
 		CaseID: document.ID, MaskedCard: document.CardMask,
-		AgeBand:        ageBand(document.DateOfBirth, access.OccurredAt),
-		ProviderStatus: reasonCode(document.Reason),
+		AgeBand:            ageBand(document.DateOfBirth, access.OccurredAt),
+		AgeAssuranceMethod: document.AgeAssuranceMethod,
+		AgeAssuredAt:       assuredAt(document.AgeAssuredAt),
+		ProviderStatus:     reasonCode(document.Reason),
 	}, nil
 }
 
@@ -225,6 +229,15 @@ func reasonCode(reason string) string {
 	default:
 		return "manual_review"
 	}
+}
+
+// assuredAt renders the assurance timestamp, empty for cases opened before
+// the record existed rather than a zero date pretending to be one.
+func assuredAt(at time.Time) string {
+	if at.IsZero() {
+		return ""
+	}
+	return at.UTC().Format(time.RFC3339)
 }
 
 func ageBand(dateOfBirth, at time.Time) string {

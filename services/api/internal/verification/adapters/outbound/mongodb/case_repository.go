@@ -31,17 +31,23 @@ func (repository *CaseRepository) collection() *mongo.Collection {
 }
 
 type caseDocument struct {
-	ID          string     `bson:"_id"`
-	AccountID   string     `bson:"accountId"`
-	CardKey     string     `bson:"cardKey"`
-	CardMask    string     `bson:"cardMask"`
-	Status      string     `bson:"status"`
-	ProviderRef string     `bson:"providerRef,omitempty"`
-	Reason      string     `bson:"reason,omitempty"`
-	DateOfBirth time.Time  `bson:"dateOfBirth"`
-	Version     int64      `bson:"version"`
-	CreatedAt   time.Time  `bson:"createdAt"`
-	DecidedAt   *time.Time `bson:"decidedAt,omitempty"`
+	ID          string    `bson:"_id"`
+	AccountID   string    `bson:"accountId"`
+	CardKey     string    `bson:"cardKey"`
+	CardMask    string    `bson:"cardMask"`
+	Status      string    `bson:"status"`
+	ProviderRef string    `bson:"providerRef,omitempty"`
+	Reason      string    `bson:"reason,omitempty"`
+	DateOfBirth time.Time `bson:"dateOfBirth"`
+	// The age-assurance fields are deliberately separate from dateOfBirth:
+	// retention strips the date and leaves these, so a stripped case still
+	// proves an age check happened, by what method and against what rule.
+	AgeAssuredAt       time.Time  `bson:"ageAssuredAt,omitempty"`
+	AgeAssuranceMethod string     `bson:"ageAssuranceMethod,omitempty"`
+	AgeMinimum         int        `bson:"ageMinimum,omitempty"`
+	Version            int64      `bson:"version"`
+	CreatedAt          time.Time  `bson:"createdAt"`
+	DecidedAt          *time.Time `bson:"decidedAt,omitempty"`
 }
 
 func (repository *CaseRepository) EnsureIndexes(ctx context.Context) error {
@@ -134,7 +140,10 @@ func (repository *CaseRepository) Update(ctx context.Context, verificationCase d
 			"providerRef": document.ProviderRef,
 			"reason":      document.Reason,
 			"decidedAt":   document.DecidedAt,
-			"version":     document.Version,
+			// The method upgrades from self-declared to issuer-corroborated
+			// when the provider matches, so the decision write has to carry it.
+			"ageAssuranceMethod": document.AgeAssuranceMethod,
+			"version":            document.Version,
 		}})
 	if err != nil {
 		// The partial unique index rejects a second approval of the same
@@ -185,9 +194,14 @@ func toDocument(verificationCase domain.VerificationCase) caseDocument {
 		ProviderRef: verificationCase.ProviderRef(),
 		Reason:      verificationCase.Reason(),
 		DateOfBirth: verificationCase.DateOfBirth(),
-		Version:     verificationCase.Version(),
-		CreatedAt:   verificationCase.CreatedAt(),
-		DecidedAt:   verificationCase.DecidedAt(),
+
+		AgeAssuredAt:       verificationCase.AgeAssurance().AssuredAt,
+		AgeAssuranceMethod: string(verificationCase.AgeAssurance().Method),
+		AgeMinimum:         verificationCase.AgeAssurance().MinimumAge,
+
+		Version:   verificationCase.Version(),
+		CreatedAt: verificationCase.CreatedAt(),
+		DecidedAt: verificationCase.DecidedAt(),
 	}
 }
 
@@ -204,5 +218,9 @@ func toDomain(document caseDocument) domain.VerificationCase {
 		document.Version,
 		document.CreatedAt,
 		document.DecidedAt,
-	)
+	).WithAgeAssurance(domain.AgeAssurance{
+		AssuredAt:  document.AgeAssuredAt,
+		Method:     domain.AgeAssuranceMethod(document.AgeAssuranceMethod),
+		MinimumAge: document.AgeMinimum,
+	})
 }

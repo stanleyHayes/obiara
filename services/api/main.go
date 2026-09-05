@@ -90,6 +90,7 @@ import (
 	livekitapp "github.com/stanleyHayes/obiara/services/api/internal/realtime/livekit/application"
 	safeguarding "github.com/stanleyHayes/obiara/services/api/internal/safeguarding"
 	safeguardingapplication "github.com/stanleyHayes/obiara/services/api/internal/safeguarding/application"
+	safeguardingdomain "github.com/stanleyHayes/obiara/services/api/internal/safeguarding/domain"
 	safeguardingretention "github.com/stanleyHayes/obiara/services/api/internal/safeguarding/retention"
 	seedstage "github.com/stanleyHayes/obiara/services/api/internal/seed"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/allowance"
@@ -900,6 +901,11 @@ type safeguardingBridge struct {
 // could not be completed is not an assessment that passed, and the two are
 // distinguished here only so the member gets an honest message: one says they
 // may not join, the other says to try again.
+// MinimumAge reports the safeguarding domain's threshold, so the case records
+// the rule it was actually decided under rather than a constant duplicated in
+// the verification context.
+func (bridge safeguardingBridge) MinimumAge() int { return safeguardingdomain.MinimumAge }
+
 func (bridge safeguardingBridge) Assess(ctx context.Context, commandID, subjectID, sourceRef string, dateOfBirth time.Time) error {
 	_, err := bridge.safeguarding.Assess(ctx, safeguardingapplication.Assessment{
 		CommandID:   commandID,
