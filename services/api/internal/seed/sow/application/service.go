@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -47,11 +48,21 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	if body == "" || strings.TrimSpace(command.ID) == "" || strings.TrimSpace(command.ActorID) == "" || len(command.MediaRefs) > 4 {
 		return Result{}, domain.ErrInvalid
 	}
+	// Three outcomes, not two. Screening can clear a sow, refuse it, or send
+	// it to a person — and the third used to arrive here as an error and be
+	// reported to the member as "service unavailable", which is neither true
+	// nor something they could act on.
+	status := domain.StatusDelivered
 	decision, err := s.screening.Screen(ctx, body, append([]string(nil), command.MediaRefs...))
-	if err != nil {
+	switch {
+	case errors.Is(err, ErrHumanReviewRequired):
+		if strings.TrimSpace(decision.Reference) == "" {
+			return Result{}, ErrUnavailable
+		}
+		status = domain.StatusPendingReview
+	case err != nil:
 		return Result{}, ErrUnavailable
-	}
-	if !decision.Approved {
+	case !decision.Approved:
 		return Result{}, domain.ErrScreeningRejected
 	}
 	actorKey, err := s.keyer.Key("allowance-subject", command.ActorID)
@@ -71,7 +82,8 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 		media = append(media, domain.Media{Key: key, ScreeningKey: screeningKey})
 	}
 	fp := fingerprint(command.ID, actorKey, body, command.MediaRefs, s.units)
-	candidate, err := domain.Accept(s.ids.NewID(), actorKey, body, media, command.ID, fp, s.units, s.now())
+	candidate, err := domain.Accept(s.ids.NewID(), actorKey, body, media, command.ID, fp, s.units,
+		status, decision.Reference, s.now())
 	if err != nil {
 		return Result{}, err
 	}

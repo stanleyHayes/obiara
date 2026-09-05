@@ -10,6 +10,10 @@ import (
 var (
 	ErrUnavailable           = errors.New("sow service unavailable")
 	ErrInsufficientAllowance = errors.New("insufficient weekly seed allowance")
+	// ErrHumanReviewRequired is returned by a Screening implementation that
+	// has routed the sow to a person. It is not a failure: the sow is held,
+	// its seed is spent, and delivery waits on the review.
+	ErrHumanReviewRequired = errors.New("sow requires human screening review")
 )
 
 //go:generate mockgen -source=ports.go -destination=mock_ports_test.go -package=application

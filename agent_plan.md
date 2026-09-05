@@ -3577,3 +3577,66 @@ decision, and a pod that cannot play its own media is not worth composing.
 decision-blocked rather than effort-blocked. That is now true of sow
 (screening), pod (media resolution, consent purpose) and Sentinel (vendor,
 queue, and a recording to screen).
+
+
+## 46. Goal: a sow can be held (2026-09-05)
+
+The owner's ruling — sows are reviewed by a person before delivery — turned
+out not to be what `seed/sow` modelled. Reading the code rather than assuming:
+
+- `Sow` had **no status at all**. There was no way for the aggregate to say a
+  sow was neither delivered nor refused.
+- `Screen` returns `ErrHumanReviewRequired` with a reference when it routes a
+  sow to a person, and `Send` flattened every screening error to
+  `ErrUnavailable`. A sow sent to review reached the member as "the service is
+  unavailable" — untrue, and nothing they could act on.
+
+So the ruling was the right policy against code that implemented a different
+one. This makes the held state real.
+
+### The decisions
+
+**Three outcomes, not two.** Screening can clear a sow, refuse it, or send it
+to a person. The third is not a failure, and treating it as one is what made
+the member's experience wrong.
+
+**The seed is spent on the way in and refunded on refusal.** A sow anyone
+could send for free is the whole point of the allowance, so holding one still
+costs. M4-ABUSE-01 asks for the refund on failure, and the aggregate records
+that the refund is owed rather than claiming it was paid — paying it is the
+caller's job and will be visible as such.
+
+**Rejected is not a starting state.** `Accept` refuses to create one. A
+refused sow is one that was held and then refused, and it must pass through
+pending so its seed can be refunded. A status with no screening reference is
+also refused: the reference is what ties the state to the judgement that
+caused it.
+
+**A held sow is decided exactly once.** Deciding twice would refund a seed
+twice or deliver a sow that had already been refused, so `Release` and
+`Refuse` both require pending and a delivered sow cannot be walked back.
+
+**A review with no reference is not a hold.** The reference is how a held sow
+is found again; without one it could never be released or refused, so holding
+it would strand both the sow and the member's seed. That case refuses and
+stores nothing.
+
+**`Reconstitute` is separate from `Accept`.** The repository was using `Accept`
+to read sows back, which stopped working the moment `Accept` started
+validating status — correctly, since a rejected sow must be readable and must
+not be creatable.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| SOW-11  | `Status`, `ScreeningRef` and `DecidedAt` on the sow                   | DONE   |
+| SOW-12  | `Send` holds on review instead of reporting an outage                | DONE   |
+| SOW-13  | `Release` / `Refuse`, each usable exactly once                       | DONE   |
+| SOW-14  | A reconstitutor, so a rejected sow can be read but not created       | DONE   |
+
+Both guards proven by breaking them: disabling the hold path made the test
+report "a held sow returned an error: sow service unavailable", and removing
+the pending check let a delivered sow be released twice.
+
+**Next in this chain:** a `HumanReview` implementation that persists the review
+and returns its reference, then the reviewer surface that releases or refuses,
+then the refund on refusal. The sow can be held; nothing yet holds it.

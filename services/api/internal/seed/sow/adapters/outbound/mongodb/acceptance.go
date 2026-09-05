@@ -37,7 +37,10 @@ type sowDocument struct {
 	CommandID      string          `bson:"commandId"`
 	Fingerprint    string          `bson:"fingerprint"`
 	AllowanceUnits int64           `bson:"allowanceUnits"`
+	Status         string          `bson:"status"`
+	ScreeningRef   string          `bson:"screeningRef"`
 	AcceptedAt     time.Time       `bson:"acceptedAt"`
+	DecidedAt      *time.Time      `bson:"decidedAt,omitempty"`
 }
 type allowanceHead struct {
 	ID        string    `bson:"_id"`
@@ -122,12 +125,18 @@ func toDocument(s domain.Sow) sowDocument {
 	for _, m := range s.Media {
 		media = append(media, mediaDocument{m.Key, m.ScreeningKey})
 	}
-	return sowDocument{s.ID, s.ActorKey, s.Body, media, s.CommandID, s.Fingerprint, s.AllowanceUnits, s.AcceptedAt}
+	return sowDocument{
+		ID: s.ID, ActorKey: s.ActorKey, Body: s.Body, Media: media,
+		CommandID: s.CommandID, Fingerprint: s.Fingerprint,
+		AllowanceUnits: s.AllowanceUnits, Status: string(s.Status),
+		ScreeningRef: s.ScreeningRef, AcceptedAt: s.AcceptedAt, DecidedAt: s.DecidedAt,
+	}
 }
 func fromDocument(d sowDocument) (domain.Sow, error) {
 	media := make([]domain.Media, 0, len(d.Media))
 	for _, m := range d.Media {
 		media = append(media, domain.Media{Key: m.Key, ScreeningKey: m.ScreeningKey})
 	}
-	return domain.Accept(d.ID, d.ActorKey, d.Body, media, d.CommandID, d.Fingerprint, d.AllowanceUnits, d.AcceptedAt)
+	return domain.Reconstitute(d.ID, d.ActorKey, d.Body, media, d.CommandID, d.Fingerprint,
+		d.AllowanceUnits, domain.Status(d.Status), d.ScreeningRef, d.AcceptedAt, d.DecidedAt), nil
 }
