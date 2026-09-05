@@ -712,7 +712,7 @@ func run() error {
 	apihttp.RegisterAdminEscrowRoutes(mux, escrowModule.Escrows, matchmakerModule.Engagements, adminPrincipalResolver)
 	apihttp.RegisterAdminFinanceRoutes(mux, reconciliationModule.Queries, adminPrincipalResolver)
 	apihttp.RegisterAdminVerificationRoutes(mux, adminVerificationService, adminPrincipalResolver)
-	apihttp.RegisterAdminSafetyRoutes(mux, safetyModule.Cases, safetyModule.Evidence, membershipModule.Keyer, adminPrincipalResolver)
+	apihttp.RegisterAdminSafetyRoutes(mux, safetyModule.Cases, safetyModule.Evidence, safetyModule.Actions, membershipModule.Keyer, adminPrincipalResolver)
 	apihttp.RegisterAdminCareRoutes(mux, safetyModule.Care, membershipModule.Keyer, adminPrincipalResolver)
 	apihttp.RegisterAdminControlRoutes(mux, flagControlModule.Controls, flagControlModule.Repo, adminSubjectKeyer, adminPrincipalResolver)
 	apihttp.RegisterAdminMemberRoutes(mux, identitymongodb.NewAccountRepository(client.Database(cfg.MongoDatabase)), adminSubjectKeyer, adminPrincipalResolver)

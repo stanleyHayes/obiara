@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -21,6 +22,8 @@ func newActionService(t *testing.T) (ActionService, *MockCaseRepository, *MockAc
 	ctrl := gomock.NewController(t)
 	cases := NewMockCaseRepository(ctrl)
 	actions := NewMockActionLog(ctrl)
+	// Every case below is a first attempt; the replay path has its own test.
+	actions.EXPECT().AppliedCommand(gomock.Any(), gomock.Any()).Return(false, nil).AnyTimes()
 	identity := NewMockIdentityEnforcement(ctrl)
 	sessions := NewMockSessionRevoker(ctrl)
 	devices := NewMockDeviceBlocklister(ctrl)
@@ -50,7 +53,7 @@ func TestApplyBanPropagatesEverywhere(t *testing.T) {
 			return nil
 		})
 
-	if err := service.Apply(context.Background(), "case_1", domain.ActionBan, "agent-1"); err != nil {
+	if err := service.Apply(context.Background(), "case_1", domain.ActionBan, "agent-1", "cmd-1"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -64,7 +67,7 @@ func TestApplySuspensionComputesExpiry(t *testing.T) {
 	actions.EXPECT().Append(gomock.Any(), gomock.Any()).Return(nil)
 	cases.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 
-	if err := service.Apply(context.Background(), "case_1", domain.ActionSuspend30d, "agent-1"); err != nil {
+	if err := service.Apply(context.Background(), "case_1", domain.ActionSuspend30d, "agent-1", "cmd-1"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -77,7 +80,7 @@ func TestApplyWarningTouchesNothing(t *testing.T) {
 	cases.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 	// No identity/session/device expectations: warnings change nothing.
 
-	if err := service.Apply(context.Background(), "case_1", domain.ActionWarning, "agent-1"); err != nil {
+	if err := service.Apply(context.Background(), "case_1", domain.ActionWarning, "agent-1", "cmd-1"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -88,7 +91,49 @@ func TestLadderViolationLeavesNoTrace(t *testing.T) {
 	actions.EXPECT().CountForSubject(gomock.Any(), "m-2").Return(0, nil)
 	// No Append/identity/session expectations.
 
-	if err := service.Apply(context.Background(), "case_1", domain.ActionBan, "agent-1"); err == nil {
+	if err := service.Apply(context.Background(), "case_1", domain.ActionBan, "agent-1", "cmd-1"); err == nil {
 		t.Fatal("ban on first tier-C must be rejected by the ladder")
+	}
+}
+
+func TestTheSameDecisionSentTwiceIsTakenOnce(t *testing.T) {
+	// The log is what CountForSubject reads, so a double-submitted action
+	// would count twice and escalate this subject's next one — a member
+	// warned once treated as a repeat offender. The replay check runs before
+	// the ladder, because a retry recomputes priors against a log that now
+	// includes the first attempt and the same action would be refused as
+	// off-ladder.
+	ctrl := gomock.NewController(t)
+	cases := NewMockCaseRepository(ctrl)
+	actions := NewMockActionLog(ctrl)
+	identity := NewMockIdentityEnforcement(ctrl)
+	sessions := NewMockSessionRevoker(ctrl)
+	devices := NewMockDeviceBlocklister(ctrl)
+
+	actions.EXPECT().AppliedCommand(gomock.Any(), "cmd-1").Return(true, nil)
+	// No other expectations: the controller fails the test if the case is
+	// read, the ladder consulted, the account touched or anything logged.
+
+	service := NewActionService(cases, actions, identity, sessions, devices,
+		func() time.Time { return time.Now().UTC() }, func() string { return "action_1" })
+
+	if err := service.Apply(context.Background(), "case_1", domain.ActionBan, "agent-1", "cmd-1"); err != nil {
+		t.Fatalf("a replayed decision returned %v, want nil", err)
+	}
+}
+
+func TestAnUnreadableActionLogDoesNotSilentlyReapply(t *testing.T) {
+	// If the log cannot say whether this was already done, doing it again is
+	// the wrong guess: it is the one that double-counts.
+	ctrl := gomock.NewController(t)
+	actions := NewMockActionLog(ctrl)
+	actions.EXPECT().AppliedCommand(gomock.Any(), "cmd-1").Return(false, errors.New("mongo unavailable"))
+
+	service := NewActionService(NewMockCaseRepository(ctrl), actions,
+		NewMockIdentityEnforcement(ctrl), NewMockSessionRevoker(ctrl), NewMockDeviceBlocklister(ctrl),
+		func() time.Time { return time.Now().UTC() }, func() string { return "action_1" })
+
+	if err := service.Apply(context.Background(), "case_1", domain.ActionBan, "agent-1", "cmd-1"); err == nil {
+		t.Fatal("an unreadable log let the action through")
 	}
 }

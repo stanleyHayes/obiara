@@ -222,8 +222,11 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// ask to be introduced through a circle they belong to. 201 writes down the
 	// three seed-stage routes — sprout, doorway exchange and decline — which
 	// had been served and undocumented; TestEveryServedRouteIsInTheContract
-	// now makes that impossible to repeat, in both directions.
-	if len(seen) != 201 {
-		t.Errorf("operationId count = %d, want 201", len(seen))
+	// now makes that impossible to repeat, in both directions. 202 adds
+	// applyAdminSafetyAction: the T&S ladder had been enforced inside a
+	// service registered on no route, so a case could be queued, assigned and
+	// read, and then nothing could happen to it.
+	if len(seen) != 202 {
+		t.Errorf("operationId count = %d, want 202", len(seen))
 	}
 }

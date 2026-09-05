@@ -5221,6 +5221,61 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "503":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/safety/cases/{id}/actions:
+    post:
+      operationId: applyAdminSafetyAction
+      tags: [Admin, Safety]
+      summary: Apply a T&S ladder action to a case
+      description: |
+        Requires safety-review scope and a fresh MFA claim, for every action
+        rather than only bans: a suspension takes a member off the product for
+        weeks. The severity is not the desk's to choose freely — the ladder
+        decides what a case's tier allows next, and anything else is refused.
+        The acting agent is taken from the authenticated principal, never the
+        body. Idempotency-Key is required: without it a double submission
+        would be logged twice, and the prior-action count is what escalates a
+        member's next action.
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSafetyActionInput"
+      responses:
+        "200":
+          description: The action was applied, or had already been applied by this same request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSafetyActionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "409":
+          description: That action is not the one this case's tier allows next.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/admin/safety/cases/{id}/evidence-access:
     post:
       operationId: accessAdminSafetyEvidence
@@ -9587,6 +9642,35 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/AdminSafetyCaseListData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    AdminSafetyActionInput:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [warning, suspend_14d, suspend_30d, suspend_90d, ban]
+          description: |
+            The ladder action. Tier A allows an immediate ban only; Tier B's
+            first action is a suspension and its repeat is a ban; Tier C
+            starts at a warning and escalates.
+    AdminSafetyActionData:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [warning, suspend_14d, suspend_30d, suspend_90d, ban]
+    AdminSafetyActionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminSafetyActionData"
         meta:
           $ref: "#/components/schemas/Metadata"
     AdminSafetyEvidenceInput:

@@ -878,6 +878,33 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/safety/cases/{id}/actions": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Apply a T&S ladder action to a case
+     * @description Requires safety-review scope and a fresh MFA claim, for every action
+     *     rather than only bans: a suspension takes a member off the product for
+     *     weeks. The severity is not the desk's to choose freely — the ladder
+     *     decides what a case's tier allows next, and anything else is refused.
+     *     The acting agent is taken from the authenticated principal, never the
+     *     body. Idempotency-Key is required: without it a double submission
+     *     would be logged twice, and the prior-action count is what escalates a
+     *     member's next action.
+     */
+    readonly post: operations["applyAdminSafetyAction"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/safety/cases/{id}/assignment": {
     readonly parameters: {
       readonly query?: never;
@@ -3946,6 +3973,25 @@ export interface components {
     readonly AdminRuntimeControlListEnvelope: {
       readonly data: components["schemas"]["AdminRuntimeControlListData"];
       readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly AdminSafetyActionData: {
+      /** @enum {string} */
+      readonly action:
+        "warning" | "suspend_14d" | "suspend_30d" | "suspend_90d" | "ban";
+    };
+    readonly AdminSafetyActionEnvelope: {
+      readonly data: components["schemas"]["AdminSafetyActionData"];
+      readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly AdminSafetyActionInput: {
+      /**
+       * @description The ladder action. Tier A allows an immediate ban only; Tier B's
+       *     first action is a suspension and its repeat is a ban; Tier C
+       *     starts at a warning and escalates.
+       * @enum {string}
+       */
+      readonly action:
+        "warning" | "suspend_14d" | "suspend_30d" | "suspend_90d" | "ban";
     };
     readonly AdminSafetyCaseData: {
       readonly assigned: boolean;
@@ -8540,6 +8586,52 @@ export interface operations {
       readonly 401: components["responses"]["Unauthorized"];
       readonly 403: components["responses"]["AdminRoleRequired"];
       readonly 503: components["responses"]["InternalError"];
+    };
+  };
+  readonly applyAdminSafetyAction: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AdminSafetyActionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The action was applied, or had already been applied by this same request. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AdminSafetyActionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /** @description That action is not the one this case's tier allows next. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly assignAdminSafetyCase: {

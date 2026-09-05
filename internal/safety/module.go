@@ -36,6 +36,12 @@ func NewModule(ctx context.Context, database *mongo.Database, outboxStore applic
 		return Module{}, err
 	}
 	actionLog := mongodb.NewActionLogStore(database)
+	// The unique command index is what stops two operators clicking at once
+	// from both writing an action, which would escalate the subject's next
+	// one for a decision that was taken only once.
+	if err := actionLog.EnsureIndexes(ctx); err != nil {
+		return Module{}, err
+	}
 	return Module{
 		Safety:   application.NewSafetyService(repository, repository, outboxStore, time.Now, newID),
 		Cases:    application.NewCaseService(caseRepository, time.Now, newID),

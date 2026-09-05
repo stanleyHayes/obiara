@@ -74,8 +74,27 @@ func safetyTestEvidence() adminSafetyEvidenceStub {
 }
 
 func registerSafetyTestMux(principal admin.Principal, value safetydomain.Case) *http.ServeMux {
+	return registerSafetyTestMuxWith(principal, value, &safetyActionStub{})
+}
+
+// safetyActionStub records what the desk asked for, so the tests can assert
+// the ladder decision and the request id both reach the safety context.
+type safetyActionStub struct {
+	caseID, actor, commandID string
+	action                   safetydomain.Action
+	err                      error
+	calls                    int
+}
+
+func (stub *safetyActionStub) Apply(_ context.Context, caseID string, action safetydomain.Action, actorID, commandID string) error {
+	stub.calls++
+	stub.caseID, stub.action, stub.actor, stub.commandID = caseID, action, actorID, commandID
+	return stub.err
+}
+
+func registerSafetyTestMuxWith(principal admin.Principal, value safetydomain.Case, actions AdminSafetyActions) *http.ServeMux {
 	mux := http.NewServeMux()
-	RegisterAdminSafetyRoutes(mux, safetyTestCases(value), safetyTestEvidence(), adminSafetyKeyerStub{}, func(*http.Request) (admin.Principal, error) {
+	RegisterAdminSafetyRoutes(mux, safetyTestCases(value), safetyTestEvidence(), actions, adminSafetyKeyerStub{}, func(*http.Request) (admin.Principal, error) {
 		return principal, nil
 	})
 	return mux
@@ -131,5 +150,108 @@ func TestAdminSafetyEvidenceRequiresFreshMFAAndAssignment(t *testing.T) {
 				t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 			}
 		})
+	}
+}
+
+func safetyActionRequest(t *testing.T, mux *http.ServeMux, body, idempotencyKey string) *httptest.ResponseRecorder {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodPost, "/v1/admin/safety/cases/case-1/actions", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	if idempotencyKey != "" {
+		request.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+	return response
+}
+
+func safetyDesk() admin.Principal {
+	return admin.Principal{
+		ActorID: "agent-1", Scopes: []admin.Scope{admin.ScopeSafety}, MFAVerified: true,
+	}
+}
+
+func TestASafetyCaseCanFinallyBeActedOn(t *testing.T) {
+	// The ladder has always been enforced inside the safety context and the
+	// service was registered on no route: a case could be queued, assigned
+	// and read, and then nothing could happen to it.
+	actions := &safetyActionStub{}
+	mux := registerSafetyTestMuxWith(safetyDesk(), safetyTestCase(""), actions)
+
+	response := safetyActionRequest(t, mux, `{"action":"ban"}`, "cmd-1")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", response.Code, response.Body.String())
+	}
+	if actions.action != safetydomain.ActionBan || actions.caseID != "case-1" {
+		t.Fatalf("action = %q on case %q", actions.action, actions.caseID)
+	}
+	// The actor comes from the principal, never the body: an operator must
+	// not be able to log somebody else's name against a ban.
+	if actions.actor != "agent-1" {
+		t.Fatalf("actor = %q, want the authenticated agent", actions.actor)
+	}
+	if actions.commandID != "cmd-1" {
+		t.Fatalf("commandId = %q, want the request's idempotency key", actions.commandID)
+	}
+}
+
+func TestAnActionWithoutARequestIdIsRefused(t *testing.T) {
+	// Without one the action cannot be made idempotent, and a double
+	// submission would count twice and escalate this member's next action
+	// for a decision taken once. Refusing beats defaulting.
+	actions := &safetyActionStub{}
+	mux := registerSafetyTestMuxWith(safetyDesk(), safetyTestCase(""), actions)
+
+	response := safetyActionRequest(t, mux, `{"action":"ban"}`, "")
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422: %s", response.Code, response.Body.String())
+	}
+	if actions.calls != 0 {
+		t.Fatal("an action with no request id reached the safety context")
+	}
+}
+
+func TestAnOffLadderActionIsRefusedAsTheLaddersDecision(t *testing.T) {
+	actions := &safetyActionStub{err: safetydomain.ErrActionNotOnLadder}
+	mux := registerSafetyTestMuxWith(safetyDesk(), safetyTestCase(""), actions)
+
+	response := safetyActionRequest(t, mux, `{"action":"warning"}`, "cmd-1")
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409: %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "action_not_on_ladder") {
+		t.Fatalf("refusal did not name the ladder: %s", response.Body.String())
+	}
+}
+
+func TestOnlyASteppedUpSafetyDeskMayAct(t *testing.T) {
+	// Suspensions and bans take a member off the product. The desk should
+	// have to re-assert who it is before either.
+	for name, principal := range map[string]admin.Principal{
+		"no step-up":   {ActorID: "agent-1", Scopes: []admin.Scope{admin.ScopeSafety}},
+		"wrong scope":  {ActorID: "agent-1", Scopes: []admin.Scope{admin.ScopeOperations}, MFAVerified: true},
+		"no principal": {},
+	} {
+		actions := &safetyActionStub{}
+		mux := registerSafetyTestMuxWith(principal, safetyTestCase(""), actions)
+		response := safetyActionRequest(t, mux, `{"action":"ban"}`, "cmd-1")
+		if response.Code == http.StatusOK {
+			t.Fatalf("%s: the desk acted anyway", name)
+		}
+		if actions.calls != 0 {
+			t.Fatalf("%s: the action reached the safety context", name)
+		}
+	}
+}
+
+func TestAnUnknownActionNeverReachesTheLadder(t *testing.T) {
+	actions := &safetyActionStub{}
+	mux := registerSafetyTestMuxWith(safetyDesk(), safetyTestCase(""), actions)
+	response := safetyActionRequest(t, mux, `{"action":"delete_everything"}`, "cmd-1")
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422: %s", response.Code, response.Body.String())
+	}
+	if actions.calls != 0 {
+		t.Fatal("an invented action reached the safety context")
 	}
 }

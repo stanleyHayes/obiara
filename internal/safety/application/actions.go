@@ -14,6 +14,11 @@ var ErrDeviceBlocklistFailed = errors.New("device blocklist write failed")
 type ActionLog interface {
 	Append(context.Context, domain.ActionRecord) error
 	CountForSubject(context.Context, string) (int, error)
+	// AppliedCommand reports whether this operator request already took
+	// effect. Checked before the ladder rather than after, because a retry
+	// recomputes priors against a log that now includes the first attempt,
+	// and the same action would be refused as off-ladder.
+	AppliedCommand(ctx context.Context, commandID string) (bool, error)
 }
 
 // IdentityEnforcement applies account status effects (identity context
@@ -53,7 +58,15 @@ func NewActionService(cases CaseRepository, actions ActionLog, identity Identity
 }
 
 // Apply executes an action on an in-review case.
-func (service ActionService) Apply(ctx context.Context, caseID string, action domain.Action, actorID string) error {
+func (service ActionService) Apply(ctx context.Context, caseID string, action domain.Action, actorID, commandID string) error {
+	applied, err := service.actions.AppliedCommand(ctx, commandID)
+	if err != nil {
+		return err
+	}
+	if applied {
+		// The same decision, sent twice. Taking it once is the whole point.
+		return nil
+	}
 	safetyCase, err := service.cases.FindByID(ctx, caseID)
 	if err != nil {
 		return err
@@ -94,6 +107,7 @@ func (service ActionService) Apply(ctx context.Context, caseID string, action do
 
 	if err := service.actions.Append(ctx, domain.ActionRecord{
 		ID:        service.newID(),
+		CommandID: commandID,
 		CaseID:    safetyCase.ID(),
 		SubjectID: safetyCase.SubjectID(),
 		Action:    action,

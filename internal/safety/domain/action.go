@@ -83,7 +83,12 @@ func CheckLadder(tier Tier, action Action, priorActions int) error {
 // (agent_plan.md §4: all privileged and irreversible actions are
 // auditable).
 type ActionRecord struct {
-	ID        string
+	ID string
+	// CommandID is the operator's request. It is on the record because the
+	// log is what CountForSubject reads, and a double-submitted action would
+	// otherwise count twice and escalate the subject's next one — a member
+	// warned once would be treated as a repeat offender.
+	CommandID string
 	CaseID    string
 	SubjectID string
 	Action    Action

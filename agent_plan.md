@@ -3395,3 +3395,87 @@ The extended guard was proven by ungating one Oware move, which made it name
 the offending line. M1-AC-01 can now be read the way the owner ruled it —
 browse yes, participate no — rather than resting on the fact that most
 participation happens to sit behind a join.
+
+
+## 44. Goal: let the safety desk actually act (TS-TIER-A, 2026-09-05)
+
+Sentinel sow screening was the intended next slice and turned out to be
+blocked, which is recorded here rather than quietly swapped: `seed/screening`
+is a library with five ports that are vendor or policy decisions — an Advisor
+provider, an Adjudicator's thresholds, a human-review queue (TS-CARE-ROUTING,
+still MISSING), a reviewed-locale catalog — and, more fundamentally, it
+screens a **sow recording that does not exist**. `SproutCommand` carries an
+opaque `SeedRef` and no voice. M4-03's "30–90s answer" is the substrate, and
+until it exists there is nothing to screen.
+
+So this took TS-TIER-A instead, and found something worse.
+
+### What was missing
+
+A correction to my own first reading: `internal/safety` **is** composed — a
+truncated grep made it look orphaned, and it is not. `safetyModule` is built
+at the root with identity enforcement and session revocation wired, and its
+Cases, Evidence and Care services are all registered.
+
+`safetyModule.Actions` is registered on no route. A case could be queued,
+assigned, and its evidence read under step-up — and then nothing could happen
+to it. No warning, no suspension, no ban. The action ladder was enforced
+correctly inside a service nothing could reach.
+
+### The hazard that had to be fixed first
+
+Exposing the route as it stood would have shipped a real defect.
+`ActionLog.Append` inserted a fresh id every time and `CountForSubject`
+counted every row, so a double-submitted action counted twice — and priors
+drive the ladder. A member warned once, whose warning was submitted twice,
+would be treated as a repeat offender and escalated to a suspension.
+
+Actions are now idempotent by the operator's request id, with a unique index
+so two operators clicking at once cannot both write. **The replay check runs
+before the ladder**, not after: a retry recomputes priors against a log that
+now includes the first attempt, so the same action would come back refused as
+off-ladder — confusing, and wrong.
+
+### The route
+
+`POST /v1/admin/safety/cases/{id}/actions`, step-up required for every action
+rather than only for bans: a suspension takes a member off the product for
+weeks and the desk should re-assert who it is first. The actor comes from the
+principal and never the body. An unknown action never reaches the ladder. An
+off-ladder one answers 409 `action_not_on_ladder` — a refusal of the choice,
+not the operator, because the point of a ladder is that severity is not the
+desk's to pick freely.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| TS-01   | Actions idempotent by request id, checked before the ladder          | DONE   |
+| TS-02   | Unique command index so concurrent desks cannot both write           | DONE   |
+| TS-03   | `POST /v1/admin/safety/cases/{id}/actions` under step-up             | DONE   |
+| TS-04   | Honest refusals: off-ladder, unknown action, missing request id      | DONE   |
+| TS-05   | Contract, operation count and generated client all carry the route   | DONE   |
+
+Guards proven by breaking them: removing the replay check made the service
+read the case and consult the ladder for a decision already taken, and
+removing the request-id requirement let an un-idempotent ban through with 200.
+
+**Still open:** Sentinel needs a sow recording before it can screen anything,
+and TS-CARE-ROUTING needs somewhere for a human review to go.
+
+
+### The contract guard did its job on me
+
+`TestEveryServedRouteIsInTheContract` — written in §31 precisely so an
+undocumented route could not ship again — failed on this commit's own new
+route. It was right to.
+
+Documenting it then failed twice more, and both were worth catching. The
+generator rejected `#/components/responses/Forbidden` and
+`#/components/responses/FeatureUnavailable`: neither exists. The real names
+are `AdminRoleRequired` and `ServiceUnavailable`, and the Go contract test
+does not resolve `$ref`s, so it passed a document the TypeScript generator
+could not read.
+
+That mattered because the generator failing is silent from Go's side: the
+client simply does not regenerate. I only found it by checking whether the new
+operation had actually landed in `schema.ts` rather than trusting that a
+command in a chain had done its job. The count was zero.
