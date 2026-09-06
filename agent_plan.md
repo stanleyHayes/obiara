@@ -5918,6 +5918,30 @@ automatically.
   labels are already shrunk: Material hides a placeholder while its label is at
   rest.
 
+- Email resolved 2026-09-06, after the note above was written. The Resend
+  credentials were never lost — they live on Render, not in any file. The
+  service `obiara-api-production` carries `RESEND_API_KEY`,
+  `RESEND_FROM_ADDRESS` and `RESEND_REPLY_TO`; the env group
+  `obiara-production-runtime` carries `EMAIL_PROVIDER=resend`. Both were read
+  through the Render REST API using the CLI's own stored token and written
+  into `services/api/.env.development.local`, which is gitignored.
+  - The API's own preflight is the proof, and it is a good one: it logs
+    `email provider ready` only after Resend accepts the key *and* reports the
+    configured sender domain as verified. It logged
+    `provider=resend senderDomain=obiara.app`.
+  - Reading the same env group also settles a question the service-level list
+    raised. `APP_ENV`, `OTP_PROVIDERS` and `EMAIL_PROVIDER` are absent from the
+    service's own variables, which would mean production running as
+    development on simulators. They are in the group:
+    `APP_ENV=production`, `OTP_PROVIDERS=arkesel`, `EMAIL_PROVIDER=resend`,
+    `WHATSAPP_PROVIDER=disabled`, identity and liveness `manual`. Production is
+    configured correctly.
+
+- The API moved to port 8081. Another project on this machine takes 8080 the
+  moment the API is not holding it, and taking it back would break theirs. The
+  port lives in `services/api/.env.development.local`, and the three apps'
+  `.env.development.local` files point at 8081.
+
 - Now claimed, having been explicitly not claimed before: the autofill case is
   verified in a browser. Setting `input.value` through the DOM — what Chrome's
   autofill does, bypassing React's `onChange` — leaves both labels at
