@@ -134,6 +134,13 @@ type beginIntroductionRequest struct {
 	// sowing rung, and counting recordings instead of questions would let
 	// three takes of one answer earn it.
 	Prompt string `json:"prompt"`
+	// SizeBytes, Checksum and DurationMs describe the recording the client
+	// has already made. They are needed before the upload, not after: the
+	// grant is signed over the length and the digest, so the store itself
+	// refuses any bytes that are not these ones.
+	SizeBytes  int64  `json:"sizeBytes"`
+	Checksum   string `json:"checksum"`
+	DurationMs int64  `json:"durationMs"`
 }
 
 type introductionResponse struct {
@@ -214,6 +221,9 @@ func beginIntroductionHandler(service VoiceIntroduction, sessions SessionAuthent
 			PurposeID:      voiceIntroductionPurpose,
 			PurposeVersion: 1,
 			ContentType:    body.ContentType,
+			SizeBytes:      body.SizeBytes,
+			Checksum:       strings.ToLower(strings.TrimSpace(body.Checksum)),
+			DurationMs:     body.DurationMs,
 			Prompt:         prompt,
 			RetentionUntil: time.Now().UTC().Add(voiceRetention),
 		})
@@ -365,6 +375,23 @@ func writeIntroductionError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusForbidden, APIError{
 			Code:    "consent_required",
 			Message: "Recording a voice introduction needs your consent for that purpose.",
+		})
+	case errors.Is(err, application.ErrImplausibleRecording):
+		// Nothing here can decode audio, so a recording's length is the one
+		// thing the client says rather than the server establishes. It is
+		// bounded against the byte count, and this is that bound refusing.
+		writeError(w, r, http.StatusUnprocessableEntity, APIError{
+			Code:    "validation_failed",
+			Message: "One or more fields are invalid.",
+			Details: []FieldError{{Field: "durationMs", Reason: "does not match the size of the recording"}},
+		})
+	case errors.Is(err, application.ErrUploadNotArrived):
+		// The introduction exists; the recording is not in storage. Saying so
+		// plainly is the difference between "try uploading again" and a
+		// member believing something is wrong with their account.
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "recording_not_arrived",
+			Message: "We do not have that recording yet. Please send it again.",
 		})
 	case errors.Is(err, application.ErrNotFound):
 		writeError(w, r, http.StatusNotFound, APIError{

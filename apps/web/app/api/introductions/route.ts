@@ -30,10 +30,26 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     contentType?: unknown;
     prompt?: unknown;
+    sizeBytes?: unknown;
+    checksum?: unknown;
+    durationMs?: unknown;
   } | null;
   if (typeof body?.contentType !== "string") {
     return NextResponse.json(
       { message: "The recording format is required." },
+      { status: 422 },
+    );
+  }
+  // The grant is signed over the length and the digest, so the store itself
+  // refuses any other bytes. Without them there is nothing to sign over and
+  // no upload can be authorized at all.
+  const sizeBytes = typeof body.sizeBytes === "number" ? body.sizeBytes : 0;
+  const durationMs = typeof body.durationMs === "number" ? body.durationMs : 0;
+  const checksum =
+    typeof body.checksum === "string" ? body.checksum.trim().toLowerCase() : "";
+  if (sizeBytes < 1 || durationMs < 1 || !/^[0-9a-f]{64}$/.test(checksum)) {
+    return NextResponse.json(
+      { message: "The recording could not be described. Please try again." },
       { status: 422 },
     );
   }
@@ -54,7 +70,13 @@ export async function POST(request: Request) {
     {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: { header: { "Idempotency-Key": idempotencyKey } },
-      body: { contentType: body.contentType, prompt: body.prompt as Prompt },
+      body: {
+        contentType: body.contentType,
+        prompt: body.prompt as Prompt,
+        sizeBytes,
+        checksum,
+        durationMs,
+      },
     },
   );
   if (!data) {

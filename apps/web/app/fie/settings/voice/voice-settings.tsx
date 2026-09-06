@@ -161,7 +161,18 @@ export function VoiceSettings({ tier }: { tier: number | null }) {
         },
         // The server records which question this answers: a finished Voice
         // of Introduction is all three, not three takes of one.
-        body: JSON.stringify({ contentType: baseType(take.type), prompt }),
+        //
+        // The size and digest go up front because the upload grant is signed
+        // over them, so the store refuses any bytes but these. The length is
+        // sent too; the server cannot decode audio, so it bounds the number
+        // against the byte count rather than believing it.
+        body: JSON.stringify({
+          contentType: baseType(take.type),
+          prompt,
+          sizeBytes: take.size,
+          checksum: await sha256Hex(take),
+          durationMs: state.prompts[prompt].seconds * 1000,
+        }),
       });
       const grant = (await opened.json().catch(() => null)) as {
         introductionId?: string;
@@ -473,4 +484,17 @@ export function VoiceSettings({ tier }: { tier: number | null }) {
       </footer>
     </main>
   );
+}
+
+/**
+ * The SHA-256 of what is about to be uploaded, hex.
+ *
+ * The store verifies this before it accepts the bytes, so a recording that
+ * changed in flight is refused there rather than trusted here.
+ */
+async function sha256Hex(blob: Blob): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }

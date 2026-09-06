@@ -203,18 +203,18 @@ func (m *MockMediaManager) EXPECT() *MockMediaManagerMockRecorder {
 }
 
 // AuthorizeUpload mocks base method.
-func (m *MockMediaManager) AuthorizeUpload(arg0 context.Context, arg1, arg2, arg3 string) (UploadAccess, error) {
+func (m *MockMediaManager) AuthorizeUpload(arg0 context.Context, arg1 string, arg2 domain.MediaRef) (UploadAccess, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuthorizeUpload", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "AuthorizeUpload", arg0, arg1, arg2)
 	ret0, _ := ret[0].(UploadAccess)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AuthorizeUpload indicates an expected call of AuthorizeUpload.
-func (mr *MockMediaManagerMockRecorder) AuthorizeUpload(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockMediaManagerMockRecorder) AuthorizeUpload(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeUpload", reflect.TypeOf((*MockMediaManager)(nil).AuthorizeUpload), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeUpload", reflect.TypeOf((*MockMediaManager)(nil).AuthorizeUpload), arg0, arg1, arg2)
 }
 
 // Delete mocks base method.

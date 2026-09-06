@@ -2871,7 +2871,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "409":
-          description: The recording changed while this request was in flight.
+          description: |
+            The recording changed while this request was in flight, or the
+            bytes are not in storage (`recording_not_arrived`). The second is
+            not a failure of the account: the introduction exists and the
+            upload did not finish, so sending it again is the fix.
           content:
             application/json:
               schema:
@@ -9736,11 +9740,36 @@ components:
     VoiceIntroductionInput:
       type: object
       additionalProperties: false
-      required: [contentType, prompt]
+      required: [contentType, prompt, sizeBytes, checksum, durationMs]
       properties:
         contentType:
           type: string
           description: The audio type the client will upload, e.g. audio/ogg.
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            Exactly how many bytes will be uploaded. The grant is signed over
+            this, so the store refuses anything else.
+        checksum:
+          type: string
+          pattern: ^[0-9a-fA-F]{64}$
+          description: |
+            The SHA-256 of the bytes, hex. Signed into the grant as well, so
+            the store verifies the digest before it accepts the upload — this
+            is not taken on trust.
+        durationMs:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            How long the recording is. This is the one thing about it the
+            client says rather than the server establishes, because nothing
+            here decodes audio — and the twenty seconds that arm a sow are
+            counted against it. So it is bounded rather than believed: a
+            length that could not have come from `sizeBytes` of this
+            `contentType` is refused (`validation_failed` on `durationMs`).
         prompt:
           type: string
           enum: [arrival, ordinary, welcome]

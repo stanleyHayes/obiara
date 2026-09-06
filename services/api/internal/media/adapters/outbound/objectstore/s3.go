@@ -47,6 +47,10 @@ var (
 	ErrConfiguration = errors.New("object store configuration is incomplete")
 	ErrExpiry        = errors.New("object store grant expiry is out of range")
 	ErrObjectKey     = errors.New("object key is not usable")
+	// ErrObjectMissing says the bytes are not in the bucket. It is separate
+	// from a store that cannot be reached, because only one of the two is
+	// something a member can do anything about.
+	ErrObjectMissing = errors.New("object is not in storage")
 )
 
 // Config describes one bucket. Endpoint is the provider's host — leave it
@@ -195,6 +199,49 @@ func (signer *Signer) Delete(ctx context.Context, objectKey string) error {
 		return nil
 	}
 	return fmt.Errorf("delete object: storage answered %d", response.StatusCode)
+}
+
+// Stat reports how many bytes are actually stored under an object key.
+//
+// Confirming an upload without this would mark a recording ready on a
+// member's word alone, and a member whose bytes never left the phone would
+// have an introduction that plays nothing. It signs a HEAD the same way every
+// other request is signed and makes the call itself, because the answer has
+// to be storage's and not a caller's.
+//
+// A missing object is not an error here: it is the answer. ErrObjectMissing
+// says the bytes are not there, which is a different thing from the store
+// being unreachable, and only one of the two is the member's to act on.
+func (signer *Signer) Stat(ctx context.Context, objectKey string) (int64, error) {
+	access, err := signer.presign(
+		"HEAD", objectKey, signer.now().UTC().Add(time.Minute),
+		map[string]string{"host": signer.host}, url.Values{},
+	)
+	if err != nil {
+		return 0, err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodHead, access.URL, nil)
+	if err != nil {
+		return 0, err
+	}
+	response, err := signer.client.Do(request)
+	if err != nil {
+		return 0, fmt.Errorf("stat object: %w", err)
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, response.Body)
+		_ = response.Body.Close()
+	}()
+	if response.StatusCode == http.StatusNotFound {
+		return 0, ErrObjectMissing
+	}
+	if response.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("stat object: storage answered %d", response.StatusCode)
+	}
+	if response.ContentLength < 0 {
+		return 0, fmt.Errorf("stat object: storage gave no length")
+	}
+	return response.ContentLength, nil
 }
 
 func (signer *Signer) presign(

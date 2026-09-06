@@ -4893,3 +4893,83 @@ is what it is for.
 
 Thirteen tests. The listen gate can now be satisfied through the product for
 the first time.
+
+## §67 — Nobody could record anything either
+
+Going to build the person page, I found the floor the whole voice layer stands
+on, and it was not there. Three defects stacked, none of which any existing
+test could see.
+
+**`AssetRepository.Register` had no callers.** The media context authorizes an
+upload grant against a known owner and object key, so the asset row has to
+exist before the grant does. Nothing ever wrote one, so every begin-upload
+answered "not found".
+
+**The lookup used the wrong id.** The manager's signature was
+`AuthorizeUpload(ctx, subjectID, assetID, contentType)` and the service called
+it `AuthorizeUpload(ctx, ownerID, introduction.ID(), assetID)`. So it searched
+the asset collection for the *introduction's* id, and the real asset id
+arrived as `contentType` and was thrown away by `_ = contentType`. Even with
+rows present it would never have matched.
+
+**`AssetRepository.Complete` had no callers either.** Confirming an upload
+requires `size > 0 && duration > 0 && checksum != ""`, and the row was created
+with `0, 0, ""`. Nothing filled them in.
+
+So no member could record a Voice of Introduction. Nobody had a voice, so
+nobody could hear anybody, so no sow was ever possible. Everything in §61–§66
+sits on this.
+
+### The decision
+
+Put to the product owner, because nothing here can decode audio and a
+recording's length is load-bearing — the twenty seconds that arm a sow are
+counted against it.
+
+**The client reports the length; the server bounds it.** `PlausibleDuration`
+refuses a length that could not have come from these bytes of this codec:
+ninety seconds of Opus is not forty kilobytes. An unrecognised content type is
+refused rather than waved through, or a caller could invent a type to escape
+the bound — the same wildcard mistake the access policy refuses to make about
+purposes.
+
+Size and digest are not claims at all. `SignUpload` already binds
+`content-length` and `x-amz-checksum-sha256` into the signature, so the store
+itself refuses any bytes but these. That turned out to be the shape the design
+already wanted: describe the recording **before** uploading it, and the row is
+complete the moment it is registered.
+
+Which makes `AssetRepository.Complete` unnecessary rather than uncalled, so it
+is deleted. A method with no caller in the middle of a lifecycle reads as a
+step somebody forgot.
+
+### Two more things this turned up
+
+**Confirming an upload took the member's word that the bytes had arrived.**
+A recording marked ready whose bytes never left the phone would 404 at the
+bucket on every play, which reads as a broken product rather than a failed
+upload. `Signer.Stat` signs a HEAD the same way everything else is signed;
+`ErrUploadNotArrived` and `recording_not_arrived` say which of the two it is.
+
+**Withdrawing a recording kept the recording.** The introduction context was
+handed `mediaModule.Assets` as its `Remover`, and that `Delete` marks the row
+and leaves the audio in the bucket. It is now given the eraser, which removes
+the bytes and then the row — in that order, because the other way round
+orphans the object.
+
+### A test I deleted
+
+I wrote a structural test asserting `Register` and `Complete` had callers. It
+passed with the call removed: "a line mentioning asset or media" matches
+plenty of things. A test weaker than its name is worse than none, so it is
+gone; the two behavioural tests beside it do fail when the call goes, which is
+how I found out.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| MED-06  | `PlausibleDuration`: a claimed length has to fit the bytes        | DONE   |
+| MED-07  | The asset row is registered, complete, before the grant           | DONE   |
+| MED-08  | `AuthorizeUpload` takes the recording, not three drifting strings | DONE   |
+| MED-09  | `Signer.Stat`: confirming checks the bytes actually landed        | DONE   |
+| MED-10  | Withdrawal erases the audio, not only its row                     | DONE   |
+| MED-11  | Contract, client, and the browser sending size, digest and length | DONE   |

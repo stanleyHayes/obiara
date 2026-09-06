@@ -6179,8 +6179,24 @@ export interface components {
       readonly meta: components["schemas"]["Metadata"];
     };
     readonly VoiceIntroductionInput: {
+      /**
+       * @description The SHA-256 of the bytes, hex. Signed into the grant as well, so
+       *     the store verifies the digest before it accepts the upload — this
+       *     is not taken on trust.
+       */
+      readonly checksum: string;
       /** @description The audio type the client will upload, e.g. audio/ogg. */
       readonly contentType: string;
+      /**
+       * Format: int64
+       * @description How long the recording is. This is the one thing about it the
+       *     client says rather than the server establishes, because nothing
+       *     here decodes audio — and the twenty seconds that arm a sow are
+       *     counted against it. So it is bounded rather than believed: a
+       *     length that could not have come from `sizeBytes` of this
+       *     `contentType` is refused (`validation_failed` on `durationMs`).
+       */
+      readonly durationMs: number;
       /**
        * @description Which of the three questions this recording answers (S-06). The
        *     server needs it because a finished Voice of Introduction is what
@@ -6189,6 +6205,12 @@ export interface components {
        * @enum {string}
        */
       readonly prompt: "arrival" | "ordinary" | "welcome";
+      /**
+       * Format: int64
+       * @description Exactly how many bytes will be uploaded. The grant is signed over
+       *     this, so the store refuses anything else.
+       */
+      readonly sizeBytes: number;
     };
     readonly VoicePlaybackData: {
       /**
@@ -12772,7 +12794,12 @@ export interface operations {
           readonly "application/json": components["schemas"]["ErrorEnvelope"];
         };
       };
-      /** @description The recording changed while this request was in flight. */
+      /**
+       * @description The recording changed while this request was in flight, or the
+       *     bytes are not in storage (`recording_not_arrived`). The second is
+       *     not a failure of the account: the introduction exists and the
+       *     upload did not finish, so sending it again is the fix.
+       */
       readonly 409: {
         headers: {
           readonly [name: string]: unknown;

@@ -108,3 +108,32 @@ func TestAnAssetThatIsAlreadyGoneIsSuccess(t *testing.T) {
 		t.Fatalf("Erase on a missing asset = %v, want nil", err)
 	}
 }
+
+// Stat is what confirming an upload asks. This fake reports a byte for an
+// object it still holds, and nothing for one it has removed.
+func (f *fakeObjects) Stat(_ context.Context, objectKey string) (int64, error) {
+	for _, removed := range f.removed {
+		if removed == objectKey {
+			return 0, errors.New("gone")
+		}
+	}
+	return 1, nil
+}
+
+func TestDeletingARecordingRemovesTheBytesAndNotOnlyTheRow(t *testing.T) {
+	// The introduction context asks its remover to Delete when a member
+	// withdraws a recording. It was given the asset row repository, whose
+	// Delete marks the row and leaves the audio in the bucket — so
+	// withdrawing removed the record of the recording and kept the recording.
+	assets := &fakeAssets{asset: testAsset(t, false)}
+	objects := &fakeObjects{}
+	if err := NewEraser(assets, objects).Delete(context.Background(), "asset-1"); err != nil {
+		t.Fatal(err)
+	}
+	if len(objects.removed) != 1 {
+		t.Fatal("the bytes are still in the bucket")
+	}
+	if len(assets.deleted) != 1 {
+		t.Fatal("the row was left pointing at bytes that are gone")
+	}
+}

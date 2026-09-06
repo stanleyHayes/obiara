@@ -61,6 +61,7 @@ func TestBeginUploadRequiresExactVersionedConsent(t *testing.T) {
 	_, err := service.BeginUpload(context.Background(), BeginUploadRequest{
 		CommandID: "command:1", OwnerID: "member:1", Prompt: domain.PromptArrival,
 		PurposeID: "voice.introduction", PurposeVersion: 2, ContentType: "audio/ogg",
+		SizeBytes: 240_000, Checksum: strings.Repeat("a", 64), DurationMs: 60_000,
 	})
 	if !errors.Is(err, ErrConsentRequired) {
 		t.Fatalf("expected consent required, got %v", err)
@@ -89,8 +90,21 @@ func TestBeginUploadPersistsConsentBeforeSigning(t *testing.T) {
 	store.EXPECT().Update(gomock.Any(), gomock.Cond(func(value domain.Introduction) bool {
 		return value.Status() == domain.StatusUploadAuthorized
 	}), uint64(1), "command:1.upload").Return(nil)
-	media.EXPECT().AuthorizeUpload(gomock.Any(), "member:1", "introduction:1", "asset:1").
-		Return(UploadAccess{URL: "https://upload.invalid", ExpiresAt: applicationTime.Add(time.Minute)}, nil)
+	// The recording, not three loose strings. The old signature was
+	// (subjectID, assetID, contentType) and was called with (ownerID,
+	// introductionID, assetID), so it looked the asset up by the wrong id.
+	media.EXPECT().AuthorizeUpload(gomock.Any(), "member:1", gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, ref domain.MediaRef) (UploadAccess, error) {
+			if ref.AssetID() != "asset:1" {
+				t.Fatalf("authorized against %q, want the asset", ref.AssetID())
+			}
+			if ref.Size() != 240_000 || ref.Duration() != time.Minute {
+				t.Fatalf("authorized against an empty recording: %#v", ref)
+			}
+			return UploadAccess{
+				URL: "https://upload.invalid", ExpiresAt: applicationTime.Add(time.Minute),
+			}, nil
+		})
 
 	result, err := NewService(
 		store, consent, media, NewMockTranscriber(controller), keyer, ids,
@@ -98,6 +112,7 @@ func TestBeginUploadPersistsConsentBeforeSigning(t *testing.T) {
 	).BeginUpload(context.Background(), BeginUploadRequest{
 		CommandID: "command:1", OwnerID: "member:1", Prompt: domain.PromptArrival,
 		PurposeID: "voice.introduction", PurposeVersion: 2, ContentType: "audio/ogg",
+		SizeBytes: 240_000, Checksum: strings.Repeat("a", 64), DurationMs: 60_000,
 	})
 	if err != nil || result.Introduction.Status() != domain.StatusUploadAuthorized ||
 		result.Access.URL == "" {

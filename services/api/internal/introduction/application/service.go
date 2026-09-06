@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stanleyHayes/obiara/services/api/internal/introduction/domain"
+	mediadomain "github.com/stanleyHayes/obiara/services/api/internal/media/domain"
 )
 
 var (
@@ -54,6 +55,17 @@ type BeginUploadRequest struct {
 	PurposeID      string
 	PurposeVersion uint64
 	ContentType    string
+	// SizeBytes, Checksum and DurationMs describe the recording the client
+	// has already made. They are needed here, not at confirmation, because
+	// the upload grant is signed over the length and the digest: the store
+	// itself then refuses any bytes that are not these ones.
+	//
+	// Which leaves the duration as the only claim, since nothing here can
+	// decode audio. It is bounded against the byte count rather than
+	// believed — see media/domain.PlausibleDuration.
+	SizeBytes      int64
+	Checksum       string
+	DurationMs     int64
 	RetentionUntil time.Time
 	LegalHold      bool
 }
@@ -81,7 +93,17 @@ func (service Service) BeginUpload(ctx context.Context, request BeginUploadReque
 		return BeginUploadResult{}, err
 	}
 	assetID := service.ids.NewID("intro_asset")
-	media, err := domain.NewMediaRef(assetID, request.ContentType, 0, 0, "")
+	duration := time.Duration(request.DurationMs) * time.Millisecond
+	if !mediadomain.PlausibleDuration(request.ContentType, request.SizeBytes, duration) {
+		return BeginUploadResult{}, ErrImplausibleRecording
+	}
+	// The recording is described up front, so the asset row is complete from
+	// the start and the grant can be signed over it. Before this the row was
+	// created with zeros and nothing ever filled them in, so no upload could
+	// be confirmed and no recording was ever possible (agent_plan.md §67).
+	media, err := domain.NewMediaRef(
+		assetID, request.ContentType, request.SizeBytes, duration, request.Checksum,
+	)
 	if err != nil {
 		return BeginUploadResult{}, err
 	}
@@ -140,9 +162,7 @@ func (service Service) BeginUpload(ctx context.Context, request BeginUploadReque
 	if introduction.Status() != domain.StatusUploadAuthorized {
 		return BeginUploadResult{}, domain.ErrInvalidTransition
 	}
-	access, err := service.media.AuthorizeUpload(
-		ctx, request.OwnerID, introduction.ID(), introduction.Media().AssetID(),
-	)
+	access, err := service.media.AuthorizeUpload(ctx, request.OwnerID, introduction.Media())
 	if err != nil {
 		return BeginUploadResult{Introduction: introduction, Replayed: replayed}, ErrDependencyUnavailable
 	}

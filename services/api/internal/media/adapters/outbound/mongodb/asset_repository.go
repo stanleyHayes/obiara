@@ -52,8 +52,13 @@ func (repository *AssetRepository) EnsureIndexes(ctx context.Context) error {
 }
 
 // Register records an asset before its upload is authorized, because the
-// access service authorizes against a known owner and object key. An asset
-// whose bytes never arrive keeps a placeholder size and is swept by expiry.
+// access service authorizes against a known owner and object key.
+//
+// The row is complete when it is written: the client describes the recording
+// before it sends it, and the upload grant is signed over that length and
+// that digest, so the store itself refuses any other bytes. An asset whose
+// bytes never arrive keeps its row until expiry sweeps it, and confirming
+// such an upload fails because nothing is in the bucket.
 func (repository *AssetRepository) Register(ctx context.Context, asset domain.Asset) error {
 	_, err := repository.assets.InsertOne(ctx, toAssetDocument(asset))
 	return err
@@ -73,27 +78,6 @@ func (repository *AssetRepository) FindByID(ctx context.Context, id string) (dom
 // Complete records what storage actually accepted. Size, checksum and
 // duration are written here and nowhere else: they are the server's own
 // account of the bytes, and every gate downstream counts against them.
-func (repository *AssetRepository) Complete(
-	ctx context.Context,
-	id string,
-	size int64,
-	duration time.Duration,
-	checksum domain.Checksum,
-) error {
-	result, err := repository.assets.UpdateOne(ctx,
-		bson.M{"_id": id, "deletedAt": bson.M{"$exists": false}},
-		bson.M{"$set": bson.M{
-			"size":              size,
-			"durationNanos":     int64(duration),
-			"checksumAlgorithm": checksum.Algorithm(),
-			"checksumValue":     checksum.Value(),
-		}})
-	if err != nil || result.MatchedCount != 1 {
-		return domain.ErrAssetUnavailable
-	}
-	return nil
-}
-
 // Delete erases the row. Retention and legal hold are enforced by the domain
 // before this is reached.
 func (repository *AssetRepository) Delete(ctx context.Context, id string) error {

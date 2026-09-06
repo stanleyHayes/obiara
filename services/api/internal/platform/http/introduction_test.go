@@ -302,3 +302,88 @@ func TestARecordingMustSayWhichQuestionItAnswers(t *testing.T) {
 		}
 	}
 }
+
+func TestBeginUploadCarriesTheRecordingsDescription(t *testing.T) {
+	// The grant is signed over the length and the digest, so the store itself
+	// refuses any other bytes. That only works if these reach the service.
+	var seen introapplication.BeginUploadRequest
+	introduction := introFixture(t, "member-1")
+	service := introServiceStub{
+		begin: func(_ context.Context, request introapplication.BeginUploadRequest) (introapplication.BeginUploadResult, error) {
+			seen = request
+			return introapplication.BeginUploadResult{Introduction: introduction}, nil
+		},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/v1/introductions", strings.NewReader(
+		`{"contentType":"audio/ogg","prompt":"arrival","sizeBytes":240000,`+
+			`"checksum":"`+strings.Repeat("A", 64)+`","durationMs":60000}`))
+	request.Header.Set("Authorization", "Bearer token")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "cmd-1")
+	response := httptest.NewRecorder()
+	introMux(t, service, introReaderStub{introduction: introduction}, "member-1").
+		ServeHTTP(response, request)
+
+	if response.Code != http.StatusCreated {
+		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+	}
+	if seen.SizeBytes != 240_000 || seen.DurationMs != 60_000 {
+		t.Fatalf("described as %#v", seen)
+	}
+	// Lower-cased on the way through: the domain's checksum is hex and a
+	// digest that differs only in case would be refused as malformed.
+	if seen.Checksum != strings.Repeat("a", 64) {
+		t.Fatalf("checksum = %q", seen.Checksum)
+	}
+}
+
+func TestAnImplausibleLengthIsRefusedAsInput(t *testing.T) {
+	// Ninety seconds is not forty kilobytes. Without its own case this fell
+	// to the default and read as a server error, which is untrue and tells
+	// the member nothing they can act on.
+	service := introServiceStub{
+		begin: func(context.Context, introapplication.BeginUploadRequest) (introapplication.BeginUploadResult, error) {
+			return introapplication.BeginUploadResult{}, introapplication.ErrImplausibleRecording
+		},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/v1/introductions", strings.NewReader(
+		`{"contentType":"audio/ogg","prompt":"arrival","sizeBytes":40000,`+
+			`"checksum":"`+strings.Repeat("a", 64)+`","durationMs":90000}`))
+	request.Header.Set("Authorization", "Bearer token")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", "cmd-1")
+	response := httptest.NewRecorder()
+	introMux(t, service, introReaderStub{}, "member-1").ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422: %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "durationMs") {
+		t.Fatalf("the member was not told which field: %s", response.Body.String())
+	}
+}
+
+func TestConfirmingBytesThatNeverArrivedSaysSo(t *testing.T) {
+	// A recording marked ready whose bytes never left the phone would 404 at
+	// the bucket on every play, which reads as a broken product rather than
+	// a failed upload.
+	introduction := introFixture(t, "member-1")
+	service := introServiceStub{
+		confirm: func(context.Context, string, string) (introdomain.Introduction, error) {
+			return introdomain.Introduction{}, introapplication.ErrUploadNotArrived
+		},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/v1/introductions/introduction_1/uploaded", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	request.Header.Set("Idempotency-Key", "cmd-1")
+	response := httptest.NewRecorder()
+	introMux(t, service, introReaderStub{introduction: introduction}, "member-1").
+		ServeHTTP(response, request)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409: %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "recording_not_arrived") {
+		t.Fatalf("body = %s", response.Body.String())
+	}
+}

@@ -667,7 +667,10 @@ func run() error {
 			onboardingConsentModule.Consents,
 			mediaModule.Access,
 			mediaModule.Assets,
-			mediaModule.Assets,
+			// The eraser, not the asset row repository. The row repository's
+			// Delete marks the row and leaves the audio in the bucket, so
+			// withdrawing a recording used to keep the recording.
+			media.NewEraser(mediaModule.Assets, mediaModule.Objects),
 			introductionLadderBridge{tiers: identityModule.Tiers, log: slog.Default()},
 			cfg.LivenessHMACSecret,
 		)

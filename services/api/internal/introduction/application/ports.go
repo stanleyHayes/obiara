@@ -9,6 +9,16 @@ import (
 )
 
 var (
+	// ErrImplausibleRecording refuses a claimed length that could not have
+	// come from the bytes being uploaded. Nothing here can decode audio, so
+	// the length is the client's word; the twenty seconds that arm a sow are
+	// counted against it, so the word is bounded rather than taken.
+	ErrImplausibleRecording = errors.New("that recording's length does not fit its size")
+	// ErrUploadNotArrived reports a confirmation for bytes that are not in
+	// storage. It is separate from "not found" because the introduction does
+	// exist; what is missing is the recording, and only that is something a
+	// member can put right by uploading again.
+	ErrUploadNotArrived      = errors.New("that recording has not arrived in storage")
 	ErrNotFound              = errors.New("voice introduction not found")
 	ErrOptimisticConflict    = errors.New("voice introduction changed")
 	ErrCommandAlreadyUsed    = errors.New("voice introduction command already used")
@@ -46,7 +56,12 @@ type UploadAccess struct {
 }
 
 type MediaManager interface {
-	AuthorizeUpload(context.Context, string, string, string) (UploadAccess, error)
+	// AuthorizeUpload registers the recording and returns a grant to send its
+	// bytes. It takes the MediaRef whole rather than three strings: the
+	// previous signature was (subjectID, assetID, contentType) and was called
+	// with (ownerID, introductionID, assetID), so it looked the asset up by
+	// the introduction's id and threw the real one away as a content type.
+	AuthorizeUpload(context.Context, string, domain.MediaRef) (UploadAccess, error)
 	Inspect(context.Context, string) (domain.MediaRef, error)
 	Delete(context.Context, string) error
 }
