@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+// MemberKeyNamespace is the namespace every member id is keyed under in this
+// context — owners, recipients and actors alike.
+//
+// It is a constant rather than a literal at each call site because anything
+// outside this package that needs to match a stored recipient key has to key
+// the same way, and a namespace that drifts by one character does not error:
+// it silently matches nobody.
+const MemberKeyNamespace = "seed-pod:member"
+
 //go:generate mockgen -source=ports.go -destination=mock_ports_test.go -package=application
 type Repository interface {
 	Create(context.Context, domain.Pod) error

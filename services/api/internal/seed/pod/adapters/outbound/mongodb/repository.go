@@ -156,3 +156,27 @@ func (r *Repository) ForRecipient(ctx context.Context, recipientKey string, at t
 	}
 	return pods, cursor.Err()
 }
+
+// HoldsFor reports whether an active, unexpired pod carrying this recording
+// is resting for this recipient.
+//
+// It is the question the media context asks before it will hand a recipient a
+// grant to hear what is inside a pod. It is deliberately narrower than "was
+// this ever sent to you": a pod that was taken back or has closed is not
+// resting at anybody's house front, and a grant minted for one would let
+// somebody hear a recording after the moment for hearing it had passed.
+func (r *Repository) HoldsFor(ctx context.Context, recipientKey, mediaRef string, at time.Time) (bool, error) {
+	err := r.c.FindOne(ctx, bson.M{
+		"recipientKeys": recipientKey,
+		"mediaRef":      mediaRef,
+		"status":        domain.StatusActive,
+		"expiresAt":     bson.M{"$gt": at.UTC()},
+	}, options.FindOne().SetProjection(bson.M{"_id": 1})).Err()
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}

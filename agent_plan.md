@@ -4622,3 +4622,102 @@ go red.
 
 **Still not composed.** Fixing the contract does not build the surface. `seed/water`
 remains orphaned; composing it is its own task, and it is now safe to do.
+
+## §63 — Nobody could hear anybody
+
+The largest finding since the blocks one, and like that one it was found by
+composing real pieces rather than by reading either of them.
+
+`internal/media` authorizes every read through an `AccessPolicy`. Exactly one
+policy was ever composed: `ownerpolicy`, whose rule is that a member may read
+their own media and nobody else's. Its own doc comment says the sharing case
+is "a separate decision made by the introduction and listening contexts, which
+mint their own grants".
+
+Those contexts do not mint their own grants. Both of them call
+`AccessService.RequestRead`, which calls that same policy.
+
+```
+--- FAIL: TestARecipientCanHearWhatWasLeftForThem
+    a recipient could not hear the pod left for them: media access denied
+--- FAIL: TestAMemberCanHearAnotherMembersVoiceOfIntroduction
+    a member could not hear another member's voice: media access denied
+```
+
+Two live consequences, both in what §59–§60 shipped:
+
+**A pod could be listed and never opened.** The house front reads what is
+resting for a member and offers one action. That action asks for a grant
+naming the recipient; the recording belongs to the sower; owner-only refuses.
+The whole delivery chain — sow, screening, review, release, pod, house front
+— ended in `media access denied` at the last step.
+
+**No member could hear another member's Voice of Introduction.** FR-202 arms a
+sow only after twenty seconds of the other person's voice. If a grant to hear
+that voice cannot be obtained, the gate can never be satisfied, and no sow is
+ever possible. In a product whose whole premise is that people meet through
+their voices, nobody could hear anybody.
+
+Neither context's own tests could catch it: the pod service mocks its
+`MediaIssuer`, and the media policy's tests assert owner-only is owner-only —
+which it is. The defect lives only in the sentence "and that is the only
+policy composed", which no test said out loud until this one.
+
+### The fix
+
+`sharingpolicy`, which keeps ownerpolicy's floor and adds, **per purpose**, a
+named entitlement that has to say yes:
+
+- the owner is admitted under any allowed purpose, and is never asked to prove
+  an entitlement to their own voice;
+- a non-owner is admitted only under a purpose that has an entitlement, and
+  only when it answers yes;
+- a purpose with no entitlement — or a nil one — stays owner-only, so a
+  purpose somebody adds later and forgets to wire closes rather than opens;
+- sharing is reading. An entitlement says who may hear a recording; it must
+  never also say who may upload as its owner.
+
+Two entitlements, at the composition root:
+
+**`podRecipientEntitlement`** — is a pod carrying this recording resting for
+this listener *now*? Not "was it ever sent to you": a pod taken back or closed
+is at nobody's house front, and a grant minted for one would let somebody hear
+a recording after the moment for hearing it had passed. Plus the block check,
+because a media grant that ignored blocks would be a way around every other
+place the rule is applied.
+
+**`voiceOfIntroductionEntitlement`** — a block in either direction, and
+nothing else. This is the recording people meet each other through, so the
+question is not who was invited to hear it but who has not been shut out. It
+is the same rule the listening surface already applies.
+
+### A bug caught on the way
+
+The first draft of the pod entitlement keyed the listener under `"participant"`.
+The pod context keys members under `"seed-pod:member"`. A namespace that drifts
+by one character does not error — it silently matches nobody, and the fix would
+have looked exactly like the bug. The literal is now
+`podapplication.MemberKeyNamespace`, used at all four call sites and by the
+bridge, so there is one place for it to be wrong.
+
+### The composition order this forced
+
+The media policy has to be able to ask the pod store whether somebody is a
+recipient, and the pod module needs the media access service to mint grants.
+The cycle is broken by building the pod repository and keyer — neither of
+which depends on media — before the media module, and handing the same
+repository to both.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| MED-01  | A composed test proving the delivery chain ends in a refusal      | DONE   |
+| MED-02  | `sharingpolicy`: owner floor, per-purpose entitlement, read-only  | DONE   |
+| MED-03  | Pod recipients may hear what is resting for them                  | DONE   |
+| MED-04  | A member may hear another's Voice of Introduction unless blocked  | DONE   |
+| MED-05  | One constant for the pod's member key namespace                   | DONE   |
+
+`ownerpolicy` is deleted rather than kept beside the new one.
+`sharingpolicy.New(purposes, nil)` is exactly it — the same owner floor, the
+same closed purpose list, the same refusal for an unlisted purpose — so
+keeping both would be two places for the same rule to be stated and one place
+for them to disagree. Its two tests moved across with their reasons intact.

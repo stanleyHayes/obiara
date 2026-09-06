@@ -56,14 +56,14 @@ func (s Service) Create(ctx context.Context, c Command, p Proposal) (Result, err
 	if err := s.a.Require(ctx, c.ActorID, "seed.pod.create", ""); err != nil {
 		return Result{}, ErrNotAvailable
 	}
-	owner, err := s.key("seed-pod:member", p.OwnerID)
+	owner, err := s.key(MemberKeyNamespace, p.OwnerID)
 	if err != nil {
 		return Result{}, err
 	}
 
 	recipients := make([]string, 0, len(p.RecipientIDs))
 	for _, id := range p.RecipientIDs {
-		x, e := s.key("seed-pod:member", id)
+		x, e := s.key(MemberKeyNamespace, id)
 		if e != nil {
 			return Result{}, e
 		}
@@ -103,7 +103,7 @@ func (s Service) Playback(ctx context.Context, c Command) (Result, error) {
 	if err = s.e.Revalidate(ctx, c.ActorID, p.ID()); err != nil {
 		return Result{}, ErrNotAvailable
 	}
-	actor, err := s.key("seed-pod:member", c.ActorID)
+	actor, err := s.key(MemberKeyNamespace, c.ActorID)
 	if err != nil {
 		return Result{}, err
 	}
@@ -166,7 +166,7 @@ func (s Service) Resting(ctx context.Context, memberID string, limit int) ([]dom
 	if err := s.a.Require(ctx, memberID, "seed.pod.playback", ""); err != nil {
 		return nil, ErrNotAvailable
 	}
-	key, err := s.key("seed-pod:member", memberID)
+	key, err := s.key(MemberKeyNamespace, memberID)
 	if err != nil {
 		return nil, err
 	}

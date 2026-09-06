@@ -82,6 +82,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/media"
 	mediamongo "github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/objectstore"
+	"github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/sharingpolicy"
 	mediaapplication "github.com/stanleyHayes/obiara/services/api/internal/media/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
@@ -110,6 +111,8 @@ import (
 	listeningapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/listening/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/pod"
 	podmongo "github.com/stanleyHayes/obiara/services/api/internal/seed/pod/adapters/outbound/mongodb"
+	podprivacy "github.com/stanleyHayes/obiara/services/api/internal/seed/pod/adapters/outbound/privacy"
+	podapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/pod/application"
 	poddomain "github.com/stanleyHayes/obiara/services/api/internal/seed/pod/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/reviewdesk"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/screening"
@@ -613,6 +616,15 @@ func run() error {
 	// accepts a member's two-minute take and drops it is worse than a surface
 	// that is plainly absent.
 	if cfg.ObjectStorage.Configured() {
+		// The pod store and its keyer are built before media, because the
+		// media policy has to be able to ask them whether a listener is a
+		// recipient. The pod module below reaches the same collection; this
+		// is the same repository, not a second one.
+		podRepository := podmongo.NewRepository(client.Database(cfg.MongoDatabase))
+		podKeyer, podKeyerErr := podprivacy.NewKeyer([]byte(cfg.SeedHMACSecret))
+		if podKeyerErr != nil {
+			return fmt.Errorf("build pod keyer: %w", podKeyerErr)
+		}
 		mediaModule, mediaErr := media.NewModule(
 			ctx,
 			client.Database(cfg.MongoDatabase),
@@ -625,6 +637,21 @@ func run() error {
 				PathStyle: cfg.ObjectStorage.PathStyle,
 			},
 			[]string{introduction.ConsentPurposeID, poddomain.PlaybackPurposeID},
+			// Who, other than the owner, may hear a recording. Without these
+			// the only policy is owner-only, and in a product where people
+			// meet through their voices nobody can hear anybody: a pod rests
+			// at a house front and will not open, and the listen gate that
+			// arms a sow can never be satisfied. See agent_plan.md §63.
+			map[string]sharingpolicy.Entitlement{
+				poddomain.PlaybackPurposeID: podRecipientEntitlement{
+					pods: podRepository, keyer: podKeyer,
+					blocks: sproutBlockBridge{safety: safetyModule.Safety},
+					now:    time.Now,
+				},
+				introduction.ConsentPurposeID: voiceOfIntroductionEntitlement{
+					blocks: sproutBlockBridge{safety: safetyModule.Safety},
+				},
+			},
 		)
 		if mediaErr != nil {
 			return fmt.Errorf("build media module: %w", mediaErr)
@@ -680,7 +707,6 @@ func run() error {
 		// The pod is the last step: a released sow is delivered by being
 		// placed at the recipient's house front. Its eligibility check is
 		// the block rule applied everywhere else two members meet.
-		podRepository := podmongo.NewRepository(client.Database(cfg.MongoDatabase))
 		podModule, podErr := pod.NewModule(
 			ctx,
 			client.Database(cfg.MongoDatabase),
@@ -1268,4 +1294,64 @@ func (bridge safeguardingBridge) Assess(ctx context.Context, commandID, subjectI
 		return verificationapplication.ErrBelowMinimumAge
 	}
 	return verificationapplication.ErrAgeGateUnavailable
+}
+
+// podRecipientEntitlement lets somebody hear what was left for them.
+//
+// A pod's recipients are keyed, as people should be, so this keys the
+// listener the same way rather than asking the pod to name anybody. The
+// question it answers is narrow on purpose: not "was this ever sent to you"
+// but "is it resting for you now" — a pod that was taken back or has closed
+// is not at anybody's house front, and a grant minted for one would let
+// somebody hear a recording after the moment for hearing it had passed.
+//
+// The block check is here for the same reason it is on the open path: two
+// people who have decided to be apart do not hear each other, and a media
+// grant that ignored that would be a way around every other place the rule is
+// applied.
+type podRecipientEntitlement struct {
+	pods   *podmongo.Repository
+	keyer  *podprivacy.Keyer
+	blocks sproutBlockBridge
+	now    func() time.Time
+}
+
+func (e podRecipientEntitlement) MayHear(
+	ctx context.Context, listenerID, ownerID, assetID string,
+) (bool, error) {
+	blocked, err := e.blocks.Blocked(ctx, listenerID, ownerID)
+	if err != nil || blocked {
+		return false, err
+	}
+	recipientKey, err := e.keyer.Key(podapplication.MemberKeyNamespace, listenerID)
+	if err != nil {
+		return false, err
+	}
+	return e.pods.HoldsFor(ctx, recipientKey, assetID, e.now())
+}
+
+// voiceOfIntroductionEntitlement lets one member hear another's Voice of
+// Introduction.
+//
+// This is the recording people meet each other through, so the rule is not
+// who was invited to hear it — it is who has not been shut out. A block in
+// either direction is the whole of it, which is the same rule the listening
+// surface already applies (listeningBlockBridge) and the same one the sow
+// path applies before it will let anybody reach.
+//
+// The media context has already established that the asset exists, is not
+// deleted, is available now, and is being asked for under the introduction
+// purpose. What is left for this to decide is the part about the two people.
+type voiceOfIntroductionEntitlement struct {
+	blocks sproutBlockBridge
+}
+
+func (e voiceOfIntroductionEntitlement) MayHear(
+	ctx context.Context, listenerID, ownerID, _ string,
+) (bool, error) {
+	blocked, err := e.blocks.Blocked(ctx, listenerID, ownerID)
+	if err != nil {
+		return false, err
+	}
+	return !blocked, nil
 }
