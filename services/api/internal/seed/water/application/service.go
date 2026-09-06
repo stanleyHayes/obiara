@@ -18,7 +18,14 @@ var (
 
 type Command struct {
 	ID, WaterID, ActorID, ReasonCode string
-	ExpectedRevision                 uint64
+	// CounterpartID is the other member of this water, raw.
+	//
+	// It is asked for rather than read off the aggregate because the
+	// aggregate holds keys, and the consent check speaks raw ids. It cannot
+	// be lied about: it has to key to a member of this water and it has to
+	// be somebody other than the actor.
+	CounterpartID    string
+	ExpectedRevision uint64
 }
 type StartProposal struct{ FirstMemberID, SecondMemberID string }
 type Result struct {
@@ -89,8 +96,14 @@ func (s Service) Water(ctx context.Context, c Command) (Result, error) {
 	if e != nil || !current.IsMember(actor) {
 		return Result{}, ErrNotAvailable
 	}
-	members := current.Members()
-	if e = s.c.Revalidate(ctx, members[0], members[1]); e != nil {
+	// The consent check takes raw ids. Handing it the aggregate's keys, as
+	// this did, compared them against nothing: every block placed after the
+	// water started passed silently (agent_plan.md §62).
+	counterpart, e := s.key(c.CounterpartID)
+	if e != nil || counterpart == actor || !current.IsMember(counterpart) {
+		return Result{}, ErrNotAvailable
+	}
+	if e = s.c.Revalidate(ctx, c.ActorID, c.CounterpartID); e != nil {
 		return Result{}, ErrNotAvailable
 	}
 	replay := current.HasCommand(c.ID)

@@ -15,8 +15,18 @@ type Repository interface {
 type Authorizer interface {
 	Require(context.Context, string, string, string) error
 }
+
+// PairConsent asks whether these two people may still be brought together —
+// a block, a withdrawal, anything that has happened since the water started.
+//
+// Both arguments are RAW member ids, never the water's keys. The water keys
+// its members under its own secret, so a key handed to this port would be
+// compared against nothing and every call would silently pass. That is what
+// used to happen on the mutual step (agent_plan.md §62): Start passed raw ids
+// and Water passed keys, so a block placed after the water began was never
+// honoured.
 type PairConsent interface {
-	Revalidate(context.Context, string, string) error
+	Revalidate(ctx context.Context, memberID, otherMemberID string) error
 }
 type Keyer interface {
 	Key(string, string) (string, error)

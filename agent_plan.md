@@ -4565,3 +4565,60 @@ ordering. Verified by removing the call and watching all eight go red.
 
 **Contract note:** `targetId` is required on `SowInput`. No client sends sows
 yet — the composer (S-22) is still unbuilt — so nothing in flight breaks.
+
+## §62 — The mutual water asked consent about keys, not about people
+
+Left open at §60 as a decision to surface; taken here, because there is only
+one answer that is not a silent failure.
+
+`seed/water` is the mutual gesture: two people water a seed, and the second
+watering opens the room. `PairConsent.Revalidate` is what asks, at each step,
+whether these two may still be brought together — a block, a withdrawal,
+anything that happened since.
+
+`Start` passed **raw member ids**. `Water` passed `current.Members()`, which
+are the water's own HMAC keys. Any implementation of the port keys its own
+arguments, because that is how a context looks a member up — so on the mutual
+step it would have keyed a key, compared it against nothing, found nothing,
+and returned "no consent problem". Every block placed between the first water
+and the second would have passed.
+
+### The decision
+
+**The port speaks raw ids, in both places, and says so.** A one-way digest
+cannot be undone, so `Water` cannot recover the counterpart from the
+aggregate. It asks the caller for it instead — `Command.CounterpartID` — and
+refuses unless that id keys to a member of this water and is somebody other
+than the actor. The caller cannot lie about who they are watering with, and
+raw ids still never touch disk.
+
+The alternative, giving the safety context a way to speak the water's key
+space, would mean one HMAC secret shared across contexts. That is the thing
+the per-context keyers exist to prevent.
+
+### Why this was latent rather than live
+
+`seed/water` is not composed: no module, no routes, no reference from
+`main.go`. Nothing was broken in production. What was there was a trap — the
+port's contract was carried in nobody's head, and the first person to compose
+it would have shipped a block that does not block.
+
+The port's doc comment now states which of the two it takes, so the next
+reader does not have to reconstruct it from call sites.
+
+### What proves it
+
+`TestTheConsentCheckIsAskedAboutPeople` reads back what the port was asked and
+fails on keys. `TestARefusedPairNeverWaters` proves a refusal opens no room and
+appends nothing. `TestACounterpartWhoIsNotInThisWaterIsRefused` covers naming a
+stranger and naming yourself. Verified by restoring the keyed call: two tests
+go red.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| WAT-01  | `PairConsent` takes raw member ids, documented at the port        | DONE   |
+| WAT-02  | The mutual step names its counterpart and checks it against the water | DONE |
+| WAT-03  | Tests that fail on keys, on a refusal, and on a wrong counterpart | DONE   |
+
+**Still not composed.** Fixing the contract does not build the surface. `seed/water`
+remains orphaned; composing it is its own task, and it is now safe to do.
