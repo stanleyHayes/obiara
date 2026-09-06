@@ -26,6 +26,9 @@ type Config struct {
 	LivenessHMACSecret     string
 	VerificationHMACSecret string
 	ObjectStorage          ObjectStorage
+	// MobileMoney selects the collection provider. Absent means nothing in
+	// the product can be bought.
+	MobileMoney            MobileMoney
 	AdminConsoleURL        string
 	CommerceHMACSecret     string
 	AdminHMACSecret        string
@@ -84,6 +87,7 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 			"obiara-local-verification-key-change-before-production",
 		),
 		ObjectStorage: loadObjectStorage(getenv),
+		MobileMoney:   loadMobileMoney(getenv),
 		CommerceHMACSecret: valueOrDefault(
 			getenv("COMMERCE_HMAC_SECRET"),
 			"obiara-local-commerce-key-change-before-production",

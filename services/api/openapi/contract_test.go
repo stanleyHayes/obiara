@@ -248,8 +248,11 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// 215 adds the organizations: list, register, suspend, restore, rename.
 	// A discount code needs an issuer to hang off, and an audit trail needs
 	// somebody to name.
-	if len(seen) != 215 {
-		t.Errorf("operationId count = %d, want 215", len(seen))
+	// 217 adds buying a membership and the provider's callback. Before them
+	// membership.Service.Grant had no callers at all, so no pass could exist
+	// and nothing in the product could be bought.
+	if len(seen) != 217 {
+		t.Errorf("operationId count = %d, want 217", len(seen))
 	}
 }
 

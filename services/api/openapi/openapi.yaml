@@ -2791,6 +2791,108 @@ paths:
           $ref: "#/components/responses/VerificationRejected"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/membership/purchases:
+    post:
+      operationId: startMembershipPurchase
+      tags: [Commerce]
+      summary: Buy a membership
+      security:
+        - MemberBearer: []
+      description: |
+        Prices the pass from a published catalogue SKU, opens a mobile money
+        collection and asks the provider to prompt the member's phone. It
+        answers 202: the prompt is on its way and nothing has been paid yet.
+
+        **No pass is granted here.** A member who never approves the prompt has
+        not paid, and the only thing that says otherwise is the provider's
+        signed callback. One payment covers thirty days, with a week of grace
+        after it lapses.
+
+        The phone number is keyed before it is stored and never written down as
+        given, so a payment row is not a contact directory.
+
+        Present only when a collection provider is configured. Without one
+        there is no way to take money and the route is absent rather than
+        failing.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MembershipPurchaseInput"
+      responses:
+        "202":
+          description: The prompt is on its way. Nothing is paid yet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MembershipPurchaseEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          description: |
+            The request is incomplete, or the SKU is not a published cedi
+            membership (`not_purchasable`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: The provider could not be reached (`payment_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /v1/payments/momo/callback:
+    post:
+      operationId: mobileMoneyCallback
+      tags: [Commerce]
+      summary: The provider reports a payment outcome
+      description: |
+        Called by the mobile money provider, not by a member, and carries no
+        session: it is authenticated by an HMAC over the whole payload which
+        the payment context verifies itself.
+
+        A success grants the membership pass and books the sale through the
+        double-entry ledger. A reversal cancels a pass already granted rather
+        than removing it, so the trail shows granted-then-cancelled instead of
+        a pass that quietly vanished.
+
+        Answers 204 for anything it could act on, including a callback it has
+        already seen: providers retry, the payment context is idempotent by
+        callback id, and an error on a retry only makes them retry harder.
+
+        A rejection says nothing about why. A bad signature and an unknown
+        intent answer identically, or this would be a way to probe which
+        intents exist.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileMoneyCallbackInput"
+      responses:
+        "204":
+          description: Accepted, or already settled.
+        "400":
+          description: The callback could not be accepted (`callback_rejected`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/members/{memberId}/voice:
     get:
       operationId: hearMemberVoice
@@ -9947,6 +10049,72 @@ components:
           $ref: "#/components/schemas/PodData"
         meta:
           $ref: "#/components/schemas/Metadata"
+    MembershipPurchaseInput:
+      type: object
+      additionalProperties: false
+      required: [skuId, skuVersion, phone]
+      properties:
+        skuId:
+          type: string
+          description: A published catalogue SKU priced in GHS.
+        skuVersion:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            The version being bought. Naming it means a price change mid-flow
+            cannot silently charge a member a number they never saw.
+        phone:
+          type: string
+          minLength: 8
+          maxLength: 20
+          description: |
+            The number the provider prompts. Keyed before it is stored and
+            never written down as given.
+    MembershipPurchaseEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/MembershipPurchase"
+    MembershipPurchase:
+      type: object
+      additionalProperties: false
+      required: [purchaseId, status, amountPesewas]
+      properties:
+        purchaseId:
+          type: string
+        status:
+          type: string
+          description: Where the collection has got to. Never "paid" here.
+        amountPesewas:
+          type: integer
+          format: int64
+          description: |
+            What the member is about to be asked for, echoed back so a client
+            shows the real number rather than one it assumed.
+    MobileMoneyCallbackInput:
+      type: object
+      additionalProperties: false
+      required: [callbackId, intentId, providerRef, success, occurredAt, signature]
+      properties:
+        callbackId:
+          type: string
+          description: What makes a retried callback settle once.
+        intentId:
+          type: string
+        providerRef:
+          type: string
+        success:
+          type: boolean
+        occurredAt:
+          type: integer
+          format: int64
+          description: Unix seconds, signed into the payload.
+        signature:
+          type: string
+          description: HMAC over the payload. This is the whole authentication.
     MemberVoiceEnvelope:
       type: object
       additionalProperties: false

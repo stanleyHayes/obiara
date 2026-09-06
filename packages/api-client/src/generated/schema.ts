@@ -3023,6 +3023,40 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/membership/purchases": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Buy a membership
+     * @description Prices the pass from a published catalogue SKU, opens a mobile money
+     *     collection and asks the provider to prompt the member's phone. It
+     *     answers 202: the prompt is on its way and nothing has been paid yet.
+     *
+     *     **No pass is granted here.** A member who never approves the prompt has
+     *     not paid, and the only thing that says otherwise is the provider's
+     *     signed callback. One payment covers thirty days, with a week of grace
+     *     after it lapses.
+     *
+     *     The phone number is keyed before it is stored and never written down as
+     *     given, so a payment row is not a contact directory.
+     *
+     *     Present only when a collection provider is configured. Without one
+     *     there is no way to take money and the route is absent rather than
+     *     failing.
+     */
+    readonly post: operations["startMembershipPurchase"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/membership/refunds": {
     readonly parameters: {
       readonly query?: never;
@@ -3235,6 +3269,41 @@ export interface paths {
     readonly get: operations["getOnboardingStatus"];
     readonly put?: never;
     readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/payments/momo/callback": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * The provider reports a payment outcome
+     * @description Called by the mobile money provider, not by a member, and carries no
+     *     session: it is authenticated by an HMAC over the whole payload which
+     *     the payment context verifies itself.
+     *
+     *     A success grants the membership pass and books the sale through the
+     *     double-entry ledger. A reversal cancels a pass already granted rather
+     *     than removing it, so the trail shows granted-then-cancelled instead of
+     *     a pass that quietly vanished.
+     *
+     *     Answers 204 for anything it could act on, including a callback it has
+     *     already seen: providers retry, the payment context is idempotent by
+     *     callback id, and an error on a retry only makes them retry harder.
+     *
+     *     A rejection says nothing about why. A bad signature and an unknown
+     *     intent answer identically, or this would be a way to probe which
+     *     intents exist.
+     */
+    readonly post: operations["mobileMoneyCallback"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -5525,6 +5594,35 @@ export interface components {
       readonly data: components["schemas"]["MembershipData"];
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly MembershipPurchase: {
+      /**
+       * Format: int64
+       * @description What the member is about to be asked for, echoed back so a client
+       *     shows the real number rather than one it assumed.
+       */
+      readonly amountPesewas: number;
+      readonly purchaseId: string;
+      /** @description Where the collection has got to. Never "paid" here. */
+      readonly status: string;
+    };
+    readonly MembershipPurchaseEnvelope: {
+      readonly data: components["schemas"]["MembershipPurchase"];
+    };
+    readonly MembershipPurchaseInput: {
+      /**
+       * @description The number the provider prompts. Keyed before it is stored and
+       *     never written down as given.
+       */
+      readonly phone: string;
+      /** @description A published catalogue SKU priced in GHS. */
+      readonly skuId: string;
+      /**
+       * Format: int64
+       * @description The version being bought. Naming it means a price change mid-flow
+       *     cannot silently charge a member a number they never saw.
+       */
+      readonly skuVersion: number;
+    };
     readonly MemberVoice: {
       readonly memberId: string;
       /**
@@ -5565,6 +5663,20 @@ export interface components {
     };
     readonly Metadata: {
       readonly correlationId: components["schemas"]["CorrelationId"];
+    };
+    readonly MobileMoneyCallbackInput: {
+      /** @description What makes a retried callback settle once. */
+      readonly callbackId: string;
+      readonly intentId: string;
+      /**
+       * Format: int64
+       * @description Unix seconds, signed into the payload.
+       */
+      readonly occurredAt: number;
+      readonly providerRef: string;
+      /** @description HMAC over the payload. This is the whole authentication. */
+      readonly signature: string;
+      readonly success: boolean;
     };
     readonly NominationData: {
       /** Format: date-time */
@@ -13792,6 +13904,59 @@ export interface operations {
       };
     };
   };
+  readonly startMembershipPurchase: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MembershipPurchaseInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The prompt is on its way. Nothing is paid yet. */
+      readonly 202: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MembershipPurchaseEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      /**
+       * @description The request is incomplete, or the SKU is not a published cedi
+       *     membership (`not_purchasable`).
+       */
+      readonly 422: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description The provider could not be reached (`payment_unavailable`). */
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
   readonly requestOwnMembershipRefund: {
     readonly parameters: {
       readonly query?: never;
@@ -14232,6 +14397,42 @@ export interface operations {
         };
       };
       readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly mobileMoneyCallback: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["MobileMoneyCallbackInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Accepted, or already settled. */
+      readonly 204: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The callback could not be accepted (`callback_rejected`). */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly viewVault: {

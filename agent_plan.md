@@ -5228,8 +5228,8 @@ the real blocker on every commercial feature, not only this one.
 | Phase | Deliverable                                          | Status  |
 | ----- | ---------------------------------------------------- | ------- |
 | P0    | `internal/organization` context                      | DONE    |
-| P1    | `commerce/promotion`: discount codes                 | BLOCKED — nothing can be bought |
-| P2    | Affiliate codes and qualified-conversion accrual     | BLOCKED — same, and downstream of P1 |
+| P1    | `commerce/promotion`: discount codes                 | UNBLOCKED by §73 |
+| P2    | Affiliate codes and qualified-conversion accrual     | PLANNED — two decisions open |
 | P3    | MoMo payouts, affiliate KYC, withholding, clawback   | PLANNED |
 | P4    | Organization-funded sponsored seats                  | DEFERRED |
 
@@ -5237,3 +5237,80 @@ the real blocker on every commercial feature, not only this one.
 neither blocks anything today: what exactly qualifies an affiliate conversion
 (recommended: Tier 1, thirty days retained, no upheld safety finding), and
 what the commission rate is given RPM-25's existing 20%/15% platform take.
+
+## §73 — A membership can be bought
+
+§72 stopped at the blocker rather than building on top of it: nothing in the
+product could be paid for, so a discount code had nothing to discount. This is
+that blocker, closed.
+
+Three decisions were put to the owner and answered: the price comes from a
+published catalogue SKU, one payment covers thirty days with a week of grace,
+and a reversal cancels the pass rather than removing it.
+
+### What was missing
+
+`internal/commerce/momo` was a complete, tested collection intent with one
+thing absent: a `Provider`. Nothing implemented it, so the context had no
+module and no composition, and `membership.Service.Grant` — the only path to a
+pass — had no callers anywhere.
+
+### What was built
+
+**`mtn`** — a real MTN Collections client. Mints and caches an access token
+(refreshed a minute early, so one cannot expire between the check and the
+request it authorizes), converts pesewas to major units with integer
+arithmetic because money and floating point do not mix, and treats only 202 as
+a sent prompt. It does not decide whether money arrived: that is the
+provider's signed callback, which the payment context verifies itself. An
+adapter reporting success here would be reporting that a prompt was sent, and
+a member who never approves a prompt has not paid.
+
+**`purchase`** — a bridge, not a context: no aggregate, no storage. The
+catalogue says what a pass costs, the payment context collects, the membership
+context grants. What was missing was anything joining them.
+
+**`systemauthority`** — the ledger's authority requires an admin session, and
+money arriving on a callback has no operator behind it. This is the narrowest
+thing that solves it: one actor, the settlement purposes only, and **no
+balance reading at all** — reading a balance is a person's act and stays
+behind the finance desk.
+
+### The decisions inside it
+
+**Nothing is granted at Start.** A 202 says the prompt is on its way. The only
+thing that says a member paid is the provider's signed callback.
+
+**Nothing raw reaches the payment context.** The phone is keyed by the payment
+context's rule, the member by the membership context's — two named methods
+rather than one namespaced `Key`, because a namespace string is a comment the
+compiler does not read, and these digests must never be interchangeable.
+
+**The callback answers 204 to a repeat.** Providers retry; an error on a retry
+only makes them retry harder. A rejection says nothing about why — a bad
+signature and an unknown intent answer identically, or this would be a way to
+probe which intents exist.
+
+**A bookkeeping failure does not un-grant a paid pass.** The member paid. A
+posting that did not land is a gap for reconciliation to find, which is what
+reconciliation is for.
+
+**Absent unless configured.** No provider credentials means no purchase route
+at all — the same rule the Voice of Introduction follows about object storage.
+A route that always failed would be worse than one plainly absent.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| PAY-01  | `MobileMoney` config, gated like object storage                   | DONE   |
+| PAY-02  | The MTN Collections adapter, with token caching and integer money | DONE   |
+| PAY-03  | `momo` module, composed only with a provider and a secret         | DONE   |
+| PAY-04  | `purchase`: price, collect, grant, book                           | DONE   |
+| PAY-05  | A system settlement authority that cannot read balances           | DONE   |
+| PAY-06  | Two routes, contract, and generated client                        | DONE   |
+
+Thirty-one tests across the adapter, the bridge, the authority and the routes.
+
+**Before this can take money:** `MOMO_BASE_URL`, `MOMO_SUBSCRIPTION_KEY`,
+`MOMO_API_USER`, `MOMO_API_KEY`, `MOMO_TARGET_ENVIRONMENT` and
+`MOMO_CALLBACK_URL` in Render, and a published membership SKU priced in GHS.
+Until then the purchase route is absent, which is honest.

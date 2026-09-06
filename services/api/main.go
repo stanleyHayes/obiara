@@ -52,8 +52,14 @@ import (
 	commerceescrow "github.com/stanleyHayes/obiara/services/api/internal/commerce/escrow"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/ledger"
 	ledgerauthority "github.com/stanleyHayes/obiara/services/api/internal/commerce/ledger/adapters/outbound/adminauthority"
+	ledgersystemauthority "github.com/stanleyHayes/obiara/services/api/internal/commerce/ledger/adapters/outbound/systemauthority"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/matchmaker"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/membership"
+	membershipprivacy "github.com/stanleyHayes/obiara/services/api/internal/commerce/membership/adapters/outbound/privacy"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/momo"
+	mtn "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/adapters/outbound/mtn"
+	momoapplication "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/purchase"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/reconciliation"
 	"github.com/stanleyHayes/obiara/services/api/internal/communityaudit"
 	communityauditauthority "github.com/stanleyHayes/obiara/services/api/internal/communityaudit/adapters/outbound/adminauthority"
@@ -850,6 +856,55 @@ func run() error {
 		identityModule.Sessions, adminPrincipalResolver, memberGate,
 	)
 	apihttp.RegisterFireRoutes(mux, fireModule.Fires, identityModule.Sessions, identityModule.Tiers, memberGate)
+	// Buying a membership. Composed only when a collection provider is
+	// configured: without one there is no way to take money, and a purchase
+	// route that always failed would be worse than a surface that is plainly
+	// absent — the same rule the Voice of Introduction follows about object
+	// storage.
+	//
+	// Until this existed, membership.Service.Grant had no callers anywhere.
+	// No pass could be created, so nothing in the product could be bought
+	// (agent_plan.md §72).
+	var purchases apihttp.Purchases
+	if cfg.MobileMoney.Configured() {
+		provider, providerErr := mtn.New(mtn.Config{
+			BaseURL:           cfg.MobileMoney.BaseURL,
+			SubscriptionKey:   cfg.MobileMoney.SubscriptionKey,
+			APIUser:           cfg.MobileMoney.APIUser,
+			APIKey:            cfg.MobileMoney.APIKey,
+			TargetEnvironment: cfg.MobileMoney.TargetEnvironment,
+			CallbackURL:       cfg.MobileMoney.CallbackURL,
+		}, time.Now)
+		if providerErr != nil {
+			return fmt.Errorf("build mobile money provider: %w", providerErr)
+		}
+		momoModule, momoErr := momo.NewModule(
+			ctx, client.Database(cfg.MongoDatabase), provider, cfg.CommerceHMACSecret)
+		if momoErr != nil {
+			return fmt.Errorf("build mobile money module: %w", momoErr)
+		}
+		// Settlement posts through a system authority rather than the admin
+		// one: money that arrives on a provider's callback has no operator
+		// standing behind it, and it must still be booked.
+		settlementLedger, ledgerErr := ledger.NewModule(ctx, client.Database(cfg.MongoDatabase),
+			ledgersystemauthority.New(), cfg.CommerceHMACSecret)
+		if ledgerErr != nil {
+			return fmt.Errorf("build settlement ledger: %w", ledgerErr)
+		}
+		purchases = purchase.New(
+			catalogModule.Catalog,
+			momoModule.Intents,
+			membershipModule.Membership,
+			purchaseKeyer{
+				members: membershipModule.Keyer,
+				secret:  []byte(cfg.CommerceHMACSecret),
+			},
+			purchase.NewSaleBook(settlementLedger.Ledger, ledgersystemauthority.Actor),
+			time.Now,
+		)
+		apihttp.RegisterPurchaseRoutes(mux, purchases, identityModule.Sessions)
+	}
+
 	apihttp.RegisterMembershipRoutes(mux, membershipModule.Membership, membershipModule.Keyer, identityModule.Sessions)
 	apihttp.RegisterMatchmakerRoutes(mux, matchmakerModule.Engagements, membershipModule.Keyer, identityModule.Sessions)
 	apihttp.RegisterEscrowRoutes(mux, escrowModule.Escrows, membershipModule.Keyer, identityModule.Sessions)
@@ -1506,4 +1561,23 @@ func (sowAssetIDs) NewID() string {
 		panic(err)
 	}
 	return "sow_asset_" + hex.EncodeToString(value)
+}
+
+// purchaseKeyer joins the two digests a purchase needs.
+//
+// They come from different contexts with different keying rules — the member
+// key is the membership context's, the phone reference is the payment
+// context's — and this is the composition root's job precisely because
+// neither context should know about the other.
+type purchaseKeyer struct {
+	members membershipprivacy.Keyer
+	secret  []byte
+}
+
+func (k purchaseKeyer) MemberKey(memberID string) (string, error) {
+	return k.members.MemberKey(memberID)
+}
+
+func (k purchaseKeyer) PhoneRef(phone string) (string, error) {
+	return momoapplication.PhoneRef(k.secret, phone)
 }
