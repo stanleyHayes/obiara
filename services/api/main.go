@@ -87,6 +87,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/sharingpolicy"
 	mediaapplication "github.com/stanleyHayes/obiara/services/api/internal/media/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
+	"github.com/stanleyHayes/obiara/services/api/internal/organization"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/delivery"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/flagcontrol"
@@ -868,6 +869,18 @@ func run() error {
 		adminPrincipalResolver,
 		time.Now,
 	)
+	// Organizations: the bodies a discount code is issued for. An operator
+	// surface, because codes are issued by staff on their behalf — see
+	// agent_plan.md §41.
+	organizationModule, err := organization.NewModule(
+		ctx, client.Database(cfg.MongoDatabase), cfg.CommerceHMACSecret,
+	)
+	if err != nil {
+		return fmt.Errorf("build organization module: %w", err)
+	}
+	apihttp.RegisterAdminOrganizationRoutes(
+		mux, organizationModule.Organizations, adminPrincipalResolver)
+
 	apihttp.RegisterAdminMatchmakerRoutes(mux, matchmakerModule.Catalog, adminPrincipalResolver)
 	apihttp.RegisterAdminEscrowRoutes(mux, escrowModule.Escrows, matchmakerModule.Engagements, adminPrincipalResolver)
 	apihttp.RegisterAdminFinanceRoutes(mux, reconciliationModule.Queries, adminPrincipalResolver)

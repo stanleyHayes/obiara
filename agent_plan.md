@@ -3282,7 +3282,7 @@ them:
 
 | Phase | Deliverable                                          | Status  |
 | ----- | ---------------------------------------------------- | ------- |
-| P0    | `internal/organization` context and org principals   | PLANNED |
+| P0    | `internal/organization` context (no principals — see §71) | DONE |
 | P1    | `commerce/promotion`: discount codes, keyed redemption | PLANNED |
 | P2    | Affiliate codes and qualified-conversion accrual     | PLANNED |
 | P3    | MoMo payouts, affiliate KYC, withholding, clawback   | PLANNED |
@@ -5118,3 +5118,65 @@ Six tests, all of which fail when the check is removed.
 **Left as it is, deliberately:** circle membership, fire attendance and the
 shared circle room. A block is a decision to be apart from a person, not a
 claim on a community.
+
+## §71 — Organizations exist (§41 Phase 0)
+
+The owner deferred §41 until the current build was done. It is, so the four
+decisions that gate Phase 0 and Phase 1 were put to them and answered:
+
+1. **Who issues a coupon?** Obiara staff, on request.
+2. **What can be discounted?** Membership passes only.
+3. **If a code leaks?** A redemption cap, and that is all.
+4. **Can members be affiliates?** No — outside parties only.
+
+The first answer is the one that shapes Phase 0. Because staff issue codes,
+**there is no organization principal and no organization sign-in** — no
+sessions for non-members, no new authz roles, no console. That was most of the
+work in the planned version and none of it is needed. Adding it later is
+additive; building it now would be a new trust boundary to defend for nobody.
+
+### What an organization is
+
+A body Obiara has a relationship with — a university, an employer, a partner
+business. It is not a member and never becomes one: no voice, no tier, no way
+into any member surface. It exists so a discount code has an issuer and an
+audit trail has somebody to name.
+
+**The operator is keyed; the billing email is not.** Who acted is a one-way
+digest, like every other trail in this codebase. The billing address is stored
+as written, because it is an organization's address and somebody has to be
+able to read it in order to send an invoice. That is the one place this
+context's rule differs from the rest, and it differs because the subject is a
+body rather than a person.
+
+**Renaming is its own action.** A code issued last year was issued by whatever
+the organization was called then, and the trail has to say so.
+
+**Suspending does not touch codes already issued.** An organization that stops
+paying its invoice is a different thing from a code that should stop working;
+whether a suspended issuer's codes still redeem is Phase 1's rule, not this
+context's, and deciding both here would decide one of them by accident.
+
+### A bug the tests found
+
+`Suspend` guarded on state before checking for a replay, so retrying a
+suspension that had already succeeded answered `ErrInvalidTransition` —
+"already suspended" — to an operator whose first request worked and whose
+connection dropped. They would suspend again to find out, which is exactly
+what idempotency exists to make unnecessary. The replay check now comes first,
+in the one method every transition goes through.
+
+**Step-up on every write, and none on the roster.** The roster holds no member
+data at all, and requiring a fresh MFA to look at a list of universities would
+train operators to step up out of habit — which is what makes step-up mean
+nothing when it matters.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| ORG-01  | The aggregate: register, suspend, restore, rename, audited        | DONE   |
+| ORG-02  | Keyed operators, a readable billing address, and why they differ  | DONE   |
+| ORG-03  | Store with command idempotency and a unique name                  | DONE   |
+| ORG-04  | Five operator routes, step-up on writes                           | DONE   |
+| ORG-05  | Contract, operation count and generated client                    | DONE   |
+
+Thirty-one tests across the domain, the service, the keyer and the surface.

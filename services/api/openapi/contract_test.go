@@ -245,8 +245,11 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// 210 adds opening a sow's recording. The only upload path in the
 	// product made a Voice of Introduction, so a sow needed a recording that
 	// could not be made.
-	if len(seen) != 210 {
-		t.Errorf("operationId count = %d, want 210", len(seen))
+	// 215 adds the organizations: list, register, suspend, restore, rename.
+	// A discount code needs an issuer to hang off, and an audit trail needs
+	// somebody to name.
+	if len(seen) != 215 {
+		t.Errorf("operationId count = %d, want 215", len(seen))
 	}
 }
 

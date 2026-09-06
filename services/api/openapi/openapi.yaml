@@ -5379,6 +5379,269 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/admin/organizations:
+    get:
+      operationId: adminListOrganizations
+      tags: [Admin]
+      summary: List the organizations
+      security:
+        - AdminBearer: []
+      description: |
+        The bodies Obiara has a commercial relationship with — a university, an
+        employer, a partner business — for whose benefit a discount code can be
+        issued.
+
+        An organization is not a member: it has no voice, no tier and no way
+        into any member surface. It does not sign in either; codes are issued
+        by staff on its behalf, which is why this is an operator surface and
+        there is no organization console.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: The roster, active first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: adminRegisterOrganization
+      tags: [Admin]
+      summary: Register an organization
+      security:
+        - AdminBearer: []
+      description: |
+        Requires a fresh MFA step-up. The audit trail is the point of this
+        record, and an entry naming an operator who had not re-asserted who
+        they were would be worth less than no entry. The operator is recorded
+        as a one-way digest.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationInput"
+      responses:
+        "201":
+          description: Registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationEnvelope"
+        "200":
+          description: The same Idempotency-Key already registered this organization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "409":
+          description: |
+            An organization with that name is already registered. Two bodies
+            with one name make the audit trail ambiguous about which of them a
+            code was issued for.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/organizations/{id}/suspend:
+    post:
+      operationId: adminSuspendOrganization
+      tags: [Admin]
+      summary: Stop an organization being used as an issuer
+      security:
+        - AdminBearer: []
+      description: |
+        Nothing new is issued in a suspended organization's name. Codes already
+        issued are not touched: an organization that stops paying its invoice
+        is a different thing from a code that should stop working.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationChangeInput"
+      responses:
+        "200":
+          description: The organization, as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "404":
+          description: No such organization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: |
+            Already in this state, changed while you were working, or the
+            command id was used for a different request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/organizations/{id}/restore:
+    post:
+      operationId: adminRestoreOrganization
+      tags: [Admin]
+      summary: Return a suspended organization to use
+      security:
+        - AdminBearer: []
+      description: Recorded as its own entry in the trail.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationChangeInput"
+      responses:
+        "200":
+          description: The organization, as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "404":
+          description: No such organization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: |
+            Already in this state, changed while you were working, or the
+            command id was used for a different request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/organizations/{id}/name:
+    put:
+      operationId: adminRenameOrganization
+      tags: [Admin]
+      summary: Record a change of name
+      security:
+        - AdminBearer: []
+      description: |
+        Its own action rather than a silent field update: a code issued last
+        year was issued by whatever the organization was called then, and the
+        trail has to say so.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrganizationChangeInput"
+      responses:
+        "200":
+          description: The organization, as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "404":
+          description: No such organization.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: |
+            Already in this state, changed while you were working, or the
+            command id was used for a different request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/admin/matchmakers:
     get:
       operationId: listAdminMatchmakers
@@ -9735,6 +9998,92 @@ components:
           description: |
             The server's account of the recording's length. The listen gate
             counts against this, not against anything the client reports.
+    OrganizationInput:
+      type: object
+      additionalProperties: false
+      required: [name, billingEmail, reasonCode]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: What the organization calls itself. Unique.
+        billingEmail:
+          type: string
+          format: email
+          maxLength: 254
+          description: |
+            Where an invoice goes. Stored as written rather than keyed,
+            because it is an organization's address and somebody has to be
+            able to read it in order to bill them.
+        reasonCode:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9_.-]{2,63}$
+          description: Why this was done, recorded in the audit trail.
+    OrganizationChangeInput:
+      type: object
+      additionalProperties: false
+      required: [reasonCode, expectedRevision]
+      properties:
+        reasonCode:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9_.-]{2,63}$
+        expectedRevision:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            The revision the operator decided against. Without it two
+            operators acting at once would both succeed and the second would
+            erase the first's audit entry.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Read only when renaming.
+    OrganizationEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Organization"
+    OrganizationListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [organizations]
+          properties:
+            organizations:
+              type: array
+              items:
+                $ref: "#/components/schemas/Organization"
+    Organization:
+      type: object
+      additionalProperties: false
+      required:
+        [organizationId, name, billingEmail, status, revision, registeredAt]
+      properties:
+        organizationId:
+          type: string
+        name:
+          type: string
+        billingEmail:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended]
+        revision:
+          type: integer
+          format: int64
+          description: Pass this back as expectedRevision to change anything.
+        registeredAt:
+          type: string
+          format: date-time
     SowInput:
       type: object
       additionalProperties: false

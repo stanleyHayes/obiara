@@ -759,6 +759,104 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/organizations": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List the organizations
+     * @description The bodies Obiara has a commercial relationship with — a university, an
+     *     employer, a partner business — for whose benefit a discount code can be
+     *     issued.
+     *
+     *     An organization is not a member: it has no voice, no tier and no way
+     *     into any member surface. It does not sign in either; codes are issued
+     *     by staff on its behalf, which is why this is an operator surface and
+     *     there is no organization console.
+     */
+    readonly get: operations["adminListOrganizations"];
+    readonly put?: never;
+    /**
+     * Register an organization
+     * @description Requires a fresh MFA step-up. The audit trail is the point of this
+     *     record, and an entry naming an operator who had not re-asserted who
+     *     they were would be worth less than no entry. The operator is recorded
+     *     as a one-way digest.
+     */
+    readonly post: operations["adminRegisterOrganization"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/organizations/{id}/name": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    /**
+     * Record a change of name
+     * @description Its own action rather than a silent field update: a code issued last
+     *     year was issued by whatever the organization was called then, and the
+     *     trail has to say so.
+     */
+    readonly put: operations["adminRenameOrganization"];
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/organizations/{id}/restore": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Return a suspended organization to use
+     * @description Recorded as its own entry in the trail.
+     */
+    readonly post: operations["adminRestoreOrganization"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/organizations/{id}/suspend": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Stop an organization being used as an issuer
+     * @description Nothing new is issued in a suspended organization's name. Codes already
+     *     issued are not touched: an organization that stops paying its invoice
+     *     is a different thing from a code that should stop working.
+     */
+    readonly post: operations["adminSuspendOrganization"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/principals": {
     readonly parameters: {
       readonly query?: never;
@@ -5572,6 +5670,53 @@ export interface components {
      */
     readonly OnboardingStepState:
       "unstarted" | "pending" | "in_review" | "passed" | "rejected";
+    readonly Organization: {
+      readonly billingEmail: string;
+      readonly name: string;
+      readonly organizationId: string;
+      /** Format: date-time */
+      readonly registeredAt: string;
+      /**
+       * Format: int64
+       * @description Pass this back as expectedRevision to change anything.
+       */
+      readonly revision: number;
+      /** @enum {string} */
+      readonly status: "active" | "suspended";
+    };
+    readonly OrganizationChangeInput: {
+      /**
+       * Format: int64
+       * @description The revision the operator decided against. Without it two
+       *     operators acting at once would both succeed and the second would
+       *     erase the first's audit entry.
+       */
+      readonly expectedRevision: number;
+      /** @description Read only when renaming. */
+      readonly name?: string;
+      readonly reasonCode: string;
+    };
+    readonly OrganizationEnvelope: {
+      readonly data: components["schemas"]["Organization"];
+    };
+    readonly OrganizationInput: {
+      /**
+       * Format: email
+       * @description Where an invoice goes. Stored as written rather than keyed,
+       *     because it is an organization's address and somebody has to be
+       *     able to read it in order to bill them.
+       */
+      readonly billingEmail: string;
+      /** @description What the organization calls itself. Unique. */
+      readonly name: string;
+      /** @description Why this was done, recorded in the audit trail. */
+      readonly reasonCode: string;
+    };
+    readonly OrganizationListEnvelope: {
+      readonly data: {
+        readonly organizations: readonly components["schemas"]["Organization"][];
+      };
+    };
     readonly OtpRequestData: {
       readonly challengeId: string;
       /** Format: date-time */
@@ -8707,6 +8852,265 @@ export interface operations {
       };
       readonly 401: components["responses"]["Unauthorized"];
       readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly adminListOrganizations: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The roster, active first. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["OrganizationListEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly adminRegisterOrganization: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["OrganizationInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The same Idempotency-Key already registered this organization. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["OrganizationEnvelope"];
+        };
+      };
+      /** @description Registered. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["OrganizationEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /**
+       * @description An organization with that name is already registered. Two bodies
+       *     with one name make the audit trail ambiguous about which of them a
+       *     code was issued for.
+       */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly adminRenameOrganization: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["OrganizationChangeInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The organization, as it now stands. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["OrganizationEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /** @description No such organization. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /**
+       * @description Already in this state, changed while you were working, or the
+       *     command id was used for a different request.
+       */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly adminRestoreOrganization: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["OrganizationChangeInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The organization, as it now stands. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["OrganizationEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /** @description No such organization. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /**
+       * @description Already in this state, changed while you were working, or the
+       *     command id was used for a different request.
+       */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly adminSuspendOrganization: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["OrganizationChangeInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The organization, as it now stands. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["OrganizationEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /** @description No such organization. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /**
+       * @description Already in this state, changed while you were working, or the
+       *     command id was used for a different request.
+       */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly listAdminPrincipals: {
