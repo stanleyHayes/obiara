@@ -357,7 +357,23 @@ func run() error {
 		return fmt.Errorf("configure seed garden privacy: %w", err)
 	}
 	gardenService := gardenapp.NewService(gardenRepository, gardenKeyer, time.Now)
-	gamePairs := circleGamePairResolver{circles: circleModule.Circles}
+	// Safety is composed before the circle games, because pairing two people
+	// into a private game is direct contact and has to honour a block.
+	// Safety intake (E12-S01): reports ride the durable outbox to queue
+	// processors.
+	safetyOutbox := outbox.NewStore(client.Database(cfg.MongoDatabase), time.Now)
+	if err := safetyOutbox.EnsureIndexes(ctx); err != nil {
+		return fmt.Errorf("ensure outbox indexes: %w", err)
+	}
+	enforcement := identityapplication.NewEnforcementService(identitymongodb.NewAccountRepository(client.Database(cfg.MongoDatabase)), time.Now)
+	safetyModule, err := safety.NewModule(ctx, client.Database(cfg.MongoDatabase), safetyOutbox, enforcement, identityModule.Sessions)
+	if err != nil {
+		return fmt.Errorf("build safety module: %w", err)
+	}
+	gamePairs := circleGamePairResolver{
+		circles: circleModule.Circles,
+		blocks:  sproutBlockBridge{safety: safetyModule.Safety},
+	}
 	owareModule, err := owaresession.NewModule(
 		ctx,
 		client.Database(cfg.MongoDatabase),
@@ -560,17 +576,6 @@ func run() error {
 	callsModule, err := calls.NewModule(ctx, client.Database(cfg.MongoDatabase), tokenIssuer)
 	if err != nil {
 		return fmt.Errorf("build calls module: %w", err)
-	}
-	// Safety intake (E12-S01): reports ride the durable outbox to queue
-	// processors.
-	safetyOutbox := outbox.NewStore(client.Database(cfg.MongoDatabase), time.Now)
-	if err := safetyOutbox.EnsureIndexes(ctx); err != nil {
-		return fmt.Errorf("ensure outbox indexes: %w", err)
-	}
-	enforcement := identityapplication.NewEnforcementService(identitymongodb.NewAccountRepository(client.Database(cfg.MongoDatabase)), time.Now)
-	safetyModule, err := safety.NewModule(ctx, client.Database(cfg.MongoDatabase), safetyOutbox, enforcement, identityModule.Sessions)
-	if err != nil {
-		return fmt.Errorf("build safety module: %w", err)
 	}
 	// Nnoboa kin nominations (E13-S06): consent invites ride the WhatsApp
 	// channel composed above.
@@ -910,10 +915,23 @@ type circleRoomAuthorizer struct {
 	}
 }
 
+// circleGamePairResolver names the other member of a two-person circle.
+//
+// Every private circle game goes through it — Ampe, Oware, Anansesem, the
+// competition — and so does every revalidation of a game already in progress.
+// It is the one place that says "these two are playing together", which makes
+// it the one place a block has to be honoured.
+//
+// Pairing is direct contact: it is the product putting two people together,
+// not two people happening to share a room. That distinction is why this
+// refuses across a block while circle membership itself does not — a block
+// should not eject somebody from a community they belong to, and it must not
+// let the product introduce them to the person they blocked.
 type circleGamePairResolver struct {
 	circles interface {
 		Get(context.Context, string, string) (circledomain.Circle, error)
 	}
+	blocks sproutBlockBridge
 }
 
 func (resolver circleGamePairResolver) Pair(ctx context.Context, circleID, actorID string) (string, error) {
@@ -933,13 +951,29 @@ func (resolver circleGamePairResolver) Pair(ctx context.Context, circleID, actor
 		}
 	}
 	if len(active) != 2 || !actorActive {
-		return "", errors.New("private game requires exactly two active circle members")
+		return "", errNoPairing
 	}
-	if active[0] == strings.TrimSpace(actorID) {
-		return active[1], nil
+	other := active[0]
+	if other == strings.TrimSpace(actorID) {
+		other = active[1]
 	}
-	return active[0], nil
+	// Refused in the same words as a circle that is not a pair, because the
+	// difference is the rejection signal a block exists to withhold. A
+	// missing check refuses too: not knowing whether these two have blocked
+	// each other is not permission to pair them.
+	if resolver.blocks.safety == nil {
+		return "", errNoPairing
+	}
+	blocked, err := resolver.blocks.Blocked(ctx, strings.TrimSpace(actorID), other)
+	if err != nil || blocked {
+		return "", errNoPairing
+	}
+	return other, nil
 }
+
+// errNoPairing reads exactly like the refusal for a circle that is not a pair,
+// on purpose.
+var errNoPairing = errors.New("private game requires exactly two active circle members")
 
 func (resolver circleGamePairResolver) RequireParticipant(ctx context.Context, roomID, actorID string) error {
 	_, err := resolver.Pair(ctx, roomID, actorID)

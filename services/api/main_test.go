@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
+
+	circledomain "github.com/stanleyHayes/obiara/services/api/internal/circle/domain"
 	"testing"
 	"time"
 
@@ -248,5 +252,156 @@ func TestAnUnreadableBlockListClosesAVoice(t *testing.T) {
 	}}
 	if mayHear, err := closed.MayHear(context.Background(), "a", "b", "asset-1"); err == nil || mayHear {
 		t.Fatalf("mayHear = %v, err = %v", mayHear, err)
+	}
+}
+
+// twoPersonCircle is a circle with exactly the two members a private game
+// needs, which is the only shape circleGamePairResolver will pair.
+type twoPersonCircle struct {
+	circle circledomain.Circle
+	err    error
+}
+
+func (c twoPersonCircle) Get(context.Context, string, string) (circledomain.Circle, error) {
+	return c.circle, c.err
+}
+
+// circleOf builds the smallest circle a private game can happen in: an owner
+// and one member. It is rehydrated through the domain rather than faked, so
+// the fixture cannot describe a circle the product could not have.
+func circleOf(t *testing.T, owner, member string) circledomain.Circle {
+	t.Helper()
+	at := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
+
+	memberships := make([]circledomain.Membership, 0, 2)
+	for id, state := range map[string]circledomain.MembershipState{
+		owner: circledomain.StateOwner, member: circledomain.StateMember,
+	} {
+		built, err := circledomain.NewMembership(id, state, at)
+		if err != nil {
+			t.Fatal(err)
+		}
+		memberships = append(memberships, built)
+	}
+
+	// Founded, asked to join, admitted.
+	steps := []struct {
+		actor, member, from string
+		to                  circledomain.MembershipState
+	}{
+		{owner, owner, "", circledomain.StateOwner},
+		{member, member, "", circledomain.StateRequested},
+		{owner, member, string(circledomain.StateRequested), circledomain.StateMember},
+	}
+	history := make([]circledomain.Transition, 0, len(steps))
+	commands := make([]circledomain.AppliedCommand, 0, len(steps))
+	for index, step := range steps {
+		revision := uint64(index + 1)
+		id := fmt.Sprintf("cmd_%d", revision)
+		transition, err := circledomain.NewTransition(
+			revision, id, step.actor, step.member, step.from, step.to, at)
+		if err != nil {
+			t.Fatal(err)
+		}
+		command, err := circledomain.NewAppliedCommand(
+			id, strings.Repeat(fmt.Sprintf("%d", index), 64), revision)
+		if err != nil {
+			t.Fatal(err)
+		}
+		history = append(history, transition)
+		commands = append(commands, command)
+	}
+
+	circle, err := circledomain.Rehydrate(circledomain.State{
+		ID: "circle_1", Type: circledomain.TypeCommunity,
+		Visibility:  circledomain.VisibilityPrivate,
+		Memberships: memberships, History: history, Commands: commands,
+		Revision: uint64(len(steps)), UpdatedAt: at,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return circle
+}
+
+func TestAPrivateCircleGamePairsTheOtherMember(t *testing.T) {
+	resolver := circleGamePairResolver{
+		circles: twoPersonCircle{circle: circleOf(t, "you", "them")},
+		blocks:  sproutBlockBridge{safety: &blocklist{}},
+	}
+	other, err := resolver.Pair(context.Background(), "circle_1", "you")
+	if err != nil || other != "them" {
+		t.Fatalf("other = %q, err = %v", other, err)
+	}
+}
+
+func TestNoPrivateGameIsPairedAcrossABlock(t *testing.T) {
+	// Pairing is direct contact: it is the product putting two people
+	// together, not two people happening to share a room. Every private
+	// circle game goes through this one resolver — Ampe, Oware, Anansesem,
+	// the competition — and so does every revalidation of a game already in
+	// progress, so this is the one place the rule has to be.
+	for name, blocked := range map[string][2]string{
+		"they blocked you": {"them", "you"},
+		"you blocked them": {"you", "them"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			resolver := circleGamePairResolver{
+				circles: twoPersonCircle{circle: circleOf(t, "you", "them")},
+				blocks: sproutBlockBridge{
+					safety: &blocklist{pairs: map[[2]string]bool{blocked: true}},
+				},
+			}
+			_, err := resolver.Pair(context.Background(), "circle_1", "you")
+			if err == nil {
+				t.Fatal("a game was paired across a block")
+			}
+			// Word for word the refusal a circle that is not a pair gets. The
+			// difference between the two is the rejection signal a block
+			// exists to withhold.
+			if err.Error() != "private game requires exactly two active circle members" {
+				t.Fatalf("the refusal named the block: %v", err)
+			}
+		})
+	}
+}
+
+func TestAnUnreadableBlockListPairsNobody(t *testing.T) {
+	resolver := circleGamePairResolver{
+		circles: twoPersonCircle{circle: circleOf(t, "you", "them")},
+		blocks:  sproutBlockBridge{safety: &blocklist{err: errors.New("safety down")}},
+	}
+	if _, err := resolver.Pair(context.Background(), "circle_1", "you"); err == nil {
+		t.Fatal("a failed check paired them anyway")
+	}
+}
+
+func TestAPairResolverWithNoBlockCheckPairsNobody(t *testing.T) {
+	// A missing check is not permission — the same rule the reach rules, the
+	// media policy and the sow's arrival check all follow.
+	resolver := circleGamePairResolver{circles: twoPersonCircle{circle: circleOf(t, "you", "them")}}
+	if _, err := resolver.Pair(context.Background(), "circle_1", "you"); err == nil {
+		t.Fatal("an uncomposed check paired them anyway")
+	}
+}
+
+func TestEveryWayIntoAGamePassesTheSameCheck(t *testing.T) {
+	// RequireParticipant, Revalidate and RevalidateAuthors all route through
+	// Pair. If one of them ever stops doing so, a game already in progress
+	// would keep running across a block placed after it started.
+	resolver := circleGamePairResolver{
+		circles: twoPersonCircle{circle: circleOf(t, "you", "them")},
+		blocks: sproutBlockBridge{
+			safety: &blocklist{pairs: map[[2]string]bool{{"you", "them"}: true}},
+		},
+	}
+	if err := resolver.RequireParticipant(context.Background(), "circle_1", "you"); err == nil {
+		t.Fatal("a blocked member was admitted to a game in progress")
+	}
+	if err := resolver.Revalidate(context.Background(), "circle_1", "you", "them"); err == nil {
+		t.Fatal("a game in progress revalidated across a block")
+	}
+	if err := resolver.RevalidateAuthors(context.Background(), "circle_1", "you", "them"); err == nil {
+		t.Fatal("co-authorship revalidated across a block")
 	}
 }

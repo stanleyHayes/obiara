@@ -5063,3 +5063,58 @@ nowhere else.
 | S-22b   | BFF routes for hearing, recording and sowing                      | DONE   |
 
 Fourteen model tests, 94 web tests green.
+
+## §70 — A private game could be played across a block
+
+The open question from §60 was "should a block exclude somebody from a shared
+space". Looking at it properly, it turns out to be two questions, and only one
+of them is a product decision.
+
+Nothing in `internal/circle/`, `internal/fire/` or `internal/games/` asks
+about blocks. But the important surface is not membership — it is
+`circleGamePairResolver.Pair`, the one function that says *these two are
+playing together*. Ampe, Oware, Anansesem and the competition all go through
+it, and so does every revalidation of a game already in progress. It asked
+only whether the circle had exactly two active members.
+
+So two people who had blocked each other could be paired into a private game,
+co-author a story together, and keep playing one already running.
+
+### The decision
+
+**A block does not eject anybody from a shared space, and it always stops a
+pairing.**
+
+The distinction is between two people *happening to share a room* and *the
+product putting them together*. A circle is a community somebody belongs to
+and a fire is a gathering; letting one member's block remove another from a
+community they belong to makes a block a weapon and punishes the blocked
+person with exclusion from things that have nothing to do with the two of
+them. Pairing is not that. Pairing is direct contact, which §55–§58 already
+settled: it honours the block.
+
+This also completes §56 rather than contradicting it. That one established
+that being in the same circle as somebody you blocked is not a reason to be
+*offered* them. This says it is not a reason to be *paired with* them either.
+
+**The refusal is word for word the one a circle that is not a pair gets.** The
+difference between the two would be the rejection signal a block exists to
+withhold.
+
+**A missing check refuses**, like the reach rules, the media policy and the
+sow's arrival check.
+
+**Safety is now composed before the circle games** in `main.go`, since the
+pairing needs it.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| BLK-01  | No private circle game is paired across a block                   | DONE   |
+| BLK-02  | Every entry point — join, revalidate, co-author — passes the same check | DONE |
+| BLK-03  | The refusal is indistinguishable from an ordinary one             | DONE   |
+
+Six tests, all of which fail when the check is removed.
+
+**Left as it is, deliberately:** circle membership, fire attendance and the
+shared circle room. A block is a decision to be apart from a person, not a
+claim on a community.
