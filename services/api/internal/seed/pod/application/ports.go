@@ -12,6 +12,10 @@ type Repository interface {
 	Find(context.Context, string) (domain.Pod, error)
 	FindByCommand(context.Context, string) (domain.Pod, error)
 	Append(context.Context, domain.Pod, uint64, string) error
+	// ForRecipient lists what is resting for one member. Without it a member
+	// can only open a pod whose id they already know, and nothing tells them
+	// — which is a house front with no door.
+	ForRecipient(ctx context.Context, recipientKey string, at time.Time, limit int) ([]domain.Pod, error)
 }
 type Authorizer interface {
 	Require(context.Context, string, string, string) error

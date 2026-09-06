@@ -152,3 +152,23 @@ func (s Service) translate(e error) error {
 	}
 	return ErrUnavailable
 }
+
+// Resting lists the pods waiting at this member's house front.
+//
+// It says what is there and nothing about who left it. The pod keys its owner
+// and this does not undo that: a member sees that something is resting for
+// them and hears who it is from by opening it, which is the whole shape of
+// the gesture.
+func (s Service) Resting(ctx context.Context, memberID string, limit int) ([]domain.Pod, error) {
+	if !s.ready() {
+		return nil, ErrUnavailable
+	}
+	if err := s.a.Require(ctx, memberID, "seed.pod.playback", ""); err != nil {
+		return nil, ErrNotAvailable
+	}
+	key, err := s.key("seed-pod:member", memberID)
+	if err != nil {
+		return nil, err
+	}
+	return s.r.ForRecipient(ctx, key, s.now(), limit)
+}

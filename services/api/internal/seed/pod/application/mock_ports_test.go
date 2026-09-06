@@ -100,6 +100,21 @@ func (mr *MockRepositoryMockRecorder) FindByCommand(arg0, arg1 any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByCommand", reflect.TypeOf((*MockRepository)(nil).FindByCommand), arg0, arg1)
 }
 
+// ForRecipient mocks base method.
+func (m *MockRepository) ForRecipient(ctx context.Context, recipientKey string, at time.Time, limit int) ([]domain.Pod, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ForRecipient", ctx, recipientKey, at, limit)
+	ret0, _ := ret[0].([]domain.Pod)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ForRecipient indicates an expected call of ForRecipient.
+func (mr *MockRepositoryMockRecorder) ForRecipient(ctx, recipientKey, at, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForRecipient", reflect.TypeOf((*MockRepository)(nil).ForRecipient), ctx, recipientKey, at, limit)
+}
+
 // MockAuthorizer is a mock of Authorizer interface.
 type MockAuthorizer struct {
 	ctrl     *gomock.Controller

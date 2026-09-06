@@ -236,8 +236,11 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// 207 adds the pod: placing one and opening one. It is the last step of
 	// the sow — until it existed, releasing a sow marked it delivered and
 	// nobody received anything.
-	if len(seen) != 207 {
-		t.Errorf("operationId count = %d, want 207", len(seen))
+	// 208 adds the house front. Without it a member could only open a pod
+	// whose id they already knew, and nothing told them — a house front with
+	// no door.
+	if len(seen) != 208 {
+		t.Errorf("operationId count = %d, want 208", len(seen))
 	}
 }
 

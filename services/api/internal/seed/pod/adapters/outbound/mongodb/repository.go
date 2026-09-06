@@ -15,7 +15,11 @@ type Repository struct{ c *mongo.Collection }
 
 func NewRepository(d *mongo.Database) *Repository { return &Repository{d.Collection("seed_pods")} }
 func (r *Repository) EnsureIndexes(ctx context.Context) error {
-	_, e := r.c.Indexes().CreateMany(ctx, []mongo.IndexModel{{Keys: bson.D{{Key: "commands.id", Value: 1}}, Options: options.Index().SetUnique(true).SetName("seed_pod_command")}, {Keys: bson.D{{Key: "expiresAt", Value: 1}, {Key: "status", Value: 1}}, Options: options.Index().SetName("seed_pod_expiry")}})
+	_, e := r.c.Indexes().CreateMany(ctx, []mongo.IndexModel{{Keys: bson.D{{Key: "commands.id", Value: 1}}, Options: options.Index().SetUnique(true).SetName("seed_pod_command")}, {Keys: bson.D{{Key: "expiresAt", Value: 1}, {Key: "status", Value: 1}}, Options: options.Index().SetName("seed_pod_expiry")}, {
+		// The house front: what is resting for me, soonest to close first.
+		Keys:    bson.D{{Key: "recipientKeys", Value: 1}, {Key: "status", Value: 1}, {Key: "expiresAt", Value: 1}},
+		Options: options.Index().SetName("seed_pod_house_front"),
+	}})
 	return e
 }
 
@@ -115,3 +119,40 @@ func event(x domain.Event) eventDoc {
 	return eventDoc{x.Sequence, x.CommandID, x.ActorKey, x.ReasonCode, x.Action, x.At}
 }
 func command(x domain.AppliedCommand) commandDoc { return commandDoc{x.ID, x.Fingerprint, x.Revision} }
+
+// ForRecipient lists the pods resting for one member, soonest to close first.
+//
+// Only active, unexpired pods: a pod that was taken back or has closed is not
+// resting at anybody's house front, and showing one would be showing
+// something that is no longer there.
+func (r *Repository) ForRecipient(ctx context.Context, recipientKey string, at time.Time, limit int) ([]domain.Pod, error) {
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+	cursor, err := r.c.Find(ctx, bson.M{
+		"recipientKeys": recipientKey,
+		"status":        domain.StatusActive,
+		"expiresAt":     bson.M{"$gt": at.UTC()},
+	}, options.Find().SetSort(bson.D{{Key: "expiresAt", Value: 1}}).SetLimit(int64(limit)))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	pods := make([]domain.Pod, 0, limit)
+	for cursor.Next(ctx) {
+		var d document
+		if err := cursor.Decode(&d); err != nil {
+			return nil, err
+		}
+		pod, err := toDomain(d)
+		if err != nil {
+			// A pod that will not rehydrate is not one to hand to a member.
+			// Skipping it keeps the rest of somebody's house front readable
+			// rather than failing the whole list on one bad row.
+			continue
+		}
+		pods = append(pods, pod)
+	}
+	return pods, cursor.Err()
+}

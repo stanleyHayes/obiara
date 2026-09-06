@@ -4391,3 +4391,44 @@ standing question — *"Is `seed.water.mutual` sowing (Tier 2), or a lighter
 Tier 1 action?"* Sowing is reaching toward somebody new; watering is answering
 inside a connection that already exists, which is the same reasoning that put
 doorway exchanges at Tier 1 in §32.
+
+
+## 61. Goal: the house front has a door (2026-09-05)
+
+Starting the client work found the API could not support it. `seed/pod` had
+`Create` and `Playback` and no way to list anything: a member could open a pod
+whose id they already knew, and nothing told them any id. A house front with
+no door.
+
+`GET /v1/seed/pods` returns what is resting for you, soonest to close first.
+
+### The decisions
+
+**Only what is still there.** Active and unexpired. A pod taken back or closed
+is not resting at anybody's house front, and listing one would be showing
+something that is gone.
+
+**It says what is there and nothing about who left it.** No sender, keyed or
+otherwise. A member hears who a pod is from by opening it, which is the whole
+shape of the gesture — the pod is closed until you open it, and a list that
+named the sender would open it for you.
+
+**The only urgency is when it closes.** That is a fact about the pod rather
+than about the person, and it is the one thing a member needs in order to
+decide what to do today.
+
+**A pod that will not rehydrate is skipped, not fatal.** One bad row should
+not make somebody's whole house front unreadable.
+
+**The query runs on the member's own key.** It asks "what is resting for this
+person", never "what did this person send" — the same read cannot be turned
+around into a list of somebody's outgoing sows.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| POD-06  | `ForRecipient` and its index                                          | DONE   |
+| POD-07  | `Resting`, gated and keyed to the asking member                       | DONE   |
+| POD-08  | `GET /v1/seed/pods`, contract, generated client, structural guard     | DONE   |
+
+Proven by breaking it: removing the authorization check made the test report
+an unexpected call to the keyer — an unverified member's pods being read.

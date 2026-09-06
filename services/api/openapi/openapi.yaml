@@ -1823,6 +1823,46 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
   /v1/seed/pods:
+    get:
+      operationId: listRestingPods
+      tags: [Seed]
+      summary: What is resting at your house front
+      security:
+        - MemberBearer: []
+      description: |
+        The pods waiting for you, soonest to close first. Only ones that are
+        still resting: a pod taken back or already closed is not there any
+        more, and showing it would be showing something that is gone.
+
+        It says what is there and nothing about who left it. A member hears
+        who a pod is from by opening it, which is the whole shape of the
+        gesture.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Pods resting for this member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestingPodsEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: The verified rung is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     post:
       operationId: placePod
       tags: [Seed]
@@ -9451,6 +9491,37 @@ components:
       properties:
         data:
           $ref: "#/components/schemas/IntroductionSourceData"
+        meta:
+          $ref: "#/components/schemas/Metadata"
+    RestingPod:
+      type: object
+      additionalProperties: false
+      required: [podId, closesAt, opened]
+      properties:
+        podId: { type: string }
+        closesAt:
+          type: string
+          format: date-time
+          description: |
+            The only urgency a member is given. There is deliberately nothing
+            here about who left the pod.
+        opened: { type: boolean }
+    RestingPodsData:
+      type: object
+      additionalProperties: false
+      required: [pods]
+      properties:
+        pods:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestingPod"
+    RestingPodsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data, meta]
+      properties:
+        data:
+          $ref: "#/components/schemas/RestingPodsData"
         meta:
           $ref: "#/components/schemas/Metadata"
     PodInput:

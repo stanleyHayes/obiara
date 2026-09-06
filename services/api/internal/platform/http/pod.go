@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 type Pods interface {
 	Create(context.Context, podapplication.Command, podapplication.Proposal) (podapplication.Result, error)
 	Playback(context.Context, podapplication.Command) (podapplication.Result, error)
+	Resting(ctx context.Context, memberID string, limit int) ([]poddomain.Pod, error)
 }
 
 // podTTL is how long a pod rests before it closes. The aggregate refuses
@@ -30,6 +32,7 @@ const podTTL = 7 * 24 * time.Hour
 // records who listened, and a read that skipped it would be a way to hear
 // somebody without them ever knowing they had been heard.
 func RegisterPodRoutes(mux *http.ServeMux, pods Pods, sessions SessionAuthenticator, gate MemberGate) {
+	mux.Handle("GET /v1/seed/pods", gate.guard(sessions, "seed.pod.playback", "pod", restingPodsHandler(pods, sessions)))
 	mux.Handle("POST /v1/seed/pods", gate.guard(sessions, "seed.pod.create", "pod", createPodHandler(pods, sessions)))
 	mux.Handle("POST /v1/seed/pods/{id}/playback", gate.guard(sessions, "seed.pod.playback", "pod", playPodHandler(pods, sessions)))
 }
@@ -173,4 +176,55 @@ func writePodError(w http.ResponseWriter, r *http.Request, err error) {
 			Code: "internal_error", Message: "The request could not be completed.",
 		})
 	}
+}
+
+type restingPodResponse struct {
+	PodID string `json:"podId"`
+	// ClosesAt is the only urgency a member is given. There is deliberately
+	// nothing here about who left it: the pod keys its owner, and a member
+	// hears who it is from by opening it, which is the whole shape of the
+	// gesture.
+	ClosesAt string `json:"closesAt"`
+	Opened   bool   `json:"opened"`
+}
+
+type restingPodsResponse struct {
+	Pods []restingPodResponse `json:"pods"`
+}
+
+func restingPodsHandler(pods Pods, sessions SessionAuthenticator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		memberID, ok := authenticatedMember(w, r, sessions)
+		if !ok {
+			return
+		}
+		if pods == nil {
+			writeError(w, r, http.StatusServiceUnavailable, APIError{
+				Code: "feature_unavailable", Message: "This is not available right now.",
+			})
+			return
+		}
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		resting, err := pods.Resting(r.Context(), memberID, limit)
+		if err != nil {
+			writePodError(w, r, err)
+			return
+		}
+		response := restingPodsResponse{Pods: make([]restingPodResponse, 0, len(resting))}
+		for _, item := range resting {
+			opened := false
+			for _, event := range item.Events() {
+				if event.Action == poddomain.ActionPlayed {
+					opened = true
+					break
+				}
+			}
+			response.Pods = append(response.Pods, restingPodResponse{
+				PodID:    item.ID(),
+				ClosesAt: item.ExpiresAt().UTC().Format(time.RFC3339),
+				Opened:   opened,
+			})
+		}
+		writeSuccess(w, r, http.StatusOK, response)
+	})
 }

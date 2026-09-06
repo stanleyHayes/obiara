@@ -3403,7 +3403,17 @@ export interface paths {
       readonly path?: never;
       readonly cookie?: never;
     };
-    readonly get?: never;
+    /**
+     * What is resting at your house front
+     * @description The pods waiting for you, soonest to close first. Only ones that are
+     *     still resting: a pod taken back or already closed is not there any
+     *     more, and showing it would be showing something that is gone.
+     *
+     *     It says what is there and nothing about who left it. A member hears
+     *     who a pod is from by opening it, which is the whole shape of the
+     *     gesture.
+     */
+    readonly get: operations["listRestingPods"];
     readonly put?: never;
     /**
      * Place a recording at the house front
@@ -5684,6 +5694,23 @@ export interface components {
         readonly [key: string]: unknown;
       };
       readonly type: string;
+    };
+    readonly RestingPod: {
+      /**
+       * Format: date-time
+       * @description The only urgency a member is given. There is deliberately nothing
+       *     here about who left the pod.
+       */
+      readonly closesAt: string;
+      readonly opened: boolean;
+      readonly podId: string;
+    };
+    readonly RestingPodsData: {
+      readonly pods: readonly components["schemas"]["RestingPod"][];
+    };
+    readonly RestingPodsEnvelope: {
+      readonly data: components["schemas"]["RestingPodsData"];
+      readonly meta: components["schemas"]["Metadata"];
     };
     readonly RoomCommandInput: {
       readonly commandId: string;
@@ -14093,6 +14120,42 @@ export interface operations {
       readonly 401: components["responses"]["Unauthorized"];
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
+    };
+  };
+  readonly listRestingPods: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Pods resting for this member. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["RestingPodsEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The verified rung is required. */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly placePod: {

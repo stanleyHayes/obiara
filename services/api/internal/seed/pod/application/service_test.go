@@ -51,3 +51,39 @@ func TestPlaybackDenialsArePrivacyNeutral(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestTheHouseFrontShowsWhatIsRestingForYou(t *testing.T) {
+	// Without this a member could only open a pod whose id they already
+	// knew, and nothing told them — a house front with no door.
+	ctrl := gomock.NewController(t)
+	r := NewMockRepository(ctrl)
+	a := NewMockAuthorizer(ctrl)
+	e := NewMockPlaybackEligibility(ctrl)
+	i := NewMockMediaIssuer(ctrl)
+	k := NewMockKeyer(ctrl)
+
+	a.EXPECT().Require(gomock.Any(), "member-3", "seed.pod.playback", "").Return(nil)
+	k.EXPECT().Key("seed-pod:member", "member-3").Return(key(3), nil)
+	// The member's own key is what the query runs on: the house front asks
+	// "what is resting for this person", never "what did this person send".
+	r.EXPECT().ForRecipient(gomock.Any(), key(3), gomock.Any(), 10).Return(nil, nil)
+
+	service := NewService(r, a, e, i, k, NewMockIDSource(ctrl), func() time.Time { return time.Now().UTC() })
+	if _, err := service.Resting(context.Background(), "member-3", 10); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAnUnverifiedMemberHasNoHouseFront(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	r := NewMockRepository(ctrl)
+	a := NewMockAuthorizer(ctrl)
+	a.EXPECT().Require(gomock.Any(), "member-3", "seed.pod.playback", "").Return(ErrNotAvailable)
+	// No repository expectation: a refused member's pods are never read.
+
+	service := NewService(r, a, NewMockPlaybackEligibility(ctrl), NewMockMediaIssuer(ctrl),
+		NewMockKeyer(ctrl), NewMockIDSource(ctrl), func() time.Time { return time.Now().UTC() })
+	if _, err := service.Resting(context.Background(), "member-3", 10); !errors.Is(err, ErrNotAvailable) {
+		t.Fatalf("err = %v, want ErrNotAvailable", err)
+	}
+}
