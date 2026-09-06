@@ -19,6 +19,7 @@ func TestSendScreensBeforeAtomicAcceptance(t *testing.T) {
 	now := time.Date(2026, 7, 26, 12, 0, 0, 0, time.UTC)
 	screening.EXPECT().Screen(gomock.Any(), "hello", []string{"raw-media"}).Return(ScreeningDecision{Approved: true, Reference: "raw-screen"}, nil)
 	keyer.EXPECT().Key("allowance-subject", "raw-actor").Return("actor-key", nil)
+	keyer.EXPECT().Key("participant", "raw-target").Return("target-key", nil)
 	keyer.EXPECT().Key("screening", "raw-screen").Return("screen-key", nil)
 	keyer.EXPECT().Key("media", "raw-media").Return("media-key", nil)
 	ids.EXPECT().NewID().Return("sow-1")
@@ -29,8 +30,8 @@ func TestSendScreensBeforeAtomicAcceptance(t *testing.T) {
 		return s, false, nil
 	})
 	service := New(screening, acceptance, keyer, ids, func() time.Time { return now }, 1).
-		WithMediaOwnership(ownedMedia{owned: true})
-	result, err := service.Send(context.Background(), Command{ID: "command-1", ActorID: "raw-actor", Body: " hello ", MediaRefs: []string{"raw-media"}, Confirmed: true})
+		WithMediaOwnership(ownedMedia{owned: true}).WithReachRules(openReach(), openReach(), openReach())
+	result, err := service.Send(context.Background(), Command{ID: "command-1", ActorID: "raw-actor", TargetID: "raw-target", Body: " hello ", MediaRefs: []string{"raw-media"}, Confirmed: true})
 	if err != nil || result.Sow.ID != "sow-1" {
 		t.Fatalf("result=%#v err=%v", result, err)
 	}
@@ -39,12 +40,13 @@ func TestSendScreensBeforeAtomicAcceptance(t *testing.T) {
 func TestSendRejectsWithoutConfirmationOrScreening(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	screening := NewMockScreening(ctrl)
-	service := New(screening, NewMockAcceptance(ctrl), NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1)
-	if _, err := service.Send(context.Background(), Command{ID: "c", ActorID: "a", Body: "body"}); !errors.Is(err, domain.ErrNotConfirmed) {
+	service := New(screening, NewMockAcceptance(ctrl), NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1).
+		WithReachRules(openReach(), openReach(), openReach())
+	if _, err := service.Send(context.Background(), Command{ID: "c", ActorID: "a", TargetID: "t", Body: "body"}); !errors.Is(err, domain.ErrNotConfirmed) {
 		t.Fatalf("got %v", err)
 	}
 	screening.EXPECT().Screen(gomock.Any(), "body", gomock.Any()).Return(ScreeningDecision{Approved: false}, nil)
-	if _, err := service.Send(context.Background(), Command{ID: "c", ActorID: "a", Body: "body", Confirmed: true}); !errors.Is(err, domain.ErrScreeningRejected) {
+	if _, err := service.Send(context.Background(), Command{ID: "c", ActorID: "a", TargetID: "t", Body: "body", Confirmed: true}); !errors.Is(err, domain.ErrScreeningRejected) {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -52,13 +54,18 @@ func TestSendRejectsWithoutConfirmationOrScreening(t *testing.T) {
 func FuzzFingerprintIsDeterministicAndInputBound(f *testing.F) {
 	f.Add("c", "a", "body", "media")
 	f.Fuzz(func(t *testing.T, c, a, b, m string) {
-		one := fingerprint(c, a, b, []string{m}, 1)
-		two := fingerprint(c, a, b, []string{m}, 1)
+		one := fingerprint(c, a, "target", b, []string{m}, 1)
+		two := fingerprint(c, a, "target", b, []string{m}, 1)
 		if one != two || len(one) != 64 {
 			t.Fatal("unstable fingerprint")
 		}
-		if m != "x" && one == fingerprint(c, a, b, []string{"x"}, 1) {
+		if m != "x" && one == fingerprint(c, a, "target", b, []string{"x"}, 1) {
 			t.Fatal("media not bound")
+		}
+		// The same command id toward a different person is a different sow,
+		// not a replay of the first one.
+		if one == fingerprint(c, a, "somebody-else", b, []string{m}, 1) {
+			t.Fatal("target not bound")
 		}
 	})
 }
@@ -93,9 +100,10 @@ func TestASowSentToAPersonIsHeldRatherThanFailed(t *testing.T) {
 			return s, false, nil
 		})
 
-	service := New(screening, acceptance, keyer, ids, time.Now, 1)
+	service := New(screening, acceptance, keyer, ids, time.Now, 1).
+		WithReachRules(openReach(), openReach(), openReach())
 	result, err := service.Send(context.Background(), Command{
-		ID: "c", ActorID: "a", Body: "body", Confirmed: true,
+		ID: "c", ActorID: "a", TargetID: "t", Body: "body", Confirmed: true,
 	})
 	if err != nil {
 		t.Fatalf("a held sow returned an error: %v", err)
@@ -116,9 +124,10 @@ func TestAReviewWithNoReferenceIsNotAHold(t *testing.T) {
 		Return(ScreeningDecision{Approved: false}, ErrHumanReviewRequired)
 	// No Accept expectation: nothing may be stored.
 
-	service := New(screening, acceptance, NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1)
+	service := New(screening, acceptance, NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1).
+		WithReachRules(openReach(), openReach(), openReach())
 	if _, err := service.Send(context.Background(), Command{
-		ID: "c", ActorID: "a", Body: "body", Confirmed: true,
+		ID: "c", ActorID: "a", TargetID: "t", Body: "body", Confirmed: true,
 	}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("err = %v, want ErrUnavailable", err)
 	}
@@ -127,7 +136,7 @@ func TestAReviewWithNoReferenceIsNotAHold(t *testing.T) {
 // heldSow builds a sow that is waiting on a person.
 func heldSow(t *testing.T) domain.Sow {
 	t.Helper()
-	sow, err := domain.Accept("sow-1", "actor-key", "body",
+	sow, err := domain.Accept("sow-1", "actor-key", "target-key", "body",
 		[]domain.Media{{Key: "media-key", ScreeningKey: "screen-key"}},
 		"command-1", "fingerprint", 1, domain.StatusPendingReview, "review-1", time.Now())
 	if err != nil {
@@ -219,10 +228,10 @@ func TestASowMayOnlyCarryTheSowersOwnVoice(t *testing.T) {
 	// not the sower's must not even be screened, let alone stored.
 
 	service := New(screening, acceptance, NewMockKeyer(ctrl), NewMockIDSource(ctrl), time.Now, 1).
-		WithMediaOwnership(ownedMedia{owned: false})
+		WithMediaOwnership(ownedMedia{owned: false}).WithReachRules(openReach(), openReach(), openReach())
 
 	if _, err := service.Send(context.Background(), Command{
-		ID: "c", ActorID: "a", Body: "body", MediaRefs: []string{"someone-elses"}, Confirmed: true,
+		ID: "c", ActorID: "a", TargetID: "t", Body: "body", MediaRefs: []string{"someone-elses"}, Confirmed: true,
 	}); !errors.Is(err, ErrMediaNotOwned) {
 		t.Fatalf("err = %v, want ErrMediaNotOwned", err)
 	}
@@ -234,10 +243,11 @@ func TestAnUnansweredOwnershipCheckRefuses(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	service := New(NewMockScreening(ctrl), NewMockAcceptance(ctrl), NewMockKeyer(ctrl),
 		NewMockIDSource(ctrl), time.Now, 1).
-		WithMediaOwnership(ownedMedia{err: errors.New("media unavailable")})
+		WithMediaOwnership(ownedMedia{err: errors.New("media unavailable")}).
+		WithReachRules(openReach(), openReach(), openReach())
 
 	if _, err := service.Send(context.Background(), Command{
-		ID: "c", ActorID: "a", Body: "body", MediaRefs: []string{"ref"}, Confirmed: true,
+		ID: "c", ActorID: "a", TargetID: "t", Body: "body", MediaRefs: []string{"ref"}, Confirmed: true,
 	}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("err = %v, want ErrUnavailable", err)
 	}
@@ -245,9 +255,10 @@ func TestAnUnansweredOwnershipCheckRefuses(t *testing.T) {
 	// And a service composed without the check at all refuses too, rather
 	// than treating a missing check as permission.
 	bare := New(NewMockScreening(ctrl), NewMockAcceptance(ctrl), NewMockKeyer(ctrl),
-		NewMockIDSource(ctrl), time.Now, 1)
+		NewMockIDSource(ctrl), time.Now, 1).
+		WithReachRules(openReach(), openReach(), openReach())
 	if _, err := bare.Send(context.Background(), Command{
-		ID: "c", ActorID: "a", Body: "body", MediaRefs: []string{"ref"}, Confirmed: true,
+		ID: "c", ActorID: "a", TargetID: "t", Body: "body", MediaRefs: []string{"ref"}, Confirmed: true,
 	}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("err = %v, want ErrUnavailable", err)
 	}
@@ -269,10 +280,129 @@ func TestAWordsOnlySowNeedsNoOwnershipCheck(t *testing.T) {
 	acceptance.EXPECT().Accept(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, s domain.Sow) (domain.Sow, bool, error) { return s, false, nil })
 
-	service := New(screening, acceptance, keyer, ids, time.Now, 1)
+	service := New(screening, acceptance, keyer, ids, time.Now, 1).
+		WithReachRules(openReach(), openReach(), openReach())
 	if _, err := service.Send(context.Background(), Command{
-		ID: "c", ActorID: "a", Body: "body", Confirmed: true,
+		ID: "c", ActorID: "a", TargetID: "t", Body: "body", Confirmed: true,
 	}); err != nil {
 		t.Fatalf("a words-only sow was refused: %v", err)
+	}
+}
+
+// reach is a fixed set of answers to the three questions every reach toward a
+// person has to pass. Each answer has its own error so a test can fail one
+// rule without failing the others, which is what makes the ordering visible.
+type reach struct {
+	blocked, heard, locked            bool
+	blockErr, heardErr, lockedErr     error
+	blockCalls, heardCalls, lockCalls *int
+}
+
+func (r reach) Blocked(context.Context, string, string) (bool, error) {
+	if r.blockCalls != nil {
+		*r.blockCalls++
+	}
+	return r.blocked, r.blockErr
+}
+func (r reach) Heard(context.Context, string, string) (bool, error) {
+	if r.heardCalls != nil {
+		*r.heardCalls++
+	}
+	return r.heard, r.heardErr
+}
+func (r reach) Locked(context.Context, string, string) (bool, error) {
+	if r.lockCalls != nil {
+		*r.lockCalls++
+	}
+	return r.locked, r.lockedErr
+}
+
+// openReach is the answer set that lets a sow through: nobody blocked, the
+// voice was heard, no decline standing. Tests about something else use it so
+// they are about that something else.
+func openReach() reach { return reach{heard: true} }
+
+func TestASowAnswersTheSameThreeReachRulesAsASprout(t *testing.T) {
+	// The defect this closes: POST /v1/seed/sows enforced the tier, the
+	// confirmation, media ownership, screening and the allowance — and
+	// nothing else. A member could sow having heard nobody, past a block,
+	// past a decline, because a Sow had no target to check against.
+	for _, c := range []struct {
+		name  string
+		rules reach
+		want  error
+	}{
+		{"a block in either direction", reach{blocked: true, heard: true}, ErrReachNotAvailable},
+		{"a voice never heard", reach{}, ErrNotHeard},
+		{"a decline still standing", reach{heard: true, locked: true}, ErrReachNotAvailable},
+		{"a block that cannot be read", reach{heard: true, blockErr: errors.New("down")}, ErrUnavailable},
+		{"a listen gate that cannot be read", reach{heardErr: errors.New("down")}, ErrUnavailable},
+		{"a decline lock that cannot be read", reach{heard: true, lockedErr: errors.New("down")}, ErrUnavailable},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			// No Screen and no Accept expectations: a refused reach must not
+			// be screened, stored, or charged a seed.
+			service := New(NewMockScreening(ctrl), NewMockAcceptance(ctrl), NewMockKeyer(ctrl),
+				NewMockIDSource(ctrl), time.Now, 1).
+				WithReachRules(c.rules, c.rules, c.rules)
+			_, err := service.Send(context.Background(), Command{
+				ID: "c", ActorID: "a", TargetID: "t", Body: "body", Confirmed: true,
+			})
+			if !errors.Is(err, c.want) {
+				t.Fatalf("err = %v, want %v", err, c.want)
+			}
+		})
+	}
+}
+
+func TestASowWithNoReachRulesComposedRefuses(t *testing.T) {
+	// A missing check is not permission. If the composition root forgets to
+	// wire the rules, the sow path must close rather than open — which is
+	// how the gap above went unnoticed for as long as it did.
+	ctrl := gomock.NewController(t)
+	service := New(NewMockScreening(ctrl), NewMockAcceptance(ctrl), NewMockKeyer(ctrl),
+		NewMockIDSource(ctrl), time.Now, 1)
+	if _, err := service.Send(context.Background(), Command{
+		ID: "c", ActorID: "a", TargetID: "t", Body: "body", Confirmed: true,
+	}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+}
+
+func TestASowTowardNobodyIsRefusedBeforeAnythingIsAsked(t *testing.T) {
+	// Without a target there is nothing to check, so the request is invalid
+	// rather than quietly reaching everyone or no one.
+	ctrl := gomock.NewController(t)
+	var blocks, heards, locks int
+	rules := reach{heard: true, blockCalls: &blocks, heardCalls: &heards, lockCalls: &locks}
+	service := New(NewMockScreening(ctrl), NewMockAcceptance(ctrl), NewMockKeyer(ctrl),
+		NewMockIDSource(ctrl), time.Now, 1).WithReachRules(rules, rules, rules)
+
+	if _, err := service.Send(context.Background(), Command{
+		ID: "c", ActorID: "a", TargetID: "  ", Body: "body", Confirmed: true,
+	}); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("err = %v, want ErrInvalid", err)
+	}
+	if blocks+heards+locks != 0 {
+		t.Fatal("a targetless sow was checked against a target")
+	}
+}
+
+func TestTheReachRulesAreAskedBeforeScreeningAndTheSeed(t *testing.T) {
+	// Order is the point: a sow that will not be delivered must not be sent
+	// to a screener, and must not have reached the allowance. Screening and
+	// acceptance carry no expectations, so either being called fails here.
+	ctrl := gomock.NewController(t)
+	service := New(NewMockScreening(ctrl), NewMockAcceptance(ctrl), NewMockKeyer(ctrl),
+		NewMockIDSource(ctrl), time.Now, 1).
+		WithMediaOwnership(ownedMedia{owned: true}).
+		WithReachRules(reach{heard: true}, reach{blocked: true, heard: true}, reach{heard: true})
+
+	if _, err := service.Send(context.Background(), Command{
+		ID: "c", ActorID: "a", TargetID: "t", Body: "body",
+		MediaRefs: []string{"ref"}, Confirmed: true,
+	}); !errors.Is(err, ErrReachNotAvailable) {
+		t.Fatalf("err = %v, want ErrReachNotAvailable", err)
 	}
 }

@@ -38,8 +38,12 @@ type Media struct {
 }
 
 type Sow struct {
-	ID             string
-	ActorKey       string
+	ID       string
+	ActorKey string
+	// TargetKey is who this is toward. A sow without one reaches nobody, and
+	// none of the rules that matter — having heard them, not being blocked
+	// by them, not having been declined — can even be asked.
+	TargetKey      string
 	Body           string
 	Media          []Media
 	CommandID      string
@@ -54,8 +58,12 @@ type Sow struct {
 	DecidedAt    *time.Time
 }
 
-func Accept(id, actorKey, body string, media []Media, commandID, fingerprint string, units int64, status Status, screeningRef string, at time.Time) (Sow, error) {
-	if strings.TrimSpace(id) == "" || actorKey == "" || strings.TrimSpace(body) == "" || commandID == "" || fingerprint == "" || units <= 0 {
+func Accept(id, actorKey, targetKey, body string, media []Media, commandID, fingerprint string, units int64, status Status, screeningRef string, at time.Time) (Sow, error) {
+	if strings.TrimSpace(id) == "" || strings.TrimSpace(actorKey) == "" || strings.TrimSpace(body) == "" || commandID == "" || fingerprint == "" || units <= 0 {
+		return Sow{}, ErrInvalid
+	}
+	// Toward somebody, and not toward yourself.
+	if strings.TrimSpace(targetKey) == "" || targetKey == actorKey {
 		return Sow{}, ErrInvalid
 	}
 	// A sow may only be created in a state a screening decision can produce.
@@ -76,7 +84,7 @@ func Accept(id, actorKey, body string, media []Media, commandID, fingerprint str
 		}
 	}
 	return Sow{
-		ID: id, ActorKey: actorKey, Body: strings.TrimSpace(body),
+		ID: id, ActorKey: actorKey, TargetKey: targetKey, Body: strings.TrimSpace(body),
 		Media: append([]Media(nil), media...), CommandID: commandID,
 		Fingerprint: fingerprint, AllowanceUnits: units,
 		Status: status, ScreeningRef: screeningRef, AcceptedAt: at.UTC(),
@@ -89,11 +97,11 @@ func Accept(id, actorKey, body string, media []Media, commandID, fingerprint str
 // decision and not a starting state — and a repository still has to be able
 // to read one back.
 func Reconstitute(
-	id, actorKey, body string, media []Media, commandID, fingerprint string,
+	id, actorKey, targetKey, body string, media []Media, commandID, fingerprint string,
 	units int64, status Status, screeningRef string, acceptedAt time.Time, decidedAt *time.Time,
 ) Sow {
 	return Sow{
-		ID: id, ActorKey: actorKey, Body: body,
+		ID: id, ActorKey: actorKey, TargetKey: targetKey, Body: body,
 		Media: append([]Media(nil), media...), CommandID: commandID,
 		Fingerprint: fingerprint, AllowanceUnits: units,
 		Status: status, ScreeningRef: screeningRef,

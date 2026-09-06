@@ -4478,3 +4478,90 @@ list to silence it.
 
 **Not yet built:** the sow composer (S-22) and the person page (S-21). A
 member can now receive and hear; sending still has no surface.
+
+## §61 — The sow had no target, so it answered to none of the reach rules
+
+A defect in what §51 shipped, found by asking the codebase a question rather
+than trusting the last session's account of it:
+
+```
+$ grep -n "Blocked\|Heard\|Locked" internal/seed/sow/application/service.go
+(empty)
+```
+
+`POST /v1/seed/sows` enforced the sowing rung, the confirmation gesture, media
+ownership, screening and the weekly allowance. It did not enforce the listen
+gate (FR-202), the block list, or the decline lock (M4-AC-01) — because a
+`Sow` had no target. There was nobody to check the rules *against*.
+
+So a Tier-2 member could send a sow **having heard nobody, past a block, and
+past a decline**. The sprout path at `/v1/seed/sprouts` had all four checks;
+the sow path, the one that actually carries words to a person, had none.
+
+### What the sow was missing
+
+A `Sow` recorded who sent it, what it said, what it cost and what screening
+thought of it. It did not record who it was toward. Everything downstream —
+the pod placement, the house front — resolved a recipient from the pod, not
+from the sow, so nothing ever noticed.
+
+### The fix
+
+`TargetKey` on the aggregate, refused when empty and refused when it equals
+the sower's own key: a sow toward nobody reaches nobody, and a sow toward
+yourself is not a reach.
+
+The three rules, asked in one place and in this order:
+
+```go
+func (s Service) mayReach(ctx context.Context, actorID, targetID string) error {
+	if s.blocks == nil || s.listen == nil || s.declines == nil { return ErrUnavailable }
+	// blocked → ErrReachNotAvailable
+	// not heard → ErrNotHeard
+	// declined → ErrReachNotAvailable
+}
+```
+
+### The decisions
+
+**A missing check is not permission.** A service composed without the reach
+rules refuses every sow rather than sending them all. This is the same shape
+as the media-ownership check, and it is the specific thing that would have
+made this gap loud instead of silent — so the module now *requires* all three
+ports and returns `ErrDependenciesRequired` without them. The composition root
+cannot forget them again.
+
+**Asked before screening and before the seed.** A sow that will not be
+delivered must not be read by a screener and must not touch the allowance. The
+ordering is asserted by a test whose screening and acceptance mocks carry no
+expectations at all: either being called fails it.
+
+**A block and a decline answer identically.** `reach_unavailable`, 409, saying
+nothing about which one closed it. Telling them apart would hand a member the
+rejection signal FR-205 exists to withhold. `not_heard_yet` is separate
+because it is a rule the member can act on: listen to them.
+
+**The target is bound into the command fingerprint.** Without that, retrying
+one idempotency key toward a different person would be answered as a replay of
+the first sow — the same command id, a different reach, and the second one
+silently swallowed.
+
+**The introduction module moved ahead of the sow in `main.go`.** The listen
+gate resolves the target's recordings through the introduction store, so the
+store has to exist before anything that reaches toward a person is composed.
+
+### What proves it
+
+Eight tests that fail when `mayReach` is removed — one per rule refusing, one
+per rule unreadable, one for a service composed without the rules, one for the
+ordering. Verified by removing the call and watching all eight go red.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| SOW-08  | A sow carries who it is toward, refusing empty and self-targets   | DONE   |
+| SOW-09  | The three reach rules on the sow path, ordered before the seed    | DONE   |
+| SOW-10  | Required at the module boundary, not optional at the call site    | DONE   |
+| SOW-11  | `targetId` in the contract, the generated client, and the route   | DONE   |
+
+**Contract note:** `targetId` is required on `SowInput`. No client sends sows
+yet — the composer (S-22) is still unbuilt — so nothing in flight breaks.

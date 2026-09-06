@@ -2027,7 +2027,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "409":
-          description: This week's seeds are spent.
+          description: |
+            This week's seeds are spent (`no_seeds_left`), the sender has not
+            listened to the other member for long enough (`not_heard_yet`), or
+            the reach is closed (`reach_unavailable`). The last says nothing
+            about whether a block or a decline closed it: the difference is
+            the rejection signal both exist to withhold.
           content:
             application/json:
               schema:
@@ -9564,8 +9569,15 @@ components:
     SowInput:
       type: object
       additionalProperties: false
-      required: [body, confirmed]
+      required: [targetId, body, confirmed]
       properties:
+        targetId:
+          type: string
+          minLength: 1
+          description: |
+            The member this sow is toward. A sow reaches one person, and it is
+            refused unless the sender has heard them, neither has blocked the
+            other, and no decline still stands between them.
         body:
           type: string
           minLength: 1

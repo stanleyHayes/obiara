@@ -20,6 +20,12 @@ var (
 	// own. In a product where people meet through their voices, sending
 	// somebody else's voice as your own is impersonation, not a mistake.
 	ErrMediaNotOwned = errors.New("that recording does not belong to you")
+	// ErrNotHeard refuses a sow toward somebody the member has not listened
+	// to (FR-202).
+	ErrNotHeard = errors.New("their voice has not been heard for long enough")
+	// ErrReachNotAvailable covers a block and a decline alike. Telling them
+	// apart would tell the member which one it was.
+	ErrReachNotAvailable = errors.New("this reach is not available")
 )
 
 //go:generate mockgen -source=ports.go -destination=mock_ports_test.go -package=application
@@ -38,6 +44,22 @@ type Acceptance interface {
 	// writes would let a refusal keep a member's seed for a sow that was
 	// never delivered.
 	Settle(ctx context.Context, sow domain.Sow, refund bool) error
+}
+
+// ListenGate, BlockList and DeclineLock are the same three questions the
+// sprout path asks before it lets anybody reach toward anybody. A sow is the
+// same gesture carrying words, so it answers to the same rules — and until it
+// had a target it could not even be asked them.
+type ListenGate interface {
+	Heard(ctx context.Context, listenerID, targetID string) (bool, error)
+}
+
+type BlockList interface {
+	Blocked(ctx context.Context, memberID, otherID string) (bool, error)
+}
+
+type DeclineLock interface {
+	Locked(ctx context.Context, sowerID, targetID string) (bool, error)
 }
 
 // MediaOwnership answers whether these recordings belong to the member

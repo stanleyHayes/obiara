@@ -29,10 +29,13 @@ type Module struct {
 
 // ErrDependenciesRequired reports a module built without the ports it must
 // not substitute. Screening decides whether a member's words reach a
-// stranger, and ownership decides whose voice a sow carries; a nil either
-// would not fail loudly, it would ship the product without them.
+// stranger, ownership decides whose voice a sow carries, and the reach rules
+// decide whether this member may reach that one at all; a nil any of them
+// would not fail loudly, it would ship the product without them. The reach
+// rules are here because they were missing for a release: a sow could be sent
+// having heard nobody, past a block and past a decline (agent_plan.md §61).
 var ErrDependenciesRequired = errors.New(
-	"sow module requires screening, media ownership, a keying secret and a positive allowance",
+	"sow module requires screening, media ownership, the three reach rules, a keying secret and a positive allowance",
 )
 
 // NewModule composes the sow against one database.
@@ -41,10 +44,14 @@ func NewModule(
 	database *mongo.Database,
 	screening application.Screening,
 	ownership application.MediaOwnership,
+	listen application.ListenGate,
+	blocks application.BlockList,
+	declines application.DeclineLock,
 	secret string,
 	weeklyUnits int64,
 ) (Module, error) {
-	if screening == nil || ownership == nil || secret == "" || weeklyUnits <= 0 {
+	if screening == nil || ownership == nil || listen == nil || blocks == nil || declines == nil ||
+		secret == "" || weeklyUnits <= 0 {
 		return Module{}, ErrDependenciesRequired
 	}
 	keyer, err := privacy.New([]byte(secret))
@@ -57,7 +64,8 @@ func NewModule(
 	}
 	return Module{
 		Sows: application.New(screening, acceptance, keyer, idSource{}, time.Now, weeklyUnits).
-			WithMediaOwnership(ownership),
+			WithMediaOwnership(ownership).
+			WithReachRules(listen, blocks, declines),
 		Acceptance: acceptance,
 	}, nil
 }

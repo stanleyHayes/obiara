@@ -13,8 +13,10 @@ import (
 )
 
 type Command struct {
-	ID        string
-	ActorID   string
+	ID      string
+	ActorID string
+	// TargetID is who the sow is toward.
+	TargetID  string
 	Body      string
 	MediaRefs []string
 	Confirmed bool
@@ -29,6 +31,9 @@ type Service struct {
 	acceptance Acceptance
 	keyer      Keyer
 	media      MediaOwnership
+	listen     ListenGate
+	blocks     BlockList
+	declines   DeclineLock
 	ids        IDSource
 	now        func() time.Time
 	units      int64
@@ -45,6 +50,14 @@ func (s Service) WithMediaOwnership(media MediaOwnership) Service {
 	return s
 }
 
+// WithReachRules attaches the three questions every reach toward a person has
+// to answer: is either of you blocked, did they already decline you, and have
+// you actually heard them.
+func (s Service) WithReachRules(listen ListenGate, blocks BlockList, declines DeclineLock) Service {
+	s.listen, s.blocks, s.declines = listen, blocks, declines
+	return s
+}
+
 func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	if s.screening == nil || s.acceptance == nil || s.keyer == nil || s.ids == nil || s.now == nil || s.units <= 0 {
 		return Result{}, ErrUnavailable
@@ -53,8 +66,12 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 		return Result{}, domain.ErrNotConfirmed
 	}
 	body := strings.TrimSpace(command.Body)
-	if body == "" || strings.TrimSpace(command.ID) == "" || strings.TrimSpace(command.ActorID) == "" || len(command.MediaRefs) > 4 {
+	if body == "" || strings.TrimSpace(command.ID) == "" || strings.TrimSpace(command.ActorID) == "" ||
+		strings.TrimSpace(command.TargetID) == "" || len(command.MediaRefs) > 4 {
 		return Result{}, domain.ErrInvalid
+	}
+	if err := s.mayReach(ctx, command.ActorID, command.TargetID); err != nil {
+		return Result{}, err
 	}
 	// Checked before screening: a member must not be able to have somebody
 	// else's recording screened, and a sow carrying a voice that is not
@@ -93,6 +110,10 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	if err != nil {
 		return Result{}, ErrUnavailable
 	}
+	targetKey, err := s.keyer.Key("participant", command.TargetID)
+	if err != nil {
+		return Result{}, ErrUnavailable
+	}
 	screeningKey, err := s.keyer.Key("screening", decision.Reference)
 	if err != nil {
 		return Result{}, ErrUnavailable
@@ -105,8 +126,8 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 		}
 		media = append(media, domain.Media{Key: key, ScreeningKey: screeningKey})
 	}
-	fp := fingerprint(command.ID, actorKey, body, command.MediaRefs, s.units)
-	candidate, err := domain.Accept(s.ids.NewID(), actorKey, body, media, command.ID, fp, s.units,
+	fp := fingerprint(command.ID, actorKey, targetKey, body, command.MediaRefs, s.units)
+	candidate, err := domain.Accept(s.ids.NewID(), actorKey, targetKey, body, media, command.ID, fp, s.units,
 		status, decision.Reference, s.now())
 	if err != nil {
 		return Result{}, err
@@ -118,8 +139,11 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	return Result{Sow: accepted, Replayed: replayed}, nil
 }
 
-func fingerprint(commandID, actorKey, body string, media []string, units int64) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%q|%q|%q|%q|%d", commandID, actorKey, body, media, units)))
+// fingerprint binds a command id to what it asked for. The target is part of
+// it: without that, retrying one command id toward a different person would
+// look like a replay and be answered with the first sow.
+func fingerprint(commandID, actorKey, targetKey, body string, media []string, units int64) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%q|%q|%q|%q|%q|%d", commandID, actorKey, targetKey, body, media, units)))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -155,4 +179,39 @@ func (s Service) Review(ctx context.Context, screeningRef string, approve bool, 
 		return Result{}, err
 	}
 	return Result{Sow: decided}, nil
+}
+
+// mayReach asks the three questions in the same order the sprout path asks
+// them, and for the same reasons: a block is the strongest thing either
+// member can have said about the other, being told no should cost nothing,
+// and none of it should happen after the seed is spent.
+//
+// A missing check refuses. A sow that skipped one is exactly the outcome each
+// of them exists to prevent.
+func (s Service) mayReach(ctx context.Context, actorID, targetID string) error {
+	if s.blocks == nil || s.listen == nil || s.declines == nil {
+		return ErrUnavailable
+	}
+	blocked, err := s.blocks.Blocked(ctx, actorID, targetID)
+	if err != nil {
+		return ErrUnavailable
+	}
+	if blocked {
+		return ErrReachNotAvailable
+	}
+	heard, err := s.listen.Heard(ctx, actorID, targetID)
+	if err != nil {
+		return ErrUnavailable
+	}
+	if !heard {
+		return ErrNotHeard
+	}
+	locked, err := s.declines.Locked(ctx, actorID, targetID)
+	if err != nil {
+		return ErrUnavailable
+	}
+	if locked {
+		return ErrReachNotAvailable
+	}
+	return nil
 }

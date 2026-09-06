@@ -183,9 +183,10 @@ func TestHumanRejectedSowNeverReachesAcceptanceOrAllowanceSpend(t *testing.T) {
 		staticID{},
 		func() time.Time { return reviewedAt },
 		1,
-	)
+	).WithReachRules(openReach{}, openReach{}, openReach{})
 	_, err := sowService.Send(context.Background(), sowapplication.Command{
-		ID: "command-one", ActorID: "member-one", Body: "body", Confirmed: true,
+		ID: "command-one", ActorID: "member-one", TargetID: "member-two",
+		Body: "body", Confirmed: true,
 	})
 	if !errors.Is(err, sowdomain.ErrScreeningRejected) || acceptance.calls != 0 {
 		t.Fatalf("send err=%v acceptance calls=%d", err, acceptance.calls)
@@ -235,3 +236,11 @@ func reviewedLocale(tag string) LocaleReview {
 func screeningKey(character string) string {
 	return strings.Repeat(character, 64)
 }
+
+// openReach lets the sow through the three reach rules so this test is about
+// what it says it is about: a screening rejection never reaching acceptance.
+type openReach struct{}
+
+func (openReach) Blocked(context.Context, string, string) (bool, error) { return false, nil }
+func (openReach) Heard(context.Context, string, string) (bool, error)   { return true, nil }
+func (openReach) Locked(context.Context, string, string) (bool, error)  { return false, nil }

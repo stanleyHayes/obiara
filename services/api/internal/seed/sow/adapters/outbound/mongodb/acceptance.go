@@ -32,6 +32,7 @@ type mediaDocument struct {
 type sowDocument struct {
 	ID             string          `bson:"_id"`
 	ActorKey       string          `bson:"actorKey"`
+	TargetKey      string          `bson:"targetKey"`
 	Body           string          `bson:"body"`
 	Media          []mediaDocument `bson:"media"`
 	CommandID      string          `bson:"commandId"`
@@ -176,7 +177,7 @@ func toDocument(s domain.Sow) sowDocument {
 		media = append(media, mediaDocument{m.Key, m.ScreeningKey})
 	}
 	return sowDocument{
-		ID: s.ID, ActorKey: s.ActorKey, Body: s.Body, Media: media,
+		ID: s.ID, ActorKey: s.ActorKey, TargetKey: s.TargetKey, Body: s.Body, Media: media,
 		CommandID: s.CommandID, Fingerprint: s.Fingerprint,
 		AllowanceUnits: s.AllowanceUnits, Status: string(s.Status),
 		ScreeningRef: s.ScreeningRef, AcceptedAt: s.AcceptedAt, DecidedAt: s.DecidedAt,
@@ -187,6 +188,6 @@ func fromDocument(d sowDocument) (domain.Sow, error) {
 	for _, m := range d.Media {
 		media = append(media, domain.Media{Key: m.Key, ScreeningKey: m.ScreeningKey})
 	}
-	return domain.Reconstitute(d.ID, d.ActorKey, d.Body, media, d.CommandID, d.Fingerprint,
+	return domain.Reconstitute(d.ID, d.ActorKey, d.TargetKey, d.Body, media, d.CommandID, d.Fingerprint,
 		d.AllowanceUnits, domain.Status(d.Status), d.ScreeningRef, d.AcceptedAt, d.DecidedAt), nil
 }

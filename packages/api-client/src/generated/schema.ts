@@ -5872,6 +5872,12 @@ export interface components {
       readonly confirmed: boolean;
       /** @description Recordings to send with it. Each must belong to the sender. */
       readonly mediaRefs?: readonly string[];
+      /**
+       * @description The member this sow is toward. A sow reaches one person, and it is
+       *     refused unless the sender has heard them, neither has blocked the
+       *     other, and no decline still stands between them.
+       */
+      readonly targetId: string;
     };
     readonly SproutInput: {
       /** @description Reused on retry so a reach is never recorded twice. */
@@ -14464,7 +14470,13 @@ export interface operations {
           readonly "application/json": components["schemas"]["ErrorEnvelope"];
         };
       };
-      /** @description This week's seeds are spent. */
+      /**
+       * @description This week's seeds are spent (`no_seeds_left`), the sender has not
+       *     listened to the other member for long enough (`not_heard_yet`), or
+       *     the reach is closed (`reach_unavailable`). The last says nothing
+       *     about whether a block or a decline closed it: the difference is
+       *     the rejection signal both exist to withhold.
+       */
       readonly 409: {
         headers: {
           readonly [name: string]: unknown;

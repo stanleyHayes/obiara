@@ -629,6 +629,23 @@ func run() error {
 		if mediaErr != nil {
 			return fmt.Errorf("build media module: %w", mediaErr)
 		}
+		// The Voice of Introduction, built before anything that reaches
+		// toward a person: the listen gate resolves a target's recordings
+		// through this store, so both the sprout path and the sow path need
+		// it to exist first.
+		introductionModule, introErr := introduction.NewModule(
+			ctx,
+			client.Database(cfg.MongoDatabase),
+			onboardingConsentModule.Consents,
+			mediaModule.Access,
+			mediaModule.Assets,
+			mediaModule.Assets,
+			introductionLadderBridge{tiers: identityModule.Tiers, log: slog.Default()},
+			cfg.LivenessHMACSecret,
+		)
+		if introErr != nil {
+			return fmt.Errorf("build introduction module: %w", introErr)
+		}
 		// Screening and the sow. Every sow is read by a person before it is
 		// delivered, so screening's only outcome here is the review queue —
 		// see agent_plan.md §49. The locale is left unset: nothing has been
@@ -646,6 +663,14 @@ func run() error {
 			client.Database(cfg.MongoDatabase),
 			screeningModule.Screening,
 			sowmedia.NewOwnership(mediaModule.Assets),
+			// The same three rules the sprout path applies. A sow is that
+			// gesture carrying words, so it answers to them too.
+			sproutListenBridge{
+				introductions: introductionModule.Store,
+				listening:     listeningModule.Listening,
+			},
+			sproutBlockBridge{safety: safetyModule.Safety},
+			sproutDeclineBridge{declines: seedStageModule.Decline, now: time.Now},
 			cfg.SeedHMACSecret,
 			cfg.SeedWeeklyAllowance,
 		)
@@ -685,19 +710,6 @@ func run() error {
 			adminPrincipalResolver,
 		)
 
-		introductionModule, introErr := introduction.NewModule(
-			ctx,
-			client.Database(cfg.MongoDatabase),
-			onboardingConsentModule.Consents,
-			mediaModule.Access,
-			mediaModule.Assets,
-			mediaModule.Assets,
-			introductionLadderBridge{tiers: identityModule.Tiers, log: slog.Default()},
-			cfg.LivenessHMACSecret,
-		)
-		if introErr != nil {
-			return fmt.Errorf("build introduction module: %w", introErr)
-		}
 		apihttp.RegisterIntroductionRoutes(
 			mux,
 			introductionModule.Introductions,
@@ -719,9 +731,6 @@ func run() error {
 			slog.Default(),
 		).Run(ctx, time.Hour)
 
-		// FR-202: a sow is armed only by having heard the other member.
-		// Attached here because it needs the introduction store, which is
-		// built inside this block.
 		// The safety context is composed after the seed stage, so the block check
 		// is attached here. Until it is, the introduction visibility refuses to
 		// offer anybody rather than offering people blind to blocks.

@@ -27,6 +27,9 @@ func RegisterSowRoutes(mux *http.ServeMux, sows Sows, sessions SessionAuthentica
 }
 
 type sendSowRequest struct {
+	// TargetID is who the sow is toward. Without it the sow reaches nobody
+	// and there is no one to check the reach rules against.
+	TargetID  string   `json:"targetId"`
 	Body      string   `json:"body"`
 	MediaRefs []string `json:"mediaRefs,omitempty"`
 	// Confirmed is the deliberate gesture, not a checkbox the client can
@@ -79,8 +82,8 @@ func sendSowHandler(sows Sows, sessions SessionAuthenticator) http.Handler {
 		}
 
 		result, err := sows.Send(r.Context(), sowapplication.Command{
-			ID: commandID, ActorID: actorID, Body: body.Body,
-			MediaRefs: body.MediaRefs, Confirmed: body.Confirmed,
+			ID: commandID, ActorID: actorID, TargetID: strings.TrimSpace(body.TargetID),
+			Body: body.Body, MediaRefs: body.MediaRefs, Confirmed: body.Confirmed,
 		})
 		if err != nil {
 			writeSowError(w, r, err)
@@ -109,6 +112,21 @@ func writeSowError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusForbidden, APIError{
 			Code:    "recording_not_yours",
 			Message: "You can only send a recording you made yourself.",
+		})
+	case errors.Is(err, sowapplication.ErrReachNotAvailable):
+		// Says the outcome and not the reason, exactly as the sprout path
+		// does. Telling a member which of a block and a decline stopped
+		// them hands back the rejection signal both exist to withhold
+		// (FR-205).
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "reach_unavailable",
+			Message: "You cannot reach toward this person right now.",
+		})
+	case errors.Is(err, sowapplication.ErrNotHeard):
+		// A rule, not a fault, and one a member can act on: listen to them.
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "not_heard_yet",
+			Message: "Listen to their voice for at least 20 seconds before you reach toward them.",
 		})
 	case errors.Is(err, sowapplication.ErrInsufficientAllowance):
 		writeError(w, r, http.StatusConflict, APIError{

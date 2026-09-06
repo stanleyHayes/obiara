@@ -70,8 +70,9 @@ func (a *acceptanceModel) Accept(_ context.Context, candidate sow.Sow) (sow.Sow,
 func TestNoAllowanceEffectBeforeConfirmedScreenedAcceptance(t *testing.T) {
 	model := &acceptanceModel{balance: 2, accepted: map[string]sow.Sow{}}
 	ids := &idsStub{}
-	command := sowapp.Command{ID: "send-1", ActorID: "actor", Body: "hello", Confirmed: true}
-	rejected := sowapp.New(screeningStub{false}, model, keyerStub{}, ids, time.Now, 1)
+	command := sowapp.Command{ID: "send-1", ActorID: "actor", TargetID: "target", Body: "hello", Confirmed: true}
+	rejected := sowapp.New(screeningStub{false}, model, keyerStub{}, ids, time.Now, 1).
+		WithReachRules(openReachStub{}, openReachStub{}, openReachStub{})
 	if _, err := rejected.Send(context.Background(), command); !errors.Is(err, sow.ErrScreeningRejected) {
 		t.Fatalf("rejected send=%v", err)
 	}
@@ -79,7 +80,8 @@ func TestNoAllowanceEffectBeforeConfirmedScreenedAcceptance(t *testing.T) {
 		t.Fatalf("screening rejection spent allowance: balance=%d", model.balance)
 	}
 	command.Confirmed = false
-	approved := sowapp.New(screeningStub{true}, model, keyerStub{}, ids, time.Now, 1)
+	approved := sowapp.New(screeningStub{true}, model, keyerStub{}, ids, time.Now, 1).
+		WithReachRules(openReachStub{}, openReachStub{}, openReachStub{})
 	if _, err := approved.Send(context.Background(), command); !errors.Is(err, sow.ErrNotConfirmed) {
 		t.Fatalf("unconfirmed send=%v", err)
 	}
@@ -103,8 +105,9 @@ func TestNoAllowanceEffectBeforeConfirmedScreenedAcceptance(t *testing.T) {
 
 func TestConcurrentCommandReplayHasOneAcceptanceEffect(t *testing.T) {
 	model := &acceptanceModel{balance: 10, accepted: map[string]sow.Sow{}}
-	service := sowapp.New(screeningStub{true}, model, keyerStub{}, &idsStub{}, time.Now, 1)
-	command := sowapp.Command{ID: "same-command", ActorID: "actor", Body: "hello", Confirmed: true}
+	service := sowapp.New(screeningStub{true}, model, keyerStub{}, &idsStub{}, time.Now, 1).
+		WithReachRules(openReachStub{}, openReachStub{}, openReachStub{})
+	command := sowapp.Command{ID: "same-command", ActorID: "actor", TargetID: "target", Body: "hello", Confirmed: true}
 	var wg sync.WaitGroup
 	errs := make(chan error, 32)
 	for range 32 {
@@ -146,3 +149,12 @@ func FuzzListeningNeverBecomesEligibleFromReplayOverlap(f *testing.F) {
 		}
 	})
 }
+
+// openReachStub is an open reach: nobody blocked, the voice was heard, no
+// decline standing. These invariants are about the allowance, not about who
+// may reach whom, and the reach rules are exercised where they belong.
+type openReachStub struct{}
+
+func (openReachStub) Blocked(context.Context, string, string) (bool, error) { return false, nil }
+func (openReachStub) Heard(context.Context, string, string) (bool, error)   { return true, nil }
+func (openReachStub) Locked(context.Context, string, string) (bool, error)  { return false, nil }
