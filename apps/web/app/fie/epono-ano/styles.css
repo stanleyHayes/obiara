@@ -634,3 +634,77 @@
     grid-template-columns: 24px 1fr;
   }
 }
+
+/* The house front. Pods are closed forms: nothing here says who left one, and
+   nothing plays until somebody holds a button down. */
+.house-front {
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--fie-border, rgba(0, 0, 0, 0.12));
+  border-radius: 16px;
+}
+
+.house-front h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.house-front-summary {
+  margin: 0;
+  color: var(--fie-muted, #5a544e);
+}
+
+.house-front-error {
+  margin: 0;
+  color: var(--fie-danger, #8a2b1f);
+}
+
+.house-front-pods {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.house-front-pod {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border: 1px solid var(--fie-border, rgba(0, 0, 0, 0.12));
+  border-radius: 999px;
+}
+
+.house-front-pod-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.house-front-pod-copy span {
+  color: var(--fie-muted, #5a544e);
+  font-size: 0.9rem;
+}
+
+.house-front-hold {
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fie-ink, #14110f);
+  color: var(--fie-paper, #fdfbf7);
+  font-weight: 600;
+  cursor: pointer;
+  /* Holding is the gesture; a long-press must not select text or fire the
+     browser's own context menu underneath it. */
+  touch-action: none;
+  user-select: none;
+}
+
+.house-front-hold:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

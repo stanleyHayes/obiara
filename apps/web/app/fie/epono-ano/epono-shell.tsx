@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode, SVGProps } from "react";
 
 import { CompoundBottomNavigation, CompoundRail } from "../compound-navigation";
+import { HouseFront } from "./house-front";
 
 type DoorwayQuestion = {
   text: string;
@@ -187,9 +188,9 @@ export function EponoShell() {
             </div>
             <h1>Prepare the doorway. Never invent who waits behind it.</h1>
             <p>
-              Obiara has not composed the retained introduction queue yet. This
-              surface now manages only the two real prerequisites already under
-              your control: your doorway question and optional matching
+              What people have sent you rests below, closed, until you hold one
+              to listen. This is also where the two prerequisites under your own
+              control live: your doorway question and optional matching
               personalization.
             </p>
           </div>
@@ -208,6 +209,8 @@ export function EponoShell() {
             </div>
           </div>
         </header>
+
+        <HouseFront />
 
         {message ? (
           <section className="epono-gate" aria-live="polite">

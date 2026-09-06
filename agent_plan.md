@@ -4432,3 +4432,49 @@ around into a list of somebody's outgoing sows.
 
 Proven by breaking it: removing the authorization check made the test report
 an unexpected call to the keyer — an unverified member's pods being read.
+
+
+## 62. Goal: a member can see and hear what is resting for them (2026-09-06)
+
+The first client surface for the seed lifecycle. `Ɛpono ano` now shows the
+house front: the pods waiting for you, and a way to hear one.
+
+Its copy said "Obiara has not composed the retained introduction queue yet",
+which stopped being true somewhere around §59. Leaving that sentence up while
+pods rested underneath it would have been the surface lying about itself.
+
+### The decisions
+
+**Nothing opens on the member's behalf.** Opening is recorded, so it is only
+ever the result of somebody holding the button down. No prefetch, no
+autoplay, no fetching the grant "just in case" — each of those would write
+down that a member had heard something they had not.
+
+**Releasing stops the sound.** Holding to listen is the gesture (S-31); a pod
+that kept playing after the member let go would not be that gesture. The
+handler is also attached to pointer-leave and pointer-cancel, because a thumb
+sliding off a button is a release.
+
+**Nothing says who left a pod.** The server does not send it and this does not
+infer it. A pod is closed until it is opened, and a list that named the sender
+would open it for them.
+
+**An empty house front says so plainly.** Nothing resting is the ordinary
+state of most days, not a failure, and it should not read like one.
+
+**A malformed date renders nothing rather than a guess.** Better silence than
+a confident wrong number under somebody's pod.
+
+| Task    | Deliverable                                                          | Status |
+| ------- | -------------------------------------------------------------------- | ------ |
+| HF-01   | BFF routes for the house front and for opening a pod                  | DONE   |
+| HF-02   | A tested model: time left in words, an honest summary, stable sort    | DONE   |
+| HF-03   | The house front in `Ɛpono ano`, hold-to-listen, with its copy corrected | DONE |
+
+Eight new model tests, 80 web tests green, production build clean. The one
+lint warning it raised was real — `play` was a plain function closed over by a
+callback — and was fixed by hoisting it rather than widening the dependency
+list to silence it.
+
+**Not yet built:** the sow composer (S-22) and the person page (S-21). A
+member can now receive and hear; sending still has no surface.
