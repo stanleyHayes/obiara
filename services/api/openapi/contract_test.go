@@ -253,8 +253,10 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// and nothing in the product could be bought.
 	// 220 adds the discount codes: list, issue, withdraw. A code needs
 	// something to discount, which is why it lands after the purchase.
-	if len(seen) != 220 {
-		t.Errorf("operationId count = %d, want 220", len(seen))
+	// 225 adds the referral scheme and its payout desk. The decision route
+	// is the only thing in the product that sends money out.
+	if len(seen) != 225 {
+		t.Errorf("operationId count = %d, want 225", len(seen))
 	}
 }
 

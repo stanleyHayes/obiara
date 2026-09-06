@@ -3285,7 +3285,7 @@ them:
 | P0    | `internal/organization` context (no principals — see §71) | DONE |
 | P1    | `commerce/promotion`: discount codes, keyed redemption | PLANNED |
 | P2    | Affiliate codes and qualified-conversion accrual     | PLANNED |
-| P3    | Paystack payouts, withholding, clawback              | IN PROGRESS (§76) |
+| P3    | Paystack payouts, withholding, clawback              | DONE (§77) |
 | P4    | Organization-funded sponsored seats                  | DEFERRED |
 
 
@@ -5229,8 +5229,8 @@ the real blocker on every commercial feature, not only this one.
 | ----- | ---------------------------------------------------- | ------- |
 | P0    | `internal/organization` context                      | DONE    |
 | P1    | `commerce/promotion`: discount codes                 | DONE (§74) |
-| P2    | Affiliate codes and qualified-conversion accrual     | IN PROGRESS (§76) |
-| P3    | Paystack payouts, withholding, clawback              | IN PROGRESS (§76) |
+| P2    | Affiliate codes and qualified-conversion accrual     | DONE (§76) |
+| P3    | Paystack payouts, withholding, clawback              | DONE (§77) |
 | P4    | Organization-funded sponsored seats                  | DEFERRED |
 
 **Two of the six §41 decisions are still open**, and both belong to Phase 2 so
@@ -5478,3 +5478,105 @@ reference written after the call.
 
 **The MTN adapter is deleted.** Keeping a second processor nothing composes
 would be another dark path, and this product has one.
+
+## §76 — Affiliates (§41 Phase 2)
+
+The two decisions that gated this were put to the owner and answered.
+
+**A conversion is Tier 1, plus thirty days, plus no upheld safety finding.**
+All three, and any "no" is a no. Commission never accrues on a signup: a scheme
+paying per signup rewards exactly the bulk recruitment the tier ladder, age
+assurance and Sentinel exist to slow down, and the people best placed to
+exploit it are the ones the safety model can see least.
+
+**The commission is a flat amount.** Not a percentage, by the owner's choice —
+predictable to budget, unable to compound with any other take rate into a loss,
+and, unlike a percentage, it tells an affiliate nothing about what any
+individual member paid.
+
+**Members are never affiliates.** The decision with the least engineering in it
+and the most consequence. It is enforced rather than documented: registration
+checks the member directory, and if that cannot be reached the registration is
+**refused** — not knowing is not "no".
+
+### How it holds together
+
+A code, not a tracking link. A code is honest, auditable, and does not require
+following anybody around the internet to attribute them. Attribution records a
+referral and accrues nothing; the referral waits out its period and is then
+asked the questions by a sweep — because what is being checked is that thirty
+days passed and nothing went wrong in them, which is an absence, and nothing
+emits an event for an absence.
+
+**A question that cannot be answered leaves the referral pending.** Not a
+conversion and not a refusal: the next sweep asks again rather than writing
+down a guess about somebody's safety record.
+
+**The first code keeps the member.** Otherwise a second code typed later moves
+a referral somebody has already been waiting thirty days on.
+
+**A clawback un-earns what was earned**, and the referral stays counted — it
+converted once and was reversed once, and letting it accrue again would make a
+clawback a way to double-count. A balance may go negative: an affiliate paid
+for a conversion later reversed owes it back, and clamping at zero would
+silently forgive it.
+
+**The statement says how many and never who.** Referrals are one-way digests on
+the aggregate. The referral table keeps a raw member id because the sweep has
+to ask questions about a person thirty days later and a digest cannot be asked
+anything — the same trade `purchase.Order` makes (§75), and safe for the same
+reason: no affiliate ever reads that row.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| AFF-01  | The aggregate: accrue once, claw back, suspend without writing off | DONE  |
+| AFF-02  | Attribution, and the sweep that qualifies what is due             | DONE   |
+| AFF-03  | Members refused, and refused again when the directory is down     | DONE   |
+| AFF-04  | Store, module, operator routes, contract, client                  | DONE   |
+
+## §77 — Payouts (§41 Phase 3)
+
+The first outbound money this product has ever sent, and deliberately slow.
+
+**Operator-approved, above a floor.** An affiliate's balance must clear a
+configured minimum; a finance operator approves with a step-up; only then is a
+transfer initiated. A scheduled job paying everybody would put real money in
+real hands with nobody in the loop, and the first bug would be the expensive
+kind. Every payout has a person's name against it — keyed, like every other
+actor in an audit trail here.
+
+**Withholding is deducted at a configured rate**, in basis points, in integer
+arithmetic. A tax rate multiplied by money must not be floating point, and
+"7.5%" written as `0.075` is a number no computer stores exactly. Gross,
+withheld and net are all stored rather than derived: a rate that changes must
+not silently restate what somebody was already paid, and a filing has to show
+the number withheld on the day.
+
+**There is no default rate.** Zero is refused rather than treated as "no
+withholding" — the difference between a deliberate zero and an unset config is
+the difference between a decision and a mistake, and this is a tax question.
+Without a rate the whole scheme is not composed.
+
+**The balance is spent before the transfer, and stays spent if it fails.** A
+balance that came back after a transfer that may or may not have gone out is
+how somebody gets paid twice. Restoring it is an operator's decision with the
+processor's records in front of them.
+
+**The payout's own id is the transfer reference**, so a retry cannot send
+twice: Paystack refuses a duplicate reference.
+
+**One open request per affiliate**, enforced by a partial unique index, so one
+balance cannot be approved twice before either is spent.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| PAY-14  | Paystack transfers: recipient then transfer, two steps            | DONE   |
+| PAY-15  | The payout aggregate, withholding in integer arithmetic           | DONE   |
+| PAY-16  | Operator-approved, step-up, balance spent before the wire         | DONE   |
+| PAY-17  | Store with a one-open-request guard, module, routes, contract     | DONE   |
+
+**Before any of this runs:** `AFFILIATE_COMMISSION_PESEWAS`,
+`AFFILIATE_MINIMUM_PAYOUT_PESEWAS` and `AFFILIATE_WITHHOLDING_BASIS_POINTS` in
+Render, alongside the Paystack keys. The withholding rate is yours to set with
+your accountant; nothing is guessed, and without it the scheme is absent
+rather than paying gross.

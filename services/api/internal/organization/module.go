@@ -21,6 +21,10 @@ import (
 
 type Module struct {
 	Organizations application.Service
+	// Keyer is exposed because a payout records which operator approved it,
+	// and an operator digest belongs to whichever context is keying
+	// operators. This one already is.
+	Keyer application.Keyer
 }
 
 // ErrSecretRequired reports a module built with no keying secret. The operator
@@ -43,6 +47,7 @@ func NewModule(ctx context.Context, database *mongo.Database, secret string) (Mo
 	}
 	return Module{
 		Organizations: application.New(repository, keyer, idSource{}, time.Now),
+		Keyer:         keyer,
 	}, nil
 }
 

@@ -5893,6 +5893,237 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/affiliates:
+    get:
+      operationId: adminListAffiliates
+      tags: [Admin]
+      summary: The referral scheme
+      security:
+        - AdminBearer: []
+      description: |
+        Each affiliate carries how many referrals converted, what has accrued,
+        what has been paid and what is owed. **Which members they brought is
+        never said**: referrals are one-way digests, and counting is the whole
+        of what anybody is told about them.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: The affiliates.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: adminRegisterAffiliate
+      tags: [Admin]
+      summary: Admit an affiliate
+      security:
+        - AdminBearer: []
+      description: |
+        Requires a fresh MFA step-up.
+
+        **A member can never be an affiliate** (`member_cannot_be_affiliate`).
+        Paying somebody inside the community to recruit changes what "why is
+        this person talking to me" means, in a product whose premise is that
+        the answer is not money. If the member directory cannot be reached the
+        registration is refused rather than allowed: not knowing is not "no".
+
+        Commission accrues on a **qualified conversion** and never on a signup
+        — the referred member reaches Tier 1, is still there thirty days later,
+        and has no upheld safety finding. A scheme paying per signup would
+        reward exactly the bulk recruitment the tier ladder, age assurance and
+        Sentinel exist to slow down.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AffiliateInput"
+      responses:
+        "201":
+          description: Admitted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AffiliateEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "409":
+          description: |
+            The party is a member (`member_cannot_be_affiliate`), or the code
+            is taken (`affiliate_code_taken`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/affiliates/payouts:
+    get:
+      operationId: adminPendingPayouts
+      tags: [Admin]
+      summary: Payouts waiting on a decision
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: The queue, oldest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/affiliates/{id}/payouts:
+    post:
+      operationId: adminRequestPayout
+      tags: [Admin]
+      summary: Open a payout for what an affiliate is owed
+      security:
+        - AdminBearer: []
+      description: |
+        Opens a request for the **whole balance**: a partial payout with a
+        withholding line is two filings for one payment.
+
+        Nothing moves here. Withholding is deducted at this point and stored,
+        so a rate that changes later cannot silently restate what somebody was
+        already paid.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Requested, awaiting a decision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "409":
+          description: |
+            The balance is below the minimum (`below_payout_minimum`), or a
+            request is already open for this affiliate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: |
+            No withholding rate is configured, so nothing can be paid out
+            (`withholding_unset`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /v1/admin/affiliates/payouts/{payoutId}/decision:
+    post:
+      operationId: adminDecidePayout
+      tags: [Admin]
+      summary: Approve or refuse a payout
+      security:
+        - AdminBearer: []
+      description: |
+        Requires a fresh MFA step-up. **This is the only thing in the product
+        that sends money out**, and it has a person's name against it — the
+        approving operator is recorded as a one-way digest.
+
+        An approval sends the transfer in the same request. An approved payout
+        that nothing sent would be a promise sitting in a table waiting for
+        somebody to notice, and the whole reason this is operator-gated is so
+        a person is present when the money moves.
+
+        The balance is spent before the transfer is attempted. If the transfer
+        then fails the payout is marked failed and **the balance stays spent**:
+        a balance that came back after a transfer that may or may not have gone
+        out is how somebody gets paid twice. Restoring it is an operator's
+        decision with the processor's records in front of them.
+
+        `approve` is required rather than defaulted: a missing field must not
+        mean "send the money".
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: payoutId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PayoutDecisionInput"
+      responses:
+        "200":
+          description: The payout, as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "409":
+          description: The payout changed while you were working.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/admin/matchmakers:
     get:
       operationId: listAdminMatchmakers
@@ -10481,6 +10712,152 @@ components:
             redemptions are stored as one-way digests.
         withdrawn:
           type: boolean
+    AffiliateInput:
+      type: object
+      additionalProperties: false
+      required: [name, code, email, reasonCode]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        code:
+          type: string
+          pattern: ^[A-Za-z0-9]{4,24}$
+          description: |
+            What a referred member types at signup. A code rather than a
+            tracking link: a code is honest, auditable, and does not require
+            following anybody around the internet to attribute them.
+        email:
+          type: string
+          format: email
+          description: |
+            Where the affiliate is reached. Also what is checked against the
+            member directory — a member can never be an affiliate.
+        reasonCode:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9_.-]{2,63}$
+    AffiliateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Affiliate"
+    AffiliateListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [affiliates]
+          properties:
+            affiliates:
+              type: array
+              items:
+                $ref: "#/components/schemas/Affiliate"
+    Affiliate:
+      type: object
+      additionalProperties: false
+      required:
+        [affiliateId, name, code, status, conversions, accruedPesewas, paidPesewas, balancePesewas]
+      properties:
+        affiliateId:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended]
+        conversions:
+          type: integer
+          description: |
+            How many referrals counted. Which members they were is never said:
+            the referrals are one-way digests.
+        accruedPesewas:
+          type: integer
+          format: int64
+        paidPesewas:
+          type: integer
+          format: int64
+        balancePesewas:
+          type: integer
+          format: int64
+          description: |
+            What is owed. Can be negative when a paid conversion was later
+            clawed back — the debt is shown rather than forgiven.
+    PayoutDecisionInput:
+      type: object
+      additionalProperties: false
+      required: [approve]
+      properties:
+        approve:
+          type: boolean
+          description: Required. A missing field must not mean "send the money".
+        phone:
+          type: string
+          description: Where an approved payout goes. Read only on an approval.
+        network:
+          type: string
+          enum: [mtn, vodafone, telecel, airteltigo, at]
+    PayoutEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/AffiliatePayout"
+    PayoutListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [payouts]
+          properties:
+            payouts:
+              type: array
+              items:
+                $ref: "#/components/schemas/AffiliatePayout"
+    AffiliatePayout:
+      type: object
+      additionalProperties: false
+      required:
+        [payoutId, affiliateId, grossPesewas, withheldPesewas, netPesewas, status, requestedAt]
+      properties:
+        payoutId:
+          type: string
+        affiliateId:
+          type: string
+        grossPesewas:
+          type: integer
+          format: int64
+        withheldPesewas:
+          type: integer
+          format: int64
+          description: |
+            Tax withheld, computed in integer arithmetic and stored rather than
+            derived — a rate that changes must not restate what was already
+            paid, and a filing has to show the number withheld on the day.
+        netPesewas:
+          type: integer
+          format: int64
+          description: What the affiliate actually receives.
+        status:
+          type: string
+          enum: [requested, approved, sent, refused, failed]
+        requestedAt:
+          type: string
+          format: date-time
+        transferCode:
+          type: string
+          description: The processor's reference, once the transfer was accepted.
     SowInput:
       type: object
       additionalProperties: false

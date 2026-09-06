@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -147,4 +148,37 @@ func toCaseDomain(document caseDocument) domain.Case {
 		document.SLADueAt, domain.CaseStatus(document.Status),
 		document.AssignedTo, document.Version, document.CreatedAt, document.ResolvedAt,
 	)
+}
+
+// upheldOutcomes are the resolutions that mean a report against somebody was
+// found to have merit.
+//
+// A closed list rather than "anything but dismissed": a resolution this build
+// has not heard of must not silently count as a finding against a member, and
+// it must not silently clear one either — an unknown outcome is simply not on
+// this list and the caller treats absence as clean, which is the direction
+// that does not punish somebody for a string nobody recognised.
+var upheldOutcomes = []string{"upheld", "action_taken", "removed", "suspended", "banned"}
+
+// HasUpheldAgainst reports whether a resolved case against this member was
+// upheld.
+//
+// Added for the affiliate scheme, which must not pay commission for bringing
+// somebody the safety model later acted on. It answers a bool and nothing
+// else: the caller has no business reading the case, only whether one landed.
+func (repository *CaseRepository) HasUpheldAgainst(
+	ctx context.Context, subjectID string,
+) (bool, error) {
+	err := repository.cases().FindOne(ctx, bson.M{
+		"subjectId": strings.TrimSpace(subjectID),
+		"status":    string(domain.CaseResolved),
+		"outcome":   bson.M{"$in": upheldOutcomes},
+	}).Err()
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return false, nil
+	}
+	return false, err
 }

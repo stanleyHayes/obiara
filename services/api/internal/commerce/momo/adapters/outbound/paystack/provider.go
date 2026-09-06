@@ -240,3 +240,114 @@ func drain(response *http.Response) {
 	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<16))
 	_ = response.Body.Close()
 }
+
+// Transfers is money going out.
+//
+// Separated from collection because it is a different act with a different
+// risk: a mistake here sends real money to somebody, and there is no member
+// standing in front of it to notice. Everything about it is deliberately
+// two-step — a recipient is created, then a transfer is initiated against it —
+// so a wrong number fails at the recipient stage rather than after the money
+// has gone.
+
+type recipientResponse struct {
+	Status bool `json:"status"`
+	Data   struct {
+		RecipientCode string `json:"recipient_code"`
+	} `json:"data"`
+}
+
+// CreateRecipient registers who is being paid and returns Paystack's code for
+// them.
+//
+// The telco code goes in as bank_code, which is how Paystack models a mobile
+// money destination in Ghana.
+func (provider *Provider) CreateRecipient(
+	ctx context.Context, name, phone, network string,
+) (string, error) {
+	if provider == nil || provider.client == nil {
+		return "", ErrUnavailable
+	}
+	code, known := Network(network)
+	if strings.TrimSpace(name) == "" || strings.TrimSpace(phone) == "" || !known {
+		return "", ErrUnavailable
+	}
+	body, err := json.Marshal(map[string]any{
+		"type": "mobile_money", "name": name, "account_number": phone,
+		"bank_code": strings.ToUpper(code), "currency": "GHS",
+	})
+	if err != nil {
+		return "", ErrUnavailable
+	}
+	var created recipientResponse
+	if err := provider.post(ctx, "/transferrecipient", body, &created); err != nil {
+		return "", err
+	}
+	if !created.Status || strings.TrimSpace(created.Data.RecipientCode) == "" {
+		return "", ErrUnavailable
+	}
+	return created.Data.RecipientCode, nil
+}
+
+type transferResponse struct {
+	Status bool `json:"status"`
+	Data   struct {
+		Reference    string `json:"reference"`
+		TransferCode string `json:"transfer_code"`
+		Status       string `json:"status"`
+	} `json:"data"`
+}
+
+// Transfer sends money to a registered recipient.
+//
+// The reference is supplied so a retry cannot send twice: Paystack refuses a
+// duplicate reference, which is the only thing between a retried payout and
+// paying somebody the same amount again.
+func (provider *Provider) Transfer(
+	ctx context.Context, recipientCode, reference, reason string, amountPesewas int64,
+) (string, error) {
+	if provider == nil || provider.client == nil {
+		return "", ErrUnavailable
+	}
+	if strings.TrimSpace(recipientCode) == "" || strings.TrimSpace(reference) == "" ||
+		amountPesewas <= 0 {
+		return "", ErrUnavailable
+	}
+	body, err := json.Marshal(map[string]any{
+		"source": "balance", "amount": amountPesewas, "recipient": recipientCode,
+		"reason": reason, "reference": reference, "currency": "GHS",
+	})
+	if err != nil {
+		return "", ErrUnavailable
+	}
+	var sent transferResponse
+	if err := provider.post(ctx, "/transfer", body, &sent); err != nil {
+		return "", err
+	}
+	if !sent.Status || strings.TrimSpace(sent.Data.TransferCode) == "" {
+		return "", ErrUnavailable
+	}
+	return sent.Data.TransferCode, nil
+}
+
+func (provider *Provider) post(ctx context.Context, path string, body []byte, into any) error {
+	call, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, provider.config.BaseURL+path, bytes.NewReader(body))
+	if err != nil {
+		return ErrUnavailable
+	}
+	call.Header.Set("Authorization", "Bearer "+provider.config.SecretKey)
+	call.Header.Set("Content-Type", "application/json")
+	response, err := provider.client.Do(call)
+	if err != nil {
+		return ErrUnavailable
+	}
+	defer drain(response)
+	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusCreated {
+		return ErrUnavailable
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxWebhookBytes)).Decode(into); err != nil {
+		return ErrUnavailable
+	}
+	return nil
+}

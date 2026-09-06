@@ -28,7 +28,10 @@ type Config struct {
 	ObjectStorage          ObjectStorage
 	// Paystack selects the payment processor. Absent means nothing in the
 	// product can be bought.
-	Paystack               Paystack
+	Paystack Paystack
+	// Affiliates is the referral scheme's commercial shape. Absent means it
+	// is not composed and nothing accrues.
+	Affiliates             Affiliates
 	AdminConsoleURL        string
 	CommerceHMACSecret     string
 	AdminHMACSecret        string
@@ -88,6 +91,7 @@ func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 		),
 		ObjectStorage: loadObjectStorage(getenv),
 		Paystack:      loadPaystack(getenv),
+		Affiliates:    loadAffiliates(getenv),
 		CommerceHMACSecret: valueOrDefault(
 			getenv("COMMERCE_HMAC_SECRET"),
 			"obiara-local-commerce-key-change-before-production",

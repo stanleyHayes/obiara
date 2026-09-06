@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -52,6 +53,26 @@ func (repository *Repository) Create(ctx context.Context, member domain.Member) 
 func (repository *Repository) FindByID(ctx context.Context, id string) (domain.Member, error) {
 	var document memberDocument
 	if err := repository.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&document); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return domain.Member{}, ErrMemberNotFound
+		}
+		return domain.Member{}, err
+	}
+	return domain.NewMember(document.ID, document.Email, document.CreatedAt)
+}
+
+// FindByEmail reads a member by the address they registered with.
+//
+// Added for one question the affiliate scheme has to be able to answer:
+// whether the party being admitted is a member. Members are never affiliates
+// (agent_plan.md §41), and without a way to check, the rule is a comment.
+func (repository *Repository) FindByEmail(
+	ctx context.Context, email string,
+) (domain.Member, error) {
+	var document memberDocument
+	if err := repository.collection.FindOne(ctx, bson.M{
+		"email": strings.ToLower(strings.TrimSpace(email)),
+	}).Decode(&document); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return domain.Member{}, ErrMemberNotFound
 		}

@@ -34,6 +34,7 @@ import (
 	"github.com/stanleyHayes/obiara/internal/platform/outbox"
 	"github.com/stanleyHayes/obiara/internal/privacy"
 	"github.com/stanleyHayes/obiara/internal/safety"
+	safetymongodb "github.com/stanleyHayes/obiara/internal/safety/adapters/outbound/mongodb"
 	safetyapplication "github.com/stanleyHayes/obiara/internal/safety/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/admin"
 	adminemail "github.com/stanleyHayes/obiara/services/api/internal/admin/adapters/outbound/email"
@@ -47,6 +48,7 @@ import (
 	circledomain "github.com/stanleyHayes/obiara/services/api/internal/circle/domain"
 	circleroom "github.com/stanleyHayes/obiara/services/api/internal/circle/room"
 	circleroomapp "github.com/stanleyHayes/obiara/services/api/internal/circle/room/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/affiliate"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/catalog"
 	catalogauthority "github.com/stanleyHayes/obiara/services/api/internal/commerce/catalog/adapters/outbound/adminauthority"
 	commerceescrow "github.com/stanleyHayes/obiara/services/api/internal/commerce/escrow"
@@ -95,6 +97,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/sharingpolicy"
 	mediaapplication "github.com/stanleyHayes/obiara/services/api/internal/media/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
+	membermongo "github.com/stanleyHayes/obiara/services/api/internal/member/adapters/outbound/mongodb"
 	memberdomain "github.com/stanleyHayes/obiara/services/api/internal/member/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/organization"
 	organizationapplication "github.com/stanleyHayes/obiara/services/api/internal/organization/application"
@@ -886,6 +889,51 @@ func run() error {
 	}
 	apihttp.RegisterAdminPromotionRoutes(mux, promotionModule.Promotions, adminPrincipalResolver)
 
+	// The referral scheme. Composed only when a commission and a withholding
+	// rate are both set: a scheme that accrues but can never legally pay out
+	// is a liability that only grows, so an unset rate leaves it absent.
+	//
+	// Affiliates are outside parties. Members are never affiliates
+	// (agent_plan.md §41), which is what the member check below enforces.
+	var affiliates apihttp.AdminAffiliates
+	var affiliatePayouts apihttp.AdminPayouts
+	if cfg.Paystack.Configured() && cfg.Affiliates.Configured() {
+		transfers, transferErr := paystack.New(paystack.Config{
+			BaseURL:   cfg.Paystack.BaseURL,
+			SecretKey: cfg.Paystack.SecretKey,
+		})
+		if transferErr != nil {
+			return fmt.Errorf("build affiliate transfer rail: %w", transferErr)
+		}
+		affiliateModule, affiliateErr := affiliate.NewModule(
+			ctx, client.Database(cfg.MongoDatabase),
+			conversionBridge{
+				tiers: identityModule.Tiers,
+				// The same case collection the safety desk reads. Asked one
+				// bool and nothing else: whether a report against this member
+				// was upheld.
+				safety: safetymongodb.NewCaseRepository(client.Database(cfg.MongoDatabase)),
+			},
+			transfers,
+			membershipModule.Keyer,
+			affiliate.Settings{
+				CommissionPesewas:      cfg.Affiliates.CommissionPesewas,
+				MinimumPayoutPesewas:   cfg.Affiliates.MinimumPayoutPesewas,
+				WithholdingBasisPoints: cfg.Affiliates.WithholdingBasisPoints,
+			},
+		)
+		if affiliateErr != nil {
+			return fmt.Errorf("build affiliate module: %w", affiliateErr)
+		}
+		affiliates, affiliatePayouts = affiliateModule.Affiliates, affiliateModule.Payouts
+		apihttp.RegisterAdminAffiliateRoutes(
+			mux, affiliates, affiliatePayouts,
+			memberLookupBridge{members: memberModule.Members}.IsMember,
+			organizationModule.Keyer,
+			adminPrincipalResolver,
+		)
+	}
+
 	// Buying a membership. Composed only when Paystack is configured: without
 	// a secret key there is no way to take money and no way to verify a
 	// webhook, and a purchase route that always failed would be worse than a
@@ -1651,4 +1699,63 @@ func (bridge memberReceiptBridge) Email(ctx context.Context, memberID string) (s
 		return "", err
 	}
 	return member.Email(), nil
+}
+
+// conversionBridge answers whether a referral has converted.
+//
+// Two questions, and both have to say yes: the member reached Tier 1 and has
+// no upheld safety finding. Commission never accrues on a signup — a scheme
+// paying per signup rewards exactly the bulk recruitment the tier ladder, age
+// assurance and Sentinel exist to slow down.
+type conversionBridge struct {
+	tiers interface {
+		Tier(ctx context.Context, memberID string) (identitydomain.Tier, error)
+	}
+	safety interface {
+		HasUpheldAgainst(ctx context.Context, subjectID string) (bool, error)
+	}
+}
+
+func (bridge conversionBridge) Verified(ctx context.Context, memberID string) (bool, error) {
+	tier, err := bridge.tiers.Tier(ctx, memberID)
+	if err != nil {
+		return false, err
+	}
+	// Tier 1 or above, checked now rather than remembered from signup: a
+	// member who verified and then lost it has not stayed.
+	return tier != identitydomain.TierUnverified, nil
+}
+
+// Clean reports no upheld safety finding.
+//
+// Answered conservatively: if the safety context cannot be asked, the referral
+// is not clean, it is unknown — and the sweep leaves an unknown pending rather
+// than paying on it. Returning an error is what produces that.
+func (bridge conversionBridge) Clean(ctx context.Context, memberID string) (bool, error) {
+	upheld, err := bridge.safety.HasUpheldAgainst(ctx, memberID)
+	if err != nil {
+		return false, err
+	}
+	return !upheld, nil
+}
+
+// memberLookupBridge answers whether an identifier belongs to a member, which
+// is the one rule keeping affiliates outside the community.
+type memberLookupBridge struct {
+	members interface {
+		FindByEmail(context.Context, string) (memberdomain.Member, error)
+	}
+}
+
+func (bridge memberLookupBridge) IsMember(ctx context.Context, email string) (bool, error) {
+	_, err := bridge.members.FindByEmail(ctx, email)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, membermongo.ErrMemberNotFound) {
+		return false, nil
+	}
+	// Not knowing is not "no". An affiliate admitted because the member
+	// directory was unreachable is a member being paid to recruit.
+	return false, err
 }

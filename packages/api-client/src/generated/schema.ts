@@ -50,6 +50,123 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/affiliates": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * The referral scheme
+     * @description Each affiliate carries how many referrals converted, what has accrued,
+     *     what has been paid and what is owed. **Which members they brought is
+     *     never said**: referrals are one-way digests, and counting is the whole
+     *     of what anybody is told about them.
+     */
+    readonly get: operations["adminListAffiliates"];
+    readonly put?: never;
+    /**
+     * Admit an affiliate
+     * @description Requires a fresh MFA step-up.
+     *
+     *     **A member can never be an affiliate** (`member_cannot_be_affiliate`).
+     *     Paying somebody inside the community to recruit changes what "why is
+     *     this person talking to me" means, in a product whose premise is that
+     *     the answer is not money. If the member directory cannot be reached the
+     *     registration is refused rather than allowed: not knowing is not "no".
+     *
+     *     Commission accrues on a **qualified conversion** and never on a signup
+     *     — the referred member reaches Tier 1, is still there thirty days later,
+     *     and has no upheld safety finding. A scheme paying per signup would
+     *     reward exactly the bulk recruitment the tier ladder, age assurance and
+     *     Sentinel exist to slow down.
+     */
+    readonly post: operations["adminRegisterAffiliate"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/affiliates/{id}/payouts": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Open a payout for what an affiliate is owed
+     * @description Opens a request for the **whole balance**: a partial payout with a
+     *     withholding line is two filings for one payment.
+     *
+     *     Nothing moves here. Withholding is deducted at this point and stored,
+     *     so a rate that changes later cannot silently restate what somebody was
+     *     already paid.
+     */
+    readonly post: operations["adminRequestPayout"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/affiliates/payouts": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Payouts waiting on a decision */
+    readonly get: operations["adminPendingPayouts"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/affiliates/payouts/{payoutId}/decision": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Approve or refuse a payout
+     * @description Requires a fresh MFA step-up. **This is the only thing in the product
+     *     that sends money out**, and it has a person's name against it — the
+     *     approving operator is recorded as a one-way digest.
+     *
+     *     An approval sends the transfer in the same request. An approved payout
+     *     that nothing sent would be a promise sitting in a table waiting for
+     *     somebody to notice, and the whole reason this is operator-gated is so
+     *     a person is present when the money moves.
+     *
+     *     The balance is spent before the transfer is attempted. If the transfer
+     *     then fails the payout is marked failed and **the balance stays spent**:
+     *     a balance that came back after a transfer that may or may not have gone
+     *     out is how somebody gets paid twice. Restoring it is an operator's
+     *     decision with the processor's records in front of them.
+     *
+     *     `approve` is required rather than defaulted: a missing field must not
+     *     mean "send the money".
+     */
+    readonly post: operations["adminDecidePayout"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/care/cases": {
     readonly parameters: {
       readonly query?: never;
@@ -4609,6 +4726,76 @@ export interface components {
       };
       readonly meta: components["schemas"]["Metadata"];
     };
+    readonly Affiliate: {
+      /** Format: int64 */
+      readonly accruedPesewas: number;
+      readonly affiliateId: string;
+      /**
+       * Format: int64
+       * @description What is owed. Can be negative when a paid conversion was later
+       *     clawed back — the debt is shown rather than forgiven.
+       */
+      readonly balancePesewas: number;
+      readonly code: string;
+      /**
+       * @description How many referrals counted. Which members they were is never said:
+       *     the referrals are one-way digests.
+       */
+      readonly conversions: number;
+      readonly name: string;
+      /** Format: int64 */
+      readonly paidPesewas: number;
+      /** @enum {string} */
+      readonly status: "active" | "suspended";
+    };
+    readonly AffiliateEnvelope: {
+      readonly data: components["schemas"]["Affiliate"];
+    };
+    readonly AffiliateInput: {
+      /**
+       * @description What a referred member types at signup. A code rather than a
+       *     tracking link: a code is honest, auditable, and does not require
+       *     following anybody around the internet to attribute them.
+       */
+      readonly code: string;
+      /**
+       * Format: email
+       * @description Where the affiliate is reached. Also what is checked against the
+       *     member directory — a member can never be an affiliate.
+       */
+      readonly email: string;
+      readonly name: string;
+      readonly reasonCode: string;
+    };
+    readonly AffiliateListEnvelope: {
+      readonly data: {
+        readonly affiliates: readonly components["schemas"]["Affiliate"][];
+      };
+    };
+    readonly AffiliatePayout: {
+      readonly affiliateId: string;
+      /** Format: int64 */
+      readonly grossPesewas: number;
+      /**
+       * Format: int64
+       * @description What the affiliate actually receives.
+       */
+      readonly netPesewas: number;
+      readonly payoutId: string;
+      /** Format: date-time */
+      readonly requestedAt: string;
+      /** @enum {string} */
+      readonly status: "requested" | "approved" | "sent" | "refused" | "failed";
+      /** @description The processor's reference, once the transfer was accepted. */
+      readonly transferCode?: string;
+      /**
+       * Format: int64
+       * @description Tax withheld, computed in integer arithmetic and stored rather than
+       *     derived — a rate that changes must not restate what was already
+       *     paid, and a filing has to show the number withheld on the day.
+       */
+      readonly withheldPesewas: number;
+    };
     readonly AmpeCommandInput: {
       /** @enum {string} */
       readonly action: "ready" | "lock";
@@ -5944,6 +6131,22 @@ export interface components {
       readonly pit: number;
     };
     readonly PackActorInput: Record<string, never>;
+    readonly PayoutDecisionInput: {
+      /** @description Required. A missing field must not mean "send the money". */
+      readonly approve: boolean;
+      /** @enum {string} */
+      readonly network?: "mtn" | "vodafone" | "telecel" | "airteltigo" | "at";
+      /** @description Where an approved payout goes. Read only on an approval. */
+      readonly phone?: string;
+    };
+    readonly PayoutEnvelope: {
+      readonly data: components["schemas"]["AffiliatePayout"];
+    };
+    readonly PayoutListEnvelope: {
+      readonly data: {
+        readonly payouts: readonly components["schemas"]["AffiliatePayout"][];
+      };
+    };
     /** @description E.164 phone number. */
     readonly PhoneNumber: string;
     readonly PodData: {
@@ -7458,6 +7661,206 @@ export interface operations {
         };
       };
       readonly 401: components["responses"]["Unauthorized"];
+    };
+  };
+  readonly adminListAffiliates: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The affiliates. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AffiliateListEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly adminRegisterAffiliate: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["AffiliateInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Admitted. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["AffiliateEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /**
+       * @description The party is a member (`member_cannot_be_affiliate`), or the code
+       *     is taken (`affiliate_code_taken`).
+       */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly adminRequestPayout: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Requested, awaiting a decision. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PayoutEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /**
+       * @description The balance is below the minimum (`below_payout_minimum`), or a
+       *     request is already open for this affiliate.
+       */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /**
+       * @description No withholding rate is configured, so nothing can be paid out
+       *     (`withholding_unset`).
+       */
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  readonly adminPendingPayouts: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The queue, oldest first. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PayoutListEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly adminDecidePayout: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly payoutId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PayoutDecisionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The payout, as it now stands. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PayoutEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /** @description The payout changed while you were working. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly listAdminCareCases: {
