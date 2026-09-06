@@ -5787,3 +5787,84 @@ automatically.
 | RUN-01  | A fresh database can be booted against                            | DONE   |
 | RUN-02  | Dev apps point at a local API, and local env files stay untracked | DONE   |
 | RUN-03  | `obiara_dev` / `obiara_prod`, with the migration note             | DONE   |
+
+## WEB-LANDING-2026-09-06 — Public member-web redesign
+
+- Owner: `/root` (Codex UI); claimed 2026-09-06; status: **ENGINEERING COMPLETE — local review; not published**.
+- Request: replace the sample dashboard at `/` with a complete public landing page, explicit login/sign-up entry points, and an understandable language control.
+- Owned paths: `apps/web/app/page.tsx`, `apps/web/app/landing*`, onboarding entry copy in `apps/web/app/onboarding/{page,onboarding-flow}.tsx`, this ledger section.
+- Preserve the existing OTP and server-owned onboarding/resume contracts. Reuse approved brand assets and Outfit. Scope language support honestly to the public page.
+- Local review slice: existing checkout has 19 unpublished commits and unrelated backend/config edits; do not publish that accumulated work as part of this redesign.
+- Acceptance: responsive public page; distinct labeled auth actions with matching entry copy; whole-page English/Twi selection retained on reload; keyboard focus, reduced motion, and rendered route verification.
+
+- Completed 2026-09-06: replaced sample member/dashboard content with public introduction, responsive account actions, illustrated voice-first panel, how-it-works, values, closing CTA, and existing privacy/terms destinations. Login/sign-up routes retain the OTP flow and distinguish their entry headings.
+- Validation: web lint and TypeScript passed; 19 test files / 94 tests passed; production build passed. Browser-reviewed desktop and 390px mobile (including Twi); no horizontal overflow at 390px; language change persisted across reload; login entry rendered correctly; sign-up returned HTTP 200 with the expected account-creation heading. Twi copy is implemented but has not had native-speaker editorial review.
+
+## WEB-BRAND-CONTROLS-2026-09-06
+
+- Owner: `/root`; status: **ENGINEERING COMPLETE — local review; not published**; local review slice.
+- Scope: shared `packages/ui-web/src/form-controls.*`, landing language control, public Privacy/Terms presentation in marketing and member web, and onboarding legal destinations.
+- Acceptance: no native visible selects/calendars; branded checkbox/radio/time/date controls retain behavior and keyboard access; legal wording preserved; both policies offer explicit return to the main page.
+
+- Completed: landing language now uses the shared custom combobox; cream/plum/rose styling applied across checkbox, radio, select, time and date controls. Calendar supports custom month/year selection. Select supports active-option announcements, keyboard dismissal and focus restoration.
+- Legal: existing policy wording retained; shared branded layout, section anchors, explicit top/bottom home links, and local `/privacy` and `/terms` web routes. Landing/onboarding legal links now stay within the member web app.
+- Validation: shared UI, web and marketing typechecks passed; web/marketing lint passed; 14 shared UI tests and 94 web tests passed; formatting/diff checks passed. Marketing production build passed. Both local legal routes returned HTTP 200; Privacy visually inspected. Source audit found no visible native selects or date/time inputs in web/marketing. Browser automation was intermittent, so complete keyboard/mobile interaction revalidation is not claimed. Web production build also passed, including the new `/privacy` and `/terms` routes.
+
+## WEB-ADMIN-FIELD-LEGIBILITY-2026-09-06
+
+- Owner: `/root`; status: **ENGINEERING COMPLETE — local review; not published**.
+- Two reports from the running local stack, both about a field saying the wrong
+  thing about what the member or operator had already entered.
+
+- **Onboarding said "address" for a phone number.** The Continue button read
+  "Continue with this address" whichever channel was chosen, so a member who had
+  just typed a Ghana number was asked about an address they never gave. The
+  wording is now a pure function of the channel, `continueLabel` in
+  `apps/web/app/onboarding/onboarding-model.ts`, alongside the per-channel
+  wording the file already used for "Change number" / "Change address". Covered
+  in `onboarding-model.test.ts`.
+
+- **The console's sign-in label printed itself over the value.** Material's
+  floating label only lifts once the field reports itself filled, which it
+  learns from React's `onChange`. A browser autofilling a saved address and
+  password fills the DOM without firing it, so the label stayed at rest and drew
+  on top of the value — worse for being `zIndex: 1, pointerEvents: none`, so it
+  painted over text the operator could see but not correct.
+  - Fix: `startAdornment` on both fields in `apps/admin/app/login/admin-login.tsx`.
+    `InputLabel` shrinks on `filled || focused || adornedStart`, and
+    `adornedStart` is decided from the input's props at the first server render,
+    so the label is in its notch before autofill or hydration can race it. The
+    icons are the fix, not decoration on top of one.
+  - The marks are drawn inline in `apps/admin/app/login/field-icons.tsx` rather
+    than pulled from an icon package: the console ships no icon dependency and
+    the doorway is the wrong place to add one. Envelope and lock lead the two
+    fields, the reveal control is now a drawn eye instead of the `◉`/`◌`
+    stand-in, and a well-formed address gets a tick so it need not be re-read.
+
+- Validation: web typecheck, lint and 19 files / 95 tests passed; admin
+  typecheck and lint passed. Server-rendered `/login` now reports
+  `data-shrink="true"` on both labels with the outlined shrink transform
+  applied, and `/onboarding` renders "Continue with this number" on the SMS
+  channel.
+- Not claimed: no browser-automation pass over the console sign-in; the autofill
+  case was reasoned from MUI's `InputLabel`/`FormControl` sources and verified
+  through the rendered markup, not by driving a browser with a saved password.
+
+## CONTRACT-PAYSTACK-SECURITY-2026-09-06
+
+- Owner: `/root`; status: **DONE**.
+- `pnpm run check` failed at `@obiara/api-client#lint`: the Paystack webhook was
+  the one operation in the contract with no `security`, so redocly's
+  `security-defined` rule rejected the whole description. The route had been
+  added without one because it carries no session.
+- "No session" is not "no authentication". The route is authenticated, by an
+  HMAC-SHA512 over the raw body in `x-paystack-signature`, and the contract said
+  nothing about it — a reader would have taken the busiest money-moving route
+  for an open one.
+- Fix: a `PaystackSignature` `apiKey` security scheme naming that header, and
+  `security: [PaystackSignature: []]` on the operation. Deliberately not the
+  `AdminBearer: []` the Resend webhook declares: Resend never sends an admin
+  token, so that entry satisfies the linter by describing an authentication that
+  does not happen, and copying it would have spread the untruth.
+- Validation: redocly lint passes; `node scripts/generate.mjs --check` confirms
+  the generated client is unchanged, so no client is affected.

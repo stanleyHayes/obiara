@@ -4648,11 +4648,37 @@ textarea {
   cursor: not-allowed;
 }
 
-.admin-password-icon {
-  color: #6e3d5b;
+/* The marks inside the sign-in fields.
+   A start mark is what keeps the floating label off the value: it makes the
+   field permanently adorned, so the label sits in the notch from the first
+   render rather than waiting for the field to report itself filled — which a
+   browser's autofill never does. */
+.admin-field-icon {
+  color: #8a6b7c;
   display: block;
-  font-size: 1.35rem;
-  line-height: 1;
+  flex: none;
+}
+
+.admin-field-icon--good {
+  color: var(--admin-green);
+}
+
+.admin-login-form .MuiInputAdornment-positionStart {
+  color: #8a6b7c;
+  margin-right: 10px;
+}
+
+.admin-login-form .MuiIconButton-root .admin-field-icon {
+  color: #6e3d5b;
+}
+
+:root[data-theme="dark"] .admin-field-icon,
+:root[data-theme="dark"] .admin-login-form .MuiInputAdornment-positionStart,
+:root[data-theme="dark"]
+  .admin-login-form
+  .MuiIconButton-root
+  .admin-field-icon {
+  color: var(--admin-muted);
 }
 
 .admin-login-help {

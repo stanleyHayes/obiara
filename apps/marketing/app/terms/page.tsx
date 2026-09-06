@@ -68,7 +68,7 @@ export default function TermsPage() {
           You may stop using Obiara or request account deletion at any time. We
           may suspend access to address a credible safety, security or legal
           risk and will provide an appropriate review path. Questions may be
-          sent through <a href="/support">support</a>.
+          sent through <a href="https://obiara.app/support">support</a>.
         </p>
       </section>
     </LegalPage>

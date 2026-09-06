@@ -2864,6 +2864,8 @@ paths:
       operationId: paystackWebhook
       tags: [Commerce]
       summary: Paystack reports a payment outcome
+      security:
+        - PaystackSignature: []
       description: |
         Called by Paystack, not by a member, and carries no session. It is
         authenticated by an HMAC-SHA512 of the exact request body, keyed with
@@ -9248,6 +9250,16 @@ paths:
           $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
+    PaystackSignature:
+      type: apiKey
+      in: header
+      name: x-paystack-signature
+      description: |
+        HMAC-SHA512 of the exact request body, keyed with the Paystack secret
+        key. It is not a session: the caller is Paystack, and the signature is
+        verified over the raw bytes before anything parses them. Named here
+        rather than left undeclared so the contract says how the one unauthenticated-
+        looking route is in fact authenticated.
     MemberBearer:
       type: http
       scheme: bearer

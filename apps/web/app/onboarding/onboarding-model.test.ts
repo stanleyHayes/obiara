@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   initialOnboardingState,
+  continueLabel,
   normalizeGhanaPhone,
   onboardingReducer,
   type OnboardingState,
@@ -158,5 +159,13 @@ describe("identity onboarding", () => {
         outcome: "live",
       }),
     ).toEqual(state);
+  });
+
+  it("asks about the thing the member actually typed", () => {
+    // A member on the SMS channel has a phone number on screen and no address
+    // anywhere in the form, so a button offering to continue with "this
+    // address" is asking about something they never gave.
+    expect(continueLabel("sms")).toBe("Continue with this number");
+    expect(continueLabel("email")).toBe("Continue with this address");
   });
 });

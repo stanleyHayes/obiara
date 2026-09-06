@@ -180,6 +180,7 @@ export function ObiaraSelect<Value extends string>({
 }: Readonly<ObiaraSelectProps<Value>>) {
   const listId = useId();
   const labelId = useId();
+  const valueId = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(() =>
     Math.max(
@@ -188,6 +189,7 @@ export function ObiaraSelect<Value extends string>({
     ),
   );
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const typeahead = useRef({ buffer: "", at: 0 });
   const selected = options.find((option) => option.value === value);
 
@@ -208,9 +210,28 @@ export function ObiaraSelect<Value extends string>({
       if (!option) return;
       onChange(option.value);
       setOpen(false);
+      trigger.current?.focus();
     },
     [onChange, options],
   );
+
+  function showOptions() {
+    setActive(
+      Math.max(
+        0,
+        options.findIndex((option) => option.value === value),
+      ),
+    );
+    setOpen(true);
+    typeahead.current = { buffer: "", at: 0 };
+  }
+
+  useEffect(() => {
+    if (open)
+      root.current
+        ?.querySelector(`[data-option-index="${active}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
 
   function onKeyDown(event: KeyboardEvent<HTMLElement>) {
     const last = options.length - 1;
@@ -220,12 +241,16 @@ export function ObiaraSelect<Value extends string>({
     }
     if (
       !open &&
-      (event.key === "Enter" || event.key === " " || event.key === "ArrowDown")
+      (event.key === "Enter" ||
+        event.key === " " ||
+        event.key === "ArrowDown" ||
+        event.key === "ArrowUp")
     ) {
       event.preventDefault();
-      setOpen(true);
+      showOptions();
       return;
     }
+    if (event.key === "Tab") setOpen(false);
     if (!open) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -257,7 +282,13 @@ export function ObiaraSelect<Value extends string>({
   }
 
   return (
-    <div className="obiara-select" ref={root}>
+    <div
+      className="obiara-select"
+      ref={root}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+    >
       <span className="obiara-control-label" id={labelId}>
         {label}
       </span>
@@ -266,18 +297,31 @@ export function ObiaraSelect<Value extends string>({
         aria-describedby={describedBy}
         aria-expanded={open}
         aria-haspopup="listbox"
-        aria-labelledby={`${labelId}`}
+        role="combobox"
+        aria-activedescendant={open ? `${listId}-${active}` : undefined}
+        aria-labelledby={`${labelId} ${valueId}`}
+        ref={trigger}
         className="obiara-select-trigger"
         disabled={disabled}
-        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        onClick={() => (open ? setOpen(false) : showOptions())}
         onKeyDown={onKeyDown}
         type="button"
       >
-        <span className={selected ? undefined : "obiara-select-placeholder"}>
+        <span
+          id={valueId}
+          className={selected ? undefined : "obiara-select-placeholder"}
+        >
           {selected ? selected.label : placeholder}
         </span>
         <span aria-hidden="true" className="obiara-select-caret">
-          ▾
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+          >
+            <path d="m5 7 5 5 5-5" />
+          </svg>
         </span>
       </button>
       {open ? (
@@ -290,9 +334,12 @@ export function ObiaraSelect<Value extends string>({
         >
           {options.map((option, index) => (
             <li
+              id={`${listId}-${index}`}
+              data-option-index={index}
               aria-selected={option.value === value}
               className={`obiara-select-option${index === active ? " is-active" : ""}`}
               key={option.value}
+              onPointerDown={(event) => event.preventDefault()}
               onClick={() => commit(index)}
               onMouseEnter={() => setActive(index)}
               role="option"
@@ -436,6 +483,7 @@ export function ObiaraDateField({
 }: Readonly<ObiaraDateFieldProps>) {
   const labelId = useId();
   const dialogId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -477,11 +525,26 @@ export function ObiaraDateField({
   }
 
   return (
-    <div className="obiara-date" ref={root}>
+    <div
+      className="obiara-date"
+      ref={root}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          setOpen(false);
+          trigger.current?.focus();
+        }
+      }}
+    >
       <span className="obiara-control-label" id={labelId}>
         {label}
       </span>
       <button
+        ref={trigger}
+        aria-haspopup="dialog"
         aria-controls={open ? dialogId : undefined}
         aria-describedby={describedBy}
         aria-expanded={open}
@@ -498,7 +561,15 @@ export function ObiaraDateField({
           {value || "Choose a date"}
         </span>
         <span aria-hidden="true" className="obiara-date-icon">
-          ▦
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+          >
+            <rect x="4" y="5" width="16" height="16" rx="3" />
+            <path d="M8 2v6m8-6v6M4 11h16" />
+          </svg>
         </span>
       </button>
       {open ? (
@@ -529,12 +600,55 @@ export function ObiaraDateField({
               ›
             </button>
           </div>
+          <div className="obiara-date-jump">
+            <ObiaraSelect
+              label="Month"
+              value={String(cursor.month)}
+              onChange={(month) =>
+                setCursor((current) => ({ ...current, month: Number(month) }))
+              }
+              options={MONTHS.map((label, month) => ({
+                label,
+                value: String(month),
+              }))}
+            />
+            <ObiaraSelect
+              label="Year"
+              value={String(cursor.year)}
+              onChange={(year) =>
+                setCursor((current) => ({ ...current, year: Number(year) }))
+              }
+              options={Array.from(
+                {
+                  length:
+                    (max
+                      ? Number(max.slice(0, 4))
+                      : Math.max(new Date().getFullYear() + 10, cursor.year)) -
+                    (min
+                      ? Number(min.slice(0, 4))
+                      : Math.min(1900, cursor.year)) +
+                    1,
+                },
+                (_, index) => {
+                  const year =
+                    (min
+                      ? Number(min.slice(0, 4))
+                      : Math.min(1900, cursor.year)) + index;
+                  return { label: String(year), value: String(year) };
+                },
+              ).reverse()}
+            />
+          </div>
           <div aria-hidden="true" className="obiara-date-weekdays">
             {DAY_INITIALS.map((initial, index) => (
               <span key={`${initial}-${index}`}>{initial}</span>
             ))}
           </div>
-          <div className="obiara-date-grid" role="grid">
+          <div
+            className="obiara-date-grid"
+            role="group"
+            aria-label={`${MONTHS[cursor.month]} ${cursor.year}`}
+          >
             {Array.from({ length: leading }, (_, index) => (
               <span key={`lead-${index}`} />
             ))}
@@ -544,6 +658,7 @@ export function ObiaraDateField({
               const unavailable = outOfRange(iso);
               return (
                 <button
+                  aria-label={`${day} ${MONTHS[cursor.month]} ${cursor.year}`}
                   aria-pressed={iso === value}
                   className="obiara-date-day"
                   disabled={unavailable}
@@ -551,6 +666,7 @@ export function ObiaraDateField({
                   onClick={() => {
                     onChange(iso);
                     setOpen(false);
+                    trigger.current?.focus();
                   }}
                   type="button"
                 >
@@ -565,6 +681,7 @@ export function ObiaraDateField({
               onClick={() => {
                 onChange("");
                 setOpen(false);
+                trigger.current?.focus();
               }}
               type="button"
             >

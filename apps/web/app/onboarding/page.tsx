@@ -41,12 +41,24 @@ async function resumeState(): Promise<OnboardingState> {
   }
 }
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
+  const { mode } = await searchParams;
   const state = await resumeState();
   // A member who has finished every check has no doorway left to walk. Sending
   // them to their house is the whole point of having done it.
   if (state.stage === "complete") {
     redirect("/fie");
   }
-  return <OnboardingFlow initialState={state} />;
+  return (
+    <OnboardingFlow
+      initialState={state}
+      entryMode={
+        mode === "login" ? "login" : mode === "signup" ? "signup" : undefined
+      }
+    />
+  );
 }

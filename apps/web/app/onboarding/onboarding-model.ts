@@ -89,6 +89,19 @@ export function contactIsValid(
     : emailPattern.test(contact);
 }
 
+// What the Continue button says, in the member's own terms.
+//
+// One label read "Continue with this address" whichever channel was chosen,
+// so a member who had just typed a Ghana phone number was asked about an
+// address they had not given. Wording that does not match what is on screen
+// reads as the form having lost track of the answer, which is the opposite of
+// what a doorway asking for trust should do.
+export function continueLabel(channel: "sms" | "email"): string {
+  return channel === "sms"
+    ? "Continue with this number"
+    : "Continue with this address";
+}
+
 export function consentComplete(state: OnboardingState): boolean {
   return state.acceptedPromise && state.acceptedTerms && state.affirmedAdult;
 }

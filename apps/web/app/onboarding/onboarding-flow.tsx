@@ -14,6 +14,7 @@ import {
   canGoBack,
   consentComplete,
   contactIsValid,
+  continueLabel,
   initialOnboardingState,
   onboardingReducer,
   resumeOnboardingState,
@@ -68,7 +69,11 @@ export function OnboardingFlow({
   // restarting it. Optional, so a caller with nothing to resume — and every
   // existing test — still gets the fresh walk.
   initialState = initialOnboardingState,
-}: Readonly<{ initialState?: OnboardingState }> = {}) {
+  entryMode,
+}: Readonly<{
+  initialState?: OnboardingState;
+  entryMode?: "login" | "signup";
+}> = {}) {
   const [state, dispatch] = useReducer(onboardingReducer, initialState);
   const consentCommandId = useRef<string | null>(null);
   const livenessCommandId = useRef<string | null>(null);
@@ -343,7 +348,11 @@ export function OnboardingFlow({
                 </p>
                 <h2 id="phone-title">
                   {state.stage === "phone"
-                    ? "Sign in, or start here."
+                    ? entryMode === "login"
+                      ? "Welcome back. Log in."
+                      : entryMode === "signup"
+                        ? "Create your Obiara account."
+                        : "Sign in, or start here."
                     : "Check your messages."}
                 </h2>
                 <p>
@@ -456,7 +465,7 @@ export function OnboardingFlow({
                   {submitting
                     ? "Sending securely…"
                     : state.stage === "phone"
-                      ? "Continue with this address  →"
+                      ? `${continueLabel(state.channel)}  →`
                       : "Verify and continue  →"}
                 </button>
                 {state.stage === "otp" && (
@@ -642,8 +651,8 @@ export function OnboardingFlow({
           </div>
           <footer className="onboarding-footer">
             <span>© Obiara</span>
-            <a href="https://obiara.app/privacy">Privacy</a>
-            <a href="https://obiara.app/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
           </footer>
         </div>
       </section>

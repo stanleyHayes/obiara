@@ -14,6 +14,17 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { isAdminSessionResult, isCodeSent } from "../auth-model";
 import { AdminSkeleton } from "../loading-skeleton";
+import {
+  CheckIcon,
+  EnvelopeIcon,
+  EyeIcon,
+  EyeOffIcon,
+  LockIcon,
+} from "./field-icons";
+
+// Loose on purpose: the server decides whether an address exists. This only
+// decides whether to show the tick, so it must not call a real address wrong.
+const looksLikeAddress = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AdminLogin({
   expired = false,
@@ -160,6 +171,20 @@ export function AdminLogin({
         label="Admin email"
         onChange={(event) => setEmail(event.target.value)}
         required
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <EnvelopeIcon />
+              </InputAdornment>
+            ),
+            endAdornment: looksLikeAddress.test(email) ? (
+              <InputAdornment position="end">
+                <CheckIcon />
+              </InputAdornment>
+            ) : null,
+          },
+        }}
         type="email"
         value={email}
       />
@@ -172,6 +197,11 @@ export function AdminLogin({
         required
         slotProps={{
           input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <LockIcon />
+              </InputAdornment>
+            ),
             endAdornment: (
               <InputAdornment position="end">
                 <Tooltip
@@ -188,9 +218,7 @@ export function AdminLogin({
                     onMouseDown={(event) => event.preventDefault()}
                     type="button"
                   >
-                    <span className="admin-password-icon" aria-hidden="true">
-                      {showPassword ? "◉" : "◌"}
-                    </span>
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                   </IconButton>
                 </Tooltip>
               </InputAdornment>
