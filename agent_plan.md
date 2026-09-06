@@ -5868,3 +5868,58 @@ automatically.
   does not happen, and copying it would have spread the untruth.
 - Validation: redocly lint passes; `node scripts/generate.mjs --check` confirms
   the generated client is unchanged, so no client is affected.
+
+## LOCAL-DELIVERY-2026-09-06 — Real OTP delivery for local sign-in
+
+- Owner: `/root`; status: **SMS DONE; EMAIL BLOCKED ON A CREDENTIAL**.
+- Report: no SMS arrived for a client sign-in, no email either, and the resend
+  control appeared to be missing.
+
+- **No code could ever have arrived.** With nothing in the environment the API
+  falls back to configuration defaults, which select the OTP *simulator*. The
+  simulator delivers nothing and deliberately never logs the code, because
+  codes are secrets (§14) — so there was no route by which a local sign-in
+  could receive one. Not a missing feature; the development default working
+  exactly as written, and unusable for actually signing in.
+  - Fix: `services/api/.env.development.local` (gitignored by `**/.env*.local`)
+    copied from `.env.production`, and `scripts/dev-api.sh` to put it into the
+    environment — the service reads `os.Getenv` and loads no file. Two values
+    differ from production and only two: `APP_ENV=development` and
+    `MONGODB_DATABASE=obiara_dev`.
+  - `APP_ENV` stays development on purpose. Outside development the
+    configuration refuses every simulator, and there is no real email provider
+    and no identity or liveness vendor configured, so `APP_ENV=production`
+    would not boot at all. Development keeps those on simulators while leaving
+    the Arkesel SMS path exactly as production runs it.
+  - The Atlas cluster is unreachable from a laptop — server selection times out
+    on all three shards, the allowlist admitting Render and not a development
+    machine — so `MONGODB_URI` stays the local `rs0` replica set.
+  - Verified live: `otp delivered provider=arkesel rung=0`, a real message to a
+    real handset.
+
+- **Email cannot be fixed here.** There is no Resend API key anywhere in the
+  repository: `services/api/.env` has `RESEND_API_KEY=` empty, `.env.production`
+  does not carry the key at all, and the value in `.env.production.example` is
+  the literal `REPLACE...` placeholder. Email OTP needs `EMAIL_PROVIDER=resend`,
+  `RESEND_API_KEY` and a verified `RESEND_FROM_ADDRESS`. Until those exist the
+  email channel is silently on the simulator, which is why nothing arrived.
+
+- **Resend was never missing.** Driven in a real browser at the OTP stage, the
+  control is present and visible — as `Resend code in 25s`, disabled, for the
+  first 30 seconds (`resendCooldownSeconds`). Waiting on a code that was never
+  coming, a disabled countdown reads as an absent feature. The cooldown is
+  deliberate and is left alone; the code now arrives, which is what made it look
+  broken.
+
+- Placeholders on the console sign-in fields: `you@example.com` and a masked
+  hint. Deliberately no domain in the example — operators sign in with their own
+  addresses — and deliberately no password rule, this being the door rather than
+  the place a password is chosen. They are visible at all only because the
+  labels are already shrunk: Material hides a placeholder while its label is at
+  rest.
+
+- Now claimed, having been explicitly not claimed before: the autofill case is
+  verified in a browser. Setting `input.value` through the DOM — what Chrome's
+  autofill does, bypassing React's `onChange` — leaves both labels at
+  `translate(14px, -9px) scale(0.75)`, the notched position. That is the exact
+  case that used to print the label over the value.

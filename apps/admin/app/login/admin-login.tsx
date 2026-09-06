@@ -170,6 +170,7 @@ export function AdminLogin({
         fullWidth
         label="Admin email"
         onChange={(event) => setEmail(event.target.value)}
+        placeholder="you@example.com"
         required
         slotProps={{
           input: {
@@ -194,6 +195,7 @@ export function AdminLogin({
         fullWidth
         label="Password"
         onChange={(event) => setPassword(event.target.value)}
+        placeholder="••••••••"
         required
         slotProps={{
           input: {
