@@ -5228,7 +5228,7 @@ the real blocker on every commercial feature, not only this one.
 | Phase | Deliverable                                          | Status  |
 | ----- | ---------------------------------------------------- | ------- |
 | P0    | `internal/organization` context                      | DONE    |
-| P1    | `commerce/promotion`: discount codes                 | UNBLOCKED by §73 |
+| P1    | `commerce/promotion`: discount codes                 | DONE (§74) |
 | P2    | Affiliate codes and qualified-conversion accrual     | PLANNED — two decisions open |
 | P3    | MoMo payouts, affiliate KYC, withholding, clawback   | PLANNED |
 | P4    | Organization-funded sponsored seats                  | DEFERRED |
@@ -5314,3 +5314,72 @@ Thirty-one tests across the adapter, the bridge, the authority and the routes.
 `MOMO_API_USER`, `MOMO_API_KEY`, `MOMO_TARGET_ENVIRONMENT` and
 `MOMO_CALLBACK_URL` in Render, and a published membership SKU priced in GHS.
 Until then the purchase route is absent, which is honest.
+
+## §74 — Discount codes (§41 Phase 1)
+
+With something to buy, a code has something to discount.
+
+Called a **promotion** and not a voucher, because `vouch/assisted` already owns
+that word for a person who vouches for another member's trustworthiness, which
+has nothing to do with money.
+
+### What the owner's answers made it
+
+**A bearer token, bounded by a cap.** Whoever has the code may use it until the
+cap is reached, once per member. That bounds what a leak can cost rather than
+preventing it, which was the trade chosen over asking organizations to supply
+something verifiable. A cap is required and can never be zero: it is the only
+thing standing between a leaked code and every membership being free.
+
+**Membership passes only**, and only the SKU the code names. A code for one
+thing is not a discount on another.
+
+**Issued by staff, in an organization's name.** Nothing is minted for a
+suspended organization; codes already issued are untouched, because an
+organization that stops paying its invoice is a different thing from a code
+that should stop working.
+
+### The decisions inside it
+
+**Redeemed when the price is quoted, not when the payment settles.** Waiting
+would let two members both be quoted the last slot and both pay, and the
+second would be charged a discounted price with no redemption recorded against
+it — a discount the books cannot account for. Reserving instead means an
+abandoned payment burns a slot, bounded by the cap the issuer chose, which is
+the smaller problem. Losing the race writes nothing and charges full price.
+
+**A code that does not apply is not an error.** A member who mistyped came to
+buy a membership; refusing the purchase would punish them for a typo. But a
+promotion context that *cannot answer* does stop the purchase: charging full
+price would charge somebody who believes they have a discount, and charging
+the discount would give one nothing recorded.
+
+**A code that takes the whole price is not a payment.** Nothing here collects
+zero, and a free membership is a decision somebody made rather than something
+to push through a payment rail.
+
+**Percentages round toward the platform.** A member is charged whole pesewas,
+and the fraction nobody can pay has to go somewhere. Stated and tested rather
+than left to whichever way the division happened to fall.
+
+**The row says how many and never who.** Redemptions are one-way digests, so
+an organization is told "37 of your 50 are in use" and nothing more — which is
+the reporting story §41 chose, and the projection is tested for it.
+
+**The issuer bridge answers one bool.** The promotion context has no business
+knowing an organization's name or its billing address.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| PRO-01  | The aggregate: issue, redeem once per member, cap, window, withdraw | DONE |
+| PRO-02  | Store with a unique code and a revision guard on the cap          | DONE   |
+| PRO-03  | Applied at purchase, reserved rather than settled                 | DONE   |
+| PRO-04  | Three operator routes, step-up on the writes                      | DONE   |
+| PRO-05  | Contract, operation count and generated client                    | DONE   |
+
+Thirty-two tests across the domain, the service, the purchase integration and
+the surface.
+
+**Still open, both in Phase 2 and neither blocking:** what exactly qualifies an
+affiliate conversion, and what the commission rate is given RPM-25's existing
+20%/15% platform take.

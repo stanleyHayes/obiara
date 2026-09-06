@@ -39,6 +39,9 @@ type startPurchaseRequest struct {
 	// Phone is the number the provider prompts. It is keyed before it reaches
 	// storage and is never written down as given.
 	Phone string `json:"phone"`
+	// Code is optional. One that does not apply is not an error: the member
+	// came to buy a membership and a typo should not stop them.
+	Code string `json:"code,omitempty"`
 }
 
 type startPurchaseResponse struct {
@@ -47,6 +50,10 @@ type startPurchaseResponse struct {
 	// AmountPesewas is what the member is about to be asked for, echoed back
 	// so a client shows the real number rather than one it assumed.
 	AmountPesewas uint64 `json:"amountPesewas"`
+	// DiscountPesewas and Code say what a code took off, so a member sees the
+	// discount rather than inferring it from a smaller number.
+	DiscountPesewas uint64 `json:"discountPesewas,omitempty"`
+	Code            string `json:"code,omitempty"`
 }
 
 func startPurchaseHandler(purchases Purchases, sessions SessionAuthenticator) http.Handler {
@@ -85,15 +92,18 @@ func startPurchaseHandler(purchases Purchases, sessions SessionAuthenticator) ht
 		started, err := purchases.Start(r.Context(), purchase.StartCommand{
 			CommandID: commandID, MemberID: memberID,
 			SKUID: body.SKUID, SKUVersion: body.SKUVersion, Phone: body.Phone,
+			Code: strings.ToUpper(strings.TrimSpace(body.Code)),
 		})
 		if err != nil {
 			writePurchaseError(w, r, err)
 			return
 		}
 		writeSuccess(w, r, http.StatusAccepted, startPurchaseResponse{
-			PurchaseID:    started.IntentID,
-			Status:        started.Status,
-			AmountPesewas: started.AmountPesewas,
+			PurchaseID:      started.IntentID,
+			Status:          started.Status,
+			AmountPesewas:   started.AmountPesewas,
+			DiscountPesewas: started.DiscountPesewas,
+			Code:            started.Code,
 		})
 	})
 }

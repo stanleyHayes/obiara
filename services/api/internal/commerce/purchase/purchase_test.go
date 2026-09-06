@@ -15,6 +15,7 @@ import (
 	membershipdomain "github.com/stanleyHayes/obiara/services/api/internal/commerce/membership/domain"
 	momoapplication "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/application"
 	momodomain "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/domain"
+	promotionapplication "github.com/stanleyHayes/obiara/services/api/internal/commerce/promotion/application"
 )
 
 var now = time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
@@ -417,5 +418,108 @@ func TestNothingIsPostedForNothing(t *testing.T) {
 	}
 	if poster.command.CommandID != "" {
 		t.Fatal("a zero sale reached the book")
+	}
+}
+
+// codeStub applies a fixed discount.
+type codeStub struct {
+	applied promotionapplication.Applied
+	err     error
+	price   int64
+	sku     string
+	called  bool
+}
+
+func (s *codeStub) Apply(
+	_ context.Context, _, _, skuID string, priceMinor int64, _ string,
+) (promotionapplication.Applied, error) {
+	s.called, s.price, s.sku = true, priceMinor, skuID
+	return s.applied, s.err
+}
+
+func TestACodeComesOffWhatTheMemberIsCharged(t *testing.T) {
+	// The discount is applied to the amount collected, not reported and then
+	// ignored: a member shown 25 cedis and charged 50 would have been lied to.
+	codes := &codeStub{applied: promotionapplication.Applied{Code: "ASHESI26", DiscountMinor: 2500}}
+	payments := &paymentsStub{intent: intentFor(t)}
+	started, err := service(t,
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, &passesStub{}, &ledgerStub{},
+	).WithDiscounts(codes).Start(context.Background(), StartCommand{
+		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+		SKUVersion: 1, Phone: "0200000000", Code: "ashesi26",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payments.amount != 2500 {
+		t.Fatalf("collected %d, want the discounted price", payments.amount)
+	}
+	if started.AmountPesewas != 2500 || started.DiscountPesewas != 2500 {
+		t.Fatalf("started = %#v", started)
+	}
+	// The code is priced against the SKU it names, not against whatever the
+	// client sent.
+	if codes.sku != "sku_membership" || codes.price != 5000 {
+		t.Fatalf("priced %d against %q", codes.price, codes.sku)
+	}
+}
+
+func TestAPurchaseWithoutDiscountsComposedStillWorks(t *testing.T) {
+	// A deployment with no promotion context charges everybody full price.
+	// That is a working product, not a broken one.
+	payments := &paymentsStub{intent: intentFor(t)}
+	started, err := service(t,
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, &passesStub{}, &ledgerStub{},
+	).Start(context.Background(), StartCommand{
+		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+		SKUVersion: 1, Phone: "0200000000", Code: "ashesi26",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payments.amount != 5000 || started.DiscountPesewas != 0 {
+		t.Fatalf("started = %#v, collected %d", started, payments.amount)
+	}
+}
+
+func TestACodeThatTakesTheWholePriceIsNotAPayment(t *testing.T) {
+	// Nothing here can collect zero, and a free membership is a decision
+	// somebody made rather than a purchase to push through a payment rail.
+	codes := &codeStub{applied: promotionapplication.Applied{Code: "FREE", DiscountMinor: 5000}}
+	payments := &paymentsStub{intent: intentFor(t)}
+	if _, err := service(t,
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, &passesStub{}, &ledgerStub{},
+	).WithDiscounts(codes).Start(context.Background(), StartCommand{
+		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+		SKUVersion: 1, Phone: "0200000000", Code: "FREE",
+	}); !errors.Is(err, ErrNotPurchasable) {
+		t.Fatalf("err = %v, want ErrNotPurchasable", err)
+	}
+	if payments.confirmed {
+		t.Fatal("a member was prompted to pay nothing")
+	}
+}
+
+func TestADiscountThatCannotBeEstablishedStopsThePurchase(t *testing.T) {
+	// Not the same as a code that does not apply. If the promotion context
+	// cannot answer, charging full price would charge a member who believes
+	// they have a discount, and charging the discount would give one nothing
+	// recorded.
+	codes := &codeStub{err: errors.New("promotions unavailable")}
+	payments := &paymentsStub{intent: intentFor(t)}
+	if _, err := service(t,
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, &passesStub{}, &ledgerStub{},
+	).WithDiscounts(codes).Start(context.Background(), StartCommand{
+		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+		SKUVersion: 1, Phone: "0200000000", Code: "ASHESI26",
+	}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+	if payments.confirmed {
+		t.Fatal("a member was prompted at a price nobody could establish")
 	}
 }

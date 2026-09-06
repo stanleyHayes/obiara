@@ -18,6 +18,7 @@ import (
 	membershipdomain "github.com/stanleyHayes/obiara/services/api/internal/commerce/membership/domain"
 	momoapplication "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/application"
 	momodomain "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/domain"
+	promotionapplication "github.com/stanleyHayes/obiara/services/api/internal/commerce/promotion/application"
 )
 
 // Period and Grace are what one payment buys.
@@ -74,6 +75,13 @@ type Keyer interface {
 	PhoneRef(phone string) (string, error)
 }
 
+// Discounts applies a code to a price. It is optional: a deployment with no
+// promotion context composed simply charges everybody full price, which is
+// what the product did before codes existed.
+type Discounts interface {
+	Apply(ctx context.Context, code, memberID, skuID string, priceMinor int64, commandID string) (promotionapplication.Applied, error)
+}
+
 // Ledger records the money. Purchases post through the same double-entry book
 // as everything else, so revenue is visible rather than implied by a pass
 // appearing.
@@ -82,12 +90,20 @@ type Ledger interface {
 }
 
 type Service struct {
-	catalog  Catalog
-	payments Payments
-	passes   Passes
-	keyer    Keyer
-	ledger   Ledger
-	now      func() time.Time
+	catalog   Catalog
+	payments  Payments
+	passes    Passes
+	keyer     Keyer
+	ledger    Ledger
+	discounts Discounts
+	now       func() time.Time
+}
+
+// WithDiscounts attaches discount codes. Without it every purchase is at full
+// price, which is a working product and not a broken one.
+func (service Service) WithDiscounts(discounts Discounts) Service {
+	service.discounts = discounts
+	return service
 }
 
 func New(
@@ -111,6 +127,10 @@ type StartCommand struct {
 	// Phone is the number the provider prompts. It is keyed before it reaches
 	// the payment context and never stored raw.
 	Phone string
+	// Code is an optional discount code. A code that does not apply is not an
+	// error: the member came to buy a membership, and a typo should not stop
+	// them.
+	Code string
 }
 
 type Started struct {
@@ -119,6 +139,12 @@ type Started struct {
 	// AmountPesewas is what the member is about to be asked for, echoed back
 	// so a client can show it rather than guess at it.
 	AmountPesewas uint64
+	// DiscountPesewas is what a code took off, zero when none applied. Echoed
+	// back so a member sees the discount they were given rather than having
+	// to infer it from a smaller number.
+	DiscountPesewas uint64
+	// Code is the code that applied, empty when none did.
+	Code string
 }
 
 // Start prices the pass, opens a payment intent and asks the provider to
@@ -145,6 +171,22 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 	if sku.Price().Currency != catalogdomain.CurrencyGHS || sku.Price().Minor <= 0 {
 		return Started{}, ErrNotPurchasable
 	}
+	price := sku.Price().Minor
+	var applied promotionapplication.Applied
+	if service.discounts != nil {
+		applied, err = service.discounts.Apply(
+			ctx, command.Code, command.MemberID, sku.ID(), price, command.CommandID+":code")
+		if err != nil {
+			return Started{}, ErrUnavailable
+		}
+		price -= applied.DiscountMinor
+	}
+	// A free membership is not a payment. Nothing here can collect zero, and
+	// a code that takes the whole price is a decision somebody made rather
+	// than a purchase to push through a payment rail.
+	if price <= 0 {
+		return Started{}, ErrNotPurchasable
+	}
 	memberKey, err := service.keyer.MemberKey(command.MemberID)
 	if err != nil {
 		return Started{}, ErrUnavailable
@@ -154,7 +196,7 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 		return Started{}, ErrUnavailable
 	}
 	intent, err := service.payments.Create(
-		ctx, memberKey, phoneRef, uint64(sku.Price().Minor), command.CommandID)
+		ctx, memberKey, phoneRef, uint64(price), command.CommandID)
 	if err != nil {
 		return Started{}, ErrUnavailable
 	}
@@ -166,9 +208,11 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 		return Started{}, ErrUnavailable
 	}
 	return Started{
-		IntentID:      confirmed.State().ID,
-		Status:        string(confirmed.State().Status),
-		AmountPesewas: uint64(sku.Price().Minor),
+		IntentID:        confirmed.State().ID,
+		Status:          string(confirmed.State().Status),
+		AmountPesewas:   uint64(price),
+		DiscountPesewas: uint64(applied.DiscountMinor),
+		Code:            applied.Code,
 	}, nil
 }
 

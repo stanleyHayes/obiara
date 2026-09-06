@@ -59,6 +59,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/momo"
 	mtn "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/adapters/outbound/mtn"
 	momoapplication "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/promotion"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/purchase"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/reconciliation"
 	"github.com/stanleyHayes/obiara/services/api/internal/communityaudit"
@@ -94,6 +95,7 @@ import (
 	mediaapplication "github.com/stanleyHayes/obiara/services/api/internal/media/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
 	"github.com/stanleyHayes/obiara/services/api/internal/organization"
+	organizationapplication "github.com/stanleyHayes/obiara/services/api/internal/organization/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/delivery"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/flagcontrol"
@@ -865,6 +867,32 @@ func run() error {
 	// Until this existed, membership.Service.Grant had no callers anywhere.
 	// No pass could be created, so nothing in the product could be bought
 	// (agent_plan.md §72).
+	// Organizations: the bodies a discount code is issued for. An operator
+	// surface, because codes are issued by staff on their behalf — see
+	// agent_plan.md §41.
+	organizationModule, err := organization.NewModule(
+		ctx, client.Database(cfg.MongoDatabase), cfg.CommerceHMACSecret,
+	)
+	if err != nil {
+		return fmt.Errorf("build organization module: %w", err)
+	}
+	apihttp.RegisterAdminOrganizationRoutes(
+		mux, organizationModule.Organizations, adminPrincipalResolver)
+
+	// Discount codes, issued in an organization's name. The issuer check is
+	// the organization context answering one question and nothing else, so
+	// the promotion context never learns anything more about a body than
+	// whether it is still a live relationship.
+	promotionModule, err := promotion.NewModule(
+		ctx, client.Database(cfg.MongoDatabase),
+		organizationIssuerBridge{organizations: organizationModule.Organizations},
+		membershipModule.Keyer,
+	)
+	if err != nil {
+		return fmt.Errorf("build promotion module: %w", err)
+	}
+	apihttp.RegisterAdminPromotionRoutes(mux, promotionModule.Promotions, adminPrincipalResolver)
+
 	var purchases apihttp.Purchases
 	if cfg.MobileMoney.Configured() {
 		provider, providerErr := mtn.New(mtn.Config{
@@ -901,7 +929,7 @@ func run() error {
 			},
 			purchase.NewSaleBook(settlementLedger.Ledger, ledgersystemauthority.Actor),
 			time.Now,
-		)
+		).WithDiscounts(promotionModule.Promotions)
 		apihttp.RegisterPurchaseRoutes(mux, purchases, identityModule.Sessions)
 	}
 
@@ -924,17 +952,6 @@ func run() error {
 		adminPrincipalResolver,
 		time.Now,
 	)
-	// Organizations: the bodies a discount code is issued for. An operator
-	// surface, because codes are issued by staff on their behalf — see
-	// agent_plan.md §41.
-	organizationModule, err := organization.NewModule(
-		ctx, client.Database(cfg.MongoDatabase), cfg.CommerceHMACSecret,
-	)
-	if err != nil {
-		return fmt.Errorf("build organization module: %w", err)
-	}
-	apihttp.RegisterAdminOrganizationRoutes(
-		mux, organizationModule.Organizations, adminPrincipalResolver)
 
 	apihttp.RegisterAdminMatchmakerRoutes(mux, matchmakerModule.Catalog, adminPrincipalResolver)
 	apihttp.RegisterAdminEscrowRoutes(mux, escrowModule.Escrows, matchmakerModule.Engagements, adminPrincipalResolver)
@@ -1580,4 +1597,24 @@ func (k purchaseKeyer) MemberKey(memberID string) (string, error) {
 
 func (k purchaseKeyer) PhoneRef(phone string) (string, error) {
 	return momoapplication.PhoneRef(k.secret, phone)
+}
+
+// organizationIssuerBridge answers the one question the promotion context asks
+// about an organization: is it still a live relationship?
+//
+// A bool and nothing else. The promotion context has no business knowing an
+// organization's name or its billing address, and a bridge that handed over
+// the whole record would give it both.
+type organizationIssuerBridge struct {
+	organizations organizationapplication.Service
+}
+
+func (bridge organizationIssuerBridge) Issuing(
+	ctx context.Context, organizationID string,
+) (bool, error) {
+	organization, err := bridge.organizations.Find(ctx, organizationID)
+	if err != nil {
+		return false, err
+	}
+	return organization.Issuing(), nil
 }

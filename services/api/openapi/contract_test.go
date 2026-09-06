@@ -251,8 +251,10 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// 217 adds buying a membership and the provider's callback. Before them
 	// membership.Service.Grant had no callers at all, so no pass could exist
 	// and nothing in the product could be bought.
-	if len(seen) != 217 {
-		t.Errorf("operationId count = %d, want 217", len(seen))
+	// 220 adds the discount codes: list, issue, withdraw. A code needs
+	// something to discount, which is why it lands after the purchase.
+	if len(seen) != 220 {
+		t.Errorf("operationId count = %d, want 220", len(seen))
 	}
 }
 

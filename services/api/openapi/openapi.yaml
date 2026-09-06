@@ -5744,6 +5744,147 @@ paths:
           $ref: "#/components/responses/ValidationFailed"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/organizations/{id}/promotions:
+    get:
+      operationId: adminListPromotions
+      tags: [Admin]
+      summary: The discount codes issued for an organization
+      security:
+        - AdminBearer: []
+      description: |
+        Each code carries how many members have used it and never which. The
+        redemptions are keyed: counting is the whole reporting story, so an
+        organization can be told "37 of your 50 are in use" and nothing more.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: The codes, soonest to expire last.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromotionListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: adminIssuePromotion
+      tags: [Admin]
+      summary: Issue a discount code for an organization
+      security:
+        - AdminBearer: []
+      description: |
+        Requires a fresh MFA step-up: a code is money coming off real revenue.
+
+        A code is a bearer token by decision — whoever has it may use it until
+        the cap is reached, once per member. The cap is required and cannot be
+        zero, because it is the only thing standing between a leaked code and
+        every membership being free.
+
+        Nothing is issued in a suspended organization's name
+        (`organization_not_issuing`). Codes already issued are untouched by a
+        suspension: an organization that stops paying its invoice is a
+        different thing from a code that should stop working.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromotionInput"
+      responses:
+        "201":
+          description: Issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromotionEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "409":
+          description: |
+            The code is already in use, or the organization is suspended.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/promotions/{code}/withdraw:
+    post:
+      operationId: adminWithdrawPromotion
+      tags: [Admin]
+      summary: Stop a discount code being used
+      security:
+        - AdminBearer: []
+      description: |
+        What the code already paid for is untouched. Withdrawing it stops new
+        redemptions and nothing else.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Withdrawn.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromotionEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "404":
+          description: No such code.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: That code was already withdrawn.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/admin/matchmakers:
     get:
       operationId: listAdminMatchmakers
@@ -10252,6 +10393,101 @@ components:
         registeredAt:
           type: string
           format: date-time
+    PromotionInput:
+      type: object
+      additionalProperties: false
+      required: [code, skuId, shape, amount, startsAt, endsAt, cap]
+      properties:
+        code:
+          type: string
+          pattern: ^[A-Za-z0-9]{4,24}$
+          description: |
+            Upper-cased on the way in. Letters and digits only, because a code
+            is read off a poster and typed on a phone — mixed case and
+            punctuation turn a discount into a support ticket.
+        skuId:
+          type: string
+          description: |
+            The membership SKU this discounts. A code for one thing is not a
+            discount on another.
+        shape:
+          type: string
+          enum: [percentage, fixed]
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            A percentage (1-100) or a number of minor units. A discount never
+            exceeds the price: the answer to 90% off a free pass is zero, not
+            a refund.
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+          description: Exclusive. A code that runs "until 1 October" does not work on 1 October.
+        cap:
+          type: integer
+          minimum: 1
+          description: |
+            How many members may use it. Required and never zero: it is the
+            only thing bounding a code that leaks.
+    PromotionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Promotion"
+    PromotionListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [promotions]
+          properties:
+            promotions:
+              type: array
+              items:
+                $ref: "#/components/schemas/Promotion"
+    Promotion:
+      type: object
+      additionalProperties: false
+      required:
+        [code, issuerId, skuId, shape, amount, startsAt, endsAt, cap, redeemed, withdrawn]
+      properties:
+        code:
+          type: string
+        issuerId:
+          type: string
+        skuId:
+          type: string
+        shape:
+          type: string
+          enum: [percentage, fixed]
+        amount:
+          type: integer
+          format: int64
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        cap:
+          type: integer
+        redeemed:
+          type: integer
+          description: |
+            How many members have used it. Which members is never said: the
+            redemptions are stored as one-way digests.
+        withdrawn:
+          type: boolean
     SowInput:
       type: object
       additionalProperties: false

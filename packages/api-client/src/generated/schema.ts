@@ -815,6 +815,42 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/organizations/{id}/promotions": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * The discount codes issued for an organization
+     * @description Each code carries how many members have used it and never which. The
+     *     redemptions are keyed: counting is the whole reporting story, so an
+     *     organization can be told "37 of your 50 are in use" and nothing more.
+     */
+    readonly get: operations["adminListPromotions"];
+    readonly put?: never;
+    /**
+     * Issue a discount code for an organization
+     * @description Requires a fresh MFA step-up: a code is money coming off real revenue.
+     *
+     *     A code is a bearer token by decision — whoever has it may use it until
+     *     the cap is reached, once per member. The cap is required and cannot be
+     *     zero, because it is the only thing standing between a leaked code and
+     *     every membership being free.
+     *
+     *     Nothing is issued in a suspended organization's name
+     *     (`organization_not_issuing`). Codes already issued are untouched by a
+     *     suspension: an organization that stops paying its invoice is a
+     *     different thing from a code that should stop working.
+     */
+    readonly post: operations["adminIssuePromotion"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/organizations/{id}/restore": {
     readonly parameters: {
       readonly query?: never;
@@ -913,6 +949,27 @@ export interface paths {
      * @description Requires MFA step-up. The proposal does not change access until a distinct stepped-up administrator approves it.
      */
     readonly post: operations["proposeAdminRoleChange"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/promotions/{code}/withdraw": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Stop a discount code being used
+     * @description What the code already paid for is untouched. Withdrawing it stops new
+     *     redemptions and nothing else.
+     */
+    readonly post: operations["adminWithdrawPromotion"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -5993,6 +6050,68 @@ export interface components {
       /** @enum {string} */
       readonly introductionVisibility: "private" | "circles" | "community";
     };
+    readonly Promotion: {
+      /** Format: int64 */
+      readonly amount: number;
+      readonly cap: number;
+      readonly code: string;
+      /** Format: date-time */
+      readonly endsAt: string;
+      readonly issuerId: string;
+      /**
+       * @description How many members have used it. Which members is never said: the
+       *     redemptions are stored as one-way digests.
+       */
+      readonly redeemed: number;
+      /** @enum {string} */
+      readonly shape: "percentage" | "fixed";
+      readonly skuId: string;
+      /** Format: date-time */
+      readonly startsAt: string;
+      readonly withdrawn: boolean;
+    };
+    readonly PromotionEnvelope: {
+      readonly data: components["schemas"]["Promotion"];
+    };
+    readonly PromotionInput: {
+      /**
+       * Format: int64
+       * @description A percentage (1-100) or a number of minor units. A discount never
+       *     exceeds the price: the answer to 90% off a free pass is zero, not
+       *     a refund.
+       */
+      readonly amount: number;
+      /**
+       * @description How many members may use it. Required and never zero: it is the
+       *     only thing bounding a code that leaks.
+       */
+      readonly cap: number;
+      /**
+       * @description Upper-cased on the way in. Letters and digits only, because a code
+       *     is read off a poster and typed on a phone — mixed case and
+       *     punctuation turn a discount into a support ticket.
+       */
+      readonly code: string;
+      /**
+       * Format: date-time
+       * @description Exclusive. A code that runs "until 1 October" does not work on 1 October.
+       */
+      readonly endsAt: string;
+      /** @enum {string} */
+      readonly shape: "percentage" | "fixed";
+      /**
+       * @description The membership SKU this discounts. A code for one thing is not a
+       *     discount on another.
+       */
+      readonly skuId: string;
+      /** Format: date-time */
+      readonly startsAt: string;
+    };
+    readonly PromotionListEnvelope: {
+      readonly data: {
+        readonly promotions: readonly components["schemas"]["Promotion"][];
+      };
+    };
     readonly ProposalDecisionInput: {
       readonly commandId: string;
       /**
@@ -9109,6 +9228,82 @@ export interface operations {
       readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
+  readonly adminListPromotions: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The codes, soonest to expire last. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PromotionListEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly adminIssuePromotion: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["PromotionInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Issued. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PromotionEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /** @description The code is already in use, or the organization is suspended. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
   readonly adminRestoreOrganization: {
     readonly parameters: {
       readonly query?: never;
@@ -9397,6 +9592,55 @@ export interface operations {
       readonly 415: components["responses"]["UnsupportedMediaType"];
       readonly 422: components["responses"]["ValidationFailed"];
       readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly adminWithdrawPromotion: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly code: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Withdrawn. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["PromotionEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /** @description No such code. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description That code was already withdrawn. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly listPendingAdminRoleChanges: {
