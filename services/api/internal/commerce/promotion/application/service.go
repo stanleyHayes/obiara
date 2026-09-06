@@ -98,6 +98,13 @@ type Applied struct {
 	// DiscountMinor is what came off. Zero means no code was given, which is
 	// the ordinary case and not a failure.
 	DiscountMinor int64
+	// Sponsored says somebody else pays rather than that the member pays
+	// less. The same number off the price and completely different money: a
+	// discount is revenue forgone, a sponsorship is revenue drawn from an
+	// organization's deposit.
+	Sponsored bool
+	// IssuerID is whose fund a sponsorship draws from.
+	IssuerID string
 }
 
 // Apply spends a redemption and reports what comes off the price.
@@ -157,7 +164,10 @@ func (service Service) Apply(
 			return Applied{}, nil
 		}
 	}
-	return Applied{Code: promotion.Code(), DiscountMinor: promotion.Discount(priceMinor)}, nil
+	return Applied{
+		Code: promotion.Code(), DiscountMinor: promotion.Discount(priceMinor),
+		Sponsored: promotion.Sponsored(), IssuerID: promotion.IssuerID(),
+	}, nil
 }
 
 // ListByIssuer is the operator view: how many of an organization's codes are

@@ -27,6 +27,15 @@ const (
 	// of minor units.
 	ShapePercentage Shape = "percentage"
 	ShapeFixed      Shape = "fixed"
+	// ShapeSponsored is different in kind from the other two. They reduce
+	// what a member is charged and the platform simply earns less. This one
+	// means somebody else pays: the whole price is drawn from the issuing
+	// organization's funded balance, and the revenue is earned in full.
+	//
+	// The distinction matters in the books. A discount is revenue forgone; a
+	// sponsorship is revenue received from a different party, and the two
+	// must not be posted the same way (agent_plan.md §78).
+	ShapeSponsored Shape = "sponsored"
 
 	ActionIssued    Action = "issued"
 	ActionRedeemed  Action = "redeemed"
@@ -133,6 +142,11 @@ func validShape(shape Shape, amount int64) bool {
 		return amount > 0 && amount <= MaxPercentage
 	case ShapeFixed:
 		return amount > 0
+	case ShapeSponsored:
+		// A sponsorship covers the whole price, so an amount would be a
+		// number nothing reads. Requiring it to be zero means a code cannot
+		// be issued that looks like it means something it does not.
+		return amount == 0
 	default:
 		return false
 	}
@@ -217,6 +231,10 @@ func (promotion Promotion) Discount(priceMinor int64) int64 {
 		off = priceMinor * promotion.amount / MaxPercentage
 	case ShapeFixed:
 		off = promotion.amount
+	case ShapeSponsored:
+		// The whole price, but it is not a discount: somebody else pays it.
+		// The caller has to know which, which is what Sponsored reports.
+		off = priceMinor
 	}
 	if off > priceMinor {
 		return priceMinor
@@ -302,3 +320,12 @@ func (promotion Promotion) Events() []Event {
 func (promotion Promotion) Commands() []AppliedCommand {
 	return append([]AppliedCommand(nil), promotion.commands...)
 }
+
+// Sponsored reports whether this code means somebody else pays rather than
+// that the member pays less.
+//
+// The two are the same number off the price and completely different money:
+// one is revenue the platform never earns, the other is revenue it earns from
+// an organization's funded balance. A caller that treated them alike would
+// post a sponsorship as a discount and lose the deposit it drew down.
+func (promotion Promotion) Sponsored() bool { return promotion.shape == ShapeSponsored }

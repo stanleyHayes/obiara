@@ -773,3 +773,125 @@ func TestSettlementWithNoOrderGrantsNothing(t *testing.T) {
 		t.Fatal("a pass was granted for a purchase nothing recorded")
 	}
 }
+
+// fundStub is an organization's balance.
+type fundStub struct {
+	drawn    bool
+	err      error
+	seatRef  string
+	amount   int64
+	issuerID string
+}
+
+func (f *fundStub) Draw(
+	_ context.Context, organizationID, seatRef string, amountPesewas int64,
+) (bool, error) {
+	f.issuerID, f.seatRef, f.amount = organizationID, seatRef, amountPesewas
+	return f.drawn, f.err
+}
+
+func sponsoredCode() *codeStub {
+	return &codeStub{applied: promotionapplication.Applied{
+		Code: "ASHESISEATS", DiscountMinor: 5000, Sponsored: true, IssuerID: "org_1",
+	}}
+}
+
+func TestASponsoredSeatIsPaidByTheOrganizationAndGrantedAtOnce(t *testing.T) {
+	// The money arrived when the organization deposited it. There is no
+	// prompt to send and nothing to wait for.
+	passes, ledger := &passesStub{}, &ledgerStub{}
+	fund := &fundStub{drawn: true}
+	payments := &paymentsStub{intent: intentFor(t)}
+	started, err := service(t,
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, passes, ledger,
+	).WithDiscounts(sponsoredCode()).WithSponsors(fund).
+		Start(context.Background(), StartCommand{
+			CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+			SKUVersion: 1, Phone: "0200000000", Network: "mtn", Code: "ASHESISEATS",
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The member is charged nothing and is never prompted.
+	if started.AmountPesewas != 0 || started.Status != "sponsored" {
+		t.Fatalf("started = %#v", started)
+	}
+	if payments.confirmed {
+		t.Fatal("a member was prompted to pay for a seat somebody else bought")
+	}
+	// The organization is charged the full price.
+	if fund.amount != 5000 || fund.issuerID != "org_1" {
+		t.Fatalf("drew %d from %q", fund.amount, fund.issuerID)
+	}
+	// And the pass is granted here, for the product.
+	if !passes.granted || passes.passID != "membership.monthly" {
+		t.Fatalf("granted %q", passes.passID)
+	}
+	// Revenue in full: a sponsorship is not a discount and must not be booked
+	// as one.
+	if !ledger.recorded || ledger.minor != 5000 {
+		t.Fatalf("booked %d", ledger.minor)
+	}
+}
+
+func TestAnOrganizationThatCannotCoverTheSeatDoesNotBlockTheMember(t *testing.T) {
+	// Refusing the sponsorship rather than the purchase: the member can still
+	// buy their own membership.
+	passes := &passesStub{}
+	fund := &fundStub{drawn: false}
+	if _, err := service(t,
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		&paymentsStub{intent: intentFor(t)}, passes, &ledgerStub{},
+	).WithDiscounts(sponsoredCode()).WithSponsors(fund).
+		Start(context.Background(), StartCommand{
+			CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+			SKUVersion: 1, Phone: "0200000000", Network: "mtn", Code: "ASHESISEATS",
+		}); !errors.Is(err, ErrSponsorshipUnavailable) {
+		t.Fatalf("err = %v, want ErrSponsorshipUnavailable", err)
+	}
+	if passes.granted {
+		t.Fatal("a seat nobody paid for was granted")
+	}
+}
+
+func TestARetriedSponsoredPurchaseDrawsTheSameSeat(t *testing.T) {
+	// The seat reference is the purchase command, so an organization is not
+	// charged twice for one member.
+	first, second := &fundStub{drawn: true}, &fundStub{drawn: true}
+	for _, fund := range []*fundStub{first, second} {
+		if _, err := service(t,
+			catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+			&paymentsStub{intent: intentFor(t)}, &passesStub{}, &ledgerStub{},
+		).WithDiscounts(sponsoredCode()).WithSponsors(fund).
+			Start(context.Background(), StartCommand{
+				CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+				SKUVersion: 1, Phone: "0200000000", Network: "mtn", Code: "ASHESISEATS",
+			}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if first.seatRef == "" || first.seatRef != second.seatRef {
+		t.Fatalf("%q then %q", first.seatRef, second.seatRef)
+	}
+}
+
+func TestASponsoredCodeWithNoSponsorshipComposedIsRefused(t *testing.T) {
+	// The code covers the whole price with nobody paying it. Refused rather
+	// than given away.
+	passes := &passesStub{}
+	payments := &paymentsStub{intent: intentFor(t)}
+	if _, err := service(t,
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, passes, &ledgerStub{},
+	).WithDiscounts(sponsoredCode()).
+		Start(context.Background(), StartCommand{
+			CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+			SKUVersion: 1, Phone: "0200000000", Network: "mtn", Code: "ASHESISEATS",
+		}); !errors.Is(err, ErrNotPurchasable) {
+		t.Fatalf("err = %v, want ErrNotPurchasable", err)
+	}
+	if passes.granted || payments.confirmed {
+		t.Fatal("a membership was given away")
+	}
+}

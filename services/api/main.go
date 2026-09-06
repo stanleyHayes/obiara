@@ -65,6 +65,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/purchase"
 	purchasemongo "github.com/stanleyHayes/obiara/services/api/internal/commerce/purchase/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/reconciliation"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/sponsorship"
 	"github.com/stanleyHayes/obiara/services/api/internal/communityaudit"
 	communityauditauthority "github.com/stanleyHayes/obiara/services/api/internal/communityaudit/adapters/outbound/adminauthority"
 	"github.com/stanleyHayes/obiara/services/api/internal/companions/nnoboa"
@@ -934,6 +935,29 @@ func run() error {
 		)
 	}
 
+	// Organization-funded seats. An organization pre-funds a balance and its
+	// sponsored codes draw from it; deposits are recorded by an operator
+	// rather than collected by a rail (agent_plan.md §78).
+	// The fund posts through the same system settlement authority the
+	// membership sale does: money arriving on an operator's record and money
+	// moving when a seat is taken both happen without a finance operator
+	// present, and both still have to be booked.
+	sponsorshipLedger, err := ledger.NewModule(ctx, client.Database(cfg.MongoDatabase),
+		ledgersystemauthority.New(), cfg.CommerceHMACSecret)
+	if err != nil {
+		return fmt.Errorf("build sponsorship ledger: %w", err)
+	}
+	sponsorshipModule, err := sponsorship.NewModule(
+		ctx, client.Database(cfg.MongoDatabase),
+		organizationIssuerBridge{organizations: organizationModule.Organizations},
+		sponsorship.NewBook(sponsorshipLedger.Ledger, ledgersystemauthority.Actor),
+	)
+	if err != nil {
+		return fmt.Errorf("build sponsorship module: %w", err)
+	}
+	apihttp.RegisterAdminSponsorshipRoutes(
+		mux, sponsorshipModule.Funds, organizationModule.Keyer, adminPrincipalResolver)
+
 	// Buying a membership. Composed only when Paystack is configured: without
 	// a secret key there is no way to take money and no way to verify a
 	// webhook, and a purchase route that always failed would be worse than a
@@ -982,6 +1006,7 @@ func run() error {
 			time.Now,
 		).WithDiscounts(promotionModule.Promotions).
 			WithOrders(orders).
+			WithSponsors(sponsorshipModule.Funds).
 			WithMembers(memberReceiptBridge{members: memberModule.Members})
 		// The webhook secret is the Paystack secret key: it is what Paystack
 		// signs with, so it is what verification needs.

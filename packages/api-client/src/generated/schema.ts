@@ -988,6 +988,57 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/admin/organizations/{id}/sponsorship": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** One organization's funded balance */
+    readonly get: operations["adminGetSponsorship"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/organizations/{id}/sponsorship/deposits": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Record money an organization has paid
+     * @description Requires a fresh MFA step-up: recording money that did not arrive would
+     *     let seats be given away.
+     *
+     *     Deposits are **recorded, not collected**. An organization pays by
+     *     whatever means it and Obiara agreed — a bank transfer, an invoice
+     *     settled offline — and somebody records what arrived. That is why
+     *     sponsored seats need no B2B collection rail.
+     *
+     *     A deposit is a **liability**, not revenue: the platform is holding
+     *     somebody else's money against seats nobody has taken. It becomes
+     *     revenue when a seat is drawn, because that is when something is
+     *     delivered.
+     *
+     *     The first deposit opens the fund. Nothing is funded in a suspended
+     *     organization's name.
+     */
+    readonly post: operations["adminRecordSponsorshipDeposit"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/admin/organizations/{id}/suspend": {
     readonly parameters: {
       readonly query?: never;
@@ -1290,6 +1341,29 @@ export interface paths {
     readonly put?: never;
     /** Start admin step-up verification */
     readonly post: operations["startAdminStepUp"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly "/v1/admin/sponsorships": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Organization-funded balances
+     * @description Money organizations have paid, held against seats their members have
+     *     not taken yet. Each fund shows what was deposited, what has been drawn,
+     *     what is left, and **how many seats were taken — never which members
+     *     took them**.
+     */
+    readonly get: operations["adminListSponsorships"];
+    readonly put?: never;
+    readonly post?: never;
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -6268,8 +6342,14 @@ export interface components {
        *     redemptions are stored as one-way digests.
        */
       readonly redeemed: number;
-      /** @enum {string} */
-      readonly shape: "percentage" | "fixed";
+      /**
+       * @description `sponsored` is different in kind: it means the issuing organization
+       *     pays the whole price from its funded balance, not that the member
+       *     pays less. A discount is revenue forgone; a sponsorship is revenue
+       *     received from another party.
+       * @enum {string}
+       */
+      readonly shape: "percentage" | "fixed" | "sponsored";
       readonly skuId: string;
       /** Format: date-time */
       readonly startsAt: string;
@@ -6281,7 +6361,8 @@ export interface components {
     readonly PromotionInput: {
       /**
        * Format: int64
-       * @description A percentage (1-100) or a number of minor units. A discount never
+       * @description A percentage (1-100) or a number of minor units, and **zero for a
+       *     sponsorship**, which covers the whole price. A discount never
        *     exceeds the price: the answer to 90% off a free pass is zero, not
        *     a refund.
        */
@@ -6302,8 +6383,14 @@ export interface components {
        * @description Exclusive. A code that runs "until 1 October" does not work on 1 October.
        */
       readonly endsAt: string;
-      /** @enum {string} */
-      readonly shape: "percentage" | "fixed";
+      /**
+       * @description `sponsored` is different in kind: it means the issuing organization
+       *     pays the whole price from its funded balance, not that the member
+       *     pays less. A discount is revenue forgone; a sponsorship is revenue
+       *     received from another party.
+       * @enum {string}
+       */
+      readonly shape: "percentage" | "fixed" | "sponsored";
       /**
        * @description The membership SKU this discounts. A code for one thing is not a
        *     discount on another.
@@ -6603,6 +6690,44 @@ export interface components {
        *     the store refuses anything else.
        */
       readonly sizeBytes: number;
+    };
+    readonly Sponsorship: {
+      /**
+       * Format: int64
+       * @description Deposited less drawn, derived rather than stored so it cannot drift
+       *     from the history an organization is shown.
+       */
+      readonly balancePesewas: number;
+      readonly closed: boolean;
+      /** Format: int64 */
+      readonly depositedPesewas: number;
+      /** Format: int64 */
+      readonly drawnPesewas: number;
+      /** Format: date-time */
+      readonly openedAt: string;
+      readonly organizationId: string;
+      /**
+       * @description How many seats have been taken. Which members took them is never
+       *     said.
+       */
+      readonly seats: number;
+    };
+    readonly SponsorshipDepositInput: {
+      /**
+       * Format: int64
+       * @description What actually arrived, in pesewas.
+       */
+      readonly amountPesewas: number;
+      /** @description How it arrived, recorded in the trail. */
+      readonly reasonCode: string;
+    };
+    readonly SponsorshipEnvelope: {
+      readonly data: components["schemas"]["Sponsorship"];
+    };
+    readonly SponsorshipListEnvelope: {
+      readonly data: {
+        readonly sponsorships: readonly components["schemas"]["Sponsorship"][];
+      };
     };
     readonly SproutInput: {
       /** @description Reused on retry so a reach is never recorded twice. */
@@ -9767,6 +9892,92 @@ export interface operations {
       readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
+  readonly adminGetSponsorship: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The fund. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SponsorshipEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /** @description That organization has no funded balance. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly adminRecordSponsorshipDeposit: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        /** @description Stable key reused for retries of the same command. */
+        readonly "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["SponsorshipDepositInput"];
+      };
+    };
+    readonly responses: {
+      /** @description Recorded. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SponsorshipEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      /**
+       * @description The organization is suspended, the fund is closed, or the command
+       *     id was used for a different amount.
+       */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
   readonly adminSuspendOrganization: {
     readonly parameters: {
       readonly query?: never;
@@ -10441,6 +10652,34 @@ export interface operations {
       };
       readonly 401: components["responses"]["SessionClosed"];
       readonly 500: components["responses"]["InternalError"];
+    };
+  };
+  readonly adminListSponsorships: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+      };
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The funds. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SponsorshipListEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      readonly 403: components["responses"]["AdminRoleRequired"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly listAdminVerificationQueue: {
@@ -14582,6 +14821,19 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidJSON"];
       readonly 401: components["responses"]["Unauthorized"];
+      /**
+       * @description The code is a sponsorship and the organization cannot cover the
+       *     seat (`sponsorship_unavailable`). The sponsorship is refused, not
+       *     the purchase — the member can still buy a membership.
+       */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
       readonly 415: components["responses"]["UnsupportedMediaType"];
       /**
        * @description The request is incomplete, or the SKU is not a published cedi

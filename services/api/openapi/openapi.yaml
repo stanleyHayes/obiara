@@ -2844,6 +2844,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+        "409":
+          description: |
+            The code is a sponsorship and the organization cannot cover the
+            seat (`sponsorship_unavailable`). The sponsorship is refused, not
+            the purchase — the member can still buy a membership.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
         "503":
           description: The provider could not be reached (`payment_unavailable`).
           content:
@@ -6114,6 +6123,137 @@ paths:
           $ref: "#/components/responses/AdminRoleRequired"
         "409":
           description: The payout changed while you were working.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/sponsorships:
+    get:
+      operationId: adminListSponsorships
+      tags: [Admin]
+      summary: Organization-funded balances
+      security:
+        - AdminBearer: []
+      description: |
+        Money organizations have paid, held against seats their members have
+        not taken yet. Each fund shows what was deposited, what has been drawn,
+        what is left, and **how many seats were taken — never which members
+        took them**.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: The funds.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorshipListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/organizations/{id}/sponsorship:
+    get:
+      operationId: adminGetSponsorship
+      tags: [Admin]
+      summary: One organization's funded balance
+      security:
+        - AdminBearer: []
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The fund.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorshipEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "404":
+          description: That organization has no funded balance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/organizations/{id}/sponsorship/deposits:
+    post:
+      operationId: adminRecordSponsorshipDeposit
+      tags: [Admin]
+      summary: Record money an organization has paid
+      security:
+        - AdminBearer: []
+      description: |
+        Requires a fresh MFA step-up: recording money that did not arrive would
+        let seats be given away.
+
+        Deposits are **recorded, not collected**. An organization pays by
+        whatever means it and Obiara agreed — a bank transfer, an invoice
+        settled offline — and somebody records what arrived. That is why
+        sponsored seats need no B2B collection rail.
+
+        A deposit is a **liability**, not revenue: the platform is holding
+        somebody else's money against seats nobody has taken. It becomes
+        revenue when a seat is drawn, because that is when something is
+        delivered.
+
+        The first deposit opens the fund. Nothing is funded in a suspended
+        organization's name.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SponsorshipDepositInput"
+      responses:
+        "201":
+          description: Recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SponsorshipEnvelope"
+        "400":
+          $ref: "#/components/responses/InvalidJSON"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/AdminRoleRequired"
+        "409":
+          description: |
+            The organization is suspended, the fund is closed, or the command
+            id was used for a different amount.
           content:
             application/json:
               schema:
@@ -10636,13 +10776,19 @@ components:
             discount on another.
         shape:
           type: string
-          enum: [percentage, fixed]
+          enum: [percentage, fixed, sponsored]
+          description: |
+            `sponsored` is different in kind: it means the issuing organization
+            pays the whole price from its funded balance, not that the member
+            pays less. A discount is revenue forgone; a sponsorship is revenue
+            received from another party.
         amount:
           type: integer
           format: int64
           minimum: 1
           description: |
-            A percentage (1-100) or a number of minor units. A discount never
+            A percentage (1-100) or a number of minor units, and **zero for a
+            sponsorship**, which covers the whole price. A discount never
             exceeds the price: the answer to 90% off a free pass is zero, not
             a refund.
         startsAt:
@@ -10693,7 +10839,12 @@ components:
           type: string
         shape:
           type: string
-          enum: [percentage, fixed]
+          enum: [percentage, fixed, sponsored]
+          description: |
+            `sponsored` is different in kind: it means the issuing organization
+            pays the whole price from its funded balance, not that the member
+            pays less. A discount is revenue forgone; a sponsorship is revenue
+            received from another party.
         amount:
           type: integer
           format: int64
@@ -10858,6 +11009,71 @@ components:
         transferCode:
           type: string
           description: The processor's reference, once the transfer was accepted.
+    SponsorshipDepositInput:
+      type: object
+      additionalProperties: false
+      required: [amountPesewas, reasonCode]
+      properties:
+        amountPesewas:
+          type: integer
+          format: int64
+          minimum: 1
+          description: What actually arrived, in pesewas.
+        reasonCode:
+          type: string
+          pattern: ^[a-z0-9][a-z0-9_.-]{2,63}$
+          description: How it arrived, recorded in the trail.
+    SponsorshipEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Sponsorship"
+    SponsorshipListEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [sponsorships]
+          properties:
+            sponsorships:
+              type: array
+              items:
+                $ref: "#/components/schemas/Sponsorship"
+    Sponsorship:
+      type: object
+      additionalProperties: false
+      required:
+        [organizationId, depositedPesewas, drawnPesewas, balancePesewas, seats, closed, openedAt]
+      properties:
+        organizationId:
+          type: string
+        depositedPesewas:
+          type: integer
+          format: int64
+        drawnPesewas:
+          type: integer
+          format: int64
+        balancePesewas:
+          type: integer
+          format: int64
+          description: |
+            Deposited less drawn, derived rather than stored so it cannot drift
+            from the history an organization is shown.
+        seats:
+          type: integer
+          description: |
+            How many seats have been taken. Which members took them is never
+            said.
+        closed:
+          type: boolean
+        openedAt:
+          type: string
+          format: date-time
     SowInput:
       type: object
       additionalProperties: false

@@ -203,3 +203,35 @@ func TestACodeWithNoCapIsRefused(t *testing.T) {
 		t.Fatal("an uncapped code was issued")
 	}
 }
+
+func TestASponsorshipCoversTheWholePriceAndSaysSo(t *testing.T) {
+	// A discount and a sponsorship take the same number off the price and are
+	// completely different money: one is revenue the platform never earns,
+	// the other is revenue it earns from somebody else's deposit.
+	sponsored, err := Issue("promo_1", "ASHESISEATS", "org_1", "sku_membership",
+		ShapeSponsored, 0, opened, closed, 50, Command{ID: "cmd_1", At: opened})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sponsored.Sponsored() {
+		t.Fatal("a sponsorship did not report itself as one")
+	}
+	if off := sponsored.Discount(5_000); off != 5_000 {
+		t.Fatalf("covered %d of a 5000 pass", off)
+	}
+	// And an ordinary discount is not a sponsorship, however large.
+	full := issued(t, ShapePercentage, 100, 10)
+	if full.Sponsored() {
+		t.Fatal("a hundred percent discount reported itself as sponsored")
+	}
+}
+
+func TestASponsorshipCarriesNoAmount(t *testing.T) {
+	// It covers the whole price, so an amount would be a number nothing
+	// reads. Refusing one means a code cannot be issued that looks like it
+	// means something it does not.
+	if _, err := Issue("promo_1", "SEATS", "org_1", "sku", ShapeSponsored, 2_500,
+		opened, closed, 50, Command{ID: "cmd_1", At: opened}); !errors.Is(err, ErrInvalidPromotion) {
+		t.Fatalf("err = %v, want ErrInvalidPromotion", err)
+	}
+}

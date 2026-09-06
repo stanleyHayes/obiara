@@ -255,8 +255,11 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// something to discount, which is why it lands after the purchase.
 	// 225 adds the referral scheme and its payout desk. The decision route
 	// is the only thing in the product that sends money out.
-	if len(seen) != 225 {
-		t.Errorf("operationId count = %d, want 225", len(seen))
+	// 228 adds organization-funded seats: the balances, one of them, and
+	// recording a deposit. Deposits are recorded rather than collected, which
+	// is why sponsored seats need no B2B payment rail.
+	if len(seen) != 228 {
+		t.Errorf("operationId count = %d, want 228", len(seen))
 	}
 }
 

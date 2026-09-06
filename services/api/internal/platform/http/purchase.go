@@ -196,6 +196,14 @@ const maxWebhookBytes = 1 << 20
 
 func writePurchaseError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, purchase.ErrSponsorshipUnavailable):
+		// The sponsorship is refused, not the purchase. The member can still
+		// buy their own membership, and the message says so rather than
+		// reading as their account being at fault.
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "sponsorship_unavailable",
+			Message: "Your organisation's sponsorship is not available right now. You can still buy a membership.",
+		})
 	case errors.Is(err, purchase.ErrNotPurchasable):
 		writeError(w, r, http.StatusUnprocessableEntity, APIError{
 			Code:    "not_purchasable",

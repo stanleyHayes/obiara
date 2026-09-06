@@ -3286,7 +3286,7 @@ them:
 | P1    | `commerce/promotion`: discount codes, keyed redemption | PLANNED |
 | P2    | Affiliate codes and qualified-conversion accrual     | PLANNED |
 | P3    | Paystack payouts, withholding, clawback              | DONE (§77) |
-| P4    | Organization-funded sponsored seats                  | DEFERRED |
+| P4    | Organization-funded sponsored seats                  | DONE (§78) |
 
 
 ## 42. Goal: a decline shields for ninety days (M4-AC-01, 2026-09-05)
@@ -5231,7 +5231,7 @@ the real blocker on every commercial feature, not only this one.
 | P1    | `commerce/promotion`: discount codes                 | DONE (§74) |
 | P2    | Affiliate codes and qualified-conversion accrual     | DONE (§76) |
 | P3    | Paystack payouts, withholding, clawback              | DONE (§77) |
-| P4    | Organization-funded sponsored seats                  | DEFERRED |
+| P4    | Organization-funded sponsored seats                  | DONE (§78) |
 
 **Two of the six §41 decisions are still open**, and both belong to Phase 2 so
 neither blocks anything today: what exactly qualifies an affiliate conversion
@@ -5580,3 +5580,88 @@ balance cannot be approved twice before either is spent.
 Render, alongside the Paystack keys. The withholding rate is yours to set with
 your accountant; nothing is guessed, and without it the scheme is absent
 rather than paying gross.
+
+## §78 — Sponsored seats (§41 Phase 4)
+
+The last phase, and the one the original plan deferred as "needs B2B billing,
+which MoMo is a poor fit for". That turned out to be the wrong shape of
+problem: an organization does not need a collection rail to sponsor fifty
+seats. It needs somewhere for the money it has already paid to sit.
+
+Two decisions taken rather than stalled on, both following from ones already
+made:
+
+**Deposits are recorded, not collected.** Staff already issue the codes (§41);
+an organization pays by whatever means it and Obiara agreed — a bank transfer,
+an invoice settled offline — and an operator records what arrived. That is the
+whole reason this needs no B2B integration.
+
+**A fund that is short does not block the member.** The sponsorship simply does
+not apply and they can buy their own membership. Stopping somebody from joining
+because their employer's balance ran out would be the wrong way round; the
+message says exactly that.
+
+### The distinction that shapes everything else
+
+A discount and a sponsorship take the same number off a price and are
+**completely different money**. A discount is revenue the platform never earns.
+A sponsorship is revenue it earns in full, from a different party, drawn from a
+deposit that party already made.
+
+So the books differ, and that is the point:
+
+```
+deposit:  debit  sponsorship_cash_received   (asset)
+          credit organization_deposits_held  (liability)
+
+draw:     debit  organization_deposits_held  (liability)
+          credit membership_revenue          (revenue)
+```
+
+A deposit is **not revenue**. The platform is holding somebody else's money
+against seats nobody has taken; booking it as income would recognise revenue
+for something not yet delivered, and leave nothing to recognise when the seat
+was actually given. The draw is where a seat is delivered, and that is where it
+is earned.
+
+`ShapeSponsored` carries no amount — it covers the whole price, so an amount
+would be a number nothing reads, and refusing one means a code cannot be issued
+that looks like it means something it does not.
+
+### The rest of it
+
+**A sponsored seat is granted at once.** There is no prompt to send and nothing
+to wait for: the money arrived when the organization deposited it. The member
+is charged nothing and never sees a payment rail.
+
+**The seat reference is the purchase command**, so a retried purchase draws
+once and an organization is not charged twice for one member.
+
+**The balance is derived, not stored.** Deposited less drawn, so it cannot
+drift from the history an organization is shown when it asks where its money
+went.
+
+**A closed fund keeps what is left.** Money paid and not used is still theirs;
+returning it is a decision somebody makes with an invoice in front of them, not
+something a status change should silently settle.
+
+**A refunded seat comes back**, and stays recorded as drawn once so it cannot
+be refunded twice.
+
+**The fund says how many seats and never which members.** The drawn-seat map is
+internal; the projection is a count, and the operator surface is tested for the
+absence.
+
+**A sponsored code with no sponsorship context composed is refused**, not
+honoured. The code would otherwise cover the whole price with nobody paying it.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| SPN-01  | `ShapeSponsored`: somebody else pays, not the member pays less     | DONE   |
+| SPN-02  | The fund: deposit, draw, refund, close, all audited                | DONE   |
+| SPN-03  | Deposits as a liability; draws turn it into revenue                | DONE   |
+| SPN-04  | The purchase branch: granted at once, drawn once per purchase      | DONE   |
+| SPN-05  | Store, module, operator routes, contract, client                   | DONE   |
+
+**All five §41 phases are now done.** P0 organizations, P1 discount codes, P2
+affiliates, P3 payouts, P4 sponsored seats.

@@ -38,6 +38,10 @@ var (
 	// ErrNotPurchasable refuses a SKU that is not a published membership in
 	// the currency this rail collects.
 	ErrNotPurchasable = errors.New("that is not a membership anybody can buy")
+	// ErrSponsorshipUnavailable reports a sponsored code whose organization
+	// cannot cover the seat. The member can still buy their own membership,
+	// so this is a refusal of the sponsorship rather than of the purchase.
+	ErrSponsorshipUnavailable = errors.New("that sponsorship is not available right now")
 	// ErrAlreadySettled reports a callback for an intent that is already
 	// decided. It is not an error to the provider — retries are normal — so
 	// the caller answers it as success.
@@ -93,6 +97,14 @@ type Discounts interface {
 	Apply(ctx context.Context, code, memberID, skuID string, priceMinor int64, commandID string) (promotionapplication.Applied, error)
 }
 
+// Sponsors draw the price of a seat from an organization's funded balance.
+//
+// Optional: a deployment with no sponsorship context composed simply has no
+// sponsored codes, and every purchase is paid by the member.
+type Sponsors interface {
+	Draw(ctx context.Context, organizationID, seatRef string, amountPesewas int64) (bool, error)
+}
+
 // Ledger records the money. Purchases post through the same double-entry book
 // as everything else, so revenue is visible rather than implied by a pass
 // appearing.
@@ -109,7 +121,14 @@ type Service struct {
 	members   Members
 	ledger    Ledger
 	discounts Discounts
+	sponsors  Sponsors
 	now       func() time.Time
+}
+
+// WithSponsors attaches organization-funded seats.
+func (service Service) WithSponsors(sponsors Sponsors) Service {
+	service.sponsors = sponsors
+	return service
 }
 
 // WithOrders attaches the record of what each collection was opened to buy.
@@ -213,9 +232,20 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 		}
 		price -= applied.DiscountMinor
 	}
+	// A sponsored seat is paid by the organization, not by the member. The
+	// price is drawn from their funded balance and the pass is granted here:
+	// there is no prompt to send and nothing to wait for, because the money
+	// arrived when the organization deposited it.
+	if applied.Sponsored && service.sponsors != nil {
+		return service.sponsoredSeat(ctx, command, sku, applied)
+	}
 	// A free membership is not a payment. Nothing here can collect zero, and
 	// a code that takes the whole price is a decision somebody made rather
 	// than a purchase to push through a payment rail.
+	//
+	// A sponsored code reaching here means the sponsorship context is not
+	// composed, so the code covers the price with nobody paying it. Refused
+	// rather than given away.
 	if price <= 0 {
 		return Started{}, ErrNotPurchasable
 	}
@@ -361,6 +391,58 @@ func (service Service) Settle(ctx context.Context, outcome Outcome) error {
 			ctx, state.ID, int64(state.AmountPesewas), "GHS", service.now().UTC())
 	}
 	return nil
+}
+
+// sponsoredSeat draws the price from the issuing organization and grants the
+// pass.
+//
+// The seat reference is the purchase command, so a retried purchase draws once
+// and the organization is not charged twice for one member.
+//
+// A fund that cannot cover it is not an error: the sponsorship simply does not
+// apply and the member buys their own membership. Blocking somebody because
+// their employer's balance ran out would be the wrong way round.
+func (service Service) sponsoredSeat(
+	ctx context.Context, command StartCommand,
+	sku catalogdomain.SKU, applied promotionapplication.Applied,
+) (Started, error) {
+	seatRef := "seat:" + strings.TrimSpace(command.CommandID)
+	drawn, err := service.sponsors.Draw(
+		ctx, applied.IssuerID, seatRef, sku.Price().Minor)
+	if err != nil {
+		return Started{}, ErrUnavailable
+	}
+	if !drawn {
+		return Started{}, ErrSponsorshipUnavailable
+	}
+	memberKey, err := service.keyer.MemberKey(command.MemberID)
+	if err != nil {
+		return Started{}, ErrUnavailable
+	}
+	if err := service.orders.Record(ctx, Order{
+		IntentID: seatRef, SKUKey: sku.SKUKey(), SKUVersion: sku.Version(),
+		MemberID: strings.TrimSpace(command.MemberID), AmountPesewas: sku.Price().Minor,
+		Code: applied.Code,
+	}); err != nil {
+		return Started{}, ErrUnavailable
+	}
+	paidThrough := service.now().UTC().Add(Period)
+	if _, err := service.passes.Grant(
+		ctx, memberKey, sku.SKUKey(), seatRef, sku.Version(),
+		paidThrough, Grace, seatRef+":grant",
+	); err != nil {
+		return Started{}, ErrUnavailable
+	}
+	if service.ledger != nil {
+		// Revenue, in full. The organization paid it; the platform earned it.
+		// A sponsorship is not a discount and must not be booked as one.
+		_ = service.ledger.RecordSale(
+			ctx, seatRef, sku.Price().Minor, "GHS", service.now().UTC())
+	}
+	return Started{
+		IntentID: seatRef, Status: "sponsored", AmountPesewas: 0,
+		DiscountPesewas: uint64(sku.Price().Minor), Code: applied.Code,
+	}, nil
 }
 
 func (service Service) ready() bool {
