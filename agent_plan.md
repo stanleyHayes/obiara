@@ -4806,3 +4806,37 @@ Both Go modules and the client package are green.
 
 **Contract note:** `mediaRefs` is now required on `SowInput`. Still no client
 sends sows — the composer (S-22) is unbuilt — so nothing in flight breaks.
+
+## §65 — The composition root had no tests
+
+Every defect in §61, §63 and §64 lived in a bridge in `main.go`, and `main.go`
+had no test file at all.
+
+That is backwards. A bridge is where a rule that spans two contexts is
+written down, and it is the only place it is written down — the contexts on
+either side each pass their own tests while the sentence joining them is
+unverified. "Too small to test" is exactly the wrong instinct for the one file
+where the product's cross-context rules live.
+
+Three bridges were narrowed to the ports they actually use — `blockReader`,
+`podPlacer`, `restingPods`, `memberKeyer` — so they can be tested without a
+database or an object store. Eleven tests now cover:
+
+- a block honoured in **both** directions, and an unreadable list refusing;
+- delivery placing one pod per recording, as the sower, toward the one person
+  the sow named, for the pod's own resting period;
+- a retried delivery asking for the **same** command ids, which is the only
+  reason a retry leaves one pod rather than two;
+- a failed placement stopping rather than carrying on;
+- a pod recipient admitted, a stranger refused, and a block closing it
+  **before the pod store is even asked**;
+- a Voice of Introduction heard unless somebody was shut out.
+
+Verified by breaking three things — dropping the reverse block direction, and
+moving the block check after the store lookup — and watching the right tests
+go red.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| CR-01   | Bridges depend on the ports they use, not on concrete adapters    | DONE   |
+| CR-02   | `main_test.go`: the cross-context rules, tested                   | DONE   |

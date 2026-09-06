@@ -1186,7 +1186,12 @@ func (bridge listeningBlockBridge) Blocked(ctx context.Context, listenerID, asse
 // SafetyService.IsBlocked had no callers anywhere: members could block each
 // other and nothing in the product honoured it.
 type sproutBlockBridge struct {
-	safety safetyapplication.SafetyService
+	safety blockReader
+}
+
+// blockReader is the one question this file asks the safety context.
+type blockReader interface {
+	IsBlocked(ctx context.Context, memberID, otherID string) (bool, error)
 }
 
 func (bridge sproutBlockBridge) Blocked(ctx context.Context, memberID, otherID string) (bool, error) {
@@ -1314,10 +1319,19 @@ func (bridge safeguardingBridge) Assess(ctx context.Context, commandID, subjectI
 // grant that ignored that would be a way around every other place the rule is
 // applied.
 type podRecipientEntitlement struct {
-	pods   *podmongo.Repository
-	keyer  *podprivacy.Keyer
+	pods   restingPods
+	keyer  memberKeyer
 	blocks sproutBlockBridge
 	now    func() time.Time
+}
+
+// restingPods and memberKeyer are the two things this entitlement needs.
+type restingPods interface {
+	HoldsFor(ctx context.Context, recipientKey, mediaRef string, at time.Time) (bool, error)
+}
+
+type memberKeyer interface {
+	Key(namespace, value string) (string, error)
 }
 
 func (e podRecipientEntitlement) MayHear(
@@ -1372,7 +1386,12 @@ func (e voiceOfIntroductionEntitlement) MayHear(
 // other side. The command id is derived from the sow's own id so a retried
 // delivery leaves one pod rather than two.
 type sowDeliveryBridge struct {
-	pods podapplication.Service
+	pods podPlacer
+}
+
+// podPlacer is the one thing delivery does.
+type podPlacer interface {
+	Create(context.Context, podapplication.Command, podapplication.Proposal) (podapplication.Result, error)
 }
 
 func (bridge sowDeliveryBridge) Place(ctx context.Context, sow sowapplication.Deliverable) error {
