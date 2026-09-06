@@ -52,8 +52,33 @@ source of truth.
 | `RESEND_API_KEY`, `RESEND_FROM_ADDRESS`    |           yes |       no | `sync: false`; the from address must be a verified Resend domain      |
 | `RESEND_REPLY_TO`                          |      optional |       no | `sync: false`; optional operator reply address                        |
 | `WHATSAPP_PROVIDER=disabled`               |           yes |       no | `disabled` until Cloud API provisioning; never `simulator`            |
+| `SAFEGUARDING_HMAC_SECRET` and rotation time |         yes |       no | `sync: false`; at least 32 random bytes. **The API refuses to boot without it.** |
+| `OBJECT_STORAGE_*` (region, bucket, keys)  | optional set |      no | All four or none. Without them nobody can record a voice, so the whole introduction, sow and pod chain is absent |
+| `PAYSTACK_SECRET_KEY`                      | optional      |      no | `sync: false`. Absent means nothing can be bought and the purchase route is not registered. `sk_live_` moves real money; `sk_test_` logs a warning at boot |
+| `PAYSTACK_CALLBACK_URL`                    | optional      |      no | Where Paystack reports outcomes. Must reach `/v1/payments/paystack/webhook` from outside |
+| `PAYSTACK_BASE_URL`                        | optional      |      no | Defaults to `https://api.paystack.co`. Set only to point at a sandbox |
+| `AFFILIATE_COMMISSION_PESEWAS`             | optional set  |      no | Flat amount one qualified conversion earns. All three affiliate values or none |
+| `AFFILIATE_MINIMUM_PAYOUT_PESEWAS`         | optional set  |      no | Floor a balance must clear before it can be requested |
+| `AFFILIATE_WITHHOLDING_BASIS_POINTS`       | optional set  |      no | Tax withheld on commission, hundredths of a percent (750 = 7.5%). **No default: an unset rate leaves the whole scheme absent rather than paying gross.** Set it with your accountant |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`              |      optional | optional | Credential-free HTTPS URL; `sync: false`                              |
 | `SERVICE_VERSION`                          |           yes |      yes | Derived from immutable `RENDER_GIT_COMMIT` at start                   |
+
+### What is absent rather than broken
+
+Four groups above are optional as a set, and each is composed only when it is
+complete. This is deliberate: a half-configured payment rail should read as
+"off", not as "on and broken", so a missing key removes the surface rather
+than leaving one that always fails.
+
+- **No object storage**: no member can record a voice, so introductions, sows
+  and pods are all absent.
+- **No `PAYSTACK_SECRET_KEY`**: nothing can be bought. `POST
+  /v1/membership/purchases` and the webhook are not registered at all.
+- **No affiliate values**: the referral scheme is not composed and nothing
+  accrues. A scheme that accrued but could never legally pay out would be a
+  liability that only grows.
+- Sponsored seats need none of the above beyond an operator to record a
+  deposit, so organization funding works as soon as the API runs.
 
 Use `services/api/.env.production` and `services/worker/.env.production` as
 local copy/paste worksheets. They are ignored by Git. Their tracked `.example`
