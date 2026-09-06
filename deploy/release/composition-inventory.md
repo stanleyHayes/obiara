@@ -13,7 +13,7 @@ tree but nothing routes to them.
 Nothing here is a defect. It is the scope boundary, written down so it is a
 decision rather than a surprise.
 
-## Composed and reachable (59)
+## Composed and reachable (68)
 
 - `internal/notifications`
 - `internal/notifications/deliverystats`
@@ -26,6 +26,7 @@ decision rather than a surprise.
 - `internal/safety`
 - `services/api/internal/admin`
 - `services/api/internal/analytics`
+- `services/api/internal/authz`
 - `services/api/internal/calls`
 - `services/api/internal/circle`
 - `services/api/internal/circle/room`
@@ -56,26 +57,34 @@ decision rather than a surprise.
 - `services/api/internal/games/ebe`
 - `services/api/internal/games/oware/session`
 - `services/api/internal/identity`
+- `services/api/internal/introduction`
 - `services/api/internal/marketpack`
+- `services/api/internal/media`
 - `services/api/internal/member`
 - `services/api/internal/platform/flagcontrol`
 - `services/api/internal/profile`
 - `services/api/internal/realtime/livekit`
+- `services/api/internal/safeguarding`
 - `services/api/internal/seed/allowance`
 - `services/api/internal/seed/decline`
 - `services/api/internal/seed/garden`
 - `services/api/internal/seed/listening`
+- `services/api/internal/seed/pod`
 - `services/api/internal/seed/safety`
+- `services/api/internal/seed/screening`
+- `services/api/internal/seed/source`
+- `services/api/internal/seed/sow`
 - `services/api/internal/seed/sprout`
 - `services/api/internal/sentinel/scamarc`
 - `services/api/internal/suban`
 - `services/api/internal/suban/explanation`
 - `services/api/internal/trust`
-- `services/api/internal/verification/admin`
 - `services/api/internal/verification`
+- `services/api/internal/verification/admin`
 - `services/api/internal/verification/liveness`
+- `services/worker/internal/jobs`
 
-## Built but not composed (50)
+## Built but not composed (42)
 
 These have no route, job, or consumer. Calling them impossible today is
 accurate; calling them unimplemented is not.
@@ -85,7 +94,6 @@ accurate; calling them unimplemented is not.
 - `services/api/internal/analytics/fairness`
 - `services/api/internal/analytics/p0gate`
 - `services/api/internal/analytics/retention`
-- `services/api/internal/authz`
 - `services/api/internal/circle/workflow`
 - `services/api/internal/cloth/ceremony`
 - `services/api/internal/cloth/gate`
@@ -111,22 +119,15 @@ accurate; calling them unimplemented is not.
 - `services/api/internal/governance/marketpack`
 - `services/api/internal/host`
 - `services/api/internal/identity/collision`
-- `services/api/internal/introduction`
 - `services/api/internal/launch/readiness`
 - `services/api/internal/matching/coldstart`
 - `services/api/internal/matching/evaluation`
 - `services/api/internal/matching/features`
-- `services/api/internal/media`
-- `services/api/internal/safeguarding`
 - `services/api/internal/safety/anomaly`
 - `services/api/internal/safety/scamarc`
 - `services/api/internal/safety/sikashield`
 - `services/api/internal/safety/victimexport`
 - `services/api/internal/safety/womensreview`
-- `services/api/internal/seed/pod`
-- `services/api/internal/seed/screening`
-- `services/api/internal/seed/source`
-- `services/api/internal/seed/sow`
 - `services/api/internal/seed/water`
 - `services/api/internal/vouch/assisted`
 - `services/api/internal/vouch/attestation`
@@ -244,12 +245,23 @@ in `services/api/internal/authz/domain/policy.go` contains **none of them**:
   vouch.attestation.revoke
 ```
 
-The table grants nine capabilities today — `read`, `write`,
-`introductions.view`, `rooms.participate`, `fires.attend`, `seeds.sow`,
-`verification.review`, `safety.review`, `circles.host` — and is
-deny-by-default by design: "any single grant allows; absence of a grant
-denies." Composing any of these twelve contexts today would therefore ship a
-feature that refuses every request it receives.
+The table grants fifteen capabilities today — `read`, `write`,
+`verification.review`, `safety.review`, `circles.host`, and the ten tier
+gates `introductions.view`, `rooms.participate`, `fires.attend`, `seeds.sow`,
+`circles.participate`, `games.play`, `seed.pod.create`, `seed.pod.playback`,
+`seed.water.start`, `seed.water.mutual`. It is deny-by-default by design:
+"any single grant allows; absence of a grant denies." Composing a context
+whose capabilities are absent would therefore ship a feature that refuses
+every request it receives.
+
+Two families listed below have since been granted and are struck from the
+problem: `seed.pod.*` (the context is composed and live) and `seed.water.*`
+(granted, context still dark). A third, `seed.source.*`, turned out never to
+have been a kernel question at all — `seed/source` authorizes through circle
+membership in `adapters/outbound/circlepolicy`, not through the authz
+kernel, so those three strings name nothing the table has to grant. Reading
+capability literals out of the source and assuming they reach the kernel is
+what put them on this list.
 
 Writing those thirty-nine rows is the decision, and it is not the adapter
 author's. FR-101 gives the principle — romantic surfaces require Tier 1,
@@ -288,12 +300,14 @@ Of the contexts still dark, measured rather than guessed:
   `StakePolicy`, an `Allowlist`, a `Redactor`. The adapter is small; deciding
   what the policy _is_ belongs to whoever owns the product rule, not to
   whoever writes the adapter.
-- **11 have no persistence adapter**, and several of those wait on
-  infrastructure that does not exist: object storage and speech-to-text for
-  `introduction`, an AI runtime for `ai/gateway`. No amount of effort
-  composes those until the services are procured.
+- **Several have no persistence adapter**, and some of those waited on
+  infrastructure that did not exist. Object storage arrived, and with it
+  `introduction`, `media`, `seed/screening`, `seed/sow` and `seed/pod` went
+  live together — the whole chain from recording a voice to a sow resting at
+  somebody's house front. `ai/gateway` still waits on an AI runtime and
+  cannot be composed at any effort until it is procured.
 
-## The twenty-seven that are neither grant-blocked nor storeless
+## The ones that are neither grant-blocked nor storeless
 
 Each was examined port by port. What every one needs is written down, so the
 next person starts from the answer rather than the question:
@@ -346,12 +360,8 @@ next person starts from the answer rather than the question:
   needs: `SnapshotVerifier`, `SlicePolicy`, `Authority`
 - `services/api/internal/matching/features`
   needs: `Catalog`, `GrantRepository`, `DecisionRepository`, `Authority`
-- `services/api/internal/safeguarding`
-  needs: `RestrictionStore`, `ArtifactPurger`
 - `services/api/internal/safety/victimexport`
   needs: `Authority`, `Allowlist`, `Redactor`
-- `services/api/internal/seed/sow`
-  needs: `Screening`, `Acceptance`
 
 Three patterns recur, and only the first is adapter work:
 
@@ -373,3 +383,38 @@ Three patterns recur, and only the first is adapter work:
 A dark context is not a broken one, but it is also not a shipped one. Before
 promising any capability below to a member, an operator or an investor,
 check which list it is in.
+
+## What changed since this was first written
+
+Regenerated with the command above. Composed went from 59 to 68; dark from 50
+to 42. Eight contexts crossed over, and a ninth — `services/worker/internal/jobs`
+— turns out to have been live all along and in neither list, missed by the
+first pass. Nothing composed it; the count was simply wrong.
+
+The eight that crossed:
+
+| Context | What it took |
+| ------- | ------------ |
+| `internal/media` | Object storage was procured, so recordings had somewhere to go |
+| `internal/introduction` | The Voice of Introduction, on top of media |
+| `internal/seed/screening` | Deferred adapters: an advisor with no opinion, an adjudicator that never claims — every sow routes to a person |
+| `internal/seed/sow` | The gesture itself, with reach rules and human review |
+| `internal/seed/pod` | Delivery: a released sow rests at the recipient's house front |
+| `internal/seed/source` | Candidate resolution, authorized by circle membership |
+| `internal/safeguarding` | Age assurance and its restriction store |
+| `internal/authz` | Reachable through `platform/http.MemberGate`, which every gated route now passes through |
+
+`internal/authz/module.go` is still unreferenced: both call sites construct
+`application.NewAuthorizer()` directly. The kernel is live; its composition
+root is not the thing that made it live.
+
+Ten capabilities were added to the grant table to make that possible, each
+placed against FR-101 rather than invented: the four surfaces a Tier 1 member
+may enter, sowing at Tier 2, and the pod and water pairs.
+
+**A warning this document earned.** It listed `seed.source.*` among the
+capabilities blocking composition. They never blocked anything —
+`seed/source` does not use the authz kernel. The list was built by reading
+dotted string literals out of application code, and that method cannot tell a
+capability from a reason code. Anything re-derived that way should be checked
+against the call site before it is believed.
