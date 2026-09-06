@@ -71,9 +71,13 @@ func Load(getenv func(string) string) (Config, error) {
 
 func loadAt(getenv func(string) string, now time.Time) (Config, error) {
 	cfg := Config{
-		Port:              valueOrDefault(getenv("PORT"), "8080"),
-		MongoURI:          valueOrDefault(getenv("MONGODB_URI"), "mongodb://localhost:27017"),
-		MongoDatabase:     valueOrDefault(getenv("MONGODB_DATABASE"), "obiara"),
+		Port:     valueOrDefault(getenv("PORT"), "8080"),
+		MongoURI: valueOrDefault(getenv("MONGODB_URI"), "mongodb://localhost:27017"),
+		// Databases carry the environment in the name — obiara_dev locally,
+		// obiara_prod in production — so a connection string pointed at the
+		// wrong cluster fails loudly on a missing database instead of quietly
+		// reading and writing the wrong one.
+		MongoDatabase:     valueOrDefault(getenv("MONGODB_DATABASE"), "obiara_dev"),
 		TelemetryEndpoint: strings.TrimSpace(getenv("OTEL_EXPORTER_OTLP_ENDPOINT")),
 		ServiceVersion:    valueOrDefault(getenv("SERVICE_VERSION"), "dev"),
 		Environment:       valueOrDefault(getenv("APP_ENV"), "development"),

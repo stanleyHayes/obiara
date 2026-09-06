@@ -22,8 +22,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.MongoURI != "mongodb://localhost:27017" {
 		t.Errorf("MongoURI = %q, want local default", cfg.MongoURI)
 	}
-	if cfg.MongoDatabase != "obiara" {
-		t.Errorf("MongoDatabase = %q, want obiara", cfg.MongoDatabase)
+	if cfg.MongoDatabase != "obiara_dev" {
+		t.Errorf("MongoDatabase = %q, want obiara_dev", cfg.MongoDatabase)
 	}
 	if cfg.MongoConnectTimeout != 10*time.Second {
 		t.Errorf("MongoConnectTimeout = %v, want 10s", cfg.MongoConnectTimeout)

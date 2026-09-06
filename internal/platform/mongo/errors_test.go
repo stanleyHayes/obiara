@@ -33,3 +33,36 @@ func TestIsDuplicateKey(t *testing.T) {
 		})
 	}
 }
+
+func TestAFreshDatabaseCanStillRetireAnIndex(t *testing.T) {
+	// The case this predicate always claimed to cover and did not: a fresh
+	// database has no collection, so dropping a retired index answers
+	// NamespaceNotFound rather than IndexNotFound. Failing on it meant the
+	// product could not boot against an empty database at all — which is
+	// every new environment.
+	for _, err := range []error{
+		mongo.CommandError{Code: 26, Name: "NamespaceNotFound"},
+		mongo.CommandError{Code: 27, Name: "IndexNotFound"},
+		// Some server versions answer with only one of the two populated.
+		mongo.CommandError{Code: 26},
+		mongo.CommandError{Name: "NamespaceNotFound"},
+	} {
+		if !IsIndexNotFound(err) {
+			t.Fatalf("%#v was treated as a real failure", err)
+		}
+	}
+}
+
+func TestARealFailureIsStillAFailure(t *testing.T) {
+	// The direction that matters: tolerating everything would hide a
+	// permissions error or an unreachable server behind a silent boot.
+	for _, err := range []error{
+		mongo.CommandError{Code: 13, Name: "Unauthorized"},
+		mongo.CommandError{Code: 11000, Name: "DuplicateKey"},
+		errors.New("connection refused"),
+	} {
+		if IsIndexNotFound(err) {
+			t.Fatalf("%#v was swallowed", err)
+		}
+	}
+}

@@ -30,8 +30,13 @@ func IsDuplicateKey(err error) bool {
 }
 
 // indexNotFoundCode is the server's reply to dropping an index that is not
-// there.
-const indexNotFoundCode = 27
+// there. namespaceNotFoundCode is its reply when the collection holding that
+// index does not exist either, which is what a genuinely empty database
+// answers — and which is the case this predicate always claimed to cover.
+const (
+	indexNotFoundCode     = 27
+	namespaceNotFoundCode = 26
+)
 
 // IsIndexNotFound reports whether err is a missing-index error from a drop.
 // Repositories use it to make index removal idempotent: a schema change that
@@ -40,8 +45,15 @@ const indexNotFoundCode = 27
 func IsIndexNotFound(err error) bool {
 	var commandError mongo.CommandError
 	if errors.As(err, &commandError) {
+		// A missing collection means the index is missing too, and it is the
+		// answer a fresh database gives. Without this the first boot against
+		// an empty database fails on a drop that was always meant to be
+		// tolerated — which is to say the product could not be deployed to a
+		// new environment at all (agent_plan.md §80).
 		return commandError.Code == indexNotFoundCode ||
-			commandError.Name == "IndexNotFound"
+			commandError.Code == namespaceNotFoundCode ||
+			commandError.Name == "IndexNotFound" ||
+			commandError.Name == "NamespaceNotFound"
 	}
 	return false
 }

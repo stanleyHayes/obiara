@@ -11,6 +11,10 @@ test-results/
 .DS_Store
 .env
 .env.local
+# Every local env file, at any depth. .env.local was covered and
+# .env.development.local was not, so a file written to point a dev app at a
+# local API could have been committed pointing somewhere else entirely.
+**/.env*.local
 **/.env.production
 **/.env.production.local
 

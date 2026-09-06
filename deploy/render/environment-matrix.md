@@ -36,7 +36,7 @@ source of truth.
 | `FEATURE_GATE_ENABLED=true`                |           yes |       no | Explicit composed capability                                          |
 | `FEATURE_PAYMENTS_ENABLED=false`           |           yes |       no | Fail closed until live payment approval and credentials               |
 | `FEATURE_AI_ENABLED=false`                 |           yes |       no | Fail closed until an approved AI runtime exists                       |
-| `MONGODB_DATABASE=obiara_production`       |           yes |      yes | Non-secret Blueprint value                                            |
+| `MONGODB_DATABASE`                         |           yes |      yes | Non-secret Blueprint value. **Name the environment in the database**: `obiara_dev` locally, `obiara_prod` in production. A connection string pointed at the wrong cluster then fails on a missing database instead of quietly reading and writing the wrong one. The live database is still named `obiara_production`; see the note below before changing it |
 | `MONGODB_URI` and `MONGODB_URI_ROTATED_AT` |           yes |      yes | Independent `sync: false` values; RFC3339 rotation time under 90 days |
 | `RESEND_WEBHOOK_SECRET` and rotation time  |           yes |       no | `sync: false`; verified production webhook signing secret             |
 | `LIVENESS_HMAC_SECRET` and rotation time   |           yes |       no | `sync: false`; at least 32 random bytes                               |
@@ -62,6 +62,18 @@ source of truth.
 | `AFFILIATE_WITHHOLDING_BASIS_POINTS`       | optional set  |      no | Tax withheld on commission, hundredths of a percent (750 = 7.5%). **No default: an unset rate leaves the whole scheme absent rather than paying gross.** Set it with your accountant |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`              |      optional | optional | Credential-free HTTPS URL; `sync: false`                              |
 | `SERVICE_VERSION`                          |           yes |      yes | Derived from immutable `RENDER_GIT_COMMIT` at start                   |
+
+### Renaming the production database
+
+The convention above is `obiara_prod`. The live database is currently
+`obiara_production`, and the two are not the same string.
+
+MongoDB has no rename. Switching means copying the data to the new name,
+pointing `MONGODB_DATABASE` at it, and only then dropping the old one — with a
+verified backup first. **Changing the variable alone would point production at
+an empty database**, which is why nothing here does it automatically. Until
+somebody does that migration deliberately, production keeps its current name
+and the convention applies to everything new.
 
 ### What is absent rather than broken
 

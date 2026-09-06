@@ -5726,3 +5726,64 @@ was not: a finding is a claim to check, not a defect to fix.
 | REV-01  | The order is written before any money moves, on both paths        | DONE   |
 | REV-02  | Tests that fail against the original ordering                     | DONE   |
 | REV-03  | A bound on one movement, against a typo rather than an overflow   | DONE   |
+
+## §80 — Running it, and what that found
+
+Asked to start the apps locally. Three things came out of actually doing it,
+and only one of them was the thing I set out to do.
+
+### The API could not boot against an empty database
+
+```
+api startup failed: build identity module: (NamespaceNotFound) ns not found obiara_dev.accounts
+```
+
+`AccountRepository.EnsureIndexes` retires a legacy index and tolerates only
+`IndexNotFound`. On a fresh database the **collection** does not exist either,
+so MongoDB answers `NamespaceNotFound` — a different code — and the boot fails.
+
+`IsIndexNotFound`'s own doc comment already promised this case: *"a schema
+change that retires an index must not fail the boot of an instance that has
+already applied it, **or of a fresh database that never had it**"*. The
+sentence was right and the predicate was one code short.
+
+So **no new environment could ever have been stood up** — not staging, not a
+second region, not a developer's laptop. It was invisible because every
+environment that exists already has the collection.
+
+### The dev apps were pointed at production
+
+All three `.env.local` files set `OBIARA_API_BASE_URL` to
+`obiara-api-production.onrender.com`. Starting them for local work would have
+had a member web app, an admin console and the marketing site all talking to
+the live API.
+
+`.env.development.local` takes precedence over `.env.local` in Next, so that
+is where the local API now lives — except **`.gitignore` covered `.env.local`
+and not `.env.development.local`**, so writing one risked committing it.
+`**/.env*.local` covers every local env file at any depth now.
+
+`services/api/.env` also holds a live Atlas connection string. Nothing loads
+it — there is no `godotenv` anywhere and `config.Load` reads only real
+environment variables — so it is a worksheet rather than a live risk. Worth
+knowing before assuming a local run is safe.
+
+### Databases now carry the environment
+
+At the owner's instruction: `obiara_dev` locally, `obiara_prod` in production.
+A connection string pointed at the wrong cluster then fails on a missing
+database instead of quietly reading and writing the wrong one. The default is
+`obiara_dev`, so an unconfigured process cannot land on a name that looks
+production-shaped.
+
+**The live database is still `obiara_production`.** MongoDB has no rename, so
+switching means copying the data, repointing `MONGODB_DATABASE`, and only then
+dropping the old one, with a verified backup first. Changing the variable
+alone would point production at an empty database, so nothing here does it
+automatically.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| RUN-01  | A fresh database can be booted against                            | DONE   |
+| RUN-02  | Dev apps point at a local API, and local env files stay untracked | DONE   |
+| RUN-03  | `obiara_dev` / `obiara_prod`, with the migration note             | DONE   |
