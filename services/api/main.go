@@ -740,6 +740,15 @@ func run() error {
 			adminPrincipalResolver,
 		)
 
+		// Hearing somebody else. Separate from the routes above, which are a
+		// member's own recording and its withdrawal.
+		apihttp.RegisterMemberVoiceRoutes(
+			mux,
+			introductionModule.Store,
+			introductionModule.Playback,
+			identityModule.Sessions,
+			memberGate,
+		)
 		apihttp.RegisterIntroductionRoutes(
 			mux,
 			introductionModule.Introductions,

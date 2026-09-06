@@ -239,8 +239,11 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// 208 adds the house front. Without it a member could only open a pod
 	// whose id they already knew, and nothing told them — a house front with
 	// no door.
-	if len(seen) != 208 {
-		t.Errorf("operationId count = %d, want 208", len(seen))
+	// 209 adds hearing somebody else. Every playback route before it was
+	// scoped to the caller's own recording, so the twenty seconds that arm a
+	// sow could never be accumulated against anybody and no sow was possible.
+	if len(seen) != 209 {
+		t.Errorf("operationId count = %d, want 209", len(seen))
 	}
 }
 

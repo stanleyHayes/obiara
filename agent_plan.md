@@ -4840,3 +4840,56 @@ go red.
 | ------- | ---------------------------------------------------------------- | ------ |
 | CR-01   | Bridges depend on the ports they use, not on concrete adapters    | DONE   |
 | CR-02   | `main_test.go`: the cross-context rules, tested                   | DONE   |
+
+## §66 — §63 fixed the policy; nothing had opened the door
+
+A correction to §63, found while going to build the person page.
+
+§63 made the media context able to authorize a non-owner to hear a Voice of
+Introduction. It did not make anything ask. Every playback route went through
+`loadOwnedIntroduction`, which refuses unless `introduction.OwnerID() ==
+memberID`. The contract says so plainly: *"Read the member's own Voice of
+Introduction"*, and *"another member's recording answers 404 here too"*.
+
+So after §63 the policy would have said yes and no route ever put the question.
+The twenty seconds of verified listening that arm a sow still could not be
+accumulated against anybody, and a sow was still impossible. §63 was half the
+fix, and I reported it as the whole one.
+
+### The route
+
+`GET /v1/members/{memberId}/voice` — the member's usable recordings, each with
+its own short-lived signed URL.
+
+**Gated at `introductions.view`.** Hearing somebody is the romantic surface
+FR-101 puts behind Tier 1.
+
+**One grant per recording, each authorized on its own.** Minting them from a
+single answer would hand out a take the media context had refused — a
+withdrawn one, say.
+
+**Takes come back in the order the three questions are asked.** Storage order
+is whatever the member happened to record first, which is not the order they
+should be heard in.
+
+**Nothing to hear and not allowed to hear it answer the same 404.** A distinct
+refusal would tell a member they had been blocked, which is the signal a block
+exists to withhold. A distinct "they exist but have recorded nothing" would
+make this a way to find out who exists.
+
+**Your own voice answers 404 here.** It is read through `/v1/introductions`,
+where withdrawing and re-recording live. A second path to the same thing with
+different rules is how the two drift apart.
+
+The route-coverage test caught the missing contract entry before I did, which
+is what it is for.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| VOI-08  | `RecordedByOwner`: a member's usable recordings                   | DONE   |
+| VOI-09  | `GET /v1/members/{memberId}/voice`, gated, per-asset grants       | DONE   |
+| VOI-10  | Refusal and absence answered identically                          | DONE   |
+| VOI-11  | Contract, operation count and generated client                    | DONE   |
+
+Thirteen tests. The listen gate can now be satisfied through the product for
+the first time.

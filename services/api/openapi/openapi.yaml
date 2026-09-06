@@ -2734,6 +2734,58 @@ paths:
           $ref: "#/components/responses/VerificationRejected"
         "500":
           $ref: "#/components/responses/InternalError"
+  /v1/members/{memberId}/voice:
+    get:
+      operationId: hearMemberVoice
+      tags: [Profile]
+      summary: Hear another member's Voice of Introduction
+      security:
+        - MemberBearer: []
+      description: |
+        The recordings this member has made, each with a short-lived signed URL
+        the client plays from directly. The `assetId` on each take is the one
+        `POST /v1/listening/heartbeats` counts against, which is what arms Sow
+        after twenty seconds of verified listening (FR-202).
+
+        Takes come back in the order the three questions are asked, not in the
+        order they happened to be recorded.
+
+        Nothing to hear and not allowed to hear it answer the same 404. A
+        distinct refusal would tell a member they had been blocked, which is
+        the signal a block exists to withhold; a distinct "they exist but have
+        recorded nothing" would make this a way to find out who exists. Your
+        own voice is read through `/v1/introductions`, and answers 404 here.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The member's recordings, with a grant to play each.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberVoiceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: |
+            Hearing somebody is a romantic surface, behind Tier 1 (FR-101).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "404":
+          description: There is no voice to hear here.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/introductions:
     post:
       operationId: beginVoiceIntroduction
@@ -9571,6 +9623,57 @@ components:
           $ref: "#/components/schemas/PodData"
         meta:
           $ref: "#/components/schemas/Metadata"
+    MemberVoiceEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/MemberVoice"
+    MemberVoice:
+      type: object
+      additionalProperties: false
+      required: [memberId, takes]
+      properties:
+        memberId:
+          type: string
+        takes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/MemberVoiceTake"
+          description: |
+            In the order the three questions are asked. Only the takes this
+            listener may hear are here; a refused one is absent rather than
+            marked, so the list does not report what it withheld.
+    MemberVoiceTake:
+      type: object
+      additionalProperties: false
+      required: [prompt, assetId, url, expiresAt, durationMs]
+      properties:
+        prompt:
+          type: string
+          enum: [arrival, ordinary, welcome]
+          description: Which of the three questions this take answers.
+        assetId:
+          type: string
+          description: |
+            What listening is reported against. The gate resolves a member's
+            own recordings server-side, so this cannot be used to satisfy the
+            gate with somebody else's.
+        url:
+          type: string
+          format: uri
+          description: A short-lived signed URL. The audio is not proxied.
+        expiresAt:
+          type: string
+          format: date-time
+        durationMs:
+          type: integer
+          format: int64
+          description: |
+            The server's account of the recording's length. The listen gate
+            counts against this, not against anything the client reports.
     SowInput:
       type: object
       additionalProperties: false

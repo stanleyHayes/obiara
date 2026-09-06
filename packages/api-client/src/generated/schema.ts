@@ -2859,6 +2859,38 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/members/{memberId}/voice": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Hear another member's Voice of Introduction
+     * @description The recordings this member has made, each with a short-lived signed URL
+     *     the client plays from directly. The `assetId` on each take is the one
+     *     `POST /v1/listening/heartbeats` counts against, which is what arms Sow
+     *     after twenty seconds of verified listening (FR-202).
+     *
+     *     Takes come back in the order the three questions are asked, not in the
+     *     order they happened to be recorded.
+     *
+     *     Nothing to hear and not allowed to hear it answer the same 404. A
+     *     distinct refusal would tell a member they had been blocked, which is
+     *     the signal a block exists to withhold; a distinct "they exist but have
+     *     recorded nothing" would make this a way to find out who exists. Your
+     *     own voice is read through `/v1/introductions`, and answers 404 here.
+     */
+    readonly get: operations["hearMemberVoice"];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/membership": {
     readonly parameters: {
       readonly query?: never;
@@ -5361,6 +5393,44 @@ export interface components {
     readonly MembershipEnvelope: {
       readonly data: components["schemas"]["MembershipData"];
       readonly meta: components["schemas"]["Metadata"];
+    };
+    readonly MemberVoice: {
+      readonly memberId: string;
+      /**
+       * @description In the order the three questions are asked. Only the takes this
+       *     listener may hear are here; a refused one is absent rather than
+       *     marked, so the list does not report what it withheld.
+       */
+      readonly takes: readonly components["schemas"]["MemberVoiceTake"][];
+    };
+    readonly MemberVoiceEnvelope: {
+      readonly data: components["schemas"]["MemberVoice"];
+    };
+    readonly MemberVoiceTake: {
+      /**
+       * @description What listening is reported against. The gate resolves a member's
+       *     own recordings server-side, so this cannot be used to satisfy the
+       *     gate with somebody else's.
+       */
+      readonly assetId: string;
+      /**
+       * Format: int64
+       * @description The server's account of the recording's length. The listen gate
+       *     counts against this, not against anything the client reports.
+       */
+      readonly durationMs: number;
+      /** Format: date-time */
+      readonly expiresAt: string;
+      /**
+       * @description Which of the three questions this take answers.
+       * @enum {string}
+       */
+      readonly prompt: "arrival" | "ordinary" | "welcome";
+      /**
+       * Format: uri
+       * @description A short-lived signed URL. The audio is not proxied.
+       */
+      readonly url: string;
     };
     readonly Metadata: {
       readonly correlationId: components["schemas"]["CorrelationId"];
@@ -13082,6 +13152,51 @@ export interface operations {
       };
       readonly 400: components["responses"]["InvalidTrustPathBounds"];
       readonly 404: components["responses"]["TrustPathsNotFound"];
+    };
+  };
+  readonly hearMemberVoice: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path: {
+        readonly memberId: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description The member's recordings, with a grant to play each. */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["MemberVoiceEnvelope"];
+        };
+      };
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description Hearing somebody is a romantic surface, behind Tier 1 (FR-101). */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description There is no voice to hear here. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 503: components["responses"]["ServiceUnavailable"];
     };
   };
   readonly getOwnMembership: {

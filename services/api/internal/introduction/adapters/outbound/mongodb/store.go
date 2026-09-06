@@ -307,3 +307,39 @@ func (store *Store) AssetIDsByOwner(ctx context.Context, ownerID string) ([]stri
 	}
 	return assets, nil
 }
+
+// RecordedByOwner lists a member's usable recordings, newest prompt order
+// aside — the caller sorts by prompt, since the three questions have an order
+// and creation time does not.
+//
+// It is how one member is offered another's Voice of Introduction. The filter
+// is the same one AssetIDsByOwner uses, and for the same reason: a withdrawn
+// or half-finished recording is not something to hand anybody.
+func (store *Store) RecordedByOwner(ctx context.Context, ownerID string) ([]domain.Introduction, error) {
+	usable := make([]string, 0, len(domain.RecordedStatuses()))
+	for _, status := range domain.RecordedStatuses() {
+		usable = append(usable, string(status))
+	}
+	cursor, err := store.introductions.Find(ctx, bson.M{
+		"ownerId":    strings.TrimSpace(ownerID),
+		"status":     bson.M{"$in": usable},
+		"dataStatus": string(domain.DataRetained),
+	})
+	if err != nil {
+		return nil, application.ErrDependencyUnavailable
+	}
+	defer cursor.Close(ctx)
+
+	introductions := make([]domain.Introduction, 0, 3)
+	for cursor.Next(ctx) {
+		var document introductionDocument
+		if err := cursor.Decode(&document); err != nil {
+			return nil, application.ErrDependencyUnavailable
+		}
+		introductions = append(introductions, fromDocument(document))
+	}
+	if cursor.Err() != nil {
+		return nil, application.ErrDependencyUnavailable
+	}
+	return introductions, nil
+}
