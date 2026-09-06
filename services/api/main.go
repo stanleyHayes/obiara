@@ -57,10 +57,11 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/membership"
 	membershipprivacy "github.com/stanleyHayes/obiara/services/api/internal/commerce/membership/adapters/outbound/privacy"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/momo"
-	mtn "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/adapters/outbound/mtn"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/adapters/outbound/paystack"
 	momoapplication "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/promotion"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/purchase"
+	purchasemongo "github.com/stanleyHayes/obiara/services/api/internal/commerce/purchase/adapters/outbound/mongodb"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/reconciliation"
 	"github.com/stanleyHayes/obiara/services/api/internal/communityaudit"
 	communityauditauthority "github.com/stanleyHayes/obiara/services/api/internal/communityaudit/adapters/outbound/adminauthority"
@@ -94,6 +95,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/media/adapters/outbound/sharingpolicy"
 	mediaapplication "github.com/stanleyHayes/obiara/services/api/internal/media/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/member"
+	memberdomain "github.com/stanleyHayes/obiara/services/api/internal/member/domain"
 	"github.com/stanleyHayes/obiara/services/api/internal/organization"
 	organizationapplication "github.com/stanleyHayes/obiara/services/api/internal/organization/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/platform/config"
@@ -858,15 +860,6 @@ func run() error {
 		identityModule.Sessions, adminPrincipalResolver, memberGate,
 	)
 	apihttp.RegisterFireRoutes(mux, fireModule.Fires, identityModule.Sessions, identityModule.Tiers, memberGate)
-	// Buying a membership. Composed only when a collection provider is
-	// configured: without one there is no way to take money, and a purchase
-	// route that always failed would be worse than a surface that is plainly
-	// absent — the same rule the Voice of Introduction follows about object
-	// storage.
-	//
-	// Until this existed, membership.Service.Grant had no callers anywhere.
-	// No pass could be created, so nothing in the product could be bought
-	// (agent_plan.md §72).
 	// Organizations: the bodies a discount code is issued for. An operator
 	// surface, because codes are issued by staff on their behalf — see
 	// agent_plan.md §41.
@@ -893,31 +886,41 @@ func run() error {
 	}
 	apihttp.RegisterAdminPromotionRoutes(mux, promotionModule.Promotions, adminPrincipalResolver)
 
+	// Buying a membership. Composed only when Paystack is configured: without
+	// a secret key there is no way to take money and no way to verify a
+	// webhook, and a purchase route that always failed would be worse than a
+	// surface that is plainly absent — the same rule the Voice of
+	// Introduction follows about object storage.
+	//
+	// Until this existed, membership.Service.Grant had no callers anywhere.
+	// No pass could be created, so nothing in the product could be bought
+	// (agent_plan.md §72).
 	var purchases apihttp.Purchases
-	if cfg.MobileMoney.Configured() {
-		provider, providerErr := mtn.New(mtn.Config{
-			BaseURL:           cfg.MobileMoney.BaseURL,
-			SubscriptionKey:   cfg.MobileMoney.SubscriptionKey,
-			APIUser:           cfg.MobileMoney.APIUser,
-			APIKey:            cfg.MobileMoney.APIKey,
-			TargetEnvironment: cfg.MobileMoney.TargetEnvironment,
-			CallbackURL:       cfg.MobileMoney.CallbackURL,
-		}, time.Now)
+	if cfg.Paystack.Configured() {
+		provider, providerErr := paystack.New(paystack.Config{
+			BaseURL:     cfg.Paystack.BaseURL,
+			SecretKey:   cfg.Paystack.SecretKey,
+			CallbackURL: cfg.Paystack.CallbackURL,
+		})
 		if providerErr != nil {
-			return fmt.Errorf("build mobile money provider: %w", providerErr)
+			return fmt.Errorf("build paystack provider: %w", providerErr)
 		}
 		momoModule, momoErr := momo.NewModule(
 			ctx, client.Database(cfg.MongoDatabase), provider, cfg.CommerceHMACSecret)
 		if momoErr != nil {
-			return fmt.Errorf("build mobile money module: %w", momoErr)
+			return fmt.Errorf("build collection module: %w", momoErr)
 		}
 		// Settlement posts through a system authority rather than the admin
-		// one: money that arrives on a provider's callback has no operator
-		// standing behind it, and it must still be booked.
+		// one: money that arrives on a webhook has no operator standing
+		// behind it, and it must still be booked.
 		settlementLedger, ledgerErr := ledger.NewModule(ctx, client.Database(cfg.MongoDatabase),
 			ledgersystemauthority.New(), cfg.CommerceHMACSecret)
 		if ledgerErr != nil {
 			return fmt.Errorf("build settlement ledger: %w", ledgerErr)
+		}
+		orders := purchasemongo.NewOrders(client.Database(cfg.MongoDatabase))
+		if orderErr := orders.EnsureIndexes(ctx); orderErr != nil {
+			return fmt.Errorf("ensure purchase order indexes: %w", orderErr)
 		}
 		purchases = purchase.New(
 			catalogModule.Catalog,
@@ -929,8 +932,18 @@ func run() error {
 			},
 			purchase.NewSaleBook(settlementLedger.Ledger, ledgersystemauthority.Actor),
 			time.Now,
-		).WithDiscounts(promotionModule.Promotions)
-		apihttp.RegisterPurchaseRoutes(mux, purchases, identityModule.Sessions)
+		).WithDiscounts(promotionModule.Promotions).
+			WithOrders(orders).
+			WithMembers(memberReceiptBridge{members: memberModule.Members})
+		// The webhook secret is the Paystack secret key: it is what Paystack
+		// signs with, so it is what verification needs.
+		apihttp.RegisterPurchaseRoutes(
+			mux, purchases, identityModule.Sessions, cfg.Paystack.SecretKey)
+		if !cfg.Paystack.Live() {
+			slog.Default().Warn(
+				"paystack is configured with test keys; no real money will move",
+			)
+		}
 	}
 
 	apihttp.RegisterMembershipRoutes(mux, membershipModule.Membership, membershipModule.Keyer, identityModule.Sessions)
@@ -1617,4 +1630,25 @@ func (bridge organizationIssuerBridge) Issuing(
 		return false, err
 	}
 	return organization.Issuing(), nil
+}
+
+// memberReceiptBridge finds where a payment receipt goes.
+//
+// A payment processor needs an email: it is where a receipt is sent and what a
+// dispute attaches to. Handing one over is a deliberate disclosure to the
+// processor the member is paying through and to nobody else — it is not
+// written into any row this product keeps about the payment, and the intent
+// still stores only digests.
+type memberReceiptBridge struct {
+	members interface {
+		FindByID(context.Context, string) (memberdomain.Member, error)
+	}
+}
+
+func (bridge memberReceiptBridge) Email(ctx context.Context, memberID string) (string, error) {
+	member, err := bridge.members.FindByID(ctx, memberID)
+	if err != nil {
+		return "", err
+	}
+	return member.Email(), nil
 }

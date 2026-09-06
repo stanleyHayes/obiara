@@ -3285,7 +3285,7 @@ them:
 | P0    | `internal/organization` context (no principals — see §71) | DONE |
 | P1    | `commerce/promotion`: discount codes, keyed redemption | PLANNED |
 | P2    | Affiliate codes and qualified-conversion accrual     | PLANNED |
-| P3    | MoMo payouts, affiliate KYC, withholding, clawback   | PLANNED |
+| P3    | Paystack payouts, withholding, clawback              | IN PROGRESS (§76) |
 | P4    | Organization-funded sponsored seats                  | DEFERRED |
 
 
@@ -5229,8 +5229,8 @@ the real blocker on every commercial feature, not only this one.
 | ----- | ---------------------------------------------------- | ------- |
 | P0    | `internal/organization` context                      | DONE    |
 | P1    | `commerce/promotion`: discount codes                 | DONE (§74) |
-| P2    | Affiliate codes and qualified-conversion accrual     | PLANNED — two decisions open |
-| P3    | MoMo payouts, affiliate KYC, withholding, clawback   | PLANNED |
+| P2    | Affiliate codes and qualified-conversion accrual     | IN PROGRESS (§76) |
+| P3    | Paystack payouts, withholding, clawback              | IN PROGRESS (§76) |
 | P4    | Organization-funded sponsored seats                  | DEFERRED |
 
 **Two of the six §41 decisions are still open**, and both belong to Phase 2 so
@@ -5383,3 +5383,98 @@ the surface.
 **Still open, both in Phase 2 and neither blocking:** what exactly qualifies an
 affiliate conversion, and what the commission rate is given RPM-25's existing
 20%/15% platform take.
+
+## §75 — Paystack, and two defects it uncovered
+
+The owner named the processor: **Paystack, not MTN Mobile Money.** Swapping the
+adapter was the small part. Going to do it properly turned up two defects in
+§73, both of which would have taken members' money.
+
+### The swap
+
+`internal/commerce/momo` keeps its name and its aggregate — it models a mobile
+money collection intent and that is exactly what Paystack's `mobile_money`
+channel does. What changed is the adapter and, more importantly, how a webhook
+is authenticated.
+
+**MTN's model was a shared secret over a field list. Paystack's is an
+HMAC-SHA512 over the raw request body**, hex, in `x-paystack-signature`. That
+is a different thing in a way that matters: the signature covers the exact
+bytes sent, so it can only be verified where those bytes still exist. The old
+handler used `decodeJSON`, which consumes the body **and** sets
+`DisallowUnknownFields` — so it destroyed the evidence and would have rejected
+any event Paystack later extended.
+
+The webhook now reads the raw bytes under a cap, verifies the HMAC over
+exactly them, and only then parses, leniently. The service's own signature
+check is gone rather than kept as decoration: re-hashing fields already parsed
+out of a body would hash something Paystack never sent. Replay safety stays
+where it belongs — the callback id in the intent's applied commands.
+
+### The first defect: a digest cannot be dialled
+
+`purchase` keyed the phone, `momo` stored the digest, and `Confirm` handed
+**that digest** to the provider as the number to charge. The MTN adapter would
+have asked a payment processor to dial a 64-character hex string.
+
+Exactly the §62 class again, and fixed the same way: the raw number is supplied
+at collection time and checked against the stored digest before it goes
+anywhere. The caller cannot substitute somebody else's number, and no raw
+number is written down.
+
+### The second defect: money taken, nothing granted
+
+Found by an adversarial audit, not by me. Settlement granted a pass with the
+payment's own id as `passID`:
+
+```go
+passes.Grant(ctx, state.MemberKey, state.ID, state.ID, 1, ...)
+```
+
+The membership domain validates `passID` against `^[a-z][a-z0-9._-]{2,63}$` — a
+slug. A payment id is 64-char hex, and **ten of sixteen hex digits are
+numerals**, so roughly five purchases in eight would have failed validation
+*after the money was taken*, returned 503, and had Paystack retry forever.
+
+The real error underneath it was worse than the regex: **settlement did not
+know what had been bought.** A collection intent is deliberately
+product-agnostic — its own README says it cannot expose catalogue state — so
+there was nothing to grant *for*, and the code reached for the nearest
+identifier.
+
+`purchase.Order` is the missing record: intent id, SKU key, SKU version, the
+amount actually charged, the code that applied. Written when the prompt goes
+out, read at settlement. A pass is now granted for the product, with the
+payment as its receipt, which is what those two arguments always meant.
+
+### The rest of it
+
+**The amount is checked at settlement.** A signed webhook is authentic, and
+authentic is not the same as correct: an outcome reporting less than the
+collection was opened for would otherwise buy a whole month for whatever the
+payer felt like sending. Currency too — 5000 naira is not 5000 pesewas.
+
+**Paystack needs an email.** It is where a receipt goes and what a dispute
+attaches to. That is a deliberate disclosure to the processor a member is
+paying through and to nobody else; the payment row still stores only digests.
+
+**A network is required.** Paystack needs to know whether a number is MTN,
+Telecel or AirtelTigo, and the closed list is checked here rather than becoming
+a charge Paystack rejects after the member was told something was happening.
+
+**The intent's own id is the Paystack reference**, so a webhook names a
+collection already on record with no second lookup and no race against a
+reference written after the call.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| PAY-07  | Paystack config, gated on the secret key alone                    | DONE   |
+| PAY-08  | The charge adapter: subunits, closed network list, echoed reference | DONE |
+| PAY-09  | Webhook verified over raw bytes, tolerant of unknown fields       | DONE   |
+| PAY-10  | The raw phone reaches the processor, checked against the digest   | DONE   |
+| PAY-11  | `purchase.Order`: settlement knows what was bought                | DONE   |
+| PAY-12  | Amount and currency checked before anything is granted            | DONE   |
+| PAY-13  | Contract, generated client, tests                                 | DONE   |
+
+**The MTN adapter is deleted.** Keeping a second processor nothing composes
+would be another dark path, and this product has one.

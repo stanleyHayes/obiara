@@ -3,17 +3,18 @@ package apihttp
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
-	momoapplication "github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/application"
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/adapters/outbound/paystack"
 	"github.com/stanleyHayes/obiara/services/api/internal/commerce/purchase"
 )
 
-// Purchases starts a membership purchase and settles the provider's callback.
+// Purchases starts a membership purchase and settles a verified outcome.
 type Purchases interface {
 	Start(context.Context, purchase.StartCommand) (purchase.Started, error)
-	Settle(context.Context, momoapplication.Callback) error
+	Settle(context.Context, purchase.Outcome) error
 }
 
 // RegisterPurchaseRoutes exposes buying a membership.
@@ -27,10 +28,10 @@ type Purchases interface {
 // payment context verifies over the whole payload, because the caller is a
 // provider and not a member.
 func RegisterPurchaseRoutes(
-	mux *http.ServeMux, purchases Purchases, sessions SessionAuthenticator,
+	mux *http.ServeMux, purchases Purchases, sessions SessionAuthenticator, webhookSecret string,
 ) {
 	mux.Handle("POST /v1/membership/purchases", startPurchaseHandler(purchases, sessions))
-	mux.Handle("POST /v1/payments/momo/callback", momoCallbackHandler(purchases))
+	mux.Handle("POST /v1/payments/paystack/webhook", paystackWebhookHandler(purchases, webhookSecret))
 }
 
 type startPurchaseRequest struct {
@@ -39,6 +40,9 @@ type startPurchaseRequest struct {
 	// Phone is the number the provider prompts. It is keyed before it reaches
 	// storage and is never written down as given.
 	Phone string `json:"phone"`
+	// Network is which mobile money provider the number is on. The processor
+	// needs it and cannot reliably infer it from the number.
+	Network string `json:"network"`
 	// Code is optional. One that does not apply is not an error: the member
 	// came to buy a membership and a typo should not stop them.
 	Code string `json:"code,omitempty"`
@@ -92,7 +96,8 @@ func startPurchaseHandler(purchases Purchases, sessions SessionAuthenticator) ht
 		started, err := purchases.Start(r.Context(), purchase.StartCommand{
 			CommandID: commandID, MemberID: memberID,
 			SKUID: body.SKUID, SKUVersion: body.SKUVersion, Phone: body.Phone,
-			Code: strings.ToUpper(strings.TrimSpace(body.Code)),
+			Network: strings.TrimSpace(body.Network),
+			Code:    strings.ToUpper(strings.TrimSpace(body.Code)),
 		})
 		if err != nil {
 			writePurchaseError(w, r, err)
@@ -108,61 +113,86 @@ func startPurchaseHandler(purchases Purchases, sessions SessionAuthenticator) ht
 	})
 }
 
-type momoCallbackRequest struct {
-	CallbackID  string `json:"callbackId"`
-	IntentID    string `json:"intentId"`
-	ProviderRef string `json:"providerRef"`
-	Success     bool   `json:"success"`
-	OccurredAt  int64  `json:"occurredAt"`
-	Signature   string `json:"signature"`
-}
-
-// momoCallbackHandler settles a payment on the provider's word.
+// paystackWebhookHandler settles a payment on the processor's word.
 //
-// It answers 204 for anything it could act on, including a callback it has
-// already seen. Providers retry, and an error on a retry makes them retry
-// harder — the payment context is idempotent by callback id, so saying "done"
-// to the second one is both true and the only way to make retries stop.
-func momoCallbackHandler(purchases Purchases) http.Handler {
+// It reads the raw bytes and verifies the HMAC over exactly those bytes before
+// anything parses them. That ordering is the whole security of this endpoint:
+// the signature covers what was sent, so decoding first and re-serialising
+// would hash something the processor never produced. It is also why this does
+// not use decodeJSON — that consumes the body and rejects unknown fields, and
+// a webhook must tolerate a processor adding one.
+//
+// It answers 200 for anything it could act on, including a webhook it has
+// already seen. Processors retry, the payment context is idempotent by
+// callback id, and an error on a retry only makes them retry harder.
+func paystackWebhookHandler(purchases Purchases, secret string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !proposalJSONGuard(w, r) {
-			return
-		}
-		var body momoCallbackRequest
-		if err := decodeJSON(w, r, &body); err != nil {
-			writeError(w, r, http.StatusBadRequest, APIError{
-				Code: "invalid_json", Message: "The request body must be one valid JSON object.",
-			})
-			return
-		}
-		if purchases == nil {
+		if purchases == nil || strings.TrimSpace(secret) == "" {
 			writeError(w, r, http.StatusServiceUnavailable, APIError{
 				Code: "feature_unavailable", Message: "This is not available right now.",
 			})
 			return
 		}
-		err := purchases.Settle(r.Context(), momoapplication.Callback{
-			CallbackID:   strings.TrimSpace(body.CallbackID),
-			IntentID:     strings.TrimSpace(body.IntentID),
-			ProviderRef:  strings.TrimSpace(body.ProviderRef),
-			Success:      body.Success,
-			OccurredUnix: body.OccurredAt,
-			Signature:    strings.TrimSpace(body.Signature),
-		})
-		switch {
-		case err == nil, errors.Is(err, purchase.ErrAlreadySettled):
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			// Deliberately says nothing about why. The caller is a provider
-			// and a signature failure is the same shape as an unknown intent:
-			// telling them apart would let anybody probe which intents exist.
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxWebhookBytes))
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, APIError{
+				Code: "callback_rejected", Message: "That callback could not be accepted.",
+			})
+			return
+		}
+		event, err := paystack.VerifyWebhook(secret, body, r.Header.Get(paystack.SignatureHeader))
+		if err != nil {
+			// Says nothing about why. A bad signature and an unreadable body
+			// answer identically, or this would tell somebody probing which
+			// of the two they had got wrong.
 			logServerError(r.Context(), r, http.StatusBadRequest, "callback_rejected", err)
 			writeError(w, r, http.StatusBadRequest, APIError{
 				Code: "callback_rejected", Message: "That callback could not be accepted.",
 			})
+			return
+		}
+		// Only the event that says money arrived is acted on. Paystack sends
+		// many others — transfers, invoices, subscriptions — and answering
+		// them with 200 without acting is correct: they are not this
+		// endpoint's business, and an error would make Paystack retry them
+		// forever.
+		if event.Name != "charge.success" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		settleErr := purchases.Settle(r.Context(), purchase.Outcome{
+			// The event carries no id of its own, so the reference and the
+			// status together name this settlement. A retry of the same
+			// outcome therefore carries the same callback id and settles once.
+			CallbackID:    "paystack:" + event.Reference + ":" + event.Status,
+			Reference:     event.Reference,
+			Success:       event.Succeeded(),
+			AmountPesewas: event.AmountPesewas,
+			Currency:      event.Currency,
+		})
+		switch {
+		case settleErr == nil, errors.Is(settleErr, purchase.ErrAlreadySettled):
+			w.WriteHeader(http.StatusOK)
+		case errors.Is(settleErr, purchase.ErrWrongAmount):
+			// Authentic and wrong. Answered 200 so the processor stops
+			// retrying something retrying will never fix, and logged loudly
+			// because somebody paid an amount nobody asked for.
+			logServerError(r.Context(), r, http.StatusOK, "settlement_amount_mismatch", settleErr)
+			w.WriteHeader(http.StatusOK)
+		default:
+			// Something on this side failed. A non-2xx asks the processor to
+			// try again, which is exactly what should happen.
+			logServerError(r.Context(), r, http.StatusServiceUnavailable, "settlement_failed", settleErr)
+			writeError(w, r, http.StatusServiceUnavailable, APIError{
+				Code: "settlement_failed", Message: "That callback could not be settled.",
+			})
 		}
 	})
 }
+
+// maxWebhookBytes bounds what is read before anything is verified. Hashing an
+// unbounded body is a way to make the server read forever.
+const maxWebhookBytes = 1 << 20
 
 func writePurchaseError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {

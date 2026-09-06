@@ -38,6 +38,8 @@ type paymentsStub struct {
 	phoneRef    string
 	amount      uint64
 	confirmed   bool
+	payer       momoapplication.Payer
+	findErr     error
 }
 
 func (s *paymentsStub) Create(
@@ -47,18 +49,67 @@ func (s *paymentsStub) Create(
 	return s.intent, s.createErr
 }
 
-func (s *paymentsStub) Confirm(context.Context, string, string) (momodomain.Intent, error) {
+func (s *paymentsStub) Confirm(
+	_ context.Context, _, _ string, payer momoapplication.Payer,
+) (momodomain.Intent, error) {
 	s.confirmed = true
+	s.payer = payer
 	return s.intent, s.confirmErr
 }
 
-func (s *paymentsStub) Callback(
-	context.Context, momoapplication.Callback,
+func (s *paymentsStub) Settle(
+	context.Context, string, string, string, bool,
 ) (momodomain.Intent, error) {
 	return s.intent, s.callbackErr
 }
 
+func (s *paymentsStub) Find(context.Context, string) (momodomain.Intent, error) {
+	return s.intent, s.findErr
+}
+
+// orderBook remembers what a collection was opened to buy.
+type orderBook struct {
+	recorded Order
+	err      error
+	findErr  error
+	order    Order
+}
+
+func (o *orderBook) Record(_ context.Context, order Order) error {
+	o.recorded = order
+	if o.order.IntentID == "" {
+		o.order = order
+	}
+	return o.err
+}
+
+func (o *orderBook) Find(context.Context, string) (Order, error) {
+	if o.findErr != nil {
+		return Order{}, o.findErr
+	}
+	return o.order, nil
+}
+
+func membershipOrder() Order {
+	return Order{
+		IntentID: strings.Repeat("1", 64), SKUKey: "membership.monthly", SKUVersion: 1,
+		MemberID: "member-1", AmountPesewas: 5000,
+	}
+}
+
+// receipts is where a payment receipt goes.
+type receipts struct {
+	email string
+	err   error
+}
+
+func (r receipts) Email(context.Context, string) (string, error) { return r.email, r.err }
+
 type passesStub struct {
+	memberKey   string
+	passID      string
+	receiptRef  string
+	passVersion uint64
 	granted     bool
 	cancelled   bool
 	paidThrough time.Time
@@ -68,10 +119,11 @@ type passesStub struct {
 }
 
 func (s *passesStub) Grant(
-	_ context.Context, _, _, _ string, _ uint64,
+	_ context.Context, memberKey, passID, receiptRef string, passVersion uint64,
 	paidThrough time.Time, grace time.Duration, _ string,
 ) (membershipdomain.Pass, error) {
 	s.granted = true
+	s.memberKey, s.passID, s.receiptRef, s.passVersion = memberKey, passID, receiptRef, passVersion
 	s.paidThrough, s.grace = paidThrough, grace
 	return membershipdomain.Pass{}, s.grantErr
 }
@@ -151,7 +203,9 @@ func intentFor(t *testing.T) momodomain.Intent {
 
 func service(t *testing.T, catalog Catalog, payments Payments, passes Passes, ledger Ledger) Service {
 	t.Helper()
-	return New(catalog, payments, passes, digestKeyer{}, ledger, func() time.Time { return now })
+	return New(catalog, payments, passes, digestKeyer{}, ledger, func() time.Time { return now }).
+		WithOrders(&orderBook{order: membershipOrder()}).
+		WithMembers(receipts{email: "member@example.test"})
 }
 
 func TestStartingAPurchasePricesItFromTheCatalog(t *testing.T) {
@@ -164,7 +218,7 @@ func TestStartingAPurchasePricesItFromTheCatalog(t *testing.T) {
 		payments, &passesStub{}, &ledgerStub{},
 	).Start(context.Background(), StartCommand{
 		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
-		SKUVersion: 1, Phone: "0200000000",
+		SKUVersion: 1, Phone: "0200000000", Network: "mtn",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -191,7 +245,7 @@ func TestNothingRawReachesThePaymentContext(t *testing.T) {
 		payments, &passesStub{}, &ledgerStub{},
 	).Start(context.Background(), StartCommand{
 		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
-		SKUVersion: 1, Phone: "0200000000",
+		SKUVersion: 1, Phone: "0200000000", Network: "mtn",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +276,7 @@ func TestOnlyAPublishedGhanaCediMembershipIsPurchasable(t *testing.T) {
 			if _, err := service(t, catalog, payments, &passesStub{}, &ledgerStub{}).
 				Start(context.Background(), StartCommand{
 					CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku",
-					SKUVersion: 1, Phone: "0200000000",
+					SKUVersion: 1, Phone: "0200000000", Network: "mtn",
 				}); !errors.Is(err, ErrNotPurchasable) {
 				t.Fatalf("err = %v, want ErrNotPurchasable", err)
 			}
@@ -242,7 +296,7 @@ func TestNoPassIsGrantedUntilTheProviderSaysSo(t *testing.T) {
 		&paymentsStub{intent: intentFor(t)}, passes, &ledgerStub{},
 	).Start(context.Background(), StartCommand{
 		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
-		SKUVersion: 1, Phone: "0200000000",
+		SKUVersion: 1, Phone: "0200000000", Network: "mtn",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -254,8 +308,9 @@ func TestNoPassIsGrantedUntilTheProviderSaysSo(t *testing.T) {
 func TestASuccessfulCallbackGrantsThePassAndBooksTheMoney(t *testing.T) {
 	passes, ledger := &passesStub{}, &ledgerStub{}
 	err := service(t, catalogStub{}, &paymentsStub{intent: intentFor(t)}, passes, ledger).
-		Settle(context.Background(), momoapplication.Callback{
-			CallbackID: "cb_1", IntentID: "intent_1", ProviderRef: "ref-1", Success: true,
+		Settle(context.Background(), Outcome{
+			CallbackID: "cb_1", Reference: strings.Repeat("1", 64), Success: true,
+			AmountPesewas: 5000, Currency: "GHS",
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -279,8 +334,8 @@ func TestASuccessfulCallbackGrantsThePassAndBooksTheMoney(t *testing.T) {
 func TestAFailedPaymentGrantsNothing(t *testing.T) {
 	passes, ledger := &passesStub{}, &ledgerStub{}
 	if err := service(t, catalogStub{}, &paymentsStub{intent: intentFor(t)}, passes, ledger).
-		Settle(context.Background(), momoapplication.Callback{
-			CallbackID: "cb_1", IntentID: "intent_1", ProviderRef: "ref-1", Success: false,
+		Settle(context.Background(), Outcome{
+			CallbackID: "cb_1", Reference: strings.Repeat("1", 64), Success: false,
 		}); err != nil {
 		t.Fatal(err)
 	}
@@ -297,8 +352,8 @@ func TestAReversalCancelsThePassRatherThanRemovingIt(t *testing.T) {
 	// quietly vanished.
 	passes := &passesStub{}
 	if err := service(t, catalogStub{}, &paymentsStub{intent: intentFor(t)}, passes, &ledgerStub{}).
-		Settle(context.Background(), momoapplication.Callback{
-			CallbackID: "cb_2", IntentID: "intent_1", ProviderRef: "ref-1", Success: false,
+		Settle(context.Background(), Outcome{
+			CallbackID: "cb_2", Reference: strings.Repeat("1", 64), Success: false,
 		}); err != nil {
 		t.Fatal(err)
 	}
@@ -313,8 +368,9 @@ func TestAnUnverifiedCallbackSettlesNothing(t *testing.T) {
 	passes := &passesStub{}
 	payments := &paymentsStub{intent: intentFor(t), callbackErr: errors.New("bad signature")}
 	if err := service(t, catalogStub{}, payments, passes, &ledgerStub{}).
-		Settle(context.Background(), momoapplication.Callback{
-			CallbackID: "cb_1", IntentID: "intent_1", Success: true,
+		Settle(context.Background(), Outcome{
+			CallbackID: "cb_1", Reference: strings.Repeat("1", 64), Success: true,
+			AmountPesewas: 5000, Currency: "GHS",
 		}); err == nil {
 		t.Fatal("an unverified callback was accepted")
 	}
@@ -329,8 +385,9 @@ func TestABookkeepingFailureDoesNotUnGrantAPaidPass(t *testing.T) {
 	passes := &passesStub{}
 	ledger := &ledgerStub{err: errors.New("ledger unavailable")}
 	if err := service(t, catalogStub{}, &paymentsStub{intent: intentFor(t)}, passes, ledger).
-		Settle(context.Background(), momoapplication.Callback{
-			CallbackID: "cb_1", IntentID: "intent_1", ProviderRef: "ref-1", Success: true,
+		Settle(context.Background(), Outcome{
+			CallbackID: "cb_1", Reference: strings.Repeat("1", 64), Success: true,
+			AmountPesewas: 5000, Currency: "GHS",
 		}); err != nil {
 		t.Fatalf("a bookkeeping failure refused a paid member: %v", err)
 	}
@@ -343,7 +400,7 @@ func TestAnUncomposedPurchaseRefuses(t *testing.T) {
 	if _, err := (Service{}).Start(context.Background(), StartCommand{}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("err = %v, want ErrUnavailable", err)
 	}
-	if err := (Service{}).Settle(context.Background(), momoapplication.Callback{}); !errors.Is(err, ErrUnavailable) {
+	if err := (Service{}).Settle(context.Background(), Outcome{}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("err = %v, want ErrUnavailable", err)
 	}
 }
@@ -447,7 +504,7 @@ func TestACodeComesOffWhatTheMemberIsCharged(t *testing.T) {
 		payments, &passesStub{}, &ledgerStub{},
 	).WithDiscounts(codes).Start(context.Background(), StartCommand{
 		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
-		SKUVersion: 1, Phone: "0200000000", Code: "ashesi26",
+		SKUVersion: 1, Phone: "0200000000", Network: "mtn", Code: "ashesi26",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -474,7 +531,7 @@ func TestAPurchaseWithoutDiscountsComposedStillWorks(t *testing.T) {
 		payments, &passesStub{}, &ledgerStub{},
 	).Start(context.Background(), StartCommand{
 		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
-		SKUVersion: 1, Phone: "0200000000", Code: "ashesi26",
+		SKUVersion: 1, Phone: "0200000000", Network: "mtn", Code: "ashesi26",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -494,7 +551,7 @@ func TestACodeThatTakesTheWholePriceIsNotAPayment(t *testing.T) {
 		payments, &passesStub{}, &ledgerStub{},
 	).WithDiscounts(codes).Start(context.Background(), StartCommand{
 		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
-		SKUVersion: 1, Phone: "0200000000", Code: "FREE",
+		SKUVersion: 1, Phone: "0200000000", Network: "mtn", Code: "FREE",
 	}); !errors.Is(err, ErrNotPurchasable) {
 		t.Fatalf("err = %v, want ErrNotPurchasable", err)
 	}
@@ -515,11 +572,204 @@ func TestADiscountThatCannotBeEstablishedStopsThePurchase(t *testing.T) {
 		payments, &passesStub{}, &ledgerStub{},
 	).WithDiscounts(codes).Start(context.Background(), StartCommand{
 		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
-		SKUVersion: 1, Phone: "0200000000", Code: "ASHESI26",
+		SKUVersion: 1, Phone: "0200000000", Network: "mtn", Code: "ASHESI26",
 	}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("err = %v, want ErrUnavailable", err)
 	}
 	if payments.confirmed {
 		t.Fatal("a member was prompted at a price nobody could establish")
+	}
+}
+
+func TestASettlementForTheWrongAmountGrantsNothing(t *testing.T) {
+	// A signed webhook is authentic, and authentic is not the same as
+	// correct. An outcome reporting less than the collection was opened for
+	// would otherwise buy a whole month for whatever the payer felt like
+	// sending.
+	passes, ledger := &passesStub{}, &ledgerStub{}
+	err := service(t, catalogStub{}, &paymentsStub{intent: intentFor(t)}, passes, ledger).
+		Settle(context.Background(), Outcome{
+			CallbackID: "cb_1", Reference: strings.Repeat("1", 64), Success: true,
+			AmountPesewas: 1, Currency: "GHS",
+		})
+	if !errors.Is(err, ErrWrongAmount) {
+		t.Fatalf("err = %v, want ErrWrongAmount", err)
+	}
+	if passes.granted {
+		t.Fatal("a short payment bought a membership")
+	}
+	if ledger.recorded {
+		t.Fatal("a short payment was booked at full value")
+	}
+}
+
+func TestASettlementInTheWrongCurrencyGrantsNothing(t *testing.T) {
+	// The right number of the wrong unit. 5000 naira is not 5000 pesewas.
+	passes := &passesStub{}
+	err := service(t, catalogStub{}, &paymentsStub{intent: intentFor(t)}, passes, &ledgerStub{}).
+		Settle(context.Background(), Outcome{
+			CallbackID: "cb_1", Reference: strings.Repeat("1", 64), Success: true,
+			AmountPesewas: 5000, Currency: "NGN",
+		})
+	if !errors.Is(err, ErrWrongAmount) {
+		t.Fatalf("err = %v, want ErrWrongAmount", err)
+	}
+	if passes.granted {
+		t.Fatal("a foreign-currency payment bought a membership")
+	}
+}
+
+func TestTheRawPhoneReachesTheProcessorAndTheDigestDoesNot(t *testing.T) {
+	// The defect this closes: the collection stored an HMAC of the number and
+	// then handed that digest to the processor as the number to dial. A
+	// payment processor cannot charge a 64-character hex string.
+	payments := &paymentsStub{intent: intentFor(t)}
+	if _, err := service(t,
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, &passesStub{}, &ledgerStub{},
+	).Start(context.Background(), StartCommand{
+		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+		SKUVersion: 1, Phone: "0200000000", Network: "mtn",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if payments.payer.Phone != "0200000000" {
+		t.Fatalf("the processor was given %q to dial", payments.payer.Phone)
+	}
+	if payments.payer.Network != "mtn" {
+		t.Fatalf("network = %q", payments.payer.Network)
+	}
+	// And a receipt address, which a processor will not open a collection
+	// without.
+	if payments.payer.Email != "member@example.test" {
+		t.Fatalf("email = %q", payments.payer.Email)
+	}
+	// The stored reference is still a digest: the raw number is used and not
+	// written down.
+	if payments.phoneRef == "0200000000" || len(payments.phoneRef) != 64 {
+		t.Fatalf("the intent stored %q", payments.phoneRef)
+	}
+}
+
+func TestNoReceiptAddressMeansNoCollection(t *testing.T) {
+	// A processor will not open one without somewhere to send a receipt, and
+	// inventing an address would send a member's receipt into a hole.
+	payments := &paymentsStub{intent: intentFor(t)}
+	bare := New(catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, &passesStub{}, digestKeyer{}, &ledgerStub{}, func() time.Time { return now }).
+		WithMembers(receipts{email: ""})
+	if _, err := bare.Start(context.Background(), StartCommand{
+		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+		SKUVersion: 1, Phone: "0200000000", Network: "mtn",
+	}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+	if payments.confirmed {
+		t.Fatal("a collection was opened with nowhere to send a receipt")
+	}
+}
+
+func TestAPurchaseWithoutANetworkIsRefused(t *testing.T) {
+	// The processor needs to know which network the number is on and cannot
+	// reliably infer it.
+	payments := &paymentsStub{intent: intentFor(t)}
+	if _, err := service(t,
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, &passesStub{}, &ledgerStub{},
+	).Start(context.Background(), StartCommand{
+		CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+		SKUVersion: 1, Phone: "0200000000",
+	}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+	if payments.confirmed {
+		t.Fatal("a collection was opened without a network")
+	}
+}
+
+func TestAPassIsGrantedForTheProductAndNotForThePayment(t *testing.T) {
+	// The bug this closes would have taken money and granted nothing for most
+	// payments. A pass is granted for a product: the membership context wants
+	// a slug it can recognise, and a payment id is a hex string. Passing the
+	// payment id meant roughly five purchases in eight failed validation
+	// after the member had already paid.
+	passes := &passesStub{}
+	orders := &orderBook{order: membershipOrder()}
+	err := New(catalogStub{}, &paymentsStub{intent: intentFor(t)}, passes, digestKeyer{},
+		&ledgerStub{}, func() time.Time { return now }).
+		WithOrders(orders).WithMembers(receipts{email: "member@example.test"}).
+		Settle(context.Background(), Outcome{
+			CallbackID: "cb_1", Reference: strings.Repeat("1", 64), Success: true,
+			AmountPesewas: 5000, Currency: "GHS",
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if passes.passID != "membership.monthly" {
+		t.Fatalf("granted pass %q, want the product's key", passes.passID)
+	}
+	if passes.passVersion != 1 {
+		t.Fatalf("pass version = %d, want the version that was sold", passes.passVersion)
+	}
+	// The payment is the receipt, which is the opaque reference it should be.
+	if passes.receiptRef != strings.Repeat("1", 64) {
+		t.Fatalf("receipt = %q", passes.receiptRef)
+	}
+}
+
+func TestAPurchaseRecordsWhatItWasOpenedToBuy(t *testing.T) {
+	// Settlement happens later and reads this. Without it, granting on a
+	// webhook is guessing.
+	orders := &orderBook{}
+	payments := &paymentsStub{intent: intentFor(t)}
+	if _, err := New(
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, &passesStub{}, digestKeyer{}, &ledgerStub{}, func() time.Time { return now },
+	).WithOrders(orders).WithMembers(receipts{email: "member@example.test"}).
+		Start(context.Background(), StartCommand{
+			CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+			SKUVersion: 1, Phone: "0200000000", Network: "mtn",
+		}); err != nil {
+		t.Fatal(err)
+	}
+	if orders.recorded.SKUKey != "membership.monthly" || orders.recorded.SKUVersion != 1 {
+		t.Fatalf("recorded %#v", orders.recorded)
+	}
+	if orders.recorded.AmountPesewas != 5000 {
+		t.Fatalf("recorded amount %d", orders.recorded.AmountPesewas)
+	}
+}
+
+func TestAnOrderThatCannotBeWrittenStopsThePurchase(t *testing.T) {
+	// A payment nobody can attribute to a product takes a member's money and
+	// leaves settlement guessing.
+	orders := &orderBook{err: errors.New("mongo down")}
+	if _, err := New(
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		&paymentsStub{intent: intentFor(t)}, &passesStub{}, digestKeyer{},
+		&ledgerStub{}, func() time.Time { return now },
+	).WithOrders(orders).WithMembers(receipts{email: "member@example.test"}).
+		Start(context.Background(), StartCommand{
+			CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+			SKUVersion: 1, Phone: "0200000000", Network: "mtn",
+		}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+}
+
+func TestSettlementWithNoOrderGrantsNothing(t *testing.T) {
+	passes := &passesStub{}
+	orders := &orderBook{findErr: ErrOrderNotFound}
+	if err := New(catalogStub{}, &paymentsStub{intent: intentFor(t)}, passes, digestKeyer{},
+		&ledgerStub{}, func() time.Time { return now }).
+		WithOrders(orders).WithMembers(receipts{email: "x@example.test"}).
+		Settle(context.Background(), Outcome{
+			CallbackID: "cb_1", Reference: strings.Repeat("1", 64), Success: true,
+			AmountPesewas: 5000, Currency: "GHS",
+		}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+	if passes.granted {
+		t.Fatal("a pass was granted for a purchase nothing recorded")
 	}
 }

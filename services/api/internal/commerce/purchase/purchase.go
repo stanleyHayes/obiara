@@ -52,8 +52,19 @@ type Catalog interface {
 // Payments collects the money.
 type Payments interface {
 	Create(ctx context.Context, memberKey, phoneRef string, amount uint64, command string) (momodomain.Intent, error)
-	Confirm(ctx context.Context, id, command string) (momodomain.Intent, error)
-	Callback(ctx context.Context, callback momoapplication.Callback) (momodomain.Intent, error)
+	Confirm(ctx context.Context, id, command string, payer momoapplication.Payer) (momodomain.Intent, error)
+	Settle(ctx context.Context, callbackID, intentID, providerRef string, success bool) (momodomain.Intent, error)
+	Find(ctx context.Context, id string) (momodomain.Intent, error)
+}
+
+// Members is where a receipt goes.
+//
+// A payment processor needs an email: it is where a receipt is sent and what a
+// dispute is attached to. Handing it over is a deliberate disclosure to the
+// processor the member is paying through, and to nobody else — it is not
+// written into any row this product keeps about the payment.
+type Members interface {
+	Email(ctx context.Context, memberID string) (string, error)
 }
 
 // Passes grants and cancels membership.
@@ -94,9 +105,27 @@ type Service struct {
 	payments  Payments
 	passes    Passes
 	keyer     Keyer
+	orders    Orders
+	members   Members
 	ledger    Ledger
 	discounts Discounts
 	now       func() time.Time
+}
+
+// WithOrders attaches the record of what each collection was opened to buy.
+// Without it settlement cannot know what to grant, so a service composed
+// without it refuses rather than guessing.
+func (service Service) WithOrders(orders Orders) Service {
+	service.orders = orders
+	return service
+}
+
+// WithMembers attaches the lookup that finds where a receipt goes. Without it
+// nothing can be charged, because a processor will not open a collection
+// without somewhere to send one.
+func (service Service) WithMembers(members Members) Service {
+	service.members = members
+	return service
 }
 
 // WithDiscounts attaches discount codes. Without it every purchase is at full
@@ -127,6 +156,9 @@ type StartCommand struct {
 	// Phone is the number the provider prompts. It is keyed before it reaches
 	// the payment context and never stored raw.
 	Phone string
+	// Network is which mobile money provider the number is on. The processor
+	// needs it and cannot infer it reliably from the number.
+	Network string
 	// Code is an optional discount code. A code that does not apply is not an
 	// error: the member came to buy a membership, and a typo should not stop
 	// them.
@@ -158,7 +190,7 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 		return Started{}, ErrUnavailable
 	}
 	if strings.TrimSpace(command.CommandID) == "" || strings.TrimSpace(command.MemberID) == "" ||
-		strings.TrimSpace(command.Phone) == "" {
+		strings.TrimSpace(command.Phone) == "" || strings.TrimSpace(command.Network) == "" {
 		return Started{}, ErrUnavailable
 	}
 	sku, err := service.catalog.ReadPublished(
@@ -187,6 +219,16 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 	if price <= 0 {
 		return Started{}, ErrNotPurchasable
 	}
+	if service.members == nil {
+		return Started{}, ErrUnavailable
+	}
+	email, err := service.members.Email(ctx, command.MemberID)
+	if err != nil || strings.TrimSpace(email) == "" {
+		// No receipt address means no collection. A processor will not open
+		// one without it, and inventing an address would send a member's
+		// receipt into a hole.
+		return Started{}, ErrUnavailable
+	}
 	memberKey, err := service.keyer.MemberKey(command.MemberID)
 	if err != nil {
 		return Started{}, ErrUnavailable
@@ -203,8 +245,26 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 	// Confirmed in the same request because the member is standing there: the
 	// deliberate gesture is the purchase itself, and a second round trip only
 	// adds a place for it to be abandoned.
-	confirmed, err := service.payments.Confirm(ctx, intent.State().ID, command.CommandID+":confirm")
+	//
+	// The raw phone goes in here and nowhere else. The intent stored a digest
+	// of it, which is right for a row that outlives the payment and cannot be
+	// dialled — so the number is supplied now and checked against that digest.
+	confirmed, err := service.payments.Confirm(
+		ctx, intent.State().ID, command.CommandID+":confirm",
+		momoapplication.Payer{Phone: command.Phone, Email: email, Network: command.Network},
+	)
 	if err != nil {
+		return Started{}, ErrUnavailable
+	}
+	// Written after the prompt is out, because an order for a collection that
+	// was never opened is a row describing nothing. A failure here is
+	// deliberately fatal to the purchase: a payment nobody can attribute to a
+	// product would take a member's money and leave settlement guessing.
+	if err := service.orders.Record(ctx, Order{
+		IntentID: confirmed.State().ID, SKUKey: sku.SKUKey(), SKUVersion: sku.Version(),
+		MemberID: strings.TrimSpace(command.MemberID), AmountPesewas: price,
+		Code: applied.Code,
+	}); err != nil {
 		return Started{}, ErrUnavailable
 	}
 	return Started{
@@ -216,38 +276,80 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 	}, nil
 }
 
-// Settle applies the provider's callback.
+// Outcome is what a verified webhook said. The caller has already
+// authenticated the processor over the exact bytes it sent.
+type Outcome struct {
+	// CallbackID is what makes a retried webhook settle once. Processors all
+	// retry, so this is not optional.
+	CallbackID string
+	// Reference is the reference this product gave the processor, which is
+	// the intent's own id.
+	Reference     string
+	Success       bool
+	AmountPesewas int64
+	Currency      string
+}
+
+// ErrWrongAmount refuses an outcome reporting a different amount from the one
+// the collection was opened for.
+var ErrWrongAmount = errors.New("that payment is not for what was asked")
+
+// Settle applies a verified outcome.
 //
-// On success the pass is granted; on a reversal an already-granted pass is
-// cancelled rather than removed, so the trail shows granted-then-cancelled
-// instead of a pass that quietly vanished.
-func (service Service) Settle(
-	ctx context.Context, callback momoapplication.Callback,
-) error {
+// On success the pass is granted; on a failure or reversal an already-granted
+// pass is cancelled rather than removed, so the trail shows
+// granted-then-cancelled instead of a pass that quietly vanished.
+func (service Service) Settle(ctx context.Context, outcome Outcome) error {
 	if !service.ready() {
 		return ErrUnavailable
 	}
-	intent, err := service.payments.Callback(ctx, callback)
+	if strings.TrimSpace(outcome.CallbackID) == "" ||
+		strings.TrimSpace(outcome.Reference) == "" {
+		return ErrUnavailable
+	}
+	// What was asked for, read before anything is granted. A signed webhook
+	// is authentic, and authentic is not the same as correct: an outcome
+	// reporting a smaller amount than the collection was opened for would
+	// otherwise buy a whole month for whatever the payer felt like sending.
+	intent, err := service.payments.Find(ctx, outcome.Reference)
 	if err != nil {
 		return err
 	}
-	state := intent.State()
-	if !callback.Success {
-		// A reversal on an intent that never granted anything is nothing to
+	expected := intent.State()
+	if outcome.Success {
+		if outcome.AmountPesewas != int64(expected.AmountPesewas) ||
+			!strings.EqualFold(strings.TrimSpace(outcome.Currency), "GHS") {
+			return ErrWrongAmount
+		}
+	}
+	settled, err := service.payments.Settle(
+		ctx, outcome.CallbackID, outcome.Reference, outcome.Reference, outcome.Success)
+	if err != nil {
+		return err
+	}
+	state := settled.State()
+	if !outcome.Success {
+		// A failure on a collection that never granted anything is nothing to
 		// undo. Cancel is keyed by the intent, so this is safe to retry.
 		if _, cancelErr := service.passes.Cancel(
-			ctx, state.ID, callback.CallbackID+":cancel",
+			ctx, state.ID, outcome.CallbackID+":cancel",
 		); cancelErr != nil {
-			// A pass that was never granted cannot be cancelled, which is the
-			// ordinary case for a payment that simply failed.
 			return nil
 		}
 		return nil
 	}
+	// What was bought, read back rather than assumed. Granting a pass named
+	// after the payment was wrong twice: a payment is not a product, and the
+	// membership context requires a slug where a payment id is hex — so most
+	// payments would have taken the money and granted nothing at all.
+	order, err := service.orders.Find(ctx, state.ID)
+	if err != nil {
+		return ErrUnavailable
+	}
 	paidThrough := service.now().UTC().Add(Period)
 	if _, err := service.passes.Grant(
-		ctx, state.MemberKey, state.ID, state.ID, 1, paidThrough, Grace,
-		callback.CallbackID+":grant",
+		ctx, state.MemberKey, order.SKUKey, state.ID, order.SKUVersion,
+		paidThrough, Grace, outcome.CallbackID+":grant",
 	); err != nil {
 		return ErrUnavailable
 	}
@@ -263,5 +365,6 @@ func (service Service) Settle(
 
 func (service Service) ready() bool {
 	return service.catalog != nil && service.payments != nil &&
-		service.passes != nil && service.keyer != nil && service.now != nil
+		service.passes != nil && service.keyer != nil &&
+		service.orders != nil && service.now != nil
 }

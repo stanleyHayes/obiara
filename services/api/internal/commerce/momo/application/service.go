@@ -6,8 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/domain"
 	"strings"
+
+	"github.com/stanleyHayes/obiara/services/api/internal/commerce/momo/domain"
 )
 
 var (
@@ -53,10 +54,28 @@ func (s Service) Create(ctx context.Context, memberKey, phoneRef string, amount 
 	}
 	return i, nil
 }
-func (s Service) Confirm(ctx context.Context, id, command string) (domain.Intent, error) {
+
+// Payer is what a processor needs to reach somebody, supplied by the caller
+// at the moment of collection rather than read back from the intent.
+//
+// The intent stores an HMAC of the phone, and a digest cannot be dialled. So
+// the raw number comes in here and is checked against what was stored: the
+// caller cannot substitute somebody else's number, and no raw number is ever
+// written down. It is the same shape as the mutual water's counterpart check
+// (agent_plan.md §62), for the same reason.
+type Payer struct {
+	Phone, Email, Network string
+}
+
+func (s Service) Confirm(ctx context.Context, id, command string, payer Payer) (domain.Intent, error) {
 	i, e := s.repo.Find(ctx, id)
 	if e != nil {
 		return domain.Intent{}, e
+	}
+	// The number given has to be the number this intent was opened for.
+	given, e := PhoneRef(s.secret, payer.Phone)
+	if e != nil || given != i.State().PhoneRef {
+		return domain.Intent{}, ErrInvalid
 	}
 	n, e := i.Confirm(command, s.clock.Now())
 	if e != nil {
@@ -65,8 +84,15 @@ func (s Service) Confirm(ctx context.Context, id, command string) (domain.Intent
 	if e = s.repo.Save(ctx, n, i.Revision(), command); e != nil {
 		return domain.Intent{}, e
 	}
-	ref := s.ids.NewID()
-	r, e := s.provider.RequestCollection(ctx, ProviderRequest{ref, n.State().PhoneRef, n.State().AmountPesewas, "GHS"})
+	// The intent's own id is the reference the processor is given, so the
+	// webhook that comes back names a collection already on record and needs
+	// no second lookup table. It is opaque, so a processor learns nothing
+	// from it.
+	ref := n.State().ID
+	r, e := s.provider.RequestCollection(ctx, ProviderRequest{
+		RequestRef: ref, Phone: payer.Phone, Email: payer.Email, Network: payer.Network,
+		AmountPesewas: n.State().AmountPesewas, Currency: "GHS",
+	})
 	if e != nil || r != ref {
 		return domain.Intent{}, ErrUnavailable
 	}
@@ -80,67 +106,39 @@ func (s Service) Confirm(ctx context.Context, id, command string) (domain.Intent
 	return requested, nil
 }
 
-type Callback struct {
-	CallbackID, IntentID, ProviderRef string
-	Success                           bool
-	OccurredUnix                      int64
-	Signature                         string
-}
-
-func (s Service) Callback(ctx context.Context, c Callback) (domain.Intent, error) {
-	if len(s.secret) < 32 || !s.valid(c) {
-		return domain.Intent{}, ErrInvalid
-	}
-	i, e := s.repo.Find(ctx, c.IntentID)
+// Settle applies an outcome the caller has already authenticated.
+//
+// There is deliberately no signature check here. The processor signs the exact
+// bytes of its webhook with an HMAC in a header, so the only place that can be
+// verified is where those bytes still exist — the transport. Re-checking a
+// signature over fields already parsed out of the body would be hashing
+// something the processor never sent, and would break the first time it added
+// a field or changed key order.
+//
+// What this still owns is replay: the callback id goes into the intent's
+// applied commands, so a processor retrying — which they all do — settles once.
+//
+// The caller MUST have verified the webhook before reaching this. The only
+// caller is the HTTP handler that does exactly that.
+func (s Service) Settle(
+	ctx context.Context, callbackID, intentID, providerRef string, success bool,
+) (domain.Intent, error) {
+	i, e := s.repo.Find(ctx, intentID)
 	if e != nil {
 		return domain.Intent{}, e
 	}
-	n, e := i.ApplyProvider(c.CallbackID, c.ProviderRef, c.Success, s.clock.Now())
+	n, e := i.ApplyProvider(callbackID, providerRef, success, s.clock.Now())
 	if e != nil {
 		return domain.Intent{}, ErrInvalid
 	}
-	if e = s.repo.Save(ctx, n, i.Revision(), c.CallbackID); e != nil {
+	if e = s.repo.Save(ctx, n, i.Revision(), callbackID); e != nil {
 		return domain.Intent{}, e
 	}
 	return n, nil
 }
-func (s Service) valid(c Callback) bool {
-	payload := c.CallbackID + "|" + c.IntentID + "|" + c.ProviderRef + "|" + boolText(c.Success) + "|" + fmtInt(c.OccurredUnix)
-	m := hmac.New(sha256.New, s.secret)
-	m.Write([]byte(payload))
-	got, e := hex.DecodeString(c.Signature)
-	return e == nil && hmac.Equal(got, m.Sum(nil))
-}
-func SignCallback(secret []byte, c Callback) string {
-	payload := c.CallbackID + "|" + c.IntentID + "|" + c.ProviderRef + "|" + boolText(c.Success) + "|" + fmtInt(c.OccurredUnix)
-	m := hmac.New(sha256.New, secret)
-	m.Write([]byte(payload))
-	return hex.EncodeToString(m.Sum(nil))
-}
-func boolText(v bool) string {
-	if v {
-		return "1"
-	}
-	return "0"
-}
-func fmtInt(v int64) string {
-	if v == 0 {
-		return "0"
-	}
-	neg := v < 0
-	if neg {
-		v = -v
-	}
-	var b [20]byte
-	i := len(b)
-	for v > 0 {
-		i--
-		b[i] = byte('0' + v%10)
-		v /= 10
-	}
-	if neg {
-		i--
-		b[i] = '-'
-	}
-	return string(b[i:])
+
+// Find reads an intent back, so a caller can check that what a processor says
+// arrived is what was actually asked for.
+func (s Service) Find(ctx context.Context, id string) (domain.Intent, error) {
+	return s.repo.Find(ctx, id)
 }

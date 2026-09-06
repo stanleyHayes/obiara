@@ -12,6 +12,10 @@ import (
 
 type Module struct {
 	Register application.RegisterMember
+	// Members is exposed so a payment processor can be given somewhere to
+	// send a receipt. Nothing else reads a member's email out of this
+	// context.
+	Members *mongodb.Repository
 }
 
 func NewModule(ctx context.Context, database *mongo.Database) (Module, error) {
@@ -21,5 +25,6 @@ func NewModule(ctx context.Context, database *mongo.Database) (Module, error) {
 	}
 	return Module{
 		Register: application.NewRegisterMember(repository, time.Now),
+		Members:  repository,
 	}, nil
 }

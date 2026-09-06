@@ -3092,8 +3092,8 @@ export interface paths {
     /**
      * Buy a membership
      * @description Prices the pass from a published catalogue SKU, opens a mobile money
-     *     collection and asks the provider to prompt the member's phone. It
-     *     answers 202: the prompt is on its way and nothing has been paid yet.
+     *     collection through Paystack and asks it to prompt the member's phone.
+     *     It answers 202: the prompt is on its way and nothing has been paid yet.
      *
      *     **No pass is granted here.** A member who never approves the prompt has
      *     not paid, and the only thing that says otherwise is the provider's
@@ -3103,9 +3103,9 @@ export interface paths {
      *     The phone number is keyed before it is stored and never written down as
      *     given, so a payment row is not a contact directory.
      *
-     *     Present only when a collection provider is configured. Without one
-     *     there is no way to take money and the route is absent rather than
-     *     failing.
+     *     Present only when Paystack is configured. Without a secret key there
+     *     is no way to take money and no way to verify a webhook, so the route
+     *     is absent rather than failing.
      */
     readonly post: operations["startMembershipPurchase"];
     readonly delete?: never;
@@ -3332,7 +3332,7 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
-  readonly "/v1/payments/momo/callback": {
+  readonly "/v1/payments/paystack/webhook": {
     readonly parameters: {
       readonly query?: never;
       readonly header?: never;
@@ -3342,25 +3342,35 @@ export interface paths {
     readonly get?: never;
     readonly put?: never;
     /**
-     * The provider reports a payment outcome
-     * @description Called by the mobile money provider, not by a member, and carries no
-     *     session: it is authenticated by an HMAC over the whole payload which
-     *     the payment context verifies itself.
+     * Paystack reports a payment outcome
+     * @description Called by Paystack, not by a member, and carries no session. It is
+     *     authenticated by an HMAC-SHA512 of the exact request body, keyed with
+     *     the Paystack secret key, sent in the `x-paystack-signature` header.
      *
-     *     A success grants the membership pass and books the sale through the
-     *     double-entry ledger. A reversal cancels a pass already granted rather
-     *     than removing it, so the trail shows granted-then-cancelled instead of
-     *     a pass that quietly vanished.
+     *     The signature covers the bytes as sent, so they are verified before
+     *     anything parses them. Unknown fields are tolerated: a webhook that
+     *     refused one would stop settling payments the first time Paystack
+     *     extended its event.
      *
-     *     Answers 204 for anything it could act on, including a callback it has
-     *     already seen: providers retry, the payment context is idempotent by
-     *     callback id, and an error on a retry only makes them retry harder.
+     *     `charge.success` with `data.status` of `success` grants the membership
+     *     pass and books the sale through the double-entry ledger. Anything else
+     *     is acknowledged and ignored — Paystack sends transfers, invoices and
+     *     subscriptions to the same URL, and an error would make it retry them
+     *     forever.
      *
-     *     A rejection says nothing about why. A bad signature and an unknown
-     *     intent answer identically, or this would be a way to probe which
-     *     intents exist.
+     *     The reported amount and currency are checked against what the
+     *     collection was opened for. A signed webhook is authentic, and
+     *     authentic is not the same as correct: an outcome reporting less than
+     *     was asked would otherwise buy a whole month for whatever was sent.
+     *
+     *     Answers 200 for anything it could act on, including a webhook already
+     *     seen — settlement is idempotent by the outcome's own identity. A 5xx
+     *     means something failed on this side and Paystack should try again. A
+     *     rejection says nothing about why: a bad signature and an unreadable
+     *     body answer identically, or this would tell somebody probing which
+     *     they got wrong.
      */
-    readonly post: operations["mobileMoneyCallback"];
+    readonly post: operations["paystackWebhook"];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -5667,8 +5677,14 @@ export interface components {
     };
     readonly MembershipPurchaseInput: {
       /**
-       * @description The number the provider prompts. Keyed before it is stored and
-       *     never written down as given.
+       * @description Which mobile money network the number is on. Paystack needs it and
+       *     cannot reliably infer it from the number.
+       * @enum {string}
+       */
+      readonly network: "mtn" | "vodafone" | "telecel" | "airteltigo" | "at";
+      /**
+       * @description The number Paystack prompts. Only a digest of it is stored; the
+       *     number itself is used to place the charge and never written down.
        */
       readonly phone: string;
       /** @description A published catalogue SKU priced in GHS. */
@@ -5720,20 +5736,6 @@ export interface components {
     };
     readonly Metadata: {
       readonly correlationId: components["schemas"]["CorrelationId"];
-    };
-    readonly MobileMoneyCallbackInput: {
-      /** @description What makes a retried callback settle once. */
-      readonly callbackId: string;
-      readonly intentId: string;
-      /**
-       * Format: int64
-       * @description Unix seconds, signed into the payload.
-       */
-      readonly occurredAt: number;
-      readonly providerRef: string;
-      /** @description HMAC over the payload. This is the whole authentication. */
-      readonly signature: string;
-      readonly success: boolean;
     };
     readonly NominationData: {
       /** Format: date-time */
@@ -14643,7 +14645,7 @@ export interface operations {
       readonly 500: components["responses"]["InternalError"];
     };
   };
-  readonly mobileMoneyCallback: {
+  readonly paystackWebhook: {
     readonly parameters: {
       readonly query?: never;
       readonly header?: {
@@ -14653,20 +14655,16 @@ export interface operations {
       readonly path?: never;
       readonly cookie?: never;
     };
-    readonly requestBody: {
-      readonly content: {
-        readonly "application/json": components["schemas"]["MobileMoneyCallbackInput"];
-      };
-    };
+    readonly requestBody?: never;
     readonly responses: {
-      /** @description Accepted, or already settled. */
-      readonly 204: {
+      /** @description Acknowledged, acted on or deliberately ignored. */
+      readonly 200: {
         headers: {
           readonly [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description The callback could not be accepted (`callback_rejected`). */
+      /** @description The webhook could not be accepted (`callback_rejected`). */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;
@@ -14675,8 +14673,18 @@ export interface operations {
           readonly "application/json": components["schemas"]["ErrorEnvelope"];
         };
       };
-      readonly 415: components["responses"]["UnsupportedMediaType"];
-      readonly 503: components["responses"]["ServiceUnavailable"];
+      /**
+       * @description Settlement failed on this side (`settlement_failed`). Paystack
+       *     should retry.
+       */
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
     };
   };
   readonly viewVault: {
