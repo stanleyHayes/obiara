@@ -4973,3 +4973,93 @@ how I found out.
 | MED-09  | `Signer.Stat`: confirming checks the bytes actually landed        | DONE   |
 | MED-10  | Withdrawal erases the audio, not only its row                     | DONE   |
 | MED-11  | Contract, client, and the browser sending size, digest and length | DONE   |
+
+## §68 — A sow needed a recording that could not be made
+
+The last link. With §67 fixed a member could record a Voice of Introduction —
+and only that. `POST /v1/introductions` is the only upload path in the
+product, and it creates an introduction: it answers one of three fixed
+questions and is offered to anyone who may hear the member. A sow is neither.
+So a sow, which §64 made require a recording, required one there was nowhere
+to make.
+
+### What was added
+
+`POST /v1/seed/sows/recordings` — registers the asset, returns a signed PUT
+and the `mediaRef` the sow then carries.
+
+**Its own purpose, `seed.sow.recording`.** Distinct from the introduction's,
+because the two are heard by different people under different rules and a
+shared purpose would mean a rule written for one silently governed the other.
+
+**Behind the sowing rung.** A member who cannot sow has nothing to record
+for, and an upload grant is a write on the bucket.
+
+**The same shape as §67.** Describe the recording, then send it: the grant is
+signed over the length and the digest, so the store refuses any other bytes,
+and only the length is a claim — bounded against the byte count.
+
+### And a sow now has to carry a recording that is actually there
+
+`Ownership.OwnedBy` asked whether the recordings were the sower's. It did not
+ask whether they existed in the bucket. A sow carrying a half-sent recording
+would be accepted, screened, charged a seed and delivered as a pod that plays
+nothing: the member pays for silence and the recipient meets a broken player.
+
+`WithArrival` adds the check, and a missing check refuses rather than passes —
+the same rule the reach rules and the media policy follow.
+
+**`ErrMediaNotArrived` is not `ErrMediaNotOwned`.** Their own recording, still
+uploading, told apart from a recording that is not theirs, because a member
+sent looking for the wrong problem will not find it. It is the sow package's
+own error rather than a new one with the same words: two errors reading alike
+but comparing unequal is how an `errors.Is` silently stops matching, which
+cost a whole session once already (§49).
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| SOW-17  | `POST /v1/seed/sows/recordings`, gated at the sowing rung         | DONE   |
+| SOW-18  | A sow's recording has its own purpose, not the introduction's     | DONE   |
+| SOW-19  | A sow is refused unless its recording actually reached storage    | DONE   |
+| SOW-20  | `recording_not_arrived`, told apart from "not yours"              | DONE   |
+| SOW-21  | Contract, generated client, and the BFF route                     | DONE   |
+
+## §69 — The person page and the composer (S-21, S-22)
+
+The surface the whole chain existed for. `/fie/garden/[memberId]`.
+
+Holding is the gesture on both sides — hold to listen to them, hold to send.
+Nothing plays on its own and nothing is sent by a tap, because listening is
+recorded against a member and sending costs them a seed.
+
+**The page is their voice and nothing else.** No photograph, no name they did
+not say, no number about them. People meet through their voices here, and a
+surface that led with anything else would be a different product.
+
+**The listen meter shows how far along you are.** A rule a member cannot see
+the shape of feels like a refusal rather than a rule, so the page says *"7
+more seconds of listening"* rather than only that it is not enough.
+
+**Thirty seconds is a floor, ninety is where recording stops.** A sow shorter
+than half a minute is a reaction, not an answer. The meter ends the take at
+the bound rather than letting it run and discarding the overflow, which would
+lose the end of what was said — the part a member is usually still finishing.
+
+**One re-record, and the recording goes with it.** A composer that let a
+member try repeatedly turns a deliberate answer into a rehearsal; a retake
+that kept the old `mediaRef` would send the take they decided against.
+
+**One command id for the whole visit.** Every retry reuses it, so one gesture
+never costs two seeds. And `sow_not_delivered` is not offered a retry at all:
+the sow exists and the seed is spent, so the member is told to leave it alone.
+
+**Nothing says "sent" until the server has.** The seed is spent there and
+nowhere else.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| S-21    | The person page: their voice, hold to listen, the listen meter    | DONE   |
+| S-22    | The composer: 30–90s, one re-record, hold to send                 | DONE   |
+| S-22b   | BFF routes for hearing, recording and sowing                      | DONE   |
+
+Fourteen model tests, 94 web tests green.

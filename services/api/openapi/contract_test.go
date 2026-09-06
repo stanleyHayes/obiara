@@ -242,8 +242,11 @@ func TestOperationIDsAreUnique(t *testing.T) {
 	// 209 adds hearing somebody else. Every playback route before it was
 	// scoped to the caller's own recording, so the twenty seconds that arm a
 	// sow could never be accumulated against anybody and no sow was possible.
-	if len(seen) != 209 {
-		t.Errorf("operationId count = %d, want 209", len(seen))
+	// 210 adds opening a sow's recording. The only upload path in the
+	// product made a Voice of Introduction, so a sow needed a recording that
+	// could not be made.
+	if len(seen) != 210 {
+		t.Errorf("operationId count = %d, want 210", len(seen))
 	}
 }
 

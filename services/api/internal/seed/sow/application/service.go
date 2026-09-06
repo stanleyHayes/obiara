@@ -92,6 +92,12 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	}
 	owned, ownErr := s.media.OwnedBy(ctx, command.ActorID, command.MediaRefs)
 	if ownErr != nil {
+		// A recording that has not finished uploading is its own answer. A
+		// member told "that is not yours" about their own half-sent
+		// recording would go looking for the wrong problem.
+		if errors.Is(ownErr, ErrMediaNotArrived) {
+			return Result{}, ErrMediaNotArrived
+		}
 		return Result{}, ErrUnavailable
 	}
 	if !owned {

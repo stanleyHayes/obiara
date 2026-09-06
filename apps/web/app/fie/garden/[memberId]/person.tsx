@@ -122,6 +122,9 @@ export function Person({ memberId }: { readonly memberId: string }) {
 
   const [recorder, setRecorder] = useState<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
+  // Read inside the recorder's onstop callback, which cannot see the
+  // reducer's state at the moment it fires.
+  const secondsRecorded = useRef(0);
 
   // The meter. It stops the take at ninety seconds rather than letting it run
   // and discarding the overflow, which would lose the end of what was said.
@@ -137,6 +140,62 @@ export function Person({ memberId }: { readonly memberId: string }) {
     }
   }, [composer.stage, recorder]);
 
+  // The meter reaching ninety seconds ends the take on its own, so the
+  // seconds have to be remembered there too.
+  useEffect(() => {
+    if (composer.stage === "recording") secondsRecorded.current = composer.seconds;
+  }, [composer.seconds, composer.stage]);
+
+  /**
+   * Sends the answer to storage and tells the API about it.
+   *
+   * The recording is described first — length, size and digest — because the
+   * upload grant is signed over the last two, so the store itself refuses any
+   * other bytes. Only then does the sow have a mediaRef to carry.
+   */
+  const upload = useCallback(async (take: Blob, seconds: number) => {
+    dispatch({ type: "uploading" });
+    try {
+      const digest = await crypto.subtle.digest("SHA-256", await take.arrayBuffer());
+      const checksum = Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
+      const opened = await fetch("/api/seed/sows/recordings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contentType: take.type.split(";")[0] || "audio/ogg",
+          sizeBytes: take.size,
+          checksum,
+          durationMs: seconds * 1000,
+        }),
+      });
+      const grant = (await opened.json().catch(() => null)) as {
+        mediaRef?: string;
+        uploadUrl?: string;
+        message?: string;
+      } | null;
+      if (!opened.ok || !grant?.mediaRef || !grant.uploadUrl) {
+        throw new Error(grant?.message ?? "We could not open your recording.");
+      }
+      const stored = await fetch(grant.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": take.type.split(";")[0] || "audio/ogg" },
+        body: take,
+      });
+      if (!stored.ok) {
+        throw new Error("Your recording could not be stored. Please try again.");
+      }
+      dispatch({ type: "uploaded", mediaRef: grant.mediaRef });
+    } catch (cause: unknown) {
+      dispatch({
+        type: "failed",
+        message:
+          cause instanceof Error ? cause.message : "We could not save your answer.",
+      });
+    }
+  }, []);
+
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -145,7 +204,13 @@ export function Person({ memberId }: { readonly memberId: string }) {
       active.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.current.push(event.data);
       };
-      active.onstop = () => stream.getTracks().forEach((track) => track.stop());
+      active.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        // Uploaded on stop rather than on send, so the seconds a member
+        // waits are spent before they decide, not after.
+        const take = new Blob(chunks.current, { type: active.mimeType });
+        if (take.size > 0) void upload(take, secondsRecorded.current);
+      };
       active.start();
       setRecorder(active);
       dispatch({ type: "start" });
@@ -155,12 +220,15 @@ export function Person({ memberId }: { readonly memberId: string }) {
         message: "We could not reach your microphone.",
       });
     }
-  }, []);
+  }, [upload]);
 
   const stopRecording = useCallback(() => {
+    // The reducer refuses a take under the floor and returns to idle, so the
+    // recorder is only asked to stop when there is something to keep.
+    secondsRecorded.current = composer.seconds;
     dispatch({ type: "stop" });
     if (recorder?.state === "recording") recorder.stop();
-  }, [recorder]);
+  }, [composer.seconds, recorder]);
 
   const send = useCallback(async () => {
     if (composer.mediaRef === null) return;

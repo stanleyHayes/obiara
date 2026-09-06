@@ -7,6 +7,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -637,7 +639,11 @@ func run() error {
 				SecretKey: cfg.ObjectStorage.SecretKey,
 				PathStyle: cfg.ObjectStorage.PathStyle,
 			},
-			[]string{introduction.ConsentPurposeID, poddomain.PlaybackPurposeID},
+			[]string{
+				introduction.ConsentPurposeID,
+				poddomain.PlaybackPurposeID,
+				sowmedia.RecordingPurposeID,
+			},
 			// Who, other than the owner, may hear a recording. Without these
 			// the only policy is owner-only, and in a product where people
 			// meet through their voices nobody can hear anybody: a pod rests
@@ -712,7 +718,11 @@ func run() error {
 			ctx,
 			client.Database(cfg.MongoDatabase),
 			screeningModule.Screening,
-			sowmedia.NewOwnership(mediaModule.Assets),
+			// Owned by the sower, and actually in the bucket. A sow carrying
+			// a recording that never finished uploading would be delivered
+			// as a pod that plays nothing.
+			sowmedia.NewOwnership(mediaModule.Assets).
+				WithArrival(media.NewEraser(mediaModule.Assets, mediaModule.Objects)),
 			// The same three rules the sprout path applies. A sow is that
 			// gesture carrying words, so it answers to them too.
 			sproutListenBridge{
@@ -733,6 +743,15 @@ func run() error {
 		apihttp.RegisterPodRoutes(mux, podModule.Pods, identityModule.Sessions, memberGate)
 
 		apihttp.RegisterSowRoutes(mux, sowModule.Sows, identityModule.Sessions, memberGate)
+		// Where a sow's recording is made. The Voice of Introduction path
+		// cannot serve: it answers one of three fixed questions and is
+		// offered to anyone who may hear the member.
+		apihttp.RegisterSowRecordingRoutes(
+			mux,
+			sowmedia.NewRecorder(mediaModule.Access, mediaModule.Assets, sowAssetIDs{}, time.Now),
+			identityModule.Sessions,
+			memberGate,
+		)
 		// The desk settles the sow first and records the judgement second,
 		// so a failure between them leaves a review a reviewer sees again
 		// rather than a sow held forever with a seed inside it.
@@ -1427,4 +1446,17 @@ func (bridge sowDeliveryBridge) Place(ctx context.Context, sow sowapplication.De
 		}
 	}
 	return nil
+}
+
+// sowAssetIDs names a sow's recording.
+type sowAssetIDs struct{}
+
+func (sowAssetIDs) NewID() string {
+	value := make([]byte, 16)
+	if _, err := rand.Read(value); err != nil {
+		// A weak identifier on a recording that will cost a member a seed is
+		// worse than a crash at startup, which is where this would surface.
+		panic(err)
+	}
+	return "sow_asset_" + hex.EncodeToString(value)
 }

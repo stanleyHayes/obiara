@@ -20,6 +20,11 @@ var (
 	// own. In a product where people meet through their voices, sending
 	// somebody else's voice as your own is impersonation, not a mistake.
 	ErrMediaNotOwned = errors.New("that recording does not belong to you")
+	// ErrMediaNotArrived refuses a sow carrying a recording whose bytes never
+	// reached storage. Distinct from ErrMediaNotOwned because the two need
+	// different things from the member: one is a mistake, the other is an
+	// upload to finish.
+	ErrMediaNotArrived = errors.New("that recording has not finished uploading")
 	// ErrNotHeard refuses a sow toward somebody the member has not listened
 	// to (FR-202).
 	ErrNotHeard = errors.New("their voice has not been heard for long enough")

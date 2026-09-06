@@ -3566,6 +3566,39 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly "/v1/seed/sows/recordings": {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /**
+     * Open a recording for a sow
+     * @description Returns a signed URL the client uploads the audio to directly, and the
+     *     `mediaRef` that `POST /v1/seed/sows` then carries. The bytes never
+     *     pass through this service.
+     *
+     *     The recording is described before it is sent, because the grant is
+     *     signed over `sizeBytes` and `checksum` — the store verifies both and
+     *     refuses any other bytes. `durationMs` is the one thing taken from the
+     *     client, since nothing here decodes audio, and it is bounded against
+     *     the byte count rather than believed.
+     *
+     *     This is not the Voice of Introduction path. That one answers one of
+     *     three fixed questions and is offered to anyone who may hear the
+     *     member; a sow's recording is for one person and is heard through a pod
+     *     at their house front.
+     */
+    readonly post: operations["openSowRecording"];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly "/v1/seed/sprouts": {
     readonly parameters: {
       readonly query?: never;
@@ -5953,6 +5986,42 @@ export interface components {
        *     other, and no decline still stands between them.
        */
       readonly targetId: string;
+    };
+    readonly SowRecording: {
+      /** @description What `POST /v1/seed/sows` carries in `mediaRefs`. */
+      readonly mediaRef: string;
+      /** Format: date-time */
+      readonly uploadExpires: string;
+      /**
+       * Format: uri
+       * @description A short-lived signed PUT. Send exactly the bytes described above;
+       *     the store rejects any others.
+       */
+      readonly uploadUrl: string;
+    };
+    readonly SowRecordingEnvelope: {
+      readonly data: components["schemas"]["SowRecording"];
+    };
+    readonly SowRecordingInput: {
+      /**
+       * @description The SHA-256 of the bytes, hex. Signed into the grant as well, so
+       *     the store verifies the digest before accepting the upload.
+       */
+      readonly checksum: string;
+      /** @description The audio type the client will upload, e.g. audio/ogg. */
+      readonly contentType: string;
+      /**
+       * Format: int64
+       * @description How long the recording is. Bounded against `sizeBytes` and
+       *     `contentType` rather than believed.
+       */
+      readonly durationMs: number;
+      /**
+       * Format: int64
+       * @description Exactly how many bytes will be uploaded. Signed into the grant, so
+       *     the store refuses anything else.
+       */
+      readonly sizeBytes: number;
     };
     readonly SproutInput: {
       /** @description Reused on retry so a reach is never recorded twice. */
@@ -14620,7 +14689,11 @@ export interface operations {
       /**
        * @description This week's seeds are spent (`no_seeds_left`), the sender has not
        *     listened to the other member for long enough (`not_heard_yet`), or
-       *     the reach is closed (`reach_unavailable`). The last says nothing
+       *     the reach is closed (`reach_unavailable`), or the recording has
+       *     not finished uploading (`recording_not_arrived`) — their own
+       *     recording, half sent, told apart from a recording that is not
+       *     theirs because a member sent looking for the wrong problem will
+       *     not find it. `reach_unavailable` says nothing
        *     about whether a block or a decline closed it: the difference is
        *     the rejection signal both exist to withhold.
        *
@@ -14630,6 +14703,47 @@ export interface operations {
        *     second seed for a sow that is already recorded.
        */
       readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      readonly 415: components["responses"]["UnsupportedMediaType"];
+      readonly 422: components["responses"]["ValidationFailed"];
+      readonly 503: components["responses"]["ServiceUnavailable"];
+    };
+  };
+  readonly openSowRecording: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: {
+        /** @description Safe caller-provided identifier; invalid values are replaced. */
+        readonly "X-Correlation-ID"?: components["parameters"]["CorrelationId"];
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly "application/json": components["schemas"]["SowRecordingInput"];
+      };
+    };
+    readonly responses: {
+      /** @description The recording is open; upload with the returned grant. */
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly "application/json": components["schemas"]["SowRecordingEnvelope"];
+        };
+      };
+      readonly 400: components["responses"]["InvalidJSON"];
+      readonly 401: components["responses"]["Unauthorized"];
+      /** @description The sowing rung is required. */
+      readonly 403: {
         headers: {
           readonly [name: string]: unknown;
         };

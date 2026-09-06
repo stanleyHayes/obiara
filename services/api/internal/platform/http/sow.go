@@ -108,6 +108,13 @@ func writeSowError(w http.ResponseWriter, r *http.Request, err error) {
 			Code:    "confirmation_required",
 			Message: "Hold to send. A sow costs a seed and reaches a person.",
 		})
+	case errors.Is(err, sowapplication.ErrMediaNotArrived):
+		// Their own recording, half sent. Told apart from "not yours" because
+		// a member sent looking for the wrong problem will not find it.
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "recording_not_arrived",
+			Message: "That recording has not finished uploading. Give it a moment and send again.",
+		})
 	case errors.Is(err, sowapplication.ErrMediaNotOwned):
 		writeError(w, r, http.StatusForbidden, APIError{
 			Code:    "recording_not_yours",

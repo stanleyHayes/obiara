@@ -43,12 +43,32 @@ func asset(t *testing.T, id, owner string) mediadomain.Asset {
 	return built
 }
 
+// landed is storage holding whatever it was told to hold.
+type landed struct {
+	sizes map[string]int64
+	err   error
+}
+
+func (l landed) Stat(_ context.Context, objectKey string) (int64, error) {
+	if l.err != nil {
+		return 0, l.err
+	}
+	return l.sizes[objectKey], nil
+}
+
+// arrived is storage holding every recording at the size its row claims.
+func arrived() landed {
+	return landed{sizes: map[string]int64{
+		"objects/mine": 2048, "objects/theirs": 2048, "objects/anything": 2048,
+	}}
+}
+
 func TestOnlyYourOwnRecordingsAreYours(t *testing.T) {
 	stub := assetStub{assets: map[string]mediadomain.Asset{
 		"mine":   asset(t, "mine", "member-1"),
 		"theirs": asset(t, "theirs", "member-2"),
 	}}
-	ownership := NewOwnership(stub)
+	ownership := NewOwnership(stub).WithArrival(arrived())
 
 	owned, err := ownership.OwnedBy(context.Background(), "member-1", []string{"mine"})
 	if err != nil || !owned {
@@ -69,7 +89,7 @@ func TestARecordingNobodyCanAccountForIsNotYours(t *testing.T) {
 	// case the check exists for. It answers "no", not "broken": reporting a
 	// fault would refuse the sow with an outage when the truthful answer is
 	// a refusal.
-	ownership := NewOwnership(assetStub{err: errors.New("mongo unavailable")})
+	ownership := NewOwnership(assetStub{err: errors.New("mongo unavailable")}).WithArrival(arrived())
 	owned, err := ownership.OwnedBy(context.Background(), "member-1", []string{"anything"})
 	if err != nil {
 		t.Fatalf("an unreadable asset reported a fault: %v", err)
@@ -86,8 +106,38 @@ func TestAnUncomposedOwnershipCheckIsAFaultNotAPass(t *testing.T) {
 }
 
 func TestNoRecordingsIsTriviallyYourOwn(t *testing.T) {
-	owned, err := NewOwnership(assetStub{}).OwnedBy(context.Background(), "member-1", nil)
+	owned, err := NewOwnership(assetStub{}).WithArrival(arrived()).
+		OwnedBy(context.Background(), "member-1", nil)
 	if err != nil || !owned {
 		t.Fatalf("owned = %v, err = %v", owned, err)
+	}
+}
+
+func TestARecordingWhoseBytesNeverArrivedCannotBeSown(t *testing.T) {
+	// A sow is delivered as a pod resting at somebody's house front. One
+	// carrying a recording that never reached the bucket plays nothing: the
+	// member would have spent a seed on silence and the recipient would meet
+	// a broken player.
+	stub := assetStub{assets: map[string]mediadomain.Asset{"mine": asset(t, "mine", "member-1")}}
+	empty := NewOwnership(stub).WithArrival(landed{sizes: map[string]int64{}})
+	if _, err := empty.OwnedBy(context.Background(), "member-1", []string{"mine"}); !errors.Is(err, ErrNotArrived) {
+		t.Fatalf("err = %v, want ErrNotArrived", err)
+	}
+	// A partial upload is not an upload either. The store signed the grant
+	// over an exact length, so anything else is not this recording.
+	partial := NewOwnership(stub).WithArrival(landed{sizes: map[string]int64{"objects/mine": 12}})
+	if _, err := partial.OwnedBy(context.Background(), "member-1", []string{"mine"}); !errors.Is(err, ErrNotArrived) {
+		t.Fatalf("err = %v, want ErrNotArrived", err)
+	}
+}
+
+func TestAnUncheckedArrivalIsNotAnArrival(t *testing.T) {
+	// A missing check is not permission, the same rule the reach rules and
+	// the media policy follow.
+	stub := assetStub{assets: map[string]mediadomain.Asset{"mine": asset(t, "mine", "member-1")}}
+	if _, err := NewOwnership(stub).OwnedBy(
+		context.Background(), "member-1", []string{"mine"},
+	); !errors.Is(err, ErrArrivalUnknown) {
+		t.Fatalf("err = %v, want ErrArrivalUnknown", err)
 	}
 }

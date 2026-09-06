@@ -1,0 +1,133 @@
+/*
+ * A person, before anything has been accepted.
+ *
+ * The page is their voice and your answer to it, so it is mostly quiet: no
+ * cards competing for attention, no counts, nothing that turns a person into
+ * a profile. Every control is at least 48px, because both gestures here are
+ * held rather than tapped.
+ */
+
+.person {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.person-header h1,
+.person-composer h2,
+.person-take h2 {
+  font-family: var(--fie-font-display, inherit);
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0.25rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.person-header h1 {
+  font-size: 1.5rem;
+}
+
+.person-quiet {
+  color: var(--fie-muted, #6b6257);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0.25rem 0;
+}
+
+/* The listen meter. Progress is shown because a rule a member cannot see the
+   shape of feels like a refusal rather than a rule. */
+.person-meter {
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--fie-rule, #e7e0d6);
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+
+.person-meter span {
+  display: block;
+  height: 100%;
+  background: var(--fie-accent, #8a6d3b);
+  transition: width 200ms ease-out;
+}
+
+.person-meter-count {
+  font-variant-numeric: tabular-nums;
+  font-size: 2rem;
+  margin: 0.5rem 0;
+}
+
+.person-takes {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.person-take {
+  border-top: 1px solid var(--fie-rule, #e7e0d6);
+  padding-top: 1.25rem;
+}
+
+.person-hold,
+.person-reach,
+.person-secondary {
+  min-height: 48px;
+  width: 100%;
+  border-radius: 0.75rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  /* Holding is the gesture. Text selection under a held thumb turns the
+     hold into a drag and the sound stops. */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.person-hold {
+  background: var(--fie-surface, #fdfaf5);
+  border: 1px solid var(--fie-rule, #e7e0d6);
+  color: inherit;
+}
+
+.person-reach {
+  background: var(--fie-accent, #8a6d3b);
+  border: 1px solid transparent;
+  color: #fff;
+  margin-top: 1rem;
+}
+
+.person-reach:disabled {
+  /* Visibly not available rather than absent: a member should be able to see
+     what they are working toward. */
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.person-secondary {
+  background: none;
+  border: none;
+  text-decoration: underline;
+  color: var(--fie-muted, #6b6257);
+  margin-top: 0.5rem;
+}
+
+.person-composer {
+  border-top: 1px solid var(--fie-rule, #e7e0d6);
+  padding-top: 1.5rem;
+}
+
+.person-refusal {
+  color: var(--fie-refusal, #8a3b3b);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .person-meter span {
+    transition: none;
+  }
+}
