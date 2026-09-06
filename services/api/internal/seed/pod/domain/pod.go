@@ -12,6 +12,15 @@ import (
 
 const MaxRecipients = 25
 
+// RestingPeriod is how long a pod rests before it closes. The aggregate
+// refuses anything past a week, and a pod nobody opened in that time has been
+// answered by silence.
+//
+// It lives here rather than in the transport layer because a sow delivered by
+// a reviewer's release is placed by the composition root, not by an HTTP
+// handler, and both have to mean the same week.
+const RestingPeriod = 7 * 24 * time.Hour
+
 // PlaybackPurposeID is the purpose a pod's recording is read under. The media
 // context authorizes reads against a closed list of purposes, so this has to
 // be on it before a pod can be opened at all.

@@ -20,11 +20,6 @@ type Pods interface {
 	Resting(ctx context.Context, memberID string, limit int) ([]poddomain.Pod, error)
 }
 
-// podTTL is how long a pod rests before it closes. The aggregate refuses
-// anything past a week, and a pod nobody opened in that time has been
-// answered by silence.
-const podTTL = 7 * 24 * time.Hour
-
 // RegisterPodRoutes exposes placing a pod and opening one.
 //
 // There is no route to list somebody else's pods and none to read a pod's
@@ -89,7 +84,7 @@ func createPodHandler(pods Pods, sessions SessionAuthenticator) http.Handler {
 				OwnerID:      actorID,
 				MediaRef:     strings.TrimSpace(body.MediaRef),
 				RecipientIDs: body.RecipientIDs,
-				TTL:          podTTL,
+				TTL:          poddomain.RestingPeriod,
 			})
 		if err != nil {
 			writePodError(w, r, err)

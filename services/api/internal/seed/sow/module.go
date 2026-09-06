@@ -29,13 +29,17 @@ type Module struct {
 
 // ErrDependenciesRequired reports a module built without the ports it must
 // not substitute. Screening decides whether a member's words reach a
-// stranger, ownership decides whose voice a sow carries, and the reach rules
-// decide whether this member may reach that one at all; a nil any of them
-// would not fail loudly, it would ship the product without them. The reach
-// rules are here because they were missing for a release: a sow could be sent
-// having heard nobody, past a block and past a decline (agent_plan.md §61).
+// stranger, ownership decides whose voice a sow carries, the reach rules
+// decide whether this member may reach that one at all, and delivery is what
+// makes a sow arrive at all. A nil any of them would not fail loudly; it would
+// ship the product without them.
+//
+// Both of the last two are here because they were missing from a release. A
+// sow could be sent having heard nobody, past a block and past a decline
+// (§61), and a sow a reviewer released was marked delivered and went nowhere
+// (§64).
 var ErrDependenciesRequired = errors.New(
-	"sow module requires screening, media ownership, the three reach rules, a keying secret and a positive allowance",
+	"sow module requires screening, media ownership, the three reach rules, delivery, a keying secret and a positive allowance",
 )
 
 // NewModule composes the sow against one database.
@@ -47,11 +51,12 @@ func NewModule(
 	listen application.ListenGate,
 	blocks application.BlockList,
 	declines application.DeclineLock,
+	delivery application.Delivery,
 	secret string,
 	weeklyUnits int64,
 ) (Module, error) {
 	if screening == nil || ownership == nil || listen == nil || blocks == nil || declines == nil ||
-		secret == "" || weeklyUnits <= 0 {
+		delivery == nil || secret == "" || weeklyUnits <= 0 {
 		return Module{}, ErrDependenciesRequired
 	}
 	keyer, err := privacy.New([]byte(secret))
@@ -65,7 +70,8 @@ func NewModule(
 	return Module{
 		Sows: application.New(screening, acceptance, keyer, idSource{}, time.Now, weeklyUnits).
 			WithMediaOwnership(ownership).
-			WithReachRules(listen, blocks, declines),
+			WithReachRules(listen, blocks, declines).
+			WithDelivery(delivery),
 		Acceptance: acceptance,
 	}, nil
 }

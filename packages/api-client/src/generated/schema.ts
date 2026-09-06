@@ -5870,8 +5870,13 @@ export interface components {
        *     sow is refused rather than defaulted.
        */
       readonly confirmed: boolean;
-      /** @description Recordings to send with it. Each must belong to the sender. */
-      readonly mediaRefs?: readonly string[];
+      /**
+       * @description The recordings this sow carries. Each must belong to the sender.
+       *     At least one is required: a sow is delivered as a pod resting at
+       *     the recipient's house front, and a pod is a recording, so a sow
+       *     with nothing to place could never arrive.
+       */
+      readonly mediaRefs: readonly string[];
       /**
        * @description The member this sow is toward. A sow reaches one person, and it is
        *     refused unless the sender has heard them, neither has blocked the
@@ -14476,6 +14481,11 @@ export interface operations {
        *     the reach is closed (`reach_unavailable`). The last says nothing
        *     about whether a block or a decline closed it: the difference is
        *     the rejection signal both exist to withhold.
+       *
+       *     `sow_not_delivered` is different in kind: the sow was accepted and
+       *     the seed was spent, but it has not reached the recipient's house
+       *     front yet. Do not retry it — a new Idempotency-Key would charge a
+       *     second seed for a sow that is already recorded.
        */
       readonly 409: {
         headers: {

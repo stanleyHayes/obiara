@@ -4721,3 +4721,88 @@ repository to both.
 same closed purpose list, the same refusal for an unlisted purpose — so
 keeping both would be two places for the same rule to be stated and one place
 for them to disagree. Its two tests moved across with their reasons intact.
+
+## §64 — A released sow went nowhere
+
+The last link in the chain, and it was missing entirely.
+
+```
+$ grep -rn "StatusDelivered" --include="*.go" internal/ | grep -v _test
+internal/seed/sow/application/service.go:96:  status := domain.StatusDelivered
+internal/seed/sow/domain/sow.go:29:           StatusDelivered  Status = "delivered"
+internal/seed/sow/domain/sow.go:72:           if status != StatusDelivered && status != StatusPendingReview {
+internal/seed/sow/domain/sow.go:114:          return sow.decide(StatusDelivered, reference, at)
+```
+
+Four sites: three that write it and one that names it. Nothing read it.
+
+A member sowed. It was screened, held, read by a person, released. The
+aggregate's status became `delivered`, the seed stayed spent, and **the
+recipient never learned anything had been sent**. The only thing that ever
+created a pod was a separate `POST /v1/seed/pods` from the sower — a different
+gesture entirely. §59's comment said "a released sow is delivered by being
+placed at the recipient's house front"; nothing did the placing.
+
+### What made it awkward
+
+Delivery has to work on two paths. On the send path the service still has the
+raw target and recordings. On the reviewer-release path the sow is loaded from
+storage, where the target and media are one-way HMACs — unrecoverable, by
+design and by construction.
+
+### The decisions
+
+Both put to the product owner rather than assumed, since one changes the
+privacy posture and the other changes what a sow is.
+
+**The sow carries what delivery needs, raw.** `Delivery{SowerID, TargetID,
+MediaRefs}` sits on the aggregate beside a `Body` that is already the member's
+own words in plaintext. The alternatives were an encrypted envelope (correct,
+but a cipher and a rotation story to own) and sharing the pod's key namespace
+(no raw ids, but it couples two contexts' key spaces — exactly what §62 was
+just fixed to avoid). A sow that cannot be delivered is worse than one whose
+target is legible to whoever can already read the message.
+
+**A sow must carry a recording.** S-22 specifies the composer as a 30–90s
+recording, and a pod is a recording resting at a house front. A words-only sow
+would be accepted, charged a seed, marked delivered and never arrive. It is
+refused at the door instead, and the domain refuses a delivery naming a
+different number of recordings than the sow holds — which would either place a
+pod for something nothing screened, or lose one that was.
+
+### The rest
+
+**Settled first, delivered second.** Same order, same reason, as the review
+desk: a failure between them leaves a sow a reviewer released and nobody
+received, which a retry can finish. The other order would place a pod for a
+release that was never written down.
+
+**`ErrNotDelivered` is not `ErrUnavailable`.** The sow exists and the seed is
+spent, so "nothing happened" would be a lie the member could act on wrongly.
+The 409 says so plainly: *This was sent but has not reached them yet. Do not
+send it again.*
+
+**A missing delivery port refuses.** Same shape as the reach rules and the
+ownership check, and for the same reason: what shipped was a service that
+marked sows delivered while nobody received anything.
+
+**`RestingPeriod` moved from the HTTP package to the pod domain.** A sow
+delivered by a reviewer's release is placed by the composition root, not by a
+handler, and both have to mean the same week.
+
+**The pod module now builds before the sow module**, since the sow delivers
+into it.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| SOW-12  | A sow carries what delivery needs, and must carry a recording     | DONE   |
+| SOW-13  | Delivery on both paths: screening-cleared and reviewer-released   | DONE   |
+| SOW-14  | Required at the module boundary, ordered after the settle         | DONE   |
+| SOW-15  | `sow_not_delivered`, and a message that says not to resend        | DONE   |
+| SOW-16  | `mediaRefs` required in the contract and the generated client     | DONE   |
+
+Four tests fail when the delivery step is removed, verified by removing it.
+Both Go modules and the client package are green.
+
+**Contract note:** `mediaRefs` is now required on `SowInput`. Still no client
+sends sows — the composer (S-22) is unbuilt — so nothing in flight breaks.

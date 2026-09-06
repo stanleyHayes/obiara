@@ -30,9 +30,15 @@ type mediaDocument struct {
 	ScreeningKey string `bson:"screeningKey"`
 }
 type sowDocument struct {
-	ID             string          `bson:"_id"`
-	ActorKey       string          `bson:"actorKey"`
-	TargetKey      string          `bson:"targetKey"`
+	ID        string `bson:"_id"`
+	ActorKey  string `bson:"actorKey"`
+	TargetKey string `bson:"targetKey"`
+	// SowerID, TargetID and MediaRefs are raw: delivery cannot undo a digest, and a
+	// sow released by a reviewer is placed long after anything raw was in
+	// hand. See agent_plan.md §64.
+	SowerID        string          `bson:"sowerId"`
+	TargetID       string          `bson:"targetId"`
+	MediaRefs      []string        `bson:"mediaRefs"`
 	Body           string          `bson:"body"`
 	Media          []mediaDocument `bson:"media"`
 	CommandID      string          `bson:"commandId"`
@@ -177,7 +183,9 @@ func toDocument(s domain.Sow) sowDocument {
 		media = append(media, mediaDocument{m.Key, m.ScreeningKey})
 	}
 	return sowDocument{
-		ID: s.ID, ActorKey: s.ActorKey, TargetKey: s.TargetKey, Body: s.Body, Media: media,
+		ID: s.ID, ActorKey: s.ActorKey, TargetKey: s.TargetKey,
+		SowerID: s.Delivery.SowerID, TargetID: s.Delivery.TargetID, MediaRefs: append([]string(nil), s.Delivery.MediaRefs...),
+		Body: s.Body, Media: media,
 		CommandID: s.CommandID, Fingerprint: s.Fingerprint,
 		AllowanceUnits: s.AllowanceUnits, Status: string(s.Status),
 		ScreeningRef: s.ScreeningRef, AcceptedAt: s.AcceptedAt, DecidedAt: s.DecidedAt,
@@ -189,5 +197,7 @@ func fromDocument(d sowDocument) (domain.Sow, error) {
 		media = append(media, domain.Media{Key: m.Key, ScreeningKey: m.ScreeningKey})
 	}
 	return domain.Reconstitute(d.ID, d.ActorKey, d.TargetKey, d.Body, media, d.CommandID, d.Fingerprint,
-		d.AllowanceUnits, domain.Status(d.Status), d.ScreeningRef, d.AcceptedAt, d.DecidedAt), nil
+		d.AllowanceUnits, domain.Status(d.Status), d.ScreeningRef,
+		domain.Delivery{SowerID: d.SowerID, TargetID: d.TargetID, MediaRefs: d.MediaRefs},
+		d.AcceptedAt, d.DecidedAt), nil
 }

@@ -31,6 +31,7 @@ type Service struct {
 	acceptance Acceptance
 	keyer      Keyer
 	media      MediaOwnership
+	delivery   Delivery
 	listen     ListenGate
 	blocks     BlockList
 	declines   DeclineLock
@@ -41,6 +42,15 @@ type Service struct {
 
 func New(screening Screening, acceptance Acceptance, keyer Keyer, ids IDSource, now func() time.Time, units int64) Service {
 	return Service{screening: screening, acceptance: acceptance, keyer: keyer, ids: ids, now: now, units: units}
+}
+
+// WithDelivery attaches the step that places a delivered sow at the
+// recipient's house front. Without it a sow is accepted, charged and marked
+// delivered while nobody receives anything, so a service composed without it
+// refuses instead.
+func (s Service) WithDelivery(delivery Delivery) Service {
+	s.delivery = delivery
+	return s
 }
 
 // WithMediaOwnership attaches the check that a sow carries only the sower's
@@ -67,7 +77,8 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	}
 	body := strings.TrimSpace(command.Body)
 	if body == "" || strings.TrimSpace(command.ID) == "" || strings.TrimSpace(command.ActorID) == "" ||
-		strings.TrimSpace(command.TargetID) == "" || len(command.MediaRefs) > 4 {
+		strings.TrimSpace(command.TargetID) == "" ||
+		len(command.MediaRefs) == 0 || len(command.MediaRefs) > 4 {
 		return Result{}, domain.ErrInvalid
 	}
 	if err := s.mayReach(ctx, command.ActorID, command.TargetID); err != nil {
@@ -76,17 +87,15 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	// Checked before screening: a member must not be able to have somebody
 	// else's recording screened, and a sow carrying a voice that is not
 	// theirs should never reach a reviewer looking like theirs.
-	if len(command.MediaRefs) > 0 {
-		if s.media == nil {
-			return Result{}, ErrUnavailable
-		}
-		owned, ownErr := s.media.OwnedBy(ctx, command.ActorID, command.MediaRefs)
-		if ownErr != nil {
-			return Result{}, ErrUnavailable
-		}
-		if !owned {
-			return Result{}, ErrMediaNotOwned
-		}
+	if s.media == nil {
+		return Result{}, ErrUnavailable
+	}
+	owned, ownErr := s.media.OwnedBy(ctx, command.ActorID, command.MediaRefs)
+	if ownErr != nil {
+		return Result{}, ErrUnavailable
+	}
+	if !owned {
+		return Result{}, ErrMediaNotOwned
 	}
 
 	// Three outcomes, not two. Screening can clear a sow, refuse it, or send
@@ -128,7 +137,11 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	}
 	fp := fingerprint(command.ID, actorKey, targetKey, body, command.MediaRefs, s.units)
 	candidate, err := domain.Accept(s.ids.NewID(), actorKey, targetKey, body, media, command.ID, fp, s.units,
-		status, decision.Reference, s.now())
+		status, decision.Reference,
+		domain.Delivery{
+			SowerID: command.ActorID, TargetID: command.TargetID, MediaRefs: command.MediaRefs,
+		},
+		s.now())
 	if err != nil {
 		return Result{}, err
 	}
@@ -136,7 +149,38 @@ func (s Service) Send(ctx context.Context, command Command) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	// A sow screening cleared outright is delivered now. One held for a
+	// person is delivered when they release it, in Review.
+	if !replayed && accepted.Status == domain.StatusDelivered {
+		if err := s.deliver(ctx, accepted); err != nil {
+			return Result{}, err
+		}
+	}
 	return Result{Sow: accepted, Replayed: replayed}, nil
+}
+
+// deliver places the sow at the recipient's house front.
+//
+// Without this a released sow was marked delivered and went nowhere: nothing
+// read StatusDelivered, nothing created a pod, and the recipient never learned
+// anything had been sent while the sender's seed stayed spent
+// (agent_plan.md §64).
+//
+// A missing delivery port refuses rather than silently marking a sow
+// delivered that will never arrive.
+func (s Service) deliver(ctx context.Context, sow domain.Sow) error {
+	if s.delivery == nil {
+		return ErrUnavailable
+	}
+	if err := s.delivery.Place(ctx, Deliverable{
+		SowID:     sow.ID,
+		SowerID:   sow.Delivery.SowerID,
+		TargetID:  sow.Delivery.TargetID,
+		MediaRefs: append([]string(nil), sow.Delivery.MediaRefs...),
+	}); err != nil {
+		return ErrNotDelivered
+	}
+	return nil
 }
 
 // fingerprint binds a command id to what it asked for. The target is part of
@@ -177,6 +221,16 @@ func (s Service) Review(ctx context.Context, screeningRef string, approve bool, 
 	}
 	if err := s.acceptance.Settle(ctx, decided, !approve); err != nil {
 		return Result{}, err
+	}
+	// Settled first, delivered second, in that order for the same reason the
+	// review desk settles before it records: a failure between them leaves a
+	// sow that a reviewer released and nobody received, which a retry can
+	// finish. The other order would place a pod for a sow whose release was
+	// never written down.
+	if decided.Status == domain.StatusDelivered {
+		if err := s.deliver(ctx, decided); err != nil {
+			return Result{Sow: decided}, err
+		}
 	}
 	return Result{Sow: decided}, nil
 }

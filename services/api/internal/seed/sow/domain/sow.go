@@ -43,7 +43,9 @@ type Sow struct {
 	// TargetKey is who this is toward. A sow without one reaches nobody, and
 	// none of the rules that matter — having heard them, not being blocked
 	// by them, not having been declined — can even be asked.
-	TargetKey      string
+	TargetKey string
+	// Delivery is what placing this sow at a house front will need.
+	Delivery       Delivery
 	Body           string
 	Media          []Media
 	CommandID      string
@@ -58,7 +60,44 @@ type Sow struct {
 	DecidedAt    *time.Time
 }
 
-func Accept(id, actorKey, targetKey, body string, media []Media, commandID, fingerprint string, units int64, status Status, screeningRef string, at time.Time) (Sow, error) {
+// Delivery is what a sow needs in order to be placed as a pod at the
+// recipient's house front.
+//
+// It is raw, because a one-way digest cannot be undone and delivery can
+// happen long after sending — on a reviewer's release, when nothing raw is
+// left in hand. It sits beside a Body that is already the member's own words
+// in plaintext: a sow that cannot be delivered is worse than one whose target
+// is legible to whoever can already read the message.
+type Delivery struct {
+	// SowerID is whose recording this is. The pod that carries it rests at
+	// somebody's door as theirs, so placing it is their act and not the
+	// reviewer's.
+	SowerID  string
+	TargetID string
+	// MediaRefs is the recordings this sow carries. A sow has at least one:
+	// it is something a member says out loud, and a pod is a recording
+	// resting at a house front, so a sow with nothing to place could never
+	// arrive.
+	MediaRefs []string
+}
+
+func (d Delivery) valid() bool {
+	if strings.TrimSpace(d.SowerID) == "" || strings.TrimSpace(d.TargetID) == "" ||
+		d.SowerID == d.TargetID || len(d.MediaRefs) == 0 {
+		return false
+	}
+	for _, ref := range d.MediaRefs {
+		if strings.TrimSpace(ref) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func Accept(id, actorKey, targetKey, body string, media []Media, commandID, fingerprint string, units int64, status Status, screeningRef string, delivery Delivery, at time.Time) (Sow, error) {
+	if !delivery.valid() || len(delivery.MediaRefs) != len(media) {
+		return Sow{}, ErrInvalid
+	}
 	if strings.TrimSpace(id) == "" || strings.TrimSpace(actorKey) == "" || strings.TrimSpace(body) == "" || commandID == "" || fingerprint == "" || units <= 0 {
 		return Sow{}, ErrInvalid
 	}
@@ -85,6 +124,11 @@ func Accept(id, actorKey, targetKey, body string, media []Media, commandID, fing
 	}
 	return Sow{
 		ID: id, ActorKey: actorKey, TargetKey: targetKey, Body: strings.TrimSpace(body),
+		Delivery: Delivery{
+			SowerID:   strings.TrimSpace(delivery.SowerID),
+			TargetID:  strings.TrimSpace(delivery.TargetID),
+			MediaRefs: append([]string(nil), delivery.MediaRefs...),
+		},
 		Media: append([]Media(nil), media...), CommandID: commandID,
 		Fingerprint: fingerprint, AllowanceUnits: units,
 		Status: status, ScreeningRef: screeningRef, AcceptedAt: at.UTC(),
@@ -98,10 +142,16 @@ func Accept(id, actorKey, targetKey, body string, media []Media, commandID, fing
 // to read one back.
 func Reconstitute(
 	id, actorKey, targetKey, body string, media []Media, commandID, fingerprint string,
-	units int64, status Status, screeningRef string, acceptedAt time.Time, decidedAt *time.Time,
+	units int64, status Status, screeningRef string, delivery Delivery,
+	acceptedAt time.Time, decidedAt *time.Time,
 ) Sow {
 	return Sow{
 		ID: id, ActorKey: actorKey, TargetKey: targetKey, Body: body,
+		Delivery: Delivery{
+			SowerID:   delivery.SowerID,
+			TargetID:  delivery.TargetID,
+			MediaRefs: append([]string(nil), delivery.MediaRefs...),
+		},
 		Media: append([]Media(nil), media...), CommandID: commandID,
 		Fingerprint: fingerprint, AllowanceUnits: units,
 		Status: status, ScreeningRef: screeningRef,

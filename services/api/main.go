@@ -118,6 +118,7 @@ import (
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/screening"
 	"github.com/stanleyHayes/obiara/services/api/internal/seed/sow"
 	sowmedia "github.com/stanleyHayes/obiara/services/api/internal/seed/sow/adapters/outbound/media"
+	sowapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/sow/application"
 	sproutapplication "github.com/stanleyHayes/obiara/services/api/internal/seed/sprout/application"
 	"github.com/stanleyHayes/obiara/services/api/internal/sentinel/scamarc"
 	"github.com/stanleyHayes/obiara/services/api/internal/suban"
@@ -673,6 +674,25 @@ func run() error {
 		if introErr != nil {
 			return fmt.Errorf("build introduction module: %w", introErr)
 		}
+		// The pod is the last step: a released sow is delivered by being
+		// placed at the recipient's house front. Its eligibility check is
+		// the block rule applied everywhere else two members meet.
+		podModule, podErr := pod.NewModule(
+			ctx,
+			client.Database(cfg.MongoDatabase),
+			podAuthorizerBridge{tiers: identityModule.Tiers},
+			podEligibilityBridge{
+				pods: podRepository,
+				blocks: listeningBlockBridge{
+					assets: mediaModule.Assets, safety: safetyModule.Safety,
+				},
+			},
+			podIssuerBridge{access: mediaModule.Access},
+			cfg.SeedHMACSecret,
+		)
+		if podErr != nil {
+			return fmt.Errorf("build pod module: %w", podErr)
+		}
 		// Screening and the sow. Every sow is read by a person before it is
 		// delivered, so screening's only outcome here is the review queue —
 		// see agent_plan.md §49. The locale is left unset: nothing has been
@@ -698,30 +718,14 @@ func run() error {
 			},
 			sproutBlockBridge{safety: safetyModule.Safety},
 			sproutDeclineBridge{declines: seedStageModule.Decline, now: time.Now},
+			// What makes a sow arrive: a delivered sow is placed as a pod at
+			// the recipient's house front.
+			sowDeliveryBridge{pods: podModule.Pods},
 			cfg.SeedHMACSecret,
 			cfg.SeedWeeklyAllowance,
 		)
 		if sowErr != nil {
 			return fmt.Errorf("build sow module: %w", sowErr)
-		}
-		// The pod is the last step: a released sow is delivered by being
-		// placed at the recipient's house front. Its eligibility check is
-		// the block rule applied everywhere else two members meet.
-		podModule, podErr := pod.NewModule(
-			ctx,
-			client.Database(cfg.MongoDatabase),
-			podAuthorizerBridge{tiers: identityModule.Tiers},
-			podEligibilityBridge{
-				pods: podRepository,
-				blocks: listeningBlockBridge{
-					assets: mediaModule.Assets, safety: safetyModule.Safety,
-				},
-			},
-			podIssuerBridge{access: mediaModule.Access},
-			cfg.SeedHMACSecret,
-		)
-		if podErr != nil {
-			return fmt.Errorf("build pod module: %w", podErr)
 		}
 		apihttp.RegisterPodRoutes(mux, podModule.Pods, identityModule.Sessions, memberGate)
 
@@ -1354,4 +1358,42 @@ func (e voiceOfIntroductionEntitlement) MayHear(
 		return false, err
 	}
 	return !blocked, nil
+}
+
+// sowDeliveryBridge is what makes a sow arrive.
+//
+// A sow that screening cleared, or that a reviewer released, is delivered by
+// being placed as a pod at the recipient's house front. Until this existed
+// nothing read StatusDelivered at all: the sow was marked delivered, the seed
+// stayed spent, and the recipient never learned anything had been sent.
+//
+// The pod is created as the sower, because it is their recording resting at
+// somebody's door — the same act as POST /v1/seed/pods, reached from the
+// other side. The command id is derived from the sow's own id so a retried
+// delivery leaves one pod rather than two.
+type sowDeliveryBridge struct {
+	pods podapplication.Service
+}
+
+func (bridge sowDeliveryBridge) Place(ctx context.Context, sow sowapplication.Deliverable) error {
+	// One pod per recording, each resting for the one person the sow reached.
+	// A sow carries at most four, and the pod's own limit of twenty-five
+	// recipients is irrelevant here: a sow is toward somebody, not to a room.
+	for index, ref := range sow.MediaRefs {
+		if _, err := bridge.pods.Create(ctx,
+			podapplication.Command{
+				ID:      fmt.Sprintf("sow-delivery:%s:%d", sow.SowID, index),
+				ActorID: sow.SowerID,
+			},
+			podapplication.Proposal{
+				OwnerID:      sow.SowerID,
+				MediaRef:     ref,
+				RecipientIDs: []string{sow.TargetID},
+				TTL:          poddomain.RestingPeriod,
+			},
+		); err != nil {
+			return err
+		}
+	}
+	return nil
 }

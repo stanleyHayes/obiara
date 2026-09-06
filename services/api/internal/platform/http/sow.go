@@ -113,6 +113,16 @@ func writeSowError(w http.ResponseWriter, r *http.Request, err error) {
 			Code:    "recording_not_yours",
 			Message: "You can only send a recording you made yourself.",
 		})
+	case errors.Is(err, sowapplication.ErrNotDelivered):
+		// The sow exists and the seed is spent, so this is not "nothing
+		// happened". Saying it plainly matters because the member must not
+		// send it again: a retry with a new key would charge a second seed
+		// for a sow that is already recorded.
+		logServerError(r.Context(), r, http.StatusConflict, "sow_not_delivered", err)
+		writeError(w, r, http.StatusConflict, APIError{
+			Code:    "sow_not_delivered",
+			Message: "This was sent but has not reached them yet. Do not send it again — we are still trying.",
+		})
 	case errors.Is(err, sowapplication.ErrReachNotAvailable):
 		// Says the outcome and not the reason, exactly as the sprout path
 		// does. Telling a member which of a block and a decline stopped

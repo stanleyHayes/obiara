@@ -2033,6 +2033,11 @@ paths:
             the reach is closed (`reach_unavailable`). The last says nothing
             about whether a block or a decline closed it: the difference is
             the rejection signal both exist to withhold.
+
+            `sow_not_delivered` is different in kind: the sow was accepted and
+            the seed was spent, but it has not reached the recipient's house
+            front yet. Do not retry it — a new Idempotency-Key would charge a
+            second seed for a sow that is already recorded.
           content:
             application/json:
               schema:
@@ -9569,7 +9574,7 @@ components:
     SowInput:
       type: object
       additionalProperties: false
-      required: [targetId, body, confirmed]
+      required: [targetId, body, mediaRefs, confirmed]
       properties:
         targetId:
           type: string
@@ -9585,11 +9590,16 @@ components:
           description: The member's answer, in their own words.
         mediaRefs:
           type: array
+          minItems: 1
           maxItems: 4
           items:
             type: string
+            minLength: 1
           description: |
-            Recordings to send with it. Each must belong to the sender.
+            The recordings this sow carries. Each must belong to the sender.
+            At least one is required: a sow is delivered as a pod resting at
+            the recipient's house front, and a pod is a recording, so a sow
+            with nothing to place could never arrive.
         confirmed:
           type: boolean
           description: |

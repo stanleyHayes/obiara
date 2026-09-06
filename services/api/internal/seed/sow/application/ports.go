@@ -23,6 +23,12 @@ var (
 	// ErrNotHeard refuses a sow toward somebody the member has not listened
 	// to (FR-202).
 	ErrNotHeard = errors.New("their voice has not been heard for long enough")
+	// ErrNotDelivered reports a sow that was accepted and charged but could
+	// not be placed at the recipient's house front. It is deliberately not
+	// ErrUnavailable: the sow exists and the seed is spent, so the caller has
+	// to be able to tell "nothing happened" from "something happened and the
+	// last step did not".
+	ErrNotDelivered = errors.New("the sow was accepted but could not be delivered")
 	// ErrReachNotAvailable covers a block and a decline alike. Telling them
 	// apart would tell the member which one it was.
 	ErrReachNotAvailable = errors.New("this reach is not available")
@@ -60,6 +66,25 @@ type BlockList interface {
 
 type DeclineLock interface {
 	Locked(ctx context.Context, sowerID, targetID string) (bool, error)
+}
+
+// Deliverable is what placing a sow needs and nothing more: who sent it, who
+// it is toward, what it carries, and the sow's own id so a retried delivery
+// can be recognised as the same one.
+//
+// It is a value of its own rather than the aggregate so that whatever
+// delivers a sow does not get handed the member's words, their allowance, or
+// the screening reference along with it.
+type Deliverable struct {
+	SowID     string
+	SowerID   string
+	TargetID  string
+	MediaRefs []string
+}
+
+// Delivery places a delivered sow at the recipient's house front.
+type Delivery interface {
+	Place(ctx context.Context, sow Deliverable) error
 }
 
 // MediaOwnership answers whether these recordings belong to the member

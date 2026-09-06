@@ -70,9 +70,11 @@ func (a *acceptanceModel) Accept(_ context.Context, candidate sow.Sow) (sow.Sow,
 func TestNoAllowanceEffectBeforeConfirmedScreenedAcceptance(t *testing.T) {
 	model := &acceptanceModel{balance: 2, accepted: map[string]sow.Sow{}}
 	ids := &idsStub{}
-	command := sowapp.Command{ID: "send-1", ActorID: "actor", TargetID: "target", Body: "hello", Confirmed: true}
+	command := sowapp.Command{ID: "send-1", ActorID: "actor", TargetID: "target", Body: "hello",
+		MediaRefs: []string{"recording-1"}, Confirmed: true}
 	rejected := sowapp.New(screeningStub{false}, model, keyerStub{}, ids, time.Now, 1).
-		WithReachRules(openReachStub{}, openReachStub{}, openReachStub{})
+		WithReachRules(openReachStub{}, openReachStub{}, openReachStub{}).
+		WithMediaOwnership(openReachStub{}).WithDelivery(openReachStub{})
 	if _, err := rejected.Send(context.Background(), command); !errors.Is(err, sow.ErrScreeningRejected) {
 		t.Fatalf("rejected send=%v", err)
 	}
@@ -81,7 +83,8 @@ func TestNoAllowanceEffectBeforeConfirmedScreenedAcceptance(t *testing.T) {
 	}
 	command.Confirmed = false
 	approved := sowapp.New(screeningStub{true}, model, keyerStub{}, ids, time.Now, 1).
-		WithReachRules(openReachStub{}, openReachStub{}, openReachStub{})
+		WithReachRules(openReachStub{}, openReachStub{}, openReachStub{}).
+		WithMediaOwnership(openReachStub{}).WithDelivery(openReachStub{})
 	if _, err := approved.Send(context.Background(), command); !errors.Is(err, sow.ErrNotConfirmed) {
 		t.Fatalf("unconfirmed send=%v", err)
 	}
@@ -106,8 +109,10 @@ func TestNoAllowanceEffectBeforeConfirmedScreenedAcceptance(t *testing.T) {
 func TestConcurrentCommandReplayHasOneAcceptanceEffect(t *testing.T) {
 	model := &acceptanceModel{balance: 10, accepted: map[string]sow.Sow{}}
 	service := sowapp.New(screeningStub{true}, model, keyerStub{}, &idsStub{}, time.Now, 1).
-		WithReachRules(openReachStub{}, openReachStub{}, openReachStub{})
-	command := sowapp.Command{ID: "same-command", ActorID: "actor", TargetID: "target", Body: "hello", Confirmed: true}
+		WithReachRules(openReachStub{}, openReachStub{}, openReachStub{}).
+		WithMediaOwnership(openReachStub{}).WithDelivery(openReachStub{})
+	command := sowapp.Command{ID: "same-command", ActorID: "actor", TargetID: "target", Body: "hello",
+		MediaRefs: []string{"recording-1"}, Confirmed: true}
 	var wg sync.WaitGroup
 	errs := make(chan error, 32)
 	for range 32 {
@@ -158,3 +163,8 @@ type openReachStub struct{}
 func (openReachStub) Blocked(context.Context, string, string) (bool, error) { return false, nil }
 func (openReachStub) Heard(context.Context, string, string) (bool, error)   { return true, nil }
 func (openReachStub) Locked(context.Context, string, string) (bool, error)  { return false, nil }
+
+// The same stub answers the two other ports these invariants have to satisfy
+// but are not about: the recordings are the sower's, and delivery succeeds.
+func (openReachStub) OwnedBy(context.Context, string, []string) (bool, error) { return true, nil }
+func (openReachStub) Place(context.Context, sowapp.Deliverable) error         { return nil }

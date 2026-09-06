@@ -164,10 +164,15 @@ func TestHumanRejectedSowNeverReachesAcceptanceOrAllowanceSpend(t *testing.T) {
 	adjudicator := NewMockAdjudicator(controller)
 	human := NewMockHumanReview(controller)
 	screeningIDs := NewMockIDSource(controller)
-	input := ScreeningInput{Text: "body", LocaleTag: "en", LocaleVersion: 1}
+	// A sow always carries a recording now, so screening always inspects one.
+	input := ScreeningInput{
+		Text: "body", LocaleTag: "en", LocaleVersion: 1,
+		Media: []MediaMetadata{{MIME: "audio/ogg", Bytes: 1024, DurationMs: 45000}},
+	}
 	advisory := Advisory{Status: StatusRejected, Reasons: []ReasonCode{ReasonPaymentRequest}, Confidence: 95}
 	locales.EXPECT().CurrentLocale(gomock.Any()).Return("en", nil)
 	catalog.EXPECT().Resolve(gomock.Any(), "en").Return(reviewedLocale("en"), nil)
+	media.EXPECT().Inspect(gomock.Any(), "recording-1").Return(input.Media[0], nil)
 	advisor.EXPECT().Screen(gomock.Any(), input).Return(advisory, nil)
 	adjudicator.EXPECT().Decide(gomock.Any(), input, advisory).Return(
 		Adjudication{
@@ -183,10 +188,11 @@ func TestHumanRejectedSowNeverReachesAcceptanceOrAllowanceSpend(t *testing.T) {
 		staticID{},
 		func() time.Time { return reviewedAt },
 		1,
-	).WithReachRules(openReach{}, openReach{}, openReach{})
+	).WithReachRules(openReach{}, openReach{}, openReach{}).
+		WithMediaOwnership(openReach{}).WithDelivery(openReach{})
 	_, err := sowService.Send(context.Background(), sowapplication.Command{
 		ID: "command-one", ActorID: "member-one", TargetID: "member-two",
-		Body: "body", Confirmed: true,
+		Body: "body", MediaRefs: []string{"recording-1"}, Confirmed: true,
 	})
 	if !errors.Is(err, sowdomain.ErrScreeningRejected) || acceptance.calls != 0 {
 		t.Fatalf("send err=%v acceptance calls=%d", err, acceptance.calls)
@@ -244,3 +250,8 @@ type openReach struct{}
 func (openReach) Blocked(context.Context, string, string) (bool, error) { return false, nil }
 func (openReach) Heard(context.Context, string, string) (bool, error)   { return true, nil }
 func (openReach) Locked(context.Context, string, string) (bool, error)  { return false, nil }
+
+// Ownership and delivery are satisfied for the same reason: this test is
+// about a screening rejection never reaching acceptance, not about them.
+func (openReach) OwnedBy(context.Context, string, []string) (bool, error) { return true, nil }
+func (openReach) Place(context.Context, sowapplication.Deliverable) error { return nil }
