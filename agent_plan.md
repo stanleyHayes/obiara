@@ -5665,3 +5665,64 @@ honoured. The code would otherwise cover the whole price with nobody paying it.
 
 **All five §41 phases are now done.** P0 organizations, P1 discount codes, P2
 affiliates, P3 payouts, P4 sponsored seats.
+
+## §79 — What the money review found
+
+An adversarial review over every path that moves money, with each finding
+verified against the source before it was believed. Twenty-three agents; two
+returned nothing, so coverage was not complete and this is not a clean bill of
+health.
+
+Three findings survived. Two were real and one was not, and the difference is
+worth writing down.
+
+### Real: money moved before anything recorded what it was for
+
+Both paid and sponsored purchases wrote the order **after** the money moved.
+
+```
+Start:          Create → Confirm (prompt sent) → Record   ← window
+sponsoredSeat:  Draw (fund debited)            → Record   ← window
+```
+
+If that write failed, a member had been charged and nothing knew what for.
+Settlement looks the order up, cannot find it, returns 503, and Paystack
+retries forever — so the money is gone and the pass is never granted. The
+sponsored path was the same shape: an organization's balance debited with
+nothing saying what it bought.
+
+Both now record first. An order for a collection that is never paid is
+harmless by comparison: it is a record that somebody tried, and nothing
+settles it.
+
+Two tests, and both fail against the original ordering — verified by putting
+it back.
+
+### Real, but not for the reason claimed
+
+The review reported integer overflow on fund deposits. Reaching `int64` would
+take nine quintillion pesewas, which is fantasy. But a single deposit had **no
+upper bound at all** beyond being positive, and the realistic failure is not
+overflow — it is an operator typing an extra six zeros and an organization's
+balance becoming a number nobody can explain.
+
+So the bound is there now, named for what it actually guards
+(`MaxMovementPesewas`), and the refusal names the field and says to check the
+zeros rather than being a generic rejection an operator would re-submit
+unchanged.
+
+### Not real
+
+The same review reported integer overflow in the percentage discount:
+`priceMinor * amount / 100`. It missed that `MaxPriceMinor` is 100,000,000, so
+the product peaks at 1e10 — six orders of magnitude below `MaxInt64`. Not
+reachable, and nothing was changed for it.
+
+Worth recording because the previous review's blocker was real and this one's
+was not: a finding is a claim to check, not a defect to fix.
+
+| Task    | Deliverable                                                     | Status |
+| ------- | ---------------------------------------------------------------- | ------ |
+| REV-01  | The order is written before any money moves, on both paths        | DONE   |
+| REV-02  | Tests that fail against the original ordering                     | DONE   |
+| REV-03  | A bound on one movement, against a typo rather than an overflow   | DONE   |

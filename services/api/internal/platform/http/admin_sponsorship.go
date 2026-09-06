@@ -171,6 +171,15 @@ func writeSponsorshipError(w http.ResponseWriter, r *http.Request, err error) {
 			Code:    "organization_not_issuing",
 			Message: "That organization is suspended, so nothing can be funded for it.",
 		})
+	case errors.Is(err, sponsorshipdomain.ErrAmountOutOfRange):
+		// Almost certainly a typo. Saying which field and why beats a generic
+		// refusal an operator would re-submit unchanged.
+		writeError(w, r, http.StatusUnprocessableEntity, APIError{
+			Code: "validation_failed", Message: "One or more fields are invalid.",
+			Details: []FieldError{
+				{Field: "amountPesewas", Reason: "is larger than any real deposit — check the number of zeros"},
+			},
+		})
 	case errors.Is(err, sponsorshipdomain.ErrFundClosed):
 		writeError(w, r, http.StatusConflict, APIError{
 			Code: "sponsorship_closed", Message: "That fund is closed.",

@@ -272,6 +272,20 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 	if err != nil {
 		return Started{}, ErrUnavailable
 	}
+	// Written before the prompt goes out, and that ordering is the whole point.
+	//
+	// The other way round — confirm, then record — leaves a window where a
+	// member has been charged and nothing knows what for: settlement looks the
+	// order up, cannot find it, and never grants the pass. An order for a
+	// collection that is never paid is harmless by comparison; it is a record
+	// that somebody tried, and nothing settles it.
+	if err := service.orders.Record(ctx, Order{
+		IntentID: intent.State().ID, SKUKey: sku.SKUKey(), SKUVersion: sku.Version(),
+		MemberID: strings.TrimSpace(command.MemberID), AmountPesewas: price,
+		Code: applied.Code,
+	}); err != nil {
+		return Started{}, ErrUnavailable
+	}
 	// Confirmed in the same request because the member is standing there: the
 	// deliberate gesture is the purchase itself, and a second round trip only
 	// adds a place for it to be abandoned.
@@ -284,17 +298,6 @@ func (service Service) Start(ctx context.Context, command StartCommand) (Started
 		momoapplication.Payer{Phone: command.Phone, Email: email, Network: command.Network},
 	)
 	if err != nil {
-		return Started{}, ErrUnavailable
-	}
-	// Written after the prompt is out, because an order for a collection that
-	// was never opened is a row describing nothing. A failure here is
-	// deliberately fatal to the purchase: a payment nobody can attribute to a
-	// product would take a member's money and leave settlement guessing.
-	if err := service.orders.Record(ctx, Order{
-		IntentID: confirmed.State().ID, SKUKey: sku.SKUKey(), SKUVersion: sku.Version(),
-		MemberID: strings.TrimSpace(command.MemberID), AmountPesewas: price,
-		Code: applied.Code,
-	}); err != nil {
 		return Started{}, ErrUnavailable
 	}
 	return Started{
@@ -407,6 +410,20 @@ func (service Service) sponsoredSeat(
 	sku catalogdomain.SKU, applied promotionapplication.Applied,
 ) (Started, error) {
 	seatRef := "seat:" + strings.TrimSpace(command.CommandID)
+	memberKey, err := service.keyer.MemberKey(command.MemberID)
+	if err != nil {
+		return Started{}, ErrUnavailable
+	}
+	// Recorded before the fund is touched, for the same reason the paid path
+	// records before the prompt: an organization's balance debited with no
+	// order against it is money gone with nothing saying what it bought.
+	if err := service.orders.Record(ctx, Order{
+		IntentID: seatRef, SKUKey: sku.SKUKey(), SKUVersion: sku.Version(),
+		MemberID: strings.TrimSpace(command.MemberID), AmountPesewas: sku.Price().Minor,
+		Code: applied.Code,
+	}); err != nil {
+		return Started{}, ErrUnavailable
+	}
 	drawn, err := service.sponsors.Draw(
 		ctx, applied.IssuerID, seatRef, sku.Price().Minor)
 	if err != nil {
@@ -414,17 +431,6 @@ func (service Service) sponsoredSeat(
 	}
 	if !drawn {
 		return Started{}, ErrSponsorshipUnavailable
-	}
-	memberKey, err := service.keyer.MemberKey(command.MemberID)
-	if err != nil {
-		return Started{}, ErrUnavailable
-	}
-	if err := service.orders.Record(ctx, Order{
-		IntentID: seatRef, SKUKey: sku.SKUKey(), SKUVersion: sku.Version(),
-		MemberID: strings.TrimSpace(command.MemberID), AmountPesewas: sku.Price().Minor,
-		Code: applied.Code,
-	}); err != nil {
-		return Started{}, ErrUnavailable
 	}
 	paidThrough := service.now().UTC().Add(Period)
 	if _, err := service.passes.Grant(

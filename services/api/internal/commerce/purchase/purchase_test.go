@@ -895,3 +895,48 @@ func TestASponsoredCodeWithNoSponsorshipComposedIsRefused(t *testing.T) {
 		t.Fatal("a membership was given away")
 	}
 }
+
+func TestNoMemberIsChargedBeforeTheOrderIsWrittenDown(t *testing.T) {
+	// The window this closes: a member charged, and nothing knowing what for.
+	// Settlement looks the order up, cannot find it, and the pass is never
+	// granted — so the money is gone and nobody gets anything.
+	//
+	// An order for a collection that is never paid is harmless by comparison.
+	orders := &orderBook{err: errors.New("mongo down")}
+	payments := &paymentsStub{intent: intentFor(t)}
+	if _, err := New(
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		payments, &passesStub{}, digestKeyer{}, &ledgerStub{}, func() time.Time { return now },
+	).WithOrders(orders).WithMembers(receipts{email: "member@example.test"}).
+		Start(context.Background(), StartCommand{
+			CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+			SKUVersion: 1, Phone: "0200000000", Network: "mtn",
+		}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+	if payments.confirmed {
+		t.Fatal("a member was prompted to pay for something nothing recorded")
+	}
+}
+
+func TestNoFundIsDrawnBeforeTheSeatIsWrittenDown(t *testing.T) {
+	// An organization's balance debited with no order against it is money
+	// gone with nothing saying what it bought.
+	orders := &orderBook{err: errors.New("mongo down")}
+	fund := &fundStub{drawn: true}
+	if _, err := New(
+		catalogStub{sku: membershipSKU(t, catalogdomain.CurrencyGHS, 5000)},
+		&paymentsStub{intent: intentFor(t)}, &passesStub{}, digestKeyer{},
+		&ledgerStub{}, func() time.Time { return now },
+	).WithOrders(orders).WithSponsors(fund).WithDiscounts(sponsoredCode()).
+		WithMembers(receipts{email: "member@example.test"}).
+		Start(context.Background(), StartCommand{
+			CommandID: "cmd_1", MemberID: "member-1", SKUID: "sku_membership",
+			SKUVersion: 1, Phone: "0200000000", Network: "mtn", Code: "ASHESISEATS",
+		}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+	if fund.seatRef != "" {
+		t.Fatal("an organization was charged for a seat nothing recorded")
+	}
+}

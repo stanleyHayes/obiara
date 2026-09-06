@@ -177,3 +177,28 @@ func TestAnUnkeyedOperatorMovesNothing(t *testing.T) {
 		t.Fatal("a deposit was recorded against a raw operator id")
 	}
 }
+
+func TestAMistypedDepositIsRefused(t *testing.T) {
+	// The realistic failure is not overflow — that would take nine
+	// quintillion pesewas. It is an operator typing an extra six zeros, and
+	// an organization's balance becoming a number nobody can explain.
+	if _, err := opened(t).Deposit(
+		MaxMovementPesewas+1, command("cmd_2", "bank_transfer_received"),
+	); !errors.Is(err, ErrAmountOutOfRange) {
+		t.Fatalf("err = %v, want ErrAmountOutOfRange", err)
+	}
+	// And a large but real deposit still works.
+	if _, err := opened(t).Deposit(
+		MaxMovementPesewas, command("cmd_2", "bank_transfer_received"),
+	); err != nil {
+		t.Fatalf("a large real deposit was refused: %v", err)
+	}
+}
+
+func TestAnAbsurdDrawIsRefused(t *testing.T) {
+	if _, err := funded(t, 100_000).Draw(
+		"purchase_1", MaxMovementPesewas+1, command("cmd_3", "seat_taken"),
+	); !errors.Is(err, ErrAmountOutOfRange) {
+		t.Fatalf("err = %v, want ErrAmountOutOfRange", err)
+	}
+}

@@ -32,11 +32,23 @@ const (
 	ActionClosed    Action = "closed"
 )
 
+// MaxMovementPesewas bounds one deposit or one draw.
+//
+// A hundred million cedis, which no real movement approaches. It is not an
+// overflow guard — reaching int64 would take nine quintillion pesewas and is
+// fantasy — it is a guard against the realistic failure, which is an operator
+// typing an extra six zeros into a deposit and an organization's balance
+// becoming a number nobody can explain.
+const MaxMovementPesewas int64 = 10_000_000_000
+
 var (
-	ErrInvalidFund     = errors.New("invalid sponsorship fund")
-	ErrFundClosed      = errors.New("that fund is closed")
-	ErrInsufficient    = errors.New("that fund does not hold enough")
-	ErrCommandMismatch = errors.New("sponsorship command replay mismatch")
+	ErrInvalidFund = errors.New("invalid sponsorship fund")
+	// ErrAmountOutOfRange refuses a movement larger than any real one, which
+	// in practice means a mistyped deposit.
+	ErrAmountOutOfRange = errors.New("that amount is larger than any real movement")
+	ErrFundClosed       = errors.New("that fund is closed")
+	ErrInsufficient     = errors.New("that fund does not hold enough")
+	ErrCommandMismatch  = errors.New("sponsorship command replay mismatch")
 	// ErrNotDrawn refuses a refund for a seat that was never drawn.
 	ErrNotDrawn = errors.New("that seat was never drawn from this fund")
 )
@@ -127,6 +139,9 @@ func (fund Fund) Deposit(amountPesewas int64, command Command) (Fund, error) {
 	if !command.valid() || amountPesewas <= 0 {
 		return Fund{}, ErrInvalidFund
 	}
+	if amountPesewas > MaxMovementPesewas {
+		return Fund{}, ErrAmountOutOfRange
+	}
 	if fund.closed {
 		return Fund{}, ErrFundClosed
 	}
@@ -149,6 +164,9 @@ func (fund Fund) Draw(seatRef string, amountPesewas int64, command Command) (Fun
 	if !command.valid() || amountPesewas <= 0 ||
 		!opaquePattern.MatchString(strings.TrimSpace(seatRef)) {
 		return Fund{}, ErrInvalidFund
+	}
+	if amountPesewas > MaxMovementPesewas {
+		return Fund{}, ErrAmountOutOfRange
 	}
 	if fund.closed {
 		return Fund{}, ErrFundClosed
