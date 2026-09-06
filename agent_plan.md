@@ -5180,3 +5180,60 @@ nothing when it matters.
 | ORG-05  | Contract, operation count and generated client                    | DONE   |
 
 Thirty-one tests across the domain, the service, the keyer and the surface.
+
+## §72 — Phase 1 is blocked: there is nothing to discount
+
+Phase 0 shipped. Before starting Phase 1 — the discount codes themselves — I
+checked what a code would attach to, and it attaches to nothing.
+
+```
+$ grep -rn "\.Grant(" --include="*.go" .      # the only way a pass is issued
+(nothing outside the membership context's own definition)
+
+$ grep -n "momo\.\|diaspora\." main.go        # inbound payment
+(nothing)
+```
+
+**No membership pass can ever be granted.** `membership.Service.Grant` is the
+only path to one and has zero callers. **Nothing can be paid for.**
+`commerce/momo` and `commerce/diaspora` are both uncomposed, so there is no
+inbound payment rail at all. `/v1/membership` lets a member read, cancel and
+refund a pass that nothing can create.
+
+The owner's answer to "what can be discounted" was *membership passes only*.
+That is the right answer, and there is no membership purchase to discount.
+
+### Why I stopped rather than built it
+
+`commerce/promotion` could be written completely and correctly today: a code,
+an issuer, a shape, a window, a cap, one redemption per member, keyed. Every
+test would pass. It would also have no caller — a forty-third dark context,
+which is precisely the pattern this session has spent itself correcting.
+§63, §64, §66, §67 and §68 were each the same shape: a thing built, tested and
+wired to nothing, discovered only when somebody composed real pieces and asked
+whether the chain ran end to end.
+
+Adding another one, knowingly, to close a task row would be the worst version
+of that. A discount code that cannot be redeemed is not Phase 1 half-done; it
+is Phase 1 not started, with a passing test suite claiming otherwise.
+
+### What Phase 1 actually needs first
+
+A membership purchase: a price for a pass, an inbound payment intent, and a
+grant on confirmation. That is `commerce/momo` composed plus a checkout route
+— its own piece of work, with its own decisions (which provider, what happens
+to a pass when a payment reverses, how a failed charge is retried), and it is
+the real blocker on every commercial feature, not only this one.
+
+| Phase | Deliverable                                          | Status  |
+| ----- | ---------------------------------------------------- | ------- |
+| P0    | `internal/organization` context                      | DONE    |
+| P1    | `commerce/promotion`: discount codes                 | BLOCKED — nothing can be bought |
+| P2    | Affiliate codes and qualified-conversion accrual     | BLOCKED — same, and downstream of P1 |
+| P3    | MoMo payouts, affiliate KYC, withholding, clawback   | PLANNED |
+| P4    | Organization-funded sponsored seats                  | DEFERRED |
+
+**Two of the six §41 decisions are still open**, and both belong to Phase 2 so
+neither blocks anything today: what exactly qualifies an affiliate conversion
+(recommended: Tier 1, thirty days retained, no upheld safety finding), and
+what the commission rate is given RPM-25's existing 20%/15% platform take.
