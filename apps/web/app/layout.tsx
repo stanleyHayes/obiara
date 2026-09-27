@@ -14,6 +14,17 @@ export const metadata: Metadata = {
   title: "Obiara — Meet properly",
   description: "A trusted place to meet, speak and grow a true connection.",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  // client.obiara.app is where members sign in and live, not a second
+  // marketing site. It serves a public landing page and its own copies of
+  // /privacy and /terms, and with nothing said about indexing a search engine
+  // treated them as pages competing with obiara.app for the same words. The
+  // marketing site is the one that should be found.
+  //
+  // noindex rather than a robots.txt refusal on purpose: a disallowed URL can
+  // still be indexed from a link elsewhere, and a crawler told to stay out
+  // never reads the instruction not to index. Crawling is allowed so this is
+  // seen.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({

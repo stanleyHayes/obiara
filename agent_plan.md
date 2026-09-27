@@ -5947,3 +5947,47 @@ automatically.
   autofill does, bypassing React's `onChange` — leaves both labels at
   `translate(14px, -9px) scale(0.75)`, the notched position. That is the exact
   case that used to print the label over the value.
+
+## SEO-CANONICAL-2026-09-27 — The homepage could not be indexed
+
+- Owner: `/root`; status: **DONE**.
+- Report: Search Console listing `http://obiara.app/`, `https://obiara.app/` and
+  `http://www.obiara.app/` as "Page with redirect", nothing indexed.
+
+- **The site declared a canonical URL it refused to serve.** Every signal named
+  the apex — `<link rel="canonical" href="https://obiara.app">`, `og:url`, the
+  `Host` and `Sitemap` lines in `robots.txt`, and all five `<loc>` entries in
+  the sitemap. The Vercel project had `www.obiara.app` as the serving domain
+  and `obiara.app` carrying a 308 to it. So a crawler followed the sitemap to
+  `https://obiara.app/`, was redirected away, and arrived at a page insisting
+  the canonical was the URL it had just been redirected from. Nothing in that
+  loop is indexable.
+- Fix: the redirect is reversed on the `obiara-marketing` project —
+  `obiara.app` serves and `www.obiara.app` carries the 308. The apex was chosen
+  because it is what the codebase already claims everywhere; pointing the
+  metadata at www instead would have meant changing the canonical, the sitemap,
+  robots and the hardcoded legal links to chase a host nothing referred to.
+- Applied apex-first on purpose. Clearing the apex redirect before adding the
+  www one means the two are never pointed at each other; the reverse order
+  would have put the live site in a redirect loop for as long as it took to
+  make the second call.
+
+- **A second site was competing for the same pages.** `client.obiara.app` — the
+  member app — serves a public landing and its own `/privacy` and `/terms` (all
+  added 2026-09-06), with no `robots` direction at all and a title one line off
+  the marketing site's. Two hosts offering the same thing, and the one that
+  should win was the one that redirected.
+  - `apps/web` is `noindex` now, with a `robots.ts` that still allows crawling.
+    A disallowed URL can be indexed from a link elsewhere, and a crawler kept
+    out never reads the instruction not to index — so it is let in to read it.
+
+- The two `href="https://obiara.app/support"` links in the marketing legal pages
+  are relative now. They named a host rather than a page, so they would have
+  broken the moment the canonical host moved — which is what just happened.
+
+- Verified: all four host forms reach `https://obiara.app/` in at most two hops,
+  and all five sitemap URLs answer 200 on it.
+- Not claimed: Google re-crawls on its own schedule. Nothing here makes that
+  faster, and the Search Console property matters — a URL-prefix property for
+  `https://www.obiara.app` now watches the redirecting host. A Domain property
+  covers every form.

@@ -82,7 +82,7 @@ export function LegalPage({
             <div className="policy-question">
               <strong>A question about this?</strong>
               <p>We’re here to help you understand your choices.</p>
-              <a href="https://obiara.app/support">
+              <a href="/support">
                 Contact support <span aria-hidden="true">↗</span>
               </a>
             </div>
